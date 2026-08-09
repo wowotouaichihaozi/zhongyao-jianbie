@@ -1,0 +1,41 @@
+<view class="page">
+  <view class="page-head">
+    <text class="eyebrow">DYNAMIC PROFILE</text>
+    <view class="page-title">十维学习画像</view>
+    <view class="page-subtitle">通过对话持续收集目标、基础、薄弱点、偏好与时间投入，画像会驱动路径和资源推荐。</view>
+  </view>
+
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+  <view class="loading" wx:if="{{loading}}">正在同步画像...</view>
+
+  <view class="profile-list" wx:if="{{!loading && profiles.length}}">
+    <view class="section-title">已有画像</view>
+    <view class="profile-card {{item.isActive ? 'active' : ''}}" wx:for="{{profiles}}" wx:key="id">
+      <view>
+        <text class="profile-name">{{item.profileName || '学习画像'}} v{{item.version || 1}}</text>
+        <text class="muted">{{item.updatedAt || item.createdAt || '已保存'}}</text>
+      </view>
+      <button class="mini" wx:if="{{!item.isActive}}" data-id="{{item.id}}" bindtap="activate">设为当前</button>
+      <text class="active-tag" wx:else>当前画像</text>
+    </view>
+  </view>
+
+  <view class="collector card">
+    <view class="collector-head">
+      <view><text class="section-title">对话采集</text><text class="muted">{{statusText}}</text></view>
+      <button class="text-btn" bindtap="reset">重新开始</button>
+    </view>
+    <view class="progress"><view class="progress-bar" style="width: {{completeness}}%"></view></view>
+    <text class="progress-label">已识别 {{completeness}}%</text>
+    <scroll-view class="conversation" scroll-y scroll-into-view="conversation-end">
+      <view class="bubble {{item.role}}" wx:for="{{messages}}" wx:key="index">{{item.content}}</view>
+      <view id="conversation-end"></view>
+    </scroll-view>
+    <view class="waiting" wx:if="{{sending}}"><text></text>画像智能体正在分析本轮信息...</view>
+    <view class="missing" wx:if="{{missing.length}}">待补充：{{missingText}}</view>
+    <view class="composer">
+      <textarea value="{{input}}" bindinput="input" maxlength="600" auto-height placeholder="输入你的学习情况..." />
+      <button class="primary send" bindtap="send" loading="{{sending}}" disabled="{{sending || !input}}">发送</button>
+    </view>
+  </view>
+</view>

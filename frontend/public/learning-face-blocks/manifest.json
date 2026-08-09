@@ -1,0 +1,1015 @@
+{
+  "source": "learning-face-dots-img2-v4-block-sci-fi.png",
+  "canvas": {
+    "width": 1254,
+    "height": 1254
+  },
+  "background_removed": true,
+  "notes": "?? PNG ????????????x/y/width/height ???? 1024 ?????????",
+  "blocks": [
+    {
+      "index": 1,
+      "id": "forehead_center_top",
+      "name": "??????",
+      "file": "blocks/01-forehead_center_top.png",
+      "fullLayer": "layers-full/01-forehead_center_top.png",
+      "x": 451,
+      "y": 93,
+      "width": 121,
+      "height": 154,
+      "center": {
+        "x": 512.5,
+        "y": 158.0
+      },
+      "polygon": [
+        {
+          "x": 464,
+          "y": 86
+        },
+        {
+          "x": 562,
+          "y": 86
+        },
+        {
+          "x": 560,
+          "y": 230
+        },
+        {
+          "x": 464,
+          "y": 230
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "id": "forehead_center_mid",
+      "name": "??????",
+      "file": "blocks/02-forehead_center_mid.png",
+      "fullLayer": "layers-full/02-forehead_center_mid.png",
+      "x": 445,
+      "y": 220,
+      "width": 134,
+      "height": 177,
+      "center": {
+        "x": 511.8,
+        "y": 308.0
+      },
+      "polygon": [
+        {
+          "x": 461,
+          "y": 236
+        },
+        {
+          "x": 562,
+          "y": 236
+        },
+        {
+          "x": 562,
+          "y": 380
+        },
+        {
+          "x": 462,
+          "y": 380
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "id": "forehead_center_lower",
+      "name": "??????",
+      "file": "blocks/03-forehead_center_lower.png",
+      "fullLayer": "layers-full/03-forehead_center_lower.png",
+      "x": 446,
+      "y": 370,
+      "width": 132,
+      "height": 113,
+      "center": {
+        "x": 512.0,
+        "y": 426.0
+      },
+      "polygon": [
+        {
+          "x": 462,
+          "y": 386
+        },
+        {
+          "x": 562,
+          "y": 386
+        },
+        {
+          "x": 552,
+          "y": 466
+        },
+        {
+          "x": 472,
+          "y": 466
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "id": "forehead_left_upper",
+      "name": "?????",
+      "file": "blocks/04-forehead_left_upper.png",
+      "fullLayer": "layers-full/04-forehead_left_upper.png",
+      "x": 330,
+      "y": 123,
+      "width": 139,
+      "height": 114,
+      "center": {
+        "x": 380.0,
+        "y": 161.2
+      },
+      "polygon": [
+        {
+          "x": 334,
+          "y": 112
+        },
+        {
+          "x": 456,
+          "y": 91
+        },
+        {
+          "x": 456,
+          "y": 218
+        },
+        {
+          "x": 350,
+          "y": 220
+        },
+        {
+          "x": 304,
+          "y": 165
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "id": "forehead_right_upper",
+      "name": "?????",
+      "file": "blocks/05-forehead_right_upper.png",
+      "fullLayer": "layers-full/05-forehead_right_upper.png",
+      "x": 552,
+      "y": 91,
+      "width": 185,
+      "height": 146,
+      "center": {
+        "x": 644.0,
+        "y": 161.2
+      },
+      "polygon": [
+        {
+          "x": 568,
+          "y": 91
+        },
+        {
+          "x": 690,
+          "y": 112
+        },
+        {
+          "x": 720,
+          "y": 165
+        },
+        {
+          "x": 674,
+          "y": 220
+        },
+        {
+          "x": 568,
+          "y": 218
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "id": "forehead_left_mid_inner",
+      "name": "??????",
+      "file": "blocks/06-forehead_left_mid_inner.png",
+      "fullLayer": "layers-full/06-forehead_left_mid_inner.png",
+      "x": 358,
+      "y": 203,
+      "width": 116,
+      "height": 204,
+      "center": {
+        "x": 416.5,
+        "y": 303.5
+      },
+      "polygon": [
+        {
+          "x": 380,
+          "y": 228
+        },
+        {
+          "x": 455,
+          "y": 216
+        },
+        {
+          "x": 457,
+          "y": 380
+        },
+        {
+          "x": 374,
+          "y": 390
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "id": "forehead_right_mid_inner",
+      "name": "??????",
+      "file": "blocks/07-forehead_right_mid_inner.png",
+      "fullLayer": "layers-full/07-forehead_right_mid_inner.png",
+      "x": 550,
+      "y": 203,
+      "width": 117,
+      "height": 204,
+      "center": {
+        "x": 607.0,
+        "y": 303.5
+      },
+      "polygon": [
+        {
+          "x": 568,
+          "y": 216
+        },
+        {
+          "x": 644,
+          "y": 228
+        },
+        {
+          "x": 650,
+          "y": 390
+        },
+        {
+          "x": 566,
+          "y": 380
+        }
+      ]
+    },
+    {
+      "index": 8,
+      "id": "forehead_left_mid_outer",
+      "name": "??????",
+      "file": "blocks/08-forehead_left_mid_outer.png",
+      "fullLayer": "layers-full/08-forehead_left_mid_outer.png",
+      "x": 287,
+      "y": 204,
+      "width": 100,
+      "height": 202,
+      "center": {
+        "x": 305.0,
+        "y": 304.6
+      },
+      "polygon": [
+        {
+          "x": 292,
+          "y": 224
+        },
+        {
+          "x": 370,
+          "y": 218
+        },
+        {
+          "x": 362,
+          "y": 386
+        },
+        {
+          "x": 255,
+          "y": 395
+        },
+        {
+          "x": 246,
+          "y": 300
+        }
+      ]
+    },
+    {
+      "index": 9,
+      "id": "forehead_right_mid_outer",
+      "name": "??????",
+      "file": "blocks/09-forehead_right_mid_outer.png",
+      "fullLayer": "layers-full/09-forehead_right_mid_outer.png",
+      "x": 638,
+      "y": 204,
+      "width": 151,
+      "height": 208,
+      "center": {
+        "x": 718.8,
+        "y": 304.6
+      },
+      "polygon": [
+        {
+          "x": 654,
+          "y": 218
+        },
+        {
+          "x": 732,
+          "y": 224
+        },
+        {
+          "x": 778,
+          "y": 300
+        },
+        {
+          "x": 768,
+          "y": 395
+        },
+        {
+          "x": 662,
+          "y": 386
+        }
+      ]
+    },
+    {
+      "index": 10,
+      "id": "left_brow_plate",
+      "name": "?????",
+      "file": "blocks/10-left_brow_plate.png",
+      "fullLayer": "layers-full/10-left_brow_plate.png",
+      "x": 287,
+      "y": 380,
+      "width": 196,
+      "height": 110,
+      "center": {
+        "x": 363.0,
+        "y": 433.5
+      },
+      "polygon": [
+        {
+          "x": 250,
+          "y": 396
+        },
+        {
+          "x": 475,
+          "y": 396
+        },
+        {
+          "x": 455,
+          "y": 474
+        },
+        {
+          "x": 272,
+          "y": 468
+        }
+      ]
+    },
+    {
+      "index": 11,
+      "id": "right_brow_plate",
+      "name": "?????",
+      "file": "blocks/11-right_brow_plate.png",
+      "fullLayer": "layers-full/11-right_brow_plate.png",
+      "x": 543,
+      "y": 380,
+      "width": 244,
+      "height": 110,
+      "center": {
+        "x": 659.5,
+        "y": 433.5
+      },
+      "polygon": [
+        {
+          "x": 548,
+          "y": 396
+        },
+        {
+          "x": 772,
+          "y": 396
+        },
+        {
+          "x": 750,
+          "y": 468
+        },
+        {
+          "x": 568,
+          "y": 474
+        }
+      ]
+    },
+    {
+      "index": 12,
+      "id": "left_eye_socket",
+      "name": "????",
+      "file": "blocks/12-left_eye_socket.png",
+      "fullLayer": "layers-full/12-left_eye_socket.png",
+      "x": 251,
+      "y": 453,
+      "width": 227,
+      "height": 112,
+      "center": {
+        "x": 349.2,
+        "y": 504.8
+      },
+      "polygon": [
+        {
+          "x": 284,
+          "y": 462
+        },
+        {
+          "x": 462,
+          "y": 464
+        },
+        {
+          "x": 458,
+          "y": 548
+        },
+        {
+          "x": 292,
+          "y": 548
+        },
+        {
+          "x": 250,
+          "y": 502
+        }
+      ]
+    },
+    {
+      "index": 13,
+      "id": "right_eye_socket",
+      "name": "????",
+      "file": "blocks/13-right_eye_socket.png",
+      "fullLayer": "layers-full/13-right_eye_socket.png",
+      "x": 546,
+      "y": 453,
+      "width": 245,
+      "height": 112,
+      "center": {
+        "x": 674.8,
+        "y": 504.8
+      },
+      "polygon": [
+        {
+          "x": 562,
+          "y": 464
+        },
+        {
+          "x": 740,
+          "y": 462
+        },
+        {
+          "x": 774,
+          "y": 502
+        },
+        {
+          "x": 732,
+          "y": 548
+        },
+        {
+          "x": 566,
+          "y": 548
+        }
+      ]
+    },
+    {
+      "index": 14,
+      "id": "nose_bridge",
+      "name": "??????",
+      "file": "blocks/14-nose_bridge.png",
+      "fullLayer": "layers-full/14-nose_bridge.png",
+      "x": 439,
+      "y": 436,
+      "width": 148,
+      "height": 245,
+      "center": {
+        "x": 512.2,
+        "y": 558.0
+      },
+      "polygon": [
+        {
+          "x": 465,
+          "y": 452
+        },
+        {
+          "x": 560,
+          "y": 452
+        },
+        {
+          "x": 570,
+          "y": 664
+        },
+        {
+          "x": 454,
+          "y": 664
+        }
+      ]
+    },
+    {
+      "index": 15,
+      "id": "nose_tip",
+      "name": "????",
+      "file": "blocks/15-nose_tip.png",
+      "fullLayer": "layers-full/15-nose_tip.png",
+      "x": 404,
+      "y": 604,
+      "width": 206,
+      "height": 117,
+      "center": {
+        "x": 512.0,
+        "y": 662.0
+      },
+      "polygon": [
+        {
+          "x": 420,
+          "y": 620
+        },
+        {
+          "x": 604,
+          "y": 620
+        },
+        {
+          "x": 596,
+          "y": 704
+        },
+        {
+          "x": 428,
+          "y": 704
+        }
+      ]
+    },
+    {
+      "index": 16,
+      "id": "left_cheek_main",
+      "name": "??????",
+      "file": "blocks/16-left_cheek_main.png",
+      "fullLayer": "layers-full/16-left_cheek_main.png",
+      "x": 240,
+      "y": 532,
+      "width": 230,
+      "height": 196,
+      "center": {
+        "x": 338.2,
+        "y": 630.8
+      },
+      "polygon": [
+        {
+          "x": 268,
+          "y": 548
+        },
+        {
+          "x": 454,
+          "y": 548
+        },
+        {
+          "x": 434,
+          "y": 706
+        },
+        {
+          "x": 303,
+          "y": 712
+        },
+        {
+          "x": 232,
+          "y": 640
+        }
+      ]
+    },
+    {
+      "index": 17,
+      "id": "right_cheek_main",
+      "name": "??????",
+      "file": "blocks/17-right_cheek_main.png",
+      "fullLayer": "layers-full/17-right_cheek_main.png",
+      "x": 554,
+      "y": 532,
+      "width": 253,
+      "height": 196,
+      "center": {
+        "x": 685.8,
+        "y": 630.8
+      },
+      "polygon": [
+        {
+          "x": 570,
+          "y": 548
+        },
+        {
+          "x": 756,
+          "y": 548
+        },
+        {
+          "x": 792,
+          "y": 640
+        },
+        {
+          "x": 721,
+          "y": 712
+        },
+        {
+          "x": 590,
+          "y": 706
+        }
+      ]
+    },
+    {
+      "index": 18,
+      "id": "left_cheek_lower",
+      "name": "?????",
+      "file": "blocks/18-left_cheek_lower.png",
+      "fullLayer": "layers-full/18-left_cheek_lower.png",
+      "x": 303,
+      "y": 689,
+      "width": 196,
+      "height": 151,
+      "center": {
+        "x": 397.8,
+        "y": 758.0
+      },
+      "polygon": [
+        {
+          "x": 348,
+          "y": 696
+        },
+        {
+          "x": 482,
+          "y": 696
+        },
+        {
+          "x": 476,
+          "y": 818
+        },
+        {
+          "x": 368,
+          "y": 824
+        },
+        {
+          "x": 315,
+          "y": 756
+        }
+      ]
+    },
+    {
+      "index": 19,
+      "id": "right_cheek_lower",
+      "name": "?????",
+      "file": "blocks/19-right_cheek_lower.png",
+      "fullLayer": "layers-full/19-right_cheek_lower.png",
+      "x": 528,
+      "y": 689,
+      "width": 197,
+      "height": 151,
+      "center": {
+        "x": 626.2,
+        "y": 758.0
+      },
+      "polygon": [
+        {
+          "x": 542,
+          "y": 696
+        },
+        {
+          "x": 676,
+          "y": 696
+        },
+        {
+          "x": 709,
+          "y": 756
+        },
+        {
+          "x": 656,
+          "y": 824
+        },
+        {
+          "x": 548,
+          "y": 818
+        }
+      ]
+    },
+    {
+      "index": 20,
+      "id": "left_jaw_side",
+      "name": "??????",
+      "file": "blocks/20-left_jaw_side.png",
+      "fullLayer": "layers-full/20-left_jaw_side.png",
+      "x": 251,
+      "y": 660,
+      "width": 149,
+      "height": 256,
+      "center": {
+        "x": 284.8,
+        "y": 755.2
+      },
+      "polygon": [
+        {
+          "x": 226,
+          "y": 610
+        },
+        {
+          "x": 328,
+          "y": 720
+        },
+        {
+          "x": 384,
+          "y": 900
+        },
+        {
+          "x": 272,
+          "y": 856
+        },
+        {
+          "x": 214,
+          "y": 690
+        }
+      ]
+    },
+    {
+      "index": 21,
+      "id": "right_jaw_side",
+      "name": "??????",
+      "file": "blocks/21-right_jaw_side.png",
+      "fullLayer": "layers-full/21-right_jaw_side.png",
+      "x": 626,
+      "y": 597,
+      "width": 200,
+      "height": 318,
+      "center": {
+        "x": 739.2,
+        "y": 755.2
+      },
+      "polygon": [
+        {
+          "x": 798,
+          "y": 610
+        },
+        {
+          "x": 696,
+          "y": 720
+        },
+        {
+          "x": 640,
+          "y": 900
+        },
+        {
+          "x": 752,
+          "y": 856
+        },
+        {
+          "x": 810,
+          "y": 690
+        }
+      ]
+    },
+    {
+      "index": 22,
+      "id": "mouth_area",
+      "name": "????",
+      "file": "blocks/22-mouth_area.png",
+      "fullLayer": "layers-full/22-mouth_area.png",
+      "x": 463,
+      "y": 689,
+      "width": 98,
+      "height": 118,
+      "center": {
+        "x": 512.0,
+        "y": 747.0
+      },
+      "polygon": [
+        {
+          "x": 368,
+          "y": 704
+        },
+        {
+          "x": 656,
+          "y": 704
+        },
+        {
+          "x": 670,
+          "y": 790
+        },
+        {
+          "x": 354,
+          "y": 790
+        }
+      ]
+    },
+    {
+      "index": 23,
+      "id": "chin_upper",
+      "name": "?????",
+      "file": "blocks/23-chin_upper.png",
+      "fullLayer": "layers-full/23-chin_upper.png",
+      "x": 388,
+      "y": 775,
+      "width": 249,
+      "height": 104,
+      "center": {
+        "x": 512.0,
+        "y": 823.0
+      },
+      "polygon": [
+        {
+          "x": 396,
+          "y": 784
+        },
+        {
+          "x": 628,
+          "y": 784
+        },
+        {
+          "x": 612,
+          "y": 862
+        },
+        {
+          "x": 412,
+          "y": 862
+        }
+      ]
+    },
+    {
+      "index": 24,
+      "id": "chin_block",
+      "name": "??????",
+      "file": "blocks/24-chin_block.png",
+      "fullLayer": "layers-full/24-chin_block.png",
+      "x": 414,
+      "y": 847,
+      "width": 197,
+      "height": 106,
+      "center": {
+        "x": 512.0,
+        "y": 893.0
+      },
+      "polygon": [
+        {
+          "x": 430,
+          "y": 850
+        },
+        {
+          "x": 594,
+          "y": 850
+        },
+        {
+          "x": 594,
+          "y": 936
+        },
+        {
+          "x": 430,
+          "y": 936
+        }
+      ]
+    },
+    {
+      "index": 25,
+      "id": "left_outer_face_arc",
+      "name": "??????",
+      "file": "blocks/25-left_outer_face_arc.png",
+      "fullLayer": "layers-full/25-left_outer_face_arc.png",
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1,
+      "center": {
+        "x": 228.3,
+        "y": 468.3
+      },
+      "polygon": [
+        {
+          "x": 214,
+          "y": 158
+        },
+        {
+          "x": 328,
+          "y": 154
+        },
+        {
+          "x": 292,
+          "y": 404
+        },
+        {
+          "x": 224,
+          "y": 610
+        },
+        {
+          "x": 214,
+          "y": 842
+        },
+        {
+          "x": 160,
+          "y": 690
+        },
+        {
+          "x": 166,
+          "y": 420
+        }
+      ]
+    },
+    {
+      "index": 26,
+      "id": "right_outer_face_arc",
+      "name": "??????",
+      "file": "blocks/26-right_outer_face_arc.png",
+      "fullLayer": "layers-full/26-right_outer_face_arc.png",
+      "x": 689,
+      "y": 139,
+      "width": 192,
+      "height": 720,
+      "center": {
+        "x": 795.7,
+        "y": 468.3
+      },
+      "polygon": [
+        {
+          "x": 696,
+          "y": 154
+        },
+        {
+          "x": 810,
+          "y": 158
+        },
+        {
+          "x": 858,
+          "y": 420
+        },
+        {
+          "x": 864,
+          "y": 690
+        },
+        {
+          "x": 810,
+          "y": 842
+        },
+        {
+          "x": 800,
+          "y": 610
+        },
+        {
+          "x": 732,
+          "y": 404
+        }
+      ]
+    },
+    {
+      "index": 27,
+      "id": "left_ear_module",
+      "name": "????",
+      "file": "blocks/27-left_ear_module.png",
+      "fullLayer": "layers-full/27-left_ear_module.png",
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1,
+      "center": {
+        "x": 189.2,
+        "y": 530.4
+      },
+      "polygon": [
+        {
+          "x": 160,
+          "y": 396
+        },
+        {
+          "x": 250,
+          "y": 432
+        },
+        {
+          "x": 238,
+          "y": 634
+        },
+        {
+          "x": 162,
+          "y": 662
+        },
+        {
+          "x": 136,
+          "y": 528
+        }
+      ]
+    },
+    {
+      "index": 28,
+      "id": "right_ear_module",
+      "name": "????",
+      "file": "blocks/28-right_ear_module.png",
+      "fullLayer": "layers-full/28-right_ear_module.png",
+      "x": 766,
+      "y": 459,
+      "width": 139,
+      "height": 207,
+      "center": {
+        "x": 834.8,
+        "y": 530.4
+      },
+      "polygon": [
+        {
+          "x": 774,
+          "y": 432
+        },
+        {
+          "x": 864,
+          "y": 396
+        },
+        {
+          "x": 888,
+          "y": 528
+        },
+        {
+          "x": 862,
+          "y": 662
+        },
+        {
+          "x": 786,
+          "y": 634
+        }
+      ]
+    }
+  ]
+}

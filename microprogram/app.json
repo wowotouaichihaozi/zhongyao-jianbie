@@ -1,0 +1,36 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/home/home",
+    "pages/profile/profile",
+    "pages/path/path",
+    "pages/resources/resources",
+    "pages/tutor/tutor",
+    "pages/me/me"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "嵌智学航",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f2f6fb",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#78857e",
+    "selectedColor": "#1d68b3",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/home/home", "text": "首页" },
+      { "pagePath": "pages/path/path", "text": "路径" },
+      { "pagePath": "pages/resources/resources", "text": "资源" },
+      { "pagePath": "pages/tutor/tutor", "text": "辅导" },
+      { "pagePath": "pages/me/me", "text": "我的" }
+    ]
+  },
+  "networkTimeout": { "request": 120000, "uploadFile": 180000 },
+  "style": "v2",
+  "componentFramework": "glass-easel",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

@@ -1,0 +1,22 @@
+<template>
+  <section class="resource-renderer">
+    <div v-if="videoUrl" class="media-stage"><video controls playsinline :poster="posterUrl" :src="videoUrl"></video></div>
+    <div v-else-if="embedUrl" class="media-stage"><iframe :src="embedUrl" title="学习视频" allowfullscreen loading="lazy"></iframe></div>
+    <div v-else-if="slides.length" class="slide-viewer"><article><span>{{ currentSlide+1 }} / {{ slides.length }}</span><h2>{{ slides[currentSlide]?.title }}</h2><ul><li v-for="(point,i) in slidePoints" :key="i">{{ point }}</li></ul></article><div><button class="secondary-btn" :disabled="currentSlide===0" @click="currentSlide--"><ChevronLeft :size="17" />上一页</button><button class="secondary-btn" :disabled="currentSlide>=slides.length-1" @click="currentSlide++">下一页<ChevronRight :size="17" /></button></div></div>
+    <div v-else class="markdown-body" v-html="safeHtml"></div>
+    <aside v-if="references.length" class="references"><h3><BookOpenCheck :size="17" />知识依据</h3><ol><li v-for="(ref,i) in references" :key="i"><b>[{{ i+1 }}]</b><span>{{ ref.title||ref.source||ref.name||String(ref) }}</span></li></ol></aside>
+    <div v-if="uncertainty" class="notice-band"><TriangleAlert :size="18" /><span>{{ uncertainty }}</span></div>
+  </section>
+</template>
+<script setup>
+import { computed,ref } from 'vue';import DOMPurify from 'dompurify';import { marked } from 'marked';import { BookOpenCheck,ChevronLeft,ChevronRight,TriangleAlert } from 'lucide-vue-next';import { resolveApiUrl } from '../services/api.js'
+const props=defineProps({resource:{type:Object,default:()=>({})}});const currentSlide=ref(0)
+const body=computed(()=>props.resource.content??props.resource.body??props.resource.markdown??'')
+const contentObject=computed(()=>body.value&&typeof body.value==='object'?body.value:{})
+const videoUrl=computed(()=>safeMedia(contentObject.value.videoUrl||contentObject.value.fileUrl||props.resource.videoUrl));const posterUrl=computed(()=>safeMedia(contentObject.value.posterUrl||props.resource.posterUrl));const embedUrl=computed(()=>safeEmbed(contentObject.value.embedUrl||props.resource.embedUrl))
+const slides=computed(()=>{const raw=contentObject.value.slides||props.resource.slides||[];return Array.isArray(raw)?raw:[]});const slidePoints=computed(()=>{const s=slides.value[currentSlide.value]||{};return s.points||s.content||s.bullets||[]})
+const markdown=computed(()=>typeof body.value==='string'?body.value:contentObject.value.markdown||contentObject.value.text||contentObject.value.content||JSON.stringify(contentObject.value,null,2));const safeHtml=computed(()=>DOMPurify.sanitize(marked.parse(String(markdown.value||'暂无可预览内容')), {USE_PROFILES:{html:true,svg:true},FORBID_TAGS:['script','style','form'],FORBID_ATTR:['style','onerror','onclick']}))
+const references=computed(()=>props.resource.references||props.resource.citations||props.resource.metadata?.references||contentObject.value.references||[]);const uncertainty=computed(()=>props.resource.uncertainty||contentObject.value.uncertainty||props.resource.metadata?.uncertainty||'')
+function safeMedia(v){return resolveApiUrl(v)}function safeEmbed(v){const value=String(v||'');if(/^\/api\//.test(value))return resolveApiUrl(value);return /^https:\/\/(player\.bilibili\.com|www\.bilibili\.com)/.test(value)?value:''}
+</script>
+<style scoped>.resource-renderer{display:grid;gap:14px}.media-stage{aspect-ratio:16/9;overflow:hidden;border-radius:7px;background:#17231e}.media-stage video,.media-stage iframe{width:100%;height:100%;border:0;object-fit:contain}.markdown-body{padding:18px;border:1px solid #dce5e0;border-radius:7px;background:white;overflow-wrap:anywhere}.slide-viewer article{min-height:340px;padding:23px 20px;border:1px solid #dce5e0;border-top:3px solid #2f68b2;border-radius:7px;background:white}.slide-viewer article>span{color:#2f68b2;font-size:10px;font-weight:800}.slide-viewer h2{margin:12px 0 18px;font-size:20px}.slide-viewer li{margin:10px 0;color:#44574d;font-size:13px;line-height:1.6}.slide-viewer>div{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.references{padding:16px;border:1px solid #cfdeeb;border-left:3px solid #2f68b2;border-radius:7px;background:#edf4fb}.references h3{display:flex;align-items:center;gap:7px;margin:0;color:#2f68b2;font-size:13px}.references ol{margin:11px 0 0;padding:0;list-style:none}.references li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:5px;padding:8px 0;border-top:1px solid #cfdeeb;font-size:11px;overflow-wrap:anywhere}.references b{color:#2f68b2}</style>

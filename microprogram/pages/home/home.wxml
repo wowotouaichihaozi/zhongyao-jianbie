@@ -1,0 +1,16 @@
+<view class="page">
+  <view class="page-head mini-head"><view><text class="workspace-tag">微信学习台</text><view class="page-title">{{greeting}}，{{displayName}}</view><view class="page-subtitle">{{profile ? '画像：' + (profile.profileName || '学习画像') + ' v' + (profile.version || 1) : '先完成画像采集，让路径和资源真正匹配你。'}}</view></view><text class="today">{{todayLabel}}</text></view>
+  <view class="loading" wx:if="{{loading}}">正在同步学习数据...</view>
+  <view class="error" wx:elif="{{error}}">{{error}}</view>
+  <block wx:else>
+    <view class="profile-callout card" wx:if="{{!profile}}"><view><text class="section-title">建立十维学习画像</text><text class="muted">通过多轮对话收集目标、基础、偏好与时间投入。</text></view><button class="primary" bindtap="profile">开始采集</button></view>
+    <view class="today-panel">
+      <view class="today-copy"><text class="panel-kicker">TODAY</text><text class="continue-title">{{currentWeek ? currentWeek.title : '今日学习任务'}}</text><text>{{currentWeek ? currentWeek.description : '查看智能体为你编排的下一项学习任务。'}}</text></view>
+      <button class="today-action" bindtap="path">开始</button>
+      <view class="today-progress"><text>路径进度 {{progress}}%</text><view class="progress"><view class="progress-bar" style="width: {{progress}}%"></view></view></view>
+    </view>
+    <view class="metrics"><view><text>路径进度</text><b>{{progress}}%</b></view><view><text>当前周</text><b>{{currentWeek ? currentWeek.order : '--'}}</b></view><view><text>运行任务</text><b>{{runningCount}}</b></view></view>
+    <view class="section"><view class="section-row"><text class="section-title">最近任务</text><text class="link" bindtap="resources">全部</text></view><view class="empty" wx:if="{{!tasks.length}}">暂无生成任务</view><view class="task" wx:for="{{tasks}}" wx:key="taskId"><view><text class="task-title">{{item.title || '资源生成任务'}}</text><text class="muted">{{item.taskType || '学习资源'}}</text></view><text class="status {{item.status}}">{{item.statusLabel}}</text></view></view>
+    <view class="quick"><button class="card tutor" bindtap="tutor"><b>问</b>AI 辅导<text>讲解当前疑问</text></button><button class="card resource" bindtap="resources"><b>生</b>生成资源<text>七类个性化资源</text></button><button class="card profile" bindtap="profile"><b>像</b>更新画像<text>让推荐持续变化</text></button><button class="card map" bindtap="path"><b>径</b>路径地图<text>查看每周任务</text></button></view>
+  </block>
+</view>

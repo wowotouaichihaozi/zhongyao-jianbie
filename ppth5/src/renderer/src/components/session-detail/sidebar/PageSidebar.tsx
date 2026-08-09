@@ -1,0 +1,826 @@
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Check,
+  Copy,
+  Download,
+  FilePlus2,
+  Move,
+  PanelLeft,
+  PanelRight,
+  PencilLine,
+  Presentation,
+  Plus,
+  Sparkles,
+  Trash2,
+  X
+} from 'lucide-react'
+import { useSessionDetailUiStore } from '@renderer/store'
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { ScrollArea } from '../../ui/ScrollArea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/Tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '../../ui/DropdownMenu'
+import { PageThumbnail } from './PageThumbnail'
+import type { SessionPreviewPage } from '../shared/types'
+import { useT } from '@renderer/i18n'
+import { usePageSidebarController } from './usePageSidebarController'
+
+const THUMBNAIL_PREVIEW_TARGET_SIZE = 14
+const THUMBNAIL_PREVIEW_CACHE_SIZE = 24
+
+function SortablePageItem({
+  id,
+  disabled,
+  children
+}: {
+  id: string
+  disabled: boolean
+  children: (bindings: {
+    attributes: ReturnType<typeof useSortable>['attributes']
+    listeners: ReturnType<typeof useSortable>['listeners']
+    setActivatorNodeRef: ReturnType<typeof useSortable>['setActivatorNodeRef']
+    isDragging: boolean
+  }) => React.ReactNode
+}): React.JSX.Element {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({
+    id,
+    disabled
+  })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : 1
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ attributes, listeners, setActivatorNodeRef, isDragging })}
+    </div>
+  )
+}
+
+const getPageOutlineText = (page: SessionPreviewPage): string => {
+  return page.contentOutline?.trim() || ''
+}
+
+const stripOutlineHeadingPrefix = (value: string): string => {
+  return value
+    .trim()
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^(?:第?\d+|[一二三四五六七八九十]+)[\s.、：:-]*/, '')
+    .trim()
+}
+
+const getPageOutlineDisplayText = (page: SessionPreviewPage): string => {
+  const outlineText = getPageOutlineText(page)
+  if (!outlineText) return ''
+
+  const lines = outlineText.replace(/\r\n/g, '\n').split('\n')
+  const title = stripOutlineHeadingPrefix(page.title || '')
+  const normalizedFirstLine = stripOutlineHeadingPrefix(lines[0] || '')
+
+  let firstLine = normalizedFirstLine
+  if (title && firstLine.startsWith(title)) {
+    firstLine = firstLine
+      .slice(title.length)
+      .replace(/^[\s:：,，.。-]+/, '')
+      .trim()
+  }
+
+  return [firstLine, ...lines.slice(1).map((line) => line.trim())].filter(Boolean).join('\n').trim()
+}
+
+const copyTextToClipboard = async (text: string): Promise<void> => {
+  try {
+    await navigator.clipboard.writeText(text)
+    return
+  } catch {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    try {
+      document.execCommand('copy')
+    } finally {
+      document.body.removeChild(textarea)
+    }
+  }
+}
+
+export const PageSidebar = memo(function PageSidebar({
+  sessionId
+}: {
+  sessionId: string
+}): React.JSX.Element {
+  const t = useT()
+  const {
+    pages,
+    disabled,
+    onAddBlankPage,
+    onAddPage,
+    onRetryFailedPage,
+    onReorderPages,
+    onDeletePage,
+    onRenamePage,
+    onUpdatePageOutline,
+    onExportPagePptx,
+    onDownloadAllOutlines,
+    pageManagementDisabled,
+    collapsed,
+    onToggleCollapsed
+  } = usePageSidebarController(sessionId)
+  const selectedPageId = useSessionDetailUiStore((state) => state.selectedPageId)
+  const previewKey = useSessionDetailUiStore((state) => state.previewKey)
+  const thumbnailVersions = useSessionDetailUiStore((state) => state.thumbnailVersions)
+  const setSelectedPageId = useSessionDetailUiStore((state) => state.setSelectedPageId)
+  const isAddingPage = useSessionDetailUiStore((state) => state.isAddingPage)
+  const isExportingPptx = useSessionDetailUiStore((state) => state.isExportingPptx)
+  const [activeView, setActiveView] = useState<'pages' | 'outline'>('pages')
+  const [copiedOutlinePageId, setCopiedOutlinePageId] = useState<string | null>(null)
+  const [editingOutlinePageId, setEditingOutlinePageId] = useState<string | null>(null)
+  const [outlineDraft, setOutlineDraft] = useState('')
+  const [savingOutlinePageId, setSavingOutlinePageId] = useState<string | null>(null)
+  const [thumbnailPreviewIds, setThumbnailPreviewIds] = useState<Set<string>>(() => new Set())
+  const wasAddingRef = useRef(false)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const copyResetTimerRef = useRef<number | null>(null)
+  const thumbnailWindowRafRef = useRef<number | null>(null)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  const sortableIds = useMemo(() => pages.map((p) => p.id), [pages])
+
+  const updateThumbnailPreviewWindow = useCallback((): void => {
+    if (collapsed || activeView !== 'pages' || pages.length === 0) {
+      setThumbnailPreviewIds((current) => (current.size === 0 ? current : new Set()))
+      return
+    }
+
+    const viewport = viewportRef.current
+    const pageIdSet = new Set(pages.map((page) => page.id))
+    if (!viewport) {
+      const selectedIndex = pages.findIndex((page) => page.id === selectedPageId)
+      const startIndex =
+        selectedIndex >= 0
+          ? Math.max(0, selectedIndex - Math.floor(THUMBNAIL_PREVIEW_TARGET_SIZE / 2))
+          : 0
+      const next = new Set(
+        pages.slice(startIndex, startIndex + THUMBNAIL_PREVIEW_TARGET_SIZE).map((page) => page.id)
+      )
+      setThumbnailPreviewIds(next)
+      return
+    }
+
+    const viewportRect = viewport.getBoundingClientRect()
+    const viewportCenter = viewportRect.top + viewportRect.height / 2
+    const distanceByPageId = new Map<string, number>()
+    const candidates = Array.from(viewport.querySelectorAll<HTMLElement>('[data-thumbnail-index]'))
+      .map((node) => {
+        const index = Number(node.dataset.thumbnailIndex)
+        const page = Number.isFinite(index) ? pages[index] : undefined
+        if (!page) return null
+        const rect = node.getBoundingClientRect()
+        const centerDistance =
+          page.id === selectedPageId ? -1 : Math.abs(rect.top + rect.height / 2 - viewportCenter)
+        distanceByPageId.set(page.id, centerDistance)
+        return { pageId: page.id, distance: centerDistance }
+      })
+      .filter((item): item is { pageId: string; distance: number } => Boolean(item))
+      .sort((a, b) => a.distance - b.distance)
+
+    const targetIds = new Set(
+      candidates.slice(0, THUMBNAIL_PREVIEW_TARGET_SIZE).map((item) => item.pageId)
+    )
+    if (selectedPageId && pageIdSet.has(selectedPageId)) targetIds.add(selectedPageId)
+
+    if (targetIds.size === 0) {
+      pages.slice(0, THUMBNAIL_PREVIEW_TARGET_SIZE).forEach((page) => targetIds.add(page.id))
+    }
+
+    setThumbnailPreviewIds((current) => {
+      const next = new Set(Array.from(current).filter((id) => pageIdSet.has(id)))
+      targetIds.forEach((id) => next.add(id))
+
+      if (next.size > THUMBNAIL_PREVIEW_CACHE_SIZE) {
+        const removable = Array.from(next)
+          .filter((id) => !targetIds.has(id))
+          .sort(
+            (a, b) => (distanceByPageId.get(b) ?? Infinity) - (distanceByPageId.get(a) ?? Infinity)
+          )
+
+        for (const id of removable) {
+          if (next.size <= THUMBNAIL_PREVIEW_CACHE_SIZE) break
+          next.delete(id)
+        }
+      }
+
+      if (current.size === next.size && Array.from(next).every((id) => current.has(id))) {
+        return current
+      }
+      return next
+    })
+  }, [activeView, collapsed, pages, selectedPageId])
+
+  const scheduleThumbnailPreviewWindowUpdate = useCallback((): void => {
+    if (thumbnailWindowRafRef.current !== null) return
+    thumbnailWindowRafRef.current = window.requestAnimationFrame(() => {
+      thumbnailWindowRafRef.current = null
+      updateThumbnailPreviewWindow()
+    })
+  }, [updateThumbnailPreviewWindow])
+
+  // Keep selected thumbnail in view when add-page completes (isAddingPage: true -> false).
+  // Fallback to bottom if selected thumbnail is not found yet.
+  useEffect(() => {
+    if (wasAddingRef.current && !isAddingPage && viewportRef.current) {
+      const viewport = viewportRef.current
+      const selectedNode = selectedPageId
+        ? viewport.querySelector<HTMLElement>(`[data-page-id="${selectedPageId}"]`)
+        : null
+
+      if (selectedNode) {
+        selectedNode.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      } else {
+        viewport.scrollTop = viewport.scrollHeight
+      }
+    }
+    wasAddingRef.current = isAddingPage
+  }, [isAddingPage, selectedPageId, pages.length])
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimerRef.current !== null) window.clearTimeout(copyResetTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    scheduleThumbnailPreviewWindowUpdate()
+    return () => {
+      if (thumbnailWindowRafRef.current !== null) {
+        window.cancelAnimationFrame(thumbnailWindowRafRef.current)
+        thumbnailWindowRafRef.current = null
+      }
+    }
+  }, [scheduleThumbnailPreviewWindowUpdate])
+
+  const handleDragEnd = (event: DragEndEvent): void => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    if (!onReorderPages || pageManagementDisabled || disabled) return
+    const oldIndex = pages.findIndex((p) => p.id === String(active.id))
+    const newIndex = pages.findIndex((p) => p.id === String(over.id))
+    if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return
+    const next = arrayMove(pages, oldIndex, newIndex)
+    void onReorderPages(
+      next.map((p) => p.id),
+      String(active.id)
+    )
+  }
+
+  const handleCopyOutline = async (
+    page: SessionPreviewPage,
+    outlineText: string
+  ): Promise<void> => {
+    const title = (page.title || t('sessionDetail.untitledPage')).trim()
+    const content = outlineText.trim()
+    const text = [title, content].filter(Boolean).join('\n')
+    if (!text) return
+    await copyTextToClipboard(text)
+    setCopiedOutlinePageId(page.id)
+    if (copyResetTimerRef.current !== null) window.clearTimeout(copyResetTimerRef.current)
+    copyResetTimerRef.current = window.setTimeout(() => {
+      setCopiedOutlinePageId((current) => (current === page.id ? null : current))
+      copyResetTimerRef.current = null
+    }, 1600)
+  }
+
+  const handleStartEditOutline = (page: SessionPreviewPage, outlineText: string): void => {
+    setSelectedPageId(page.id)
+    setEditingOutlinePageId(page.id)
+    setOutlineDraft(outlineText)
+  }
+
+  const handleCancelEditOutline = (): void => {
+    setEditingOutlinePageId(null)
+    setOutlineDraft('')
+  }
+
+  const handleSaveOutline = async (page: SessionPreviewPage): Promise<void> => {
+    if (!onUpdatePageOutline || savingOutlinePageId) return
+    const normalizedDraft = outlineDraft.replace(/\s+/g, ' ').trim()
+    if (normalizedDraft === getPageOutlineText(page)) {
+      handleCancelEditOutline()
+      return
+    }
+    setSavingOutlinePageId(page.id)
+    try {
+      await onUpdatePageOutline(page, normalizedDraft)
+      handleCancelEditOutline()
+    } finally {
+      setSavingOutlinePageId(null)
+    }
+  }
+
+  const handleDownloadAllOutlines = (): void => {
+    if (pages.length === 0) return
+    onDownloadAllOutlines?.()
+  }
+
+  return (
+    <aside
+      className={`relative flex min-h-0 shrink-0 flex-col overflow-hidden bg-[#e8f8f3] pb-3 pt-3 shadow-[inset_-16px_0_30px_rgba(93,107,77,0.045)] transition-[width] duration-300 ${
+        collapsed ? 'w-[48px] min-w-[48px] max-w-[48px]' : 'w-[220px] min-w-[220px] max-w-[220px]'
+      }`}
+    >
+      <div className={`flex min-h-0 flex-1 flex-col ${collapsed ? 'px-1' : 'px-2.5'}`}>
+        {collapsed ? (
+          // Collapsed: compact icons
+          <>
+            {/* Middle: page list */}
+            <ScrollArea
+              className="min-h-0 min-w-0 flex-1"
+              viewportClassName="overflow-x-hidden pb-2"
+              viewportRef={viewportRef}
+            >
+              <div className="space-y-1.5">
+                {pages.map((page) => (
+                  <button
+                    key={page.id}
+                    type="button"
+                    data-page-id={page.id}
+                    onClick={() => !disabled && setSelectedPageId(page.id)}
+                    className={`flex h-8 w-full items-center justify-center rounded-xl text-xs font-semibold transition-all ${selectedPageId === page.id ? 'bg-[#d4e4c1]/86 text-[#3e4a32] shadow-[0_4px_12px_rgba(93,107,77,0.15)]' : 'text-[#5c6c47] hover:bg-[#d4e4c1]/50'}`}
+                  >
+                    P{page.pageNumber}
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
+
+            {/* Bottom: add page + expand */}
+            <div className="mt-2 space-y-1.5">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    title={t('sessionDetail.addPage')}
+                    aria-label={t('sessionDetail.addPage')}
+                    className="flex h-8 w-full items-center justify-center rounded-xl bg-[#d4e4c1]/30 text-[#5d6b4d] transition-colors hover:bg-[#d4e4c1]/50 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="start" className="w-max min-w-[9rem]">
+                  <DropdownMenuItem onSelect={onAddBlankPage}>
+                    <FilePlus2 className="h-3.5 w-3.5 shrink-0 text-[#5f6b50]" />
+                    <span className="whitespace-nowrap">{t('sessionDetail.addBlankPage')}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onAddPage}>
+                    <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#5d6b4d]" />
+                    <span className="whitespace-nowrap">{t('sessionDetail.addGeneratedPage')}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onToggleCollapsed}
+                    className="flex h-8 w-full items-center justify-center rounded-xl text-[#7a875f] transition-colors hover:bg-[#d4e4c1]/50 hover:text-[#3e4a32] cursor-pointer"
+                    aria-label={t('sessionDetail.expandSidebar')}
+                  >
+                    <PanelRight className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">{t('sessionDetail.expandSidebar')}</TooltipContent>
+              </Tooltip>
+            </div>
+          </>
+        ) : (
+          // Expanded: full sidebar
+          <>
+            <div className="mx-1 mb-2 grid grid-cols-2 rounded-lg bg-[#d4e4c1]/38 p-0.5 text-[10.5px] font-medium text-[#6a705d]">
+              <button
+                type="button"
+                onClick={() => setActiveView('pages')}
+                className={`h-6 rounded-md transition-all ${
+                  activeView === 'pages'
+                    ? 'bg-[#e8f8f3]/86 text-[#3e4a32] shadow-[0_1px_4px_rgba(93,107,77,0.08)]'
+                    : 'hover:bg-[#e8f8f3]/36 hover:text-[#4f6340]'
+                }`}
+              >
+                {t('sessionDetail.pageTab')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView('outline')}
+                className={`h-6 rounded-md transition-all ${
+                  activeView === 'outline'
+                    ? 'bg-[#e8f8f3]/86 text-[#3e4a32] shadow-[0_1px_4px_rgba(93,107,77,0.08)]'
+                    : 'hover:bg-[#e8f8f3]/36 hover:text-[#4f6340]'
+                }`}
+              >
+                {t('sessionDetail.outlineTab')}
+              </button>
+            </div>
+            {activeView === 'outline' ? (
+              <button
+                type="button"
+                disabled={pages.length === 0 || !onDownloadAllOutlines}
+                onClick={handleDownloadAllOutlines}
+                className="mx-1 mb-2 flex h-7 items-center justify-center gap-1.5 rounded-lg border border-[#b5c4a1]/50 bg-[#e8f8f3]/72 px-2 text-[11px] font-medium text-[#5d6b4d] shadow-[0_3px_8px_rgba(86,72,53,0.05)] transition-colors hover:bg-[#d4e4c1]/45 hover:text-[#3e4a32] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <Download className="h-3.5 w-3.5" />
+                {t('sessionDetail.downloadAllOutlines')}
+              </button>
+            ) : null}
+
+            {/* Middle: page list */}
+            <ScrollArea
+              className="min-h-0 min-w-0 flex-1"
+              viewportClassName="overflow-x-hidden px-0.5 pb-2"
+              viewportRef={viewportRef}
+              onViewportScroll={
+                activeView === 'pages' ? scheduleThumbnailPreviewWindowUpdate : undefined
+              }
+            >
+              {pages.length === 0 ? (
+                <div className="flex min-h-[96px] items-center justify-center rounded-[1.25rem] bg-[#d4e4c1]/54 text-xs text-[#8a9a7b]">
+                  {t('sessionDetail.pagesEmpty')}
+                </div>
+              ) : activeView === 'outline' ? (
+                <div className="min-w-0 space-y-1.5 overflow-x-hidden">
+                  {pages.map((page) => {
+                    const outlineText = getPageOutlineText(page)
+                    const outlineDisplayText = getPageOutlineDisplayText(page)
+                    const selected = selectedPageId === page.id
+                    const copied = copiedOutlinePageId === page.id
+                    const editing = editingOutlinePageId === page.id
+                    const savingOutline = savingOutlinePageId === page.id
+                    return (
+                      <div
+                        key={page.id}
+                        data-page-id={page.id}
+                        title={outlineText || page.title}
+                        className={`group relative block w-full min-w-0 max-w-full whitespace-normal rounded-[1.25rem] p-1.5 text-left transition-all ${
+                          selected
+                            ? 'bg-[#d4e4c1]/86 shadow-[0_14px_26px_rgba(93,107,77,0.18)]'
+                            : 'bg-[#d4e4c1]/34 hover:bg-[#d4e4c1]/68 hover:shadow-[0_8px_18px_rgba(93,107,77,0.09)]'
+                        } ${disabled ? 'opacity-45' : ''}`}
+                      >
+                        {editing ? (
+                          <div className="block min-w-0 max-w-full overflow-hidden rounded-[1rem] bg-[#e8f8f3]/72 px-2.5 py-2 shadow-[0_5px_14px_rgba(93,107,77,0.08)]">
+                            <p className="mb-1 whitespace-normal break-words text-[12px] font-semibold leading-5 text-[#33402a] [overflow-wrap:anywhere]">
+                              {page.title || t('sessionDetail.untitledPage')}
+                            </p>
+                            <textarea
+                              value={outlineDraft}
+                              onChange={(event) => setOutlineDraft(event.target.value)}
+                              disabled={savingOutline}
+                              className="min-h-[84px] w-full resize-none rounded-lg border border-[#b5c4a1]/80 bg-[#f0faf5]/90 px-2 py-1.5 text-[11px] leading-4 text-[#514736] shadow-inner outline-none focus:border-[#9bb98a] disabled:opacity-60"
+                              placeholder={t('pageManagement.pageOutlinePlaceholder')}
+                              autoFocus
+                            />
+                            <div className="mt-1.5 flex justify-end gap-1">
+                              <button
+                                type="button"
+                                disabled={savingOutline}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  handleCancelEditOutline()
+                                }}
+                                className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#d4e4c1] text-[#756955] transition-colors hover:bg-[#d4e4c1] disabled:opacity-50"
+                                aria-label={t('common.cancel')}
+                                title={t('common.cancel')}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={savingOutline}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  void handleSaveOutline(page)
+                                }}
+                                className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5d6b4d] text-white shadow-[0_4px_10px_rgba(62,74,50,0.18)] transition-colors hover:bg-[#4d5a40] disabled:opacity-50"
+                                aria-label={t('pageManagement.savePageOutline')}
+                                title={t('pageManagement.savePageOutline')}
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            role="button"
+                            tabIndex={disabled ? -1 : 0}
+                            aria-disabled={disabled}
+                            onClick={() => setSelectedPageId(page.id)}
+                            onKeyDown={(event) => {
+                              if (disabled) return
+                              if (event.key !== 'Enter' && event.key !== ' ') return
+                              event.preventDefault()
+                              setSelectedPageId(page.id)
+                            }}
+                            className={`relative block w-full min-w-0 rounded-[1rem] text-left ${
+                              disabled ? 'cursor-not-allowed' : 'cursor-pointer'
+                            }`}
+                          >
+                            <span className="relative block min-w-0 max-w-full overflow-hidden rounded-[1rem] bg-[#e8f8f3]/72 px-2.5 py-2 shadow-[0_5px_14px_rgba(93,107,77,0.08)]">
+                              <span className="block whitespace-normal break-words pr-14 text-[12px] font-semibold leading-5 text-[#33402a] [overflow-wrap:anywhere]">
+                                {page.title || t('sessionDetail.untitledPage')}
+                              </span>
+                              <span className="mt-1 block whitespace-normal break-words text-[11px] leading-4 text-[#716654] [overflow-wrap:anywhere]">
+                                {outlineDisplayText || t('sessionDetail.outlineEmpty')}
+                              </span>
+                              {!editing ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      disabled={pageManagementDisabled || disabled}
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        handleStartEditOutline(page, outlineText)
+                                      }}
+                                      className="absolute right-9 top-2 inline-flex h-6 w-6 items-center justify-center rounded bg-white p-1 text-[#5d6b4d] opacity-0 shadow-sm transition-colors hover:bg-[#e8f8f3] hover:text-[#3e4a32] group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-not-allowed disabled:opacity-0"
+                                      aria-label={t('pageManagement.editPageOutline')}
+                                    >
+                                      <PencilLine className="h-3.5 w-3.5" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right">
+                                    {t('pageManagement.editPageOutline')}
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : null}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    disabled={!outlineDisplayText || editing}
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      void handleCopyOutline(page, outlineDisplayText)
+                                    }}
+                                    className={`absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full transition-all ${
+                                      copied
+                                        ? 'bg-[#5d6b4d] text-white shadow-sm'
+                                        : 'bg-white text-[#5d6b4d] opacity-0 shadow-sm hover:bg-[#e8f8f3] hover:text-[#3e4a32] group-hover:opacity-100 focus-visible:opacity-100'
+                                    } disabled:cursor-not-allowed disabled:opacity-0`}
+                                    aria-label={
+                                      copied
+                                        ? t('sessionDetail.outlineCopied')
+                                        : t('sessionDetail.copyOutline')
+                                    }
+                                  >
+                                    {copied ? (
+                                      <Check className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <Copy className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">
+                                  {copied
+                                    ? t('sessionDetail.outlineCopied')
+                                    : t('sessionDetail.copyOutline')}
+                                </TooltipContent>
+                              </Tooltip>
+                            </span>
+                          </div>
+                        )}
+                        <span className="relative mt-1.5 flex items-center justify-between gap-1 px-0.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#5c6c47]">
+                            P{page.pageNumber}
+                          </span>
+                          {selected ? (
+                            <span className="rounded-full bg-[#5d6b4d] px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-[0_3px_8px_rgba(62,74,50,0.18)]">
+                              {t('sessionDetail.current')}
+                            </span>
+                          ) : null}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2.5">
+                      {pages.map((page, pageIndex) => (
+                        <div key={page.id} data-page-id={page.id} data-thumbnail-index={pageIndex}>
+                          <SortablePageItem
+                            id={page.id}
+                            disabled={pageManagementDisabled || disabled}
+                          >
+                            {({ attributes, listeners, setActivatorNodeRef, isDragging }) => (
+                              <PageThumbnail
+                                page={page}
+                                isSelected={selectedPageId === page.id}
+                                previewVersion={previewKey + (thumbnailVersions[page.pageId] || 0)}
+                                renderPreview={thumbnailPreviewIds.has(page.id)}
+                                onSelect={disabled ? undefined : setSelectedPageId}
+                                actions={
+                                  <div className="absolute inset-x-1 top-1 z-10 flex items-start justify-between opacity-0 transition-opacity group-hover:opacity-100">
+                                    <button
+                                      type="button"
+                                      ref={setActivatorNodeRef}
+                                      disabled={pageManagementDisabled || disabled}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                      }}
+                                      className="cursor-grab rounded bg-white/90 p-1 text-[#5d6b4d] shadow-sm transition-colors hover:bg-[#e8f8f3] hover:text-[#3e4a32] active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
+                                      aria-label={t('pageManagement.dragHandle')}
+                                      title={t('pageManagement.dragHandle')}
+                                      {...attributes}
+                                      {...listeners}
+                                    >
+                                      <Move
+                                        className={`h-4 w-4 ${isDragging ? 'opacity-60' : ''}`}
+                                      />
+                                    </button>
+                                    <div className="flex items-center gap-1">
+                                      {onExportPagePptx ? (
+                                        <DropdownMenu>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <DropdownMenuTrigger asChild>
+                                                <button
+                                                  type="button"
+                                                  disabled={
+                                                    pageManagementDisabled ||
+                                                    disabled ||
+                                                    isExportingPptx
+                                                  }
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  className="rounded bg-white/90 p-1 text-[#5d6b4d] shadow-sm transition-colors hover:bg-[#e8f8f3] hover:text-[#3e4a32] disabled:cursor-not-allowed disabled:opacity-50"
+                                                  aria-label={t(
+                                                    'sessionDetail.exportSinglePagePptx'
+                                                  )}
+                                                >
+                                                  <Presentation className="h-3.5 w-3.5" />
+                                                </button>
+                                              </DropdownMenuTrigger>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="right">
+                                              {t('sessionDetail.exportSinglePagePptx')}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                          <DropdownMenuContent
+                                            side="right"
+                                            align="start"
+                                            className="min-w-[9rem]"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <DropdownMenuItem
+                                              onSelect={() => onExportPagePptx(page)}
+                                            >
+                                              <Presentation className="h-3.5 w-3.5 shrink-0 text-[#5f6b50]" />
+                                              <span className="whitespace-nowrap">
+                                                {t('sessionDetail.exportPptxEditable')}
+                                              </span>
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      ) : null}
+                                      {onRenamePage ? (
+                                        <button
+                                          type="button"
+                                          disabled={pageManagementDisabled || disabled}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            onRenamePage(page)
+                                          }}
+                                          className="rounded bg-white/90 p-1 text-[#5d6b4d] shadow-sm transition-colors hover:bg-[#e8f8f3] hover:text-[#3e4a32] disabled:cursor-not-allowed disabled:opacity-50"
+                                          aria-label={t('pageManagement.editPageTitle')}
+                                          title={t('pageManagement.editPageTitle')}
+                                        >
+                                          <PencilLine className="h-3.5 w-3.5" />
+                                        </button>
+                                      ) : null}
+                                      {onDeletePage ? (
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            pageManagementDisabled || disabled || pages.length <= 1
+                                          }
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            onDeletePage(page)
+                                          }}
+                                          className="rounded bg-white/90 p-1 shadow-sm"
+                                          aria-label={t('pageManagement.deletePage')}
+                                          title={t('pageManagement.deletePage')}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                }
+                              />
+                            )}
+                          </SortablePageItem>
+                          {page.status === 'failed' && onRetryFailedPage && (
+                            <button
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => {
+                                setSelectedPageId(page.id)
+                                onRetryFailedPage(page)
+                              }}
+                              className="group mt-1 block w-full rounded-[1.1rem] bg-[#f3e4df]/85 p-1.5 text-left shadow-[0_8px_18px_rgba(142,90,83,0.08)] transition-all duration-200 hover:bg-[#f1ddd7] hover:shadow-[0_10px_22px_rgba(142,90,83,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
+                            >
+                              <div className="rounded-[0.9rem] border border-[#d7b5ae]/70 bg-[#f3e8e6] px-2.5 py-2">
+                                <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#a36a63]">
+                                  P{page.pageNumber}
+                                </div>
+                                <div className="mt-1 text-[11px] font-medium leading-4 text-[#93564f]">
+                                  {t('sessionDetail.retryFailedPage')}
+                                </div>
+                              </div>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+            </ScrollArea>
+
+            {/* Bottom: add page + collapse */}
+            <div className="mt-2 flex items-center gap-1.5">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    className="flex flex-1 items-center justify-center gap-1 rounded-[1rem] border border-dashed border-[#b5c4a1]/60 bg-[#d4e4c1]/30 px-2 py-1.5 text-[11px] font-medium text-[#5d6b4d] transition-colors hover:bg-[#d4e4c1]/50 hover:text-[#3e4a32] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {t('sessionDetail.addPage')}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="start" className="w-max min-w-[9rem]">
+                  <DropdownMenuItem onSelect={onAddBlankPage}>
+                    <FilePlus2 className="h-3.5 w-3.5 shrink-0 text-[#5f6b50]" />
+                    <span className="whitespace-nowrap">{t('sessionDetail.addBlankPage')}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onAddPage}>
+                    <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#5d6b4d]" />
+                    <span className="whitespace-nowrap">{t('sessionDetail.addGeneratedPage')}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onToggleCollapsed}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#7a875f] transition-colors hover:bg-[#d4e4c1]/60 hover:text-[#3e4a32] cursor-pointer"
+                    aria-label={t('sessionDetail.collapseSidebar')}
+                  >
+                    <PanelLeft className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">{t('sessionDetail.collapseSidebar')}</TooltipContent>
+              </Tooltip>
+            </div>
+          </>
+        )}
+      </div>
+    </aside>
+  )
+})

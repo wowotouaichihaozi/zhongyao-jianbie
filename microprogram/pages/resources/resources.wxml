@@ -1,0 +1,49 @@
+<view class="page">
+  <view class="page-head">
+    <text class="eyebrow">MULTIMODAL RESOURCES</text>
+    <view class="page-title">个性化资源</view>
+    <view class="page-subtitle">选择资源类型并创建后台任务，离开页面后服务端仍会继续生成。</view>
+  </view>
+  <view class="creator card">
+    <view class="section-title">创建资源任务</view>
+    <view class="type-grid">
+      <button class="type {{selectedType === item.value ? 'active' : ''}}" wx:for="{{types}}" wx:key="value" data-value="{{item.value}}" bindtap="chooseType">
+        <text>{{item.label}}</text><text>{{item.hint}}</text>
+      </button>
+    </view>
+    <label class="field"><text class="field-label">学习主题</text><input class="field-input" data-field="topic" value="{{topic}}" bindinput="input" maxlength="160" placeholder="例如：STM32 定时器与 PWM" /></label>
+    <label class="field"><text class="field-label">补充要求</text><textarea class="field-textarea" data-field="prompt" value="{{prompt}}" bindinput="input" maxlength="600" placeholder="填写难度、重点和呈现方式（可选）"></textarea></label>
+    <view class="video-settings" wx:if="{{selectedType === 'generated_video'}}">
+      <picker range="{{resolutionOptions}}" value="{{resolutionIndex}}" bindchange="resolution"><view>视频清晰度：<b>{{resolutionOptions[resolutionIndex]}}</b></view></picker>
+      <text>AI 视频先保存提示词，需在任务详情中再次确认后才会调用媒体模型。</text>
+    </view>
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+    <button class="primary create" bindtap="submit" loading="{{submitting}}" disabled="{{submitting}}">{{submitting ? '正在创建任务' : '创建后台生成任务'}}</button>
+  </view>
+
+  <view class="history-head"><text class="section-title">最近任务</text><text class="muted">自动刷新运行状态</text></view>
+  <view class="loading" wx:if="{{loading}}">正在读取任务记录...</view>
+  <view class="empty card" wx:elif="{{!tasks.length}}">尚未创建资源任务。</view>
+  <view class="task-card" wx:for="{{tasks}}" wx:key="taskId" data-id="{{item.taskId}}" bindtap="openTask">
+    <view class="task-head"><view><text class="task-title">{{item.title || '个性化资源任务'}}</text><text class="muted">{{item.taskType || item.type || '学习资源'}}</text></view><text class="status {{item.status}}">{{item.statusLabel}}</text></view>
+    <view class="progress" wx:if="{{item.status === 'running' || item.status === 'queued'}}"><view class="progress-bar" style="width: {{item.progressValue}}%"></view></view>
+    <text class="task-time">{{item.updatedAt || item.createdAt || ''}}</text>
+  </view>
+
+  <view class="modal-mask" wx:if="{{selectedTask}}" bindtap="closeTask">
+    <view class="task-modal" catchtap="noop">
+      <view class="modal-head"><text>{{selectedTask.resultTitle}}</text><text class="close" bindtap="closeTask">×</text></view>
+      <text class="status {{selectedTask.status}}">{{selectedTask.statusLabel}}</text>
+      <view class="progress modal-progress"><view class="progress-bar" style="width: {{selectedTask.progressValue}}%"></view></view>
+      <text class="result-summary">{{selectedTask.resultSummary || (selectedTask.status === 'complete' ? '任务已完成，可在网页端查看完整编辑结果。' : '后台任务仍在处理中。')}}</text>
+      <button class="primary" wx:if="{{selectedTask.status === 'waiting' && selectedTask.taskType === 'generated_video'}}" bindtap="startVideo" loading="{{startingVideo}}" disabled="{{startingVideo}}">确认启动 AI 视频生成</button>
+      <button class="secondary" wx:if="{{selectedTask.resultUrl || selectedTask.resultSummary}}" bindtap="copyResult">复制结果或下载地址</button>
+      <view class="feedback" wx:if="{{selectedTask.status === 'complete'}}">
+        <text class="field-label">完成学习并反馈</text>
+        <view class="rating"><button class="{{feedbackRating >= item ? 'active' : ''}}" wx:for="{{ratings}}" wx:key="*this" data-rating="{{item}}" bindtap="chooseRating">★</button></view>
+        <textarea value="{{feedbackNote}}" bindinput="feedbackInput" maxlength="300" placeholder="记录收获、疑问或需要加强的内容（可选）"></textarea>
+        <button class="primary" bindtap="submitFeedback" loading="{{feedbackSaving}}" disabled="{{feedbackSaving || !feedbackRating}}">提交学习反馈</button>
+      </view>
+    </view>
+  </view>
+</view>

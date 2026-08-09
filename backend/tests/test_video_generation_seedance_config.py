@@ -1,0 +1,610 @@
+from __future__ import annotations
+
+import json
+from types import SimpleNamespace
+
+import pytest
+
+import video_generation
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self._payload = payload
+        self.ok = True
+        self.status_code = 200
+        self.text = ""
+
+    def json(self):
+        return self._payload
+
+
+def test_seedance_15_uses_dedicated_workflow_credentials(monkeypatch):
+    settings = {
+        "COZE_SEEDANCE_15_API_BASE_URL": "https://workflow.example/v1/",
+        "COZE_SEEDANCE_15_API_TOKEN": "video-token",
+        "COZE_SEEDANCE_15_WORKFLOW_ID": "workflow-15",
+        "COZE_API_BASE_URL": "https://chat.example/v3/chat",
+        "COZE_API_TOKEN": "chat-token",
+    }
+    calls = []
+
+    monkeypatch.setattr(
+        video_generation,
+        "_setting",
+        lambda key, default="": settings.get(key, default),
+    )
+
+    def fake_post(url, *, headers, json, timeout):
+        calls.append(("post", url, headers, json, timeout))
+        return FakeResponse({"data": {"execute_id": "execute-1"}})
+
+    def fake_get(url, *, headers, timeout):
+        calls.append(("get", url, headers, None, timeout))
+        return FakeResponse(
+            {
+                "data": [
+                    {
+                        "execute_status": "SUCCESS",
+                        "output": {"video_url": "https://media.example/final.mp4"},
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr(video_generation.requests, "post", fake_post)
+    monkeypatch.setattr(video_generation.requests, "get", fake_get)
+
+    result = video_generation._create_seedance_15(
+        "https://media.example/first-frame.png",
+        "Explain GPIO interrupts",
+    )
+
+    assert result == "https://media.example/final.mp4"
+    assert calls[0][1] == "https://workflow.example/v1/workflow/run"
+    assert calls[1][1] == (
+        "https://workflow.example/v1/workflows/workflow-15/"
+        "run_histories/execute-1"
+    )
+    assert calls[0][2]["Authorization"] == "Bearer video-token"
+    assert calls[1][2]["Authorization"] == "Bearer video-token"
+    assert all("chat.example" not in call[1] for call in calls)
+    assert calls[0][3]["parameters"] == {
+        "img_head": "https://media.example/first-frame.png",
+        "prompt": "Explain GPIO interrupts",
+    }
+
+
+def test_video_engine_and_default_model_contract():
+    assert video_generation.DEFAULT_VIDEO_ENGINE == "seedance_1_5_coze"
+    assert video_generation.SUPPORTED_VIDEO_ENGINES == {
+        "seedance_1_5_coze",
+        "seedance_2_mini",
+        "seedance_2",
+    }
+    assert video_generation.VIDEO_ENGINE_MODELS["seedance_2_mini"] == (
+        "doubao-seedance-2.0-mini"
+    )
+    assert video_generation.VIDEO_ENGINE_MODELS["seedance_2"] == (
+        "doubao-seedance-2.0"
+    )
+    assert video_generation._video_engine({}) == "seedance_1_5_coze"
+    assert video_generation._video_engine({"videoEngine": "unsupported"}) == (
+        "seedance_1_5_coze"
+    )
+
+
+@pytest.mark.parametrize(
+    "engine",
+    ["seedance_1_5_coze", "seedance_2_mini", "seedance_2"],
+)
+def test_single_model_segment_is_expanded_to_requested_30_seconds(
+    monkeypatch,
+    engine,
+):
+    monkeypatch.setattr(
+        video_generation,
+        "call_llm_json",
+        lambda *_args, **_kwargs: {
+            "title": "GPIO 基础",
+            "summary": "GPIO 课程讲解",
+            "segments": [
+                {
+                    "id": "segment_01",
+                    "title": "GPIO 架构",
+                    "duration": 10,
+                    "narration": "先认识 GPIO 的基础架构。",
+                    "image_prompt": "GPIO architecture, no text",
+                    "video_prompt": "Explain GPIO architecture, no text",
+                }
+            ],
+        },
+    )
+
+    plan = video_generation._build_plan(
+        "GPIO",
+        {"duration": 30, "videoEngine": engine},
+        {},
+        [],
+    )
+
+    durations = [segment["duration"] for segment in plan["segments"]]
+    assert sum(durations) == 30
+    assert len(durations) >= 2
+    assert all(5 <= duration <= 15 for duration in durations)
+    if engine == "seedance_1_5_coze":
+        assert durations == [10, 10, 10]
+
+
+def test_seedance_2_preserves_valid_variable_segment_durations(monkeypatch):
+    monkeypatch.setattr(
+        video_generation,
+        "call_llm_json",
+        lambda *_args, **_kwargs: {
+            "title": "中断课程",
+            "summary": "分镜讲解",
+            "segments": [
+                {
+                    "title": "入口",
+                    "duration": 15,
+                    "narration": "先识别中断入口。",
+                    "image_prompt": "interrupt entry, no text",
+                    "video_prompt": "show interrupt entry, no text",
+                },
+                {
+                    "title": "处理",
+                    "duration": 14,
+                    "narration": "再观察中断处理流程。",
+                    "image_prompt": "interrupt flow, no text",
+                    "video_prompt": "show interrupt flow, no text",
+                },
+            ],
+        },
+    )
+
+    plan = video_generation._build_plan(
+        "中断",
+        {"duration": 30, "videoEngine": "seedance_2"},
+        {},
+        [],
+    )
+
+    assert [segment["duration"] for segment in plan["segments"]] == [15, 14]
+    assert plan["totalDuration"] == 29
+
+
+@pytest.mark.parametrize(
+    ("engine", "settings", "expected"),
+    [
+        (
+            "seedance_2_mini",
+            {
+                "VIDEO_VIDEO_MODEL_MINI": "configured-mini",
+                "VIDEO_VIDEO_MODEL": "legacy-mini",
+            },
+            "configured-mini",
+        ),
+        (
+            "seedance_2_mini",
+            {"VIDEO_VIDEO_MODEL": "legacy-mini"},
+            "legacy-mini",
+        ),
+        ("seedance_2_mini", {}, "doubao-seedance-2.0-mini"),
+        (
+            "seedance_2",
+            {"VIDEO_VIDEO_MODEL_FULL": "configured-full"},
+            "configured-full",
+        ),
+        ("seedance_2", {}, "doubao-seedance-2.0"),
+    ],
+)
+def test_seedance_2_model_setting_compatibility(
+    monkeypatch,
+    engine,
+    settings,
+    expected,
+):
+    monkeypatch.setattr(
+        video_generation,
+        "_setting",
+        lambda key, default="": settings.get(key, default),
+    )
+
+    assert video_generation._seedance_2_model(engine) == expected
+
+
+@pytest.mark.parametrize(
+    ("resolution", "dimensions"),
+    [
+        ("480p", (854, 480)),
+        ("720p", (1280, 720)),
+        ("1080p", (1920, 1080)),
+    ],
+)
+def test_video_resolution_contract(resolution, dimensions):
+    params = video_generation._normalize_video_params(
+        {
+            "video_engine": "seedance_2",
+            "videoResolution": resolution.upper(),
+            "aspectRatio": "4:3",
+        }
+    )
+
+    assert params["videoEngine"] == "seedance_2"
+    assert params["resolution"] == resolution
+    assert params["size"] == "16:9"
+    assert video_generation.VIDEO_RESOLUTION_DIMENSIONS[resolution] == dimensions
+
+
+def test_invalid_resolution_and_size_fall_back_to_defaults():
+    params = video_generation._normalize_video_params(
+        {"resolution": "2k", "size": "1:1"}
+    )
+
+    assert params["resolution"] == "720p"
+    assert params["size"] == "16:9"
+
+
+@pytest.mark.parametrize(
+    ("engine", "settings", "missing_name"),
+    [
+        (
+            "seedance_1_5_coze",
+            {
+                "VIDEO_IMAGE_API_KEY": "configured",
+                "VIDEO_TTS_API_KEY": "configured",
+                "COZE_SEEDANCE_15_API_TOKEN": "configured",
+            },
+            "COZE_SEEDANCE_15_WORKFLOW_ID",
+        ),
+        (
+            "seedance_2_mini",
+            {
+                "VIDEO_IMAGE_API_KEY": "configured",
+                "VIDEO_TTS_API_KEY": "configured",
+            },
+            "VIDEO_VIDEO_API_KEY",
+        ),
+        (
+            "seedance_2",
+            {
+                "VIDEO_IMAGE_API_KEY": "configured",
+                "VIDEO_TTS_API_KEY": "configured",
+            },
+            "VIDEO_VIDEO_API_KEY",
+        ),
+    ],
+)
+def test_preflight_reports_missing_selected_engine_configuration(
+    monkeypatch,
+    engine,
+    settings,
+    missing_name,
+):
+    monkeypatch.setattr(
+        video_generation,
+        "_setting",
+        lambda key, default="": settings.get(key, default),
+    )
+
+    with pytest.raises(video_generation.VideoGenerationError) as exc_info:
+        video_generation._validate_video_configuration(engine)
+
+    assert missing_name in str(exc_info.value)
+    assert "configured" not in str(exc_info.value)
+
+
+def test_execute_preflights_all_credentials_before_planning_or_first_image(
+    monkeypatch,
+):
+    calls = []
+    settings = {
+        "VIDEO_IMAGE_API_KEY": "configured",
+        "VIDEO_VIDEO_API_KEY": "configured",
+    }
+    monkeypatch.setattr(
+        video_generation,
+        "_setting",
+        lambda key, default="": settings.get(key, default),
+    )
+    monkeypatch.setattr(
+        video_generation,
+        "_build_plan",
+        lambda *_args: calls.append("planning"),
+    )
+    monkeypatch.setattr(
+        video_generation,
+        "_create_image",
+        lambda *_args: calls.append("image"),
+    )
+
+    with pytest.raises(
+        video_generation.VideoGenerationError,
+        match="VIDEO_TTS_API_KEY/TTS_API_KEY",
+    ):
+        video_generation.execute_generated_video_task(
+            "task-1",
+            7,
+            "Interrupts",
+            {"videoEngine": "seedance_2", "resolution": "1080p"},
+            {},
+            [],
+            lambda **_payload: None,
+        )
+
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("engine", "resolution", "expected_model"),
+    [
+        ("seedance_2_mini", "480p", "doubao-seedance-2.0-mini"),
+        ("seedance_2", "1080p", "doubao-seedance-2.0"),
+    ],
+)
+def test_seedance_2_api_uses_engine_model_and_dimensions(
+    monkeypatch,
+    engine,
+    resolution,
+    expected_model,
+):
+    requests_seen = []
+
+    monkeypatch.setattr(
+        video_generation,
+        "_setting",
+        lambda key, default="": {
+            "VIDEO_MEDIA_BASE_URL": "https://media.example/v1",
+        }.get(key, default),
+    )
+    monkeypatch.setattr(video_generation, "_headers", lambda _token: {})
+    monkeypatch.setattr(
+        video_generation,
+        "_wait_media_task",
+        lambda base_url, token, task_id: {
+            "result": {"videos": [{"url": "https://media.example/result.mp4"}]}
+        },
+    )
+
+    def fake_post(url, *, headers, json, timeout):
+        requests_seen.append((url, headers, json, timeout))
+        return FakeResponse({"data": [{"task_id": "video-task"}]})
+
+    monkeypatch.setattr(video_generation.requests, "post", fake_post)
+
+    result = video_generation._create_seedance_2_api(
+        engine,
+        "https://media.example/first-frame.png",
+        "Explain an interrupt controller",
+        resolution,
+        "16:9",
+        15,
+    )
+
+    assert result == "https://media.example/result.mp4"
+    assert requests_seen[0][0] == "https://media.example/v1/videos/generations"
+    assert requests_seen[0][2] == {
+        "model": expected_model,
+        "prompt": "Explain an interrupt controller",
+        "image_urls": ["https://media.example/first-frame.png"],
+        "duration": 15,
+        "resolution": resolution,
+        "size": "16:9",
+        "generate_audio": False,
+    }
+
+
+def test_execute_explicitly_propagates_selected_engine_and_resolution(
+    monkeypatch,
+    tmp_path,
+):
+    generation_calls = []
+    updates = []
+    params = {
+        "videoEngine": "seedance_2",
+        "resolution": "1080p",
+        "size": "16:9",
+    }
+    original_params = dict(params)
+    plan = {
+        "title": "Interrupts",
+        "summary": "A focused explanation.",
+        "segments": [
+            {
+                "id": "segment_01",
+                "title": "Overview",
+                "duration": 10,
+                "narration": "先理解中断入口。",
+                "image_prompt": "interrupt controller diagram, no text",
+                "video_prompt": "explain interrupt flow, no text",
+            }
+        ],
+    }
+
+    monkeypatch.setattr(video_generation, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        video_generation,
+        "_validate_video_configuration",
+        lambda _engine: None,
+    )
+    monkeypatch.setattr(video_generation, "_build_plan", lambda *args: plan)
+    monkeypatch.setattr(
+        video_generation,
+        "_create_image",
+        lambda _prompt: "https://media.example/frame.png",
+    )
+    monkeypatch.setattr(video_generation, "_download", lambda *_args: None)
+    monkeypatch.setattr(video_generation, "_create_tts", lambda *_args: None)
+    monkeypatch.setattr(
+        video_generation,
+        "_create_seedance_video",
+        lambda *args: generation_calls.append(args)
+        or "https://media.example/segment.mp4",
+    )
+
+    def fake_compose(directory, segments, progress, resolution):
+        assert resolution == "1080p"
+        return directory / "final.mp4", directory / "poster.jpg", 10
+
+    monkeypatch.setattr(video_generation, "_compose", fake_compose)
+
+    assert generation_calls == []
+    result = video_generation.execute_generated_video_task(
+        "task-1",
+        7,
+        "Interrupts",
+        params,
+        {},
+        [],
+        lambda **payload: updates.append(payload),
+    )
+
+    assert params == original_params
+    assert generation_calls == [
+        (
+            "seedance_2",
+            "https://media.example/frame.png",
+            "explain interrupt flow, no text",
+            "1080p",
+            "16:9",
+            10,
+        )
+    ]
+    assert result["engine"] == "seedance_2"
+    assert result["resolution"] == "1080p"
+    assert result["selectedResource"]["metadata"]["resolution"] == "1080p"
+    assert updates
+    assert all(
+        update["result_json"]["resolution"] == "1080p" for update in updates
+    )
+
+
+@pytest.mark.parametrize(
+    ("resolution", "width", "height"),
+    [
+        ("480p", 854, 480),
+        ("720p", 1280, 720),
+        ("1080p", 1920, 1080),
+    ],
+)
+def test_compose_normalizes_and_validates_requested_dimensions(
+    monkeypatch,
+    tmp_path,
+    resolution,
+    width,
+    height,
+):
+    (tmp_path / "segments").mkdir()
+    (tmp_path / "audio").mkdir()
+    commands = []
+    monkeypatch.setattr(video_generation, "_run", lambda command: commands.append(command))
+
+    def fake_probe(*_args, **_kwargs):
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "format": {"duration": "10.0"},
+                    "streams": [
+                        {"codec_type": "video", "width": width, "height": height},
+                        {"codec_type": "audio"},
+                    ],
+                }
+            ),
+        )
+
+    monkeypatch.setattr(video_generation.subprocess, "run", fake_probe)
+
+    video_generation._compose(
+        tmp_path,
+        [{"id": "segment_01", "narration": "中断控制器。"}],
+        lambda *_args: None,
+        resolution,
+    )
+
+    filter_index = commands[0].index("-filter_complex") + 1
+    filter_complex = commands[0][filter_index]
+    assert f"scale={width}:{height}" in filter_complex
+    assert f"crop={width}:{height}" in filter_complex
+
+
+def test_compose_uses_planned_segment_duration(monkeypatch, tmp_path):
+    (tmp_path / "segments").mkdir()
+    (tmp_path / "audio").mkdir()
+    commands = []
+    monkeypatch.setattr(video_generation, "_run", lambda command: commands.append(command))
+    monkeypatch.setattr(
+        video_generation.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "format": {"duration": "15.0"},
+                    "streams": [
+                        {"codec_type": "video", "width": 1280, "height": 720},
+                        {"codec_type": "audio"},
+                    ],
+                }
+            ),
+        ),
+    )
+
+    _final, _poster, duration = video_generation._compose(
+        tmp_path,
+        [
+            {
+                "id": "segment_01",
+                "duration": 15,
+                "narration": "观察中断控制器的处理流程。",
+            }
+        ],
+        lambda *_args: None,
+        "720p",
+    )
+
+    filter_index = commands[0].index("-filter_complex") + 1
+    filter_complex = commands[0][filter_index]
+    subtitle = (tmp_path / "segments" / "segment_01.srt").read_text(
+        encoding="utf-8"
+    )
+    assert "trim=duration=15" in filter_complex
+    assert "atrim=duration=15" in filter_complex
+    assert "00:00:15,000" in subtitle
+    assert duration == 15
+
+
+def test_compose_rejects_final_duration_that_misses_plan(monkeypatch, tmp_path):
+    (tmp_path / "segments").mkdir()
+    (tmp_path / "audio").mkdir()
+    monkeypatch.setattr(video_generation, "_run", lambda _command: None)
+    monkeypatch.setattr(
+        video_generation.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "format": {"duration": "10.0"},
+                    "streams": [
+                        {"codec_type": "video", "width": 1280, "height": 720},
+                        {"codec_type": "audio"},
+                    ],
+                }
+            ),
+        ),
+    )
+
+    with pytest.raises(video_generation.VideoGenerationError, match="规划时长 15 秒"):
+        video_generation._compose(
+            tmp_path,
+            [
+                {
+                    "id": "segment_01",
+                    "duration": 15,
+                    "narration": "观察中断控制器的处理流程。",
+                }
+            ],
+            lambda *_args: None,
+            "720p",
+        )

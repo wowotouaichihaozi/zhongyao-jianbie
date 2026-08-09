@@ -1,0 +1,25 @@
+.empty-profile text { display: block; }
+.empty-profile .muted { margin-bottom: 24rpx; }
+.summary { display: grid; grid-template-columns: 1fr auto; gap: 14rpx; margin-bottom: 20rpx; }
+.summary text { display: block; }
+.summary-title { margin-top: 8rpx; font-size: 28rpx; font-weight: 750; }
+.percent { align-self: center; color: #176f4b; font-size: 38rpx; font-weight: 800; }
+.summary .progress, .updated { grid-column: 1 / -1; }
+.updated { color: #829087; font-size: 19rpx; }
+.generation { display: grid; grid-template-columns: 20rpx 1fr; gap: 16rpx; margin-bottom: 22rpx; padding: 22rpx; border: 1rpx solid #c8ddd2; background: #edf5f1; color: #176f4b; }
+.generation text { display: block; font-size: 23rpx; }
+.generation view text + text { margin-top: 6rpx; color: #62746a; font-size: 20rpx; }
+.pulse { width: 16rpx; height: 16rpx; margin-top: 6rpx; border-radius: 50%; background: #176f4b; }
+.timeline { margin-top: 26rpx; }
+.week { position: relative; display: grid; grid-template-columns: 62rpx 1fr; gap: 14rpx; padding-bottom: 24rpx; }
+.week::before { content: ''; position: absolute; top: 52rpx; bottom: -4rpx; left: 29rpx; width: 2rpx; background: #cad8d1; }
+.week:last-child::before { display: none; }
+.marker { width: 58rpx; height: 58rpx; display: flex; align-items: center; justify-content: center; border: 1rpx solid #aebfb6; border-radius: 50%; background: #fff; color: #66776e; font-size: 22rpx; font-weight: 800; }
+.week.current .marker, .week.done .marker { border-color: #176f4b; background: #176f4b; color: #fff; }
+.week-body { padding: 24rpx; border: 1rpx solid #d9e3de; border-radius: 14rpx; background: #fff; }
+.week.current .week-body { border-top: 5rpx solid #176f4b; }
+.week-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16rpx; margin-bottom: 12rpx; }
+.week-head > text:first-child { font-size: 27rpx; font-weight: 750; line-height: 1.45; }
+.task-row { display: grid; grid-template-columns: 14rpx 1fr; gap: 10rpx; margin-top: 16rpx; color: #52655b; font-size: 22rpx; line-height: 1.55; }
+.dot { width: 9rpx; height: 9rpx; margin-top: 12rpx; border-radius: 50%; background: #a16f19; }
+.week-action { min-height: 68rpx; margin-top: 20rpx; font-size: 22rpx; }

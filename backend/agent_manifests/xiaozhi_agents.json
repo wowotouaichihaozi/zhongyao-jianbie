@@ -1,0 +1,1134 @@
+{
+    "manifestVersion":  "1.6.1",
+    "rootAgentId":  "xiaozhi-companion-agent",
+    "architecture":  "supervisor-shared-blackboard",
+    "agents":  [
+                   {
+                       "id":  "xiaozhi-companion-agent",
+                       "name":  "xiaozhi-companion-agent",
+                       "role":  "supervisor",
+                       "description":  "Platform agent xiaozhi-companion-agent"
+                   },
+                   {
+                       "id":  "learning-background-dialogue-agent",
+                       "name":  "learning-background-dialogue-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent learning-background-dialogue-agent"
+                   },
+                   {
+                       "id":  "learning-profile-agent",
+                       "name":  "learning-profile-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent learning-profile-agent"
+                   },
+                   {
+                       "id":  "learning-route-agent",
+                       "name":  "learning-route-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent learning-route-agent"
+                   },
+                   {
+                       "id":  "learning-path-stage-agent",
+                       "name":  "learning-path-stage-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent learning-path-stage-agent"
+                   },
+                   {
+                       "id":  "personalized-resource-workflow",
+                       "name":  "personalized-resource-workflow",
+                       "role":  "specialist",
+                       "description":  "Platform agent personalized-resource-workflow"
+                   },
+                   {
+                       "id":  "question-generator-workflow",
+                       "name":  "question-generator-workflow",
+                       "role":  "specialist",
+                       "description":  "Platform agent question-generator-workflow"
+                   },
+                   {
+                       "id":  "ppt-agent",
+                       "name":  "ppt-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent ppt-agent"
+                   },
+                   {
+                       "id":  "learning-document-agent",
+                       "name":  "learning-document-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent learning-document-agent"
+                   },
+                   {
+                       "id":  "mindmap-agent",
+                       "name":  "mindmap-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent mindmap-agent"
+                   },
+                   {
+                       "id":  "video-search-agent",
+                       "name":  "video-search-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent video-search-agent"
+                   },
+                   {
+                       "id":  "generated-video-agent",
+                       "name":  "generated-video-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent generated-video-agent"
+                   },
+                   {
+                       "id":  "learning-animation-agent",
+                       "name":  "learning-animation-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent learning-animation-agent"
+                   },
+                   {
+                       "id":  "mcu-agent",
+                       "name":  "mcu-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent mcu-agent"
+                   },
+                   {
+                       "id":  "interview-agent",
+                       "name":  "interview-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent interview-agent"
+                   },
+                   {
+                       "id":  "smart-tutor-agent",
+                       "name":  "smart-tutor-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent smart-tutor-agent"
+                   },
+                   {
+                       "id":  "learning-effect-assessment-agent",
+                       "name":  "learning-effect-assessment-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent learning-effect-assessment-agent"
+                   },
+                   {
+                       "id":  "learning-feedback-agent",
+                       "name":  "learning-feedback-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent learning-feedback-agent"
+                   },
+                   {
+                       "id":  "private-knowledge-agent",
+                       "name":  "private-knowledge-agent",
+                       "role":  "specialist",
+                       "description":  "Platform agent private-knowledge-agent"
+                   },
+                   {
+                       "id":  "kimi-vision-understanding-agent",
+                       "name":  "kimi-vision-understanding-agent",
+                       "role":  "runtime",
+                       "description":  "Platform agent kimi-vision-understanding-agent"
+                   },
+                   {
+                       "id":  "document-text-extraction-agent",
+                       "name":  "document-text-extraction-agent",
+                       "role":  "runtime",
+                       "description":  "Platform agent document-text-extraction-agent"
+                   },
+                   {
+                       "id":  "spark-text-reasoning-agent",
+                       "name":  "spark-text-reasoning-agent",
+                       "role":  "runtime",
+                       "description":  "Platform agent spark-text-reasoning-agent"
+                   }
+               ],
+    "skills":  [
+                   {
+                       "id":  "learner.background.collect",
+                       "name":  "learning_background",
+                       "taskType":  "learning_background",
+                       "agentId":  "learning-background-dialogue-agent",
+                       "description":  "Platform task learning_background",
+                       "label":  "learning_background",
+                       "route":  "/learning-profile?collect=chat",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "learner.background.collect",
+                       "handlerKey":  "learning_background.collect",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message",
+                                                             "dialogue"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    },
+                                                               "dialogue":  {
+                                                                                "type":  "object"
+                                                                            }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "dialogue:write"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  60,
+                       "maxRetries":  0,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  false,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "learner.profile.refresh",
+                       "name":  "profile_update",
+                       "taskType":  "profile_update",
+                       "agentId":  "learning-profile-agent",
+                       "description":  "Platform task profile_update",
+                       "label":  "profile_update",
+                       "route":  "/learning-profile?menu=report",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "learner.profile.refresh",
+                       "handlerKey":  "learning_profile.refresh",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "profile:write",
+                                           "evidence:read"
+                                       ],
+                       "riskLevel":  "medium",
+                       "timeoutSeconds":  120,
+                       "maxRetries":  0,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  false,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "learner.profile.manage",
+                       "name":  "profile_management",
+                       "taskType":  "profile_management",
+                       "agentId":  "learning-profile-agent",
+                       "description":  "Platform task profile_management",
+                       "label":  "profile_management",
+                       "route":  "/learning-profile?menu=history",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "learner.profile.manage",
+                       "handlerKey":  "learning_profile.manage",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "profile:write"
+                                       ],
+                       "riskLevel":  "medium",
+                       "timeoutSeconds":  60,
+                       "maxRetries":  0,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  false,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "learning.path.generate",
+                       "name":  "learning_path",
+                       "taskType":  "learning_path",
+                       "agentId":  "learning-route-agent",
+                       "description":  "Platform task learning_path",
+                       "label":  "learning_path",
+                       "route":  "/learning-path",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "learning.path.generate",
+                       "handlerKey":  "learning_path.generate",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "path:write",
+                                           "knowledge:read",
+                                           "evidence:read"
+                                       ],
+                       "riskLevel":  "medium",
+                       "timeoutSeconds":  180,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "learning.path.stage-detail",
+                       "name":  "learning_path_stage",
+                       "taskType":  "learning_path_stage",
+                       "agentId":  "learning-path-stage-agent",
+                       "description":  "Platform task learning_path_stage",
+                       "label":  "learning_path_stage",
+                       "route":  "/learning-path",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "learning.path.stage-detail",
+                       "handlerKey":  "learning_path.stage_detail",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "path:read",
+                                           "knowledge:read"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  600,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "resource.package.generate",
+                       "name":  "personalized_resources",
+                       "taskType":  "personalized_resources",
+                       "agentId":  "personalized-resource-workflow",
+                       "description":  "Platform task personalized_resources",
+                       "label":  "personalized_resources",
+                       "route":  "/personalized-resources",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "resource.package.generate",
+                       "handlerKey":  "resource.package.generate",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "knowledge:read",
+                                           "resource:write"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  240,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "resource.question-bank.generate",
+                       "name":  "question_bank",
+                       "taskType":  "question_bank",
+                       "agentId":  "question-generator-workflow",
+                       "description":  "Platform task question_bank",
+                       "label":  "question_bank",
+                       "route":  "/personalized-resources/question-bank",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "resource.question-bank.generate",
+                       "handlerKey":  "resource.question_bank.generate",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "knowledge:read",
+                                           "question-bank:write"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  300,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "resource.ppt.generate",
+                       "name":  "ppt",
+                       "taskType":  "ppt",
+                       "agentId":  "ppt-agent",
+                       "description":  "Platform task ppt",
+                       "label":  "ppt",
+                       "route":  "/personalized-resources/ppt",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "resource.ppt.generate",
+                       "handlerKey":  "resource.ppt.generate",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "knowledge:read",
+                                           "ppt:write"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  300,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "resource.document.generate",
+                       "name":  "document",
+                       "taskType":  "document",
+                       "agentId":  "learning-document-agent",
+                       "description":  "Platform task document",
+                       "label":  "document",
+                       "route":  "/personalized-resources/document",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "resource.document.generate",
+                       "handlerKey":  "resource.document.generate",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "knowledge:read",
+                                           "document:write"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  180,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "resource.mindmap.generate",
+                       "name":  "mindmap",
+                       "taskType":  "mindmap",
+                       "agentId":  "mindmap-agent",
+                       "description":  "Platform task mindmap",
+                       "label":  "mindmap",
+                       "route":  "/personalized-resources/mind-map",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "resource.mindmap.generate",
+                       "handlerKey":  "resource.mindmap.generate",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "knowledge:read",
+                                           "mindmap:write"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  180,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "resource.video.search",
+                       "name":  "video",
+                       "taskType":  "video",
+                       "agentId":  "video-search-agent",
+                       "description":  "Platform task video",
+                       "label":  "video",
+                       "route":  "/personalized-resources/video-search",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "resource.video.search",
+                       "handlerKey":  "resource.video.search",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "knowledge:read",
+                                           "network:search"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  120,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "resource.animation.generate",
+                       "name":  "animation",
+                       "taskType":  "animation",
+                       "agentId":  "learning-animation-agent",
+                       "description":  "Platform task animation",
+                       "label":  "animation",
+                       "route":  "/personalized-resources/animation",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "resource.animation.generate",
+                       "handlerKey":  "resource.animation.generate",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "knowledge:read",
+                                           "animation:write"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  180,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "mcu.experiment.recommend",
+                       "name":  "mcu",
+                       "taskType":  "mcu",
+                       "agentId":  "mcu-agent",
+                       "description":  "Platform task mcu",
+                       "label":  "mcu",
+                       "route":  "/personalized-resources/mcu-simulator",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "mcu.experiment.recommend",
+                       "handlerKey":  "mcu.experiment.recommend",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "experiment:read",
+                                           "experiment:launch"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  120,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "interview.session.run",
+                       "name":  "interview",
+                       "taskType":  "interview",
+                       "agentId":  "interview-agent",
+                       "description":  "Platform task interview",
+                       "label":  "interview",
+                       "route":  "/digital-human-interview",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "interview.session.run",
+                       "handlerKey":  "interview.session.run",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "interview:write",
+                                           "camera:analyze"
+                                       ],
+                       "riskLevel":  "medium",
+                       "timeoutSeconds":  120,
+                       "maxRetries":  0,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "learning.tutor.answer",
+                       "name":  "smart_tutor",
+                       "taskType":  "smart_tutor",
+                       "agentId":  "smart-tutor-agent",
+                       "description":  "Platform task smart_tutor",
+                       "label":  "smart_tutor",
+                       "route":  "/smart-tutor",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "learning.tutor.answer",
+                       "handlerKey":  "learning.tutor.answer",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "knowledge:read"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  120,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  true,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "learning.effect.evaluate",
+                       "name":  "effect_assessment",
+                       "taskType":  "effect_assessment",
+                       "agentId":  "learning-effect-assessment-agent",
+                       "description":  "Platform task effect_assessment",
+                       "label":  "effect_assessment",
+                       "route":  "/effect-assessment",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "learning.effect.evaluate",
+                       "handlerKey":  "learning.effect.evaluate",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "evidence:read",
+                                           "assessment:write",
+                                           "path:write"
+                                       ],
+                       "riskLevel":  "medium",
+                       "timeoutSeconds":  150,
+                       "maxRetries":  1,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  false,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "learning.feedback.submit",
+                       "name":  "learning_feedback",
+                       "taskType":  "learning_feedback",
+                       "agentId":  "learning-feedback-agent",
+                       "description":  "Platform task learning_feedback",
+                       "label":  "learning_feedback",
+                       "route":  "/effect-assessment?section=feedback",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "learning.feedback.submit",
+                       "handlerKey":  "learning_feedback.submit",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "profile:read",
+                                           "evidence:read",
+                                           "feedback:write",
+                                           "path:write"
+                                       ],
+                       "riskLevel":  "low",
+                       "timeoutSeconds":  60,
+                       "maxRetries":  0,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  false,
+                                      "minScore":  70
+                                  }
+                   },
+                   {
+                       "id":  "knowledge.base.manage",
+                       "name":  "knowledge_base",
+                       "taskType":  "knowledge_base",
+                       "agentId":  "private-knowledge-agent",
+                       "description":  "Platform task knowledge_base",
+                       "label":  "knowledge_base",
+                       "route":  "/personalized-resources/knowledge-base",
+                       "mcpServer":  "platform-mcp",
+                       "mcpTool":  "knowledge.base.manage",
+                       "handlerKey":  "knowledge_base.manage",
+                       "inputSchema":  {
+                                           "type":  "object",
+                                           "required":  [
+                                                            "topic"
+                                                        ],
+                                           "properties":  {
+                                                              "topic":  {
+                                                                            "type":  "string",
+                                                                            "minLength":  1
+                                                                        }
+                                                          },
+                                           "additionalProperties":  true
+                                       },
+                       "outputSchema":  {
+                                            "type":  "object",
+                                            "required":  [
+                                                             "message"
+                                                         ],
+                                            "properties":  {
+                                                               "message":  {
+                                                                               "type":  "string",
+                                                                               "minLength":  1
+                                                                           },
+                                                               "selectedResource":  {
+                                                                                        "type":  "object"
+                                                                                    }
+                                                           },
+                                            "additionalProperties":  true
+                                        },
+                       "permissions":  [
+                                           "knowledge:read",
+                                           "knowledge:write"
+                                       ],
+                       "riskLevel":  "medium",
+                       "timeoutSeconds":  120,
+                       "maxRetries":  0,
+                       "requiresReview":  true,
+                       "version":  "1.0.0",
+                       "policy":  {
+                                      "knowledge":  false,
+                                      "minScore":  70
+                                  }
+                   }
+               ]
+}

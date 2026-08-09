@@ -1,0 +1,21 @@
+<view class="login-page">
+  <image class="background" src="/assets/login-background.webp" mode="aspectFill"></image>
+  <view class="shade"></view>
+  <image class="brand" src="/assets/logo.png" mode="widthFix"></image>
+  <form class="glass" bindsubmit="submit">
+    <view class="intro">
+      <text class="eyebrow">PERSONAL LEARNING SPACE</text>
+      <text class="title">登录嵌智学航</text>
+    </view>
+    <view class="identity">
+      <view class="admin-mark">学</view>
+      <view><text>平台账号登录</text><text>与网页端共用账号和学习数据</text></view>
+      <text class="secure">HTTPS</text>
+    </view>
+    <label class="field"><text class="field-label">账号</text><input class="field-input" data-field="username" value="{{username}}" bindinput="input" maxlength="64" placeholder="输入用户名或邮箱"></input></label>
+    <label class="field"><text class="field-label">密码</text><input class="field-input" data-field="password" value="{{password}}" bindinput="input" password placeholder="输入密码"></input></label>
+    <label class="field" wx:if="{{captchaQuestion}}"><text class="field-label">验证码：{{captchaQuestion}}</text><input class="field-input" data-field="captchaAnswer" value="{{captchaAnswer}}" bindinput="input" type="number" placeholder="输入计算结果"></input></label>
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+    <button class="primary submit" form-type="submit" loading="{{loading}}" disabled="{{loading}}">{{loading ? '正在登录' : '登录学习平台'}}</button>
+  </form>
+</view>

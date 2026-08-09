@@ -1,0 +1,11 @@
+{
+  "appId": "xyz.lzhan.qianzhi",
+  "appName": "嵌智学航",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

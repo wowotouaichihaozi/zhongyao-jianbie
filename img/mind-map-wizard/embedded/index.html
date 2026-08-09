@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>嵌智学航交互式思维导图</title>
+  <link rel="stylesheet" href="./mind-map-elements.css">
+  <style>
+    :root {
+      color-scheme: light;
+      --background-color: #f8fbf9;
+      --card-background: #ffffff;
+      --text-color: #18382f;
+      --secondary-text-color: #647970;
+      --white: #ffffff;
+      --light-grey: #e3ece7;
+      --light-grey-dark: #d3e0da;
+      --mindmap-item-hover-bg: #edf7f2;
+      --primary-color: #0e9f6e;
+      --secondary-color: #22a06b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #f8fbf9;
+      font-family: Inter, "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #mindmap,
+    #svg-output {
+      width: 100%;
+      height: 100%;
+      min-height: 320px;
+    }
+
+    #mindmap {
+      display: block;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #svg-output {
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      background-color: #f8fbf9;
+      background-image: radial-gradient(circle, rgba(64, 104, 89, 0.15) 1px, transparent 1px);
+      background-position: 0 0;
+      background-size: 40px 40px;
+      touch-action: none;
+    }
+
+    #svg-output.panning {
+      cursor: grabbing;
+    }
+
+    #svg-output > svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      overflow: visible;
+    }
+
+    .engine-error {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: #aa4039;
+      text-align: center;
+    }
+
+    [data-mmw-stub] {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="mindmap" aria-label="交互式思维导图">
+    <div id="svg-output"></div>
+  </div>
+  <textarea id="json-editor" data-mmw-stub aria-hidden="true"></textarea>
+  <div id="slider" data-mmw-stub></div>
+  <div id="editor-container" data-mmw-stub></div>
+  <div id="app-container" data-mmw-stub></div>
+  <button id="zoom-in-btn" data-mmw-stub type="button"></button>
+  <button id="zoom-out-btn" data-mmw-stub type="button"></button>
+  <button id="fit-screen-btn" data-mmw-stub type="button"></button>
+  <button id="edit-json-btn" data-mmw-stub type="button"></button>
+  <script src="./bridge.js"></script>
+</body>
+</html>

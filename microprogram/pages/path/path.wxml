@@ -1,0 +1,42 @@
+<view class="page">
+  <view class="page-head">
+    <text class="eyebrow">PROFILE-DRIVEN PATH</text>
+    <view class="page-title">个性化周路径</view>
+    <view class="page-subtitle">根据当前画像、薄弱点与可投入时间编排，每周任务和资源均来自服务端真实配置。</view>
+  </view>
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+  <view class="loading" wx:if="{{loading}}">正在读取学习路径...</view>
+  <block wx:else>
+    <view class="card empty-profile" wx:if="{{!profile}}">
+      <text class="section-title">还没有可用画像</text>
+      <text class="muted">完成画像采集后，系统才会生成真正个性化的周路径。</text>
+      <button class="primary" bindtap="profile">开始画像采集</button>
+    </view>
+    <block wx:else>
+      <view class="summary card">
+        <view><text class="muted">当前画像</text><text class="summary-title">{{profile.profileName || '学习画像'}} v{{profile.version || 1}}</text></view>
+        <text class="percent">{{progress}}%</text>
+        <view class="progress"><view class="progress-bar" style="width: {{progress}}%"></view></view>
+        <text class="updated" wx:if="{{updatedAt}}">路径更新：{{updatedAt}}</text>
+      </view>
+      <view class="generation" wx:if="{{generation && (generation.status === 'queued' || generation.status === 'running')}}">
+        <text class="pulse"></text>
+        <view><text>路径智能体正在后台编排</text><text>{{generation.message || '页面可稍后下拉刷新查看结果'}}</text></view>
+      </view>
+      <view class="empty card" wx:if="{{!weeks.length && !(generation && (generation.status === 'queued' || generation.status === 'running'))}}">当前画像尚未生成周路径，请稍后下拉刷新。</view>
+      <view class="timeline" wx:else>
+        <view class="week {{item.state}}" wx:for="{{weeks}}" wx:key="id">
+          <view class="marker">{{item.order}}</view>
+          <view class="week-body">
+            <view class="week-head"><text>{{item.title}}</text><text class="status {{item.state}}">{{item.state === 'done' ? '已完成' : item.state === 'current' ? '进行中' : item.state === 'locked' ? '未解锁' : '可学习'}}</text></view>
+            <text class="muted">{{item.description || '按画像安排的本周学习任务'}}</text>
+            <view class="task-row" wx:for="{{item.tasks}}" wx:for-item="task" wx:key="index">
+              <text class="dot"></text><text>{{task.title || task.name || task.description || task}}</text>
+            </view>
+            <button class="secondary week-action" wx:if="{{item.state !== 'locked'}}" bindtap="resources">生成本周资源</button>
+          </view>
+        </view>
+      </view>
+    </block>
+  </block>
+</view>

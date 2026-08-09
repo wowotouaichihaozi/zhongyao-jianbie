@@ -1,0 +1,652 @@
+{
+  "source": "C:\\Users\\han\\AppData\\Local\\Temp\\codex-clipboard-c8f24f31-31df-48d8-8f5b-832ec756d007.png",
+  "crop": {
+    "x": 211,
+    "y": 66,
+    "width": 832,
+    "height": 1078
+  },
+  "files": {
+    "cropped": "face-cropped.png",
+    "croppedTransparentDots": "face-cropped-dots-transparent.png",
+    "preview": "split-preview-numbered.png",
+    "contactSheet": "split-contact-sheet.png",
+    "contactSheetIndexed": "split-contact-sheet-indexed.png"
+  },
+  "blocks": [
+    {
+      "index": 1,
+      "id": "forehead_top",
+      "name": "????",
+      "file": "segments/01-forehead_top.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/01-forehead_top.png",
+      "x": 293,
+      "y": 28,
+      "width": 244,
+      "height": 245,
+      "centroid": {
+        "x": 415.2,
+        "y": 136.1
+      },
+      "polygon": [
+        {
+          "x": 299,
+          "y": 0
+        },
+        {
+          "x": 532,
+          "y": 0
+        },
+        {
+          "x": 524,
+          "y": 258
+        },
+        {
+          "x": 307,
+          "y": 258
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "id": "forehead_left",
+      "name": "????",
+      "file": "segments/02-forehead_left.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/02-forehead_left.png",
+      "x": 80,
+      "y": 47,
+      "width": 249,
+      "height": 377,
+      "centroid": {
+        "x": 189.8,
+        "y": 265.7
+      },
+      "polygon": [
+        {
+          "x": 83,
+          "y": 43
+        },
+        {
+          "x": 307,
+          "y": 0
+        },
+        {
+          "x": 316,
+          "y": 377
+        },
+        {
+          "x": 183,
+          "y": 409
+        },
+        {
+          "x": 66,
+          "y": 269
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "id": "forehead_right",
+      "name": "????",
+      "file": "segments/03-forehead_right.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/03-forehead_right.png",
+      "x": 503,
+      "y": 44,
+      "width": 249,
+      "height": 380,
+      "centroid": {
+        "x": 638.8,
+        "y": 262.0
+      },
+      "polygon": [
+        {
+          "x": 524,
+          "y": 0
+        },
+        {
+          "x": 748,
+          "y": 43
+        },
+        {
+          "x": 765,
+          "y": 269
+        },
+        {
+          "x": 648,
+          "y": 409
+        },
+        {
+          "x": 515,
+          "y": 377
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "id": "forehead_center",
+      "name": "????",
+      "file": "segments/04-forehead_center.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/04-forehead_center.png",
+      "x": 308,
+      "y": 254,
+      "width": 215,
+      "height": 267,
+      "centroid": {
+        "x": 413.8,
+        "y": 430.1
+      },
+      "polygon": [
+        {
+          "x": 324,
+          "y": 237
+        },
+        {
+          "x": 507,
+          "y": 237
+        },
+        {
+          "x": 490,
+          "y": 506
+        },
+        {
+          "x": 341,
+          "y": 506
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "id": "left_brow",
+      "name": "???",
+      "file": "segments/05-left_brow.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/05-left_brow.png",
+      "x": 80,
+      "y": 309,
+      "width": 272,
+      "height": 179,
+      "centroid": {
+        "x": 222.7,
+        "y": 429.6
+      },
+      "polygon": [
+        {
+          "x": 100,
+          "y": 366
+        },
+        {
+          "x": 374,
+          "y": 366
+        },
+        {
+          "x": 357,
+          "y": 463
+        },
+        {
+          "x": 166,
+          "y": 474
+        },
+        {
+          "x": 58,
+          "y": 420
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "id": "right_brow",
+      "name": "???",
+      "file": "segments/06-right_brow.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/06-right_brow.png",
+      "x": 480,
+      "y": 309,
+      "width": 271,
+      "height": 179,
+      "centroid": {
+        "x": 607.8,
+        "y": 429.7
+      },
+      "polygon": [
+        {
+          "x": 457,
+          "y": 366
+        },
+        {
+          "x": 731,
+          "y": 366
+        },
+        {
+          "x": 773,
+          "y": 420
+        },
+        {
+          "x": 665,
+          "y": 474
+        },
+        {
+          "x": 474,
+          "y": 463
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "id": "left_eye",
+      "name": "???",
+      "file": "segments/07-left_eye.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/07-left_eye.png",
+      "x": 60,
+      "y": 449,
+      "width": 317,
+      "height": 168,
+      "centroid": {
+        "x": 239.2,
+        "y": 509.7
+      },
+      "polygon": [
+        {
+          "x": 116,
+          "y": 463
+        },
+        {
+          "x": 366,
+          "y": 463
+        },
+        {
+          "x": 357,
+          "y": 592
+        },
+        {
+          "x": 158,
+          "y": 603
+        },
+        {
+          "x": 66,
+          "y": 528
+        }
+      ]
+    },
+    {
+      "index": 8,
+      "id": "right_eye",
+      "name": "???",
+      "file": "segments/08-right_eye.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/08-right_eye.png",
+      "x": 455,
+      "y": 449,
+      "width": 317,
+      "height": 168,
+      "centroid": {
+        "x": 591.9,
+        "y": 510.1
+      },
+      "polygon": [
+        {
+          "x": 465,
+          "y": 463
+        },
+        {
+          "x": 715,
+          "y": 463
+        },
+        {
+          "x": 765,
+          "y": 528
+        },
+        {
+          "x": 673,
+          "y": 603
+        },
+        {
+          "x": 474,
+          "y": 592
+        }
+      ]
+    },
+    {
+      "index": 9,
+      "id": "nose_bridge",
+      "name": "??",
+      "file": "segments/09-nose_bridge.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/09-nose_bridge.png",
+      "x": 328,
+      "y": 493,
+      "width": 176,
+      "height": 254,
+      "centroid": {
+        "x": 415.4,
+        "y": 652.1
+      },
+      "polygon": [
+        {
+          "x": 357,
+          "y": 409
+        },
+        {
+          "x": 474,
+          "y": 409
+        },
+        {
+          "x": 490,
+          "y": 732
+        },
+        {
+          "x": 341,
+          "y": 732
+        }
+      ]
+    },
+    {
+      "index": 10,
+      "id": "nose_tip",
+      "name": "??",
+      "file": "segments/10-nose_tip.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/10-nose_tip.png",
+      "x": 308,
+      "y": 611,
+      "width": 215,
+      "height": 190,
+      "centroid": {
+        "x": 413.7,
+        "y": 745.0
+      },
+      "polygon": [
+        {
+          "x": 316,
+          "y": 625
+        },
+        {
+          "x": 515,
+          "y": 625
+        },
+        {
+          "x": 499,
+          "y": 786
+        },
+        {
+          "x": 332,
+          "y": 786
+        }
+      ]
+    },
+    {
+      "index": 11,
+      "id": "left_ear",
+      "name": "??",
+      "file": "segments/11-left_ear.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/11-left_ear.png",
+      "x": 28,
+      "y": 417,
+      "width": 112,
+      "height": 278,
+      "centroid": {
+        "x": 80.2,
+        "y": 548.2
+      },
+      "polygon": [
+        {
+          "x": 0,
+          "y": 388
+        },
+        {
+          "x": 125,
+          "y": 420
+        },
+        {
+          "x": 125,
+          "y": 668
+        },
+        {
+          "x": 17,
+          "y": 732
+        }
+      ]
+    },
+    {
+      "index": 12,
+      "id": "right_ear",
+      "name": "??",
+      "file": "segments/12-right_ear.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/12-right_ear.png",
+      "x": 692,
+      "y": 417,
+      "width": 112,
+      "height": 278,
+      "centroid": {
+        "x": 750.2,
+        "y": 549.0
+      },
+      "polygon": [
+        {
+          "x": 706,
+          "y": 420
+        },
+        {
+          "x": 831,
+          "y": 388
+        },
+        {
+          "x": 814,
+          "y": 732
+        },
+        {
+          "x": 706,
+          "y": 668
+        }
+      ]
+    },
+    {
+      "index": 13,
+      "id": "left_cheek",
+      "name": "???",
+      "file": "segments/13-left_cheek.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/13-left_cheek.png",
+      "x": 97,
+      "y": 579,
+      "width": 262,
+      "height": 263,
+      "centroid": {
+        "x": 200.8,
+        "y": 701.8
+      },
+      "polygon": [
+        {
+          "x": 116,
+          "y": 571
+        },
+        {
+          "x": 357,
+          "y": 571
+        },
+        {
+          "x": 341,
+          "y": 786
+        },
+        {
+          "x": 224,
+          "y": 829
+        },
+        {
+          "x": 83,
+          "y": 700
+        }
+      ]
+    },
+    {
+      "index": 14,
+      "id": "right_cheek",
+      "name": "???",
+      "file": "segments/14-right_cheek.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/14-right_cheek.png",
+      "x": 472,
+      "y": 577,
+      "width": 268,
+      "height": 265,
+      "centroid": {
+        "x": 630.8,
+        "y": 701.0
+      },
+      "polygon": [
+        {
+          "x": 474,
+          "y": 571
+        },
+        {
+          "x": 715,
+          "y": 571
+        },
+        {
+          "x": 748,
+          "y": 700
+        },
+        {
+          "x": 607,
+          "y": 829
+        },
+        {
+          "x": 490,
+          "y": 786
+        }
+      ]
+    },
+    {
+      "index": 15,
+      "id": "mouth",
+      "name": "??",
+      "file": "segments/15-mouth.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/15-mouth.png",
+      "x": 243,
+      "y": 773,
+      "width": 346,
+      "height": 136,
+      "centroid": {
+        "x": 416.5,
+        "y": 840.5
+      },
+      "polygon": [
+        {
+          "x": 249,
+          "y": 754
+        },
+        {
+          "x": 582,
+          "y": 754
+        },
+        {
+          "x": 565,
+          "y": 894
+        },
+        {
+          "x": 266,
+          "y": 894
+        }
+      ]
+    },
+    {
+      "index": 16,
+      "id": "left_jaw",
+      "name": "???",
+      "file": "segments/16-left_jaw.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/16-left_jaw.png",
+      "x": 128,
+      "y": 744,
+      "width": 252,
+      "height": 306,
+      "centroid": {
+        "x": 259.0,
+        "y": 914.7
+      },
+      "polygon": [
+        {
+          "x": 100,
+          "y": 689
+        },
+        {
+          "x": 274,
+          "y": 819
+        },
+        {
+          "x": 374,
+          "y": 1055
+        },
+        {
+          "x": 249,
+          "y": 1077
+        },
+        {
+          "x": 133,
+          "y": 915
+        }
+      ]
+    },
+    {
+      "index": 17,
+      "id": "right_jaw",
+      "name": "???",
+      "file": "segments/17-right_jaw.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/17-right_jaw.png",
+      "x": 452,
+      "y": 744,
+      "width": 252,
+      "height": 305,
+      "centroid": {
+        "x": 571.5,
+        "y": 915.0
+      },
+      "polygon": [
+        {
+          "x": 731,
+          "y": 689
+        },
+        {
+          "x": 557,
+          "y": 819
+        },
+        {
+          "x": 457,
+          "y": 1055
+        },
+        {
+          "x": 582,
+          "y": 1077
+        },
+        {
+          "x": 698,
+          "y": 915
+        }
+      ]
+    },
+    {
+      "index": 18,
+      "id": "chin",
+      "name": "??",
+      "file": "segments/18-chin.png",
+      "layerOnCroppedCanvas": "layers-cropped-canvas/18-chin.png",
+      "x": 309,
+      "y": 881,
+      "width": 213,
+      "height": 169,
+      "centroid": {
+        "x": 414.9,
+        "y": 973.2
+      },
+      "polygon": [
+        {
+          "x": 291,
+          "y": 883
+        },
+        {
+          "x": 540,
+          "y": 883
+        },
+        {
+          "x": 507,
+          "y": 1077
+        },
+        {
+          "x": 324,
+          "y": 1077
+        }
+      ]
+    }
+  ]
+}

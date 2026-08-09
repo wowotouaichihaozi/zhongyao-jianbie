@@ -1,0 +1,361 @@
+import { useState } from 'react'
+import { ChartColumn, ChevronDown, ImagePlus, Sigma, Sparkles, Type, Video } from 'lucide-react'
+import { ART_TEXT_TEMPLATES } from '@renderer/lib/artTextTemplates'
+import { useT } from '@renderer/i18n'
+import { useSessionDetailRuntimeStore } from '@renderer/store'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '../../../../ui/DropdownMenu'
+import { Popover, PopoverContent, PopoverTrigger } from '../../../../ui/Popover'
+import type { InsertAssetType } from '../types'
+import { ToolRowShell } from './ToolRowShell'
+import type { ToolRowProps } from './types'
+
+const toolButtonClass =
+  'group inline-flex h-7 min-w-[78px] shrink-0 items-center justify-center gap-1 rounded-full bg-[#e8f8f3]/92 px-2.5 text-[10px] font-bold leading-none text-[#2f3b28] shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_4px_10px_rgba(47,59,40,0.09)] transition-colors hover:bg-white hover:text-[#1f2a1b] disabled:pointer-events-none disabled:opacity-40'
+const unavailableToolButtonClass =
+  'group inline-flex h-7 min-w-[72px] shrink-0 items-center justify-center gap-1 rounded-full bg-[#e8f8f3]/58 px-2.5 text-[10px] font-bold leading-none text-[#5d6b4d]/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.48)] disabled:opacity-75'
+const iconWrapClass =
+  'inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#d4e4c1]/78 text-[#3e4a32] group-hover:bg-[#8fbc8f]/42'
+const iconClass = 'h-2.5 w-2.5'
+
+// Keep these compact previews visually aligned with the full-size templates in artTextTemplates.ts.
+const artTextPreviewStyles = `
+.ppt-art-preview-card {
+  min-height: 90px;
+  border-radius: 8px;
+  border: 1px solid rgba(216, 204, 181, 0.78);
+  background: linear-gradient(145deg, rgba(31, 38, 29, 0.96), rgba(18, 24, 22, 0.94));
+  color: #fff;
+  padding: 9px;
+  text-align: left;
+  transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+.ppt-art-preview-card:hover,
+.ppt-art-preview-card:focus-visible {
+  border-color: rgba(143, 188, 143, 0.95);
+  box-shadow: 0 10px 24px rgba(47, 59, 40, 0.18);
+  transform: translateY(-1px);
+  outline: none;
+}
+.ppt-art-preview-label {
+  color: rgba(255, 250, 241, 0.76);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+.ppt-art-preview-stage {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding-top: 7px;
+  text-align: center;
+}
+.ppt-art-preview-text {
+  display: inline-block;
+  max-width: 100%;
+  font-size: 18px;
+  font-weight: 850;
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+.ppt-art-preview-gradient-shine .ppt-art-preview-text {
+  background: linear-gradient(135deg, #ffd89b, #c7e9fb, #f6d5f7, #a0e9ff);
+  background-size: 300% 300%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: pptArtPreviewFlowGradient 6s ease infinite;
+}
+.ppt-art-preview-neon-glow .ppt-art-preview-text {
+  color: #21b978;
+  text-shadow: 0 0 5px #21b978, 0 0 12px #21b978, 0 0 22px #58d89c;
+  animation: pptArtPreviewNeonPulse 1.2s ease-in-out infinite alternate;
+}
+.ppt-art-preview-shadow-3d .ppt-art-preview-text {
+  color: #f3b33d;
+  text-shadow: 1px 1px 0 #7a4c1a, 2px 2px 0 #6b4215, 3px 3px 0 #5a3710, 4px 4px 0 #482d0c;
+}
+.ppt-art-preview-wave-text .ppt-art-preview-text {
+  display: flex;
+  gap: 2px;
+}
+.ppt-art-preview-wave-char {
+  display: inline-block;
+  animation: pptArtPreviewWaveFloat 1.4s infinite ease-in-out;
+}
+.ppt-art-preview-stroke-text .ppt-art-preview-text {
+  color: transparent;
+  -webkit-text-stroke: 1px #21b978;
+  text-stroke: 1px #21b978;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.36);
+}
+.ppt-art-preview-typewriter .ppt-art-preview-text {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid #f0f;
+  animation: pptArtPreviewTyping 3s steps(20, end) infinite, pptArtPreviewBlink 0.75s step-end infinite;
+}
+.ppt-art-preview-glitch .ppt-art-preview-text {
+  position: relative;
+  color: #fff;
+  text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75), -0.05em -0.025em 0 rgba(0, 255, 0, 0.75);
+  animation: pptArtPreviewGlitchShake 0.3s infinite;
+}
+.ppt-art-preview-glitch .ppt-art-preview-text::before,
+.ppt-art-preview-glitch .ppt-art-preview-text::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+}
+.ppt-art-preview-glitch .ppt-art-preview-text::before {
+  left: 1px;
+  text-shadow: -1px 0 red;
+  clip: rect(8px, 200px, 20px, 0);
+}
+.ppt-art-preview-glitch .ppt-art-preview-text::after {
+  left: -1px;
+  text-shadow: -1px 0 #117a51;
+  clip: rect(24px, 200px, 46px, 0);
+}
+.ppt-art-preview-fire-text .ppt-art-preview-text {
+  background-image: linear-gradient(0deg, #ff4d00, #ff9900, #ffcc00);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 10px #ff7b00, 0 0 16px #ff4400;
+  animation: pptArtPreviewFireFlicker 0.2s infinite alternate;
+}
+.ppt-art-preview-glass-text .ppt-art-preview-text {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
+  color: #fff3cf;
+  padding: 7px 12px;
+}
+.ppt-art-preview-rotate-3d .ppt-art-preview-stage {
+  perspective: 480px;
+}
+.ppt-art-preview-rotate-3d .ppt-art-preview-text {
+  color: #fe9c8f;
+  transform-style: preserve-3d;
+  animation: pptArtPreviewRotateText 5s infinite linear;
+}
+.ppt-art-preview-rainbow .ppt-art-preview-text {
+  animation: pptArtPreviewRainbowColor 2s linear infinite;
+}
+.ppt-art-preview-liquid .ppt-art-preview-text {
+  background: linear-gradient(45deg, #ff6bcb, #ffb86c, #2ed8ff, #ff6bcb);
+  background-size: 400% 400%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: pptArtPreviewLiquidMove 5s ease infinite;
+}
+.ppt-art-preview-bounce-text .ppt-art-preview-text {
+  animation: pptArtPreviewTextBounce 1.2s ease infinite;
+}
+.ppt-art-preview-float-shadow .ppt-art-preview-text {
+  text-shadow: 0 8px 14px rgba(0, 0, 0, 0.35);
+  animation: pptArtPreviewFloatUp 2.6s infinite alternate;
+}
+.ppt-art-preview-metal-text .ppt-art-preview-text {
+  background: linear-gradient(135deg, #e8e8e8 0%, #a0a0b0 40%, #f5f5ff 50%, #b0b0c0 80%, #dfdfdf 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.34)) drop-shadow(0 3px 7px rgba(0, 0, 0, 0.18));
+}
+@keyframes pptArtPreviewFlowGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes pptArtPreviewNeonPulse {
+  0% { text-shadow: 0 0 2px #21b978, 0 0 6px #117a51; opacity: 0.9; }
+  100% { text-shadow: 0 0 8px #21b978, 0 0 22px #58d89c; opacity: 1; }
+}
+@keyframes pptArtPreviewWaveFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes pptArtPreviewTyping {
+  0% { width: 0; }
+  40% { width: 100%; }
+  80% { width: 100%; }
+  100% { width: 0; }
+}
+@keyframes pptArtPreviewBlink {
+  0%, 100% { border-color: #f0f; }
+  50% { border-color: transparent; }
+}
+@keyframes pptArtPreviewGlitchShake {
+  0% { transform: translate(0); }
+  40% { transform: translate(-1px, -1px); }
+  80% { transform: translate(1px, -1px); }
+  100% { transform: translate(0); }
+}
+@keyframes pptArtPreviewFireFlicker {
+  0% { opacity: 0.95; text-shadow: 0 0 8px #ff5500; }
+  100% { opacity: 1; text-shadow: 0 0 15px #ffaa33, 0 0 5px #ff3300; }
+}
+@keyframes pptArtPreviewRotateText {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
+}
+@keyframes pptArtPreviewRainbowColor {
+  0% { color: #ff0000; }
+  17% { color: #ff9900; }
+  33% { color: #ffff00; }
+  50% { color: #00ff00; }
+  67% { color: #0099ff; }
+  83% { color: #8b00ff; }
+  100% { color: #ff0000; }
+}
+@keyframes pptArtPreviewLiquidMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes pptArtPreviewTextBounce {
+  0%, 100% { transform: scale(1); letter-spacing: 0; }
+  50% { transform: scale(1.05); letter-spacing: 2px; color: #fff2a0; }
+}
+@keyframes pptArtPreviewFloatUp {
+  0% { transform: translateY(0); text-shadow: 0 5px 12px rgba(0, 0, 0, 0.24); }
+  100% { transform: translateY(-5px); text-shadow: 0 18px 22px rgba(0, 0, 0, 0.45); }
+}
+`
+
+export function InsertToolRow({ disabled }: ToolRowProps): React.JSX.Element {
+  const t = useT()
+  const [artTextOpen, setArtTextOpen] = useState(false)
+  const actions = useSessionDetailRuntimeStore((state) => state.workspaceRibbonActions)
+
+  const renderUnavailableTool = (label: string, Icon: typeof Sparkles): React.JSX.Element => (
+    <button type="button" className={unavailableToolButtonClass} disabled>
+      <span className={iconWrapClass}>
+        <Icon className={iconClass} />
+      </span>
+      {label}
+    </button>
+  )
+
+  const renderMediaDropdown = (type: InsertAssetType): React.JSX.Element => {
+    const Icon = type === 'image' ? ImagePlus : Video
+    const label = type === 'image' ? t('editMode.addImage') : t('editMode.addVideo')
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" className={toolButtonClass} disabled={disabled}>
+            <span className={iconWrapClass}>
+              <Icon className={iconClass} />
+            </span>
+            {label}
+            <ChevronDown className="h-2.5 w-2.5 opacity-70" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-[10rem]">
+          <DropdownMenuItem onClick={() => actions?.onAddFromLibrary(type)}>
+            {t('editMode.fromLibrary')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => actions?.onAddFromLocal(type)}>
+            {t('editMode.fromLocal')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
+  const renderArtTextPreview = (
+    template: (typeof ART_TEXT_TEMPLATES)[number]
+  ): React.JSX.Element => {
+    if (template.id === 'wave-text') {
+      return (
+        <span className="ppt-art-preview-text">
+          {Array.from(template.defaultText).map((char, index) => (
+            <span
+              key={`${char}-${index}`}
+              className="ppt-art-preview-wave-char"
+              style={{ animationDelay: `${index * 0.08}s` }}
+            >
+              {char === ' ' ? '\u00a0' : char}
+            </span>
+          ))}
+        </span>
+      )
+    }
+
+    return (
+      <span
+        className="ppt-art-preview-text"
+        data-text={template.id === 'glitch' ? template.defaultText : undefined}
+      >
+        {template.defaultText}
+      </span>
+    )
+  }
+
+  const renderArtTextDropdown = (): React.JSX.Element => (
+    <Popover open={artTextOpen} onOpenChange={setArtTextOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={toolButtonClass} disabled={disabled}>
+          <span className={iconWrapClass}>
+            <Sparkles className={iconClass} />
+          </span>
+          {t('editMode.artText')}
+          <ChevronDown className="h-2.5 w-2.5 opacity-70" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[560px] max-w-[calc(100vw-2rem)] border-[#b5c4a1]/85 bg-[#e8f8f3] p-2"
+      >
+        <style>{artTextPreviewStyles}</style>
+        <div className="grid max-h-[420px] grid-cols-3 gap-2 overflow-y-auto pr-1">
+          {ART_TEXT_TEMPLATES.map((template) => (
+            <button
+              type="button"
+              key={template.id}
+              className={`ppt-art-preview-card ppt-art-preview-${template.id}`}
+              onClick={() => {
+                actions?.onAddArtText(template.id)
+                setArtTextOpen(false)
+              }}
+            >
+              <div className="ppt-art-preview-label">{template.label}</div>
+              <div className="ppt-art-preview-stage">{renderArtTextPreview(template)}</div>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+
+  return (
+    <ToolRowShell>
+      <button
+        type="button"
+        className={toolButtonClass}
+        onClick={() => actions?.onAddText()}
+        disabled={disabled}
+      >
+        <span className={iconWrapClass}>
+          <Type className={iconClass} />
+        </span>
+        {t('editMode.addText')}
+      </button>
+      {renderArtTextDropdown()}
+      {renderMediaDropdown('image')}
+      {renderMediaDropdown('video')}
+      {renderUnavailableTool(t('editMode.chart'), ChartColumn)}
+      {renderUnavailableTool(t('editMode.formula'), Sigma)}
+    </ToolRowShell>
+  )
+}

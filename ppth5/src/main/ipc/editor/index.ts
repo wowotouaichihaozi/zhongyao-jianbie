@@ -1,0 +1,1 @@
+export { registerEditorHandlers } from './handlers'

@@ -1,0 +1,30 @@
+# Local secrets
+backend/.env
+ppth5/backend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# Runtime data and logs
+*.log
+backend/data/*.sqlite3
+backend/data/*.sqlite3-*
+backend/data/extract_cache/
+backend/__pycache__/
+backend/tests/__pycache__/
+
+# Build and dependencies
+frontend/node_modules/
+frontend/dist/
+ppth5/node_modules/
+ppth5/dist/
+mobile/node_modules/
+mobile/dist/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/local.properties
+*.jks
+*.keystore
+
+# Generated portable distribution
+portable/
+.portable-cache/

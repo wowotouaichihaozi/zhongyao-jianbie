@@ -1,0 +1,321 @@
+/* Tailwind CSS v4 - loaded via local package imports */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@font-face {
+  font-family: "Elms Sans";
+  src: url("./assets/fonts/ElmsSans-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Elms Sans";
+  src: url("./assets/fonts/ElmsSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Elms Sans";
+  src: url("./assets/fonts/ElmsSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Custom theme - match frontend project colors */
+@theme {
+  --color-background: #f4faf9;
+  --color-foreground: #24342d;
+  --color-card: rgba(255, 255, 255, 0.94);
+  --color-card-foreground: #24342d;
+  --color-primary: #21b978;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f1f8f8;
+  --color-secondary-foreground: #117a51;
+  --color-muted: #f1f8f8;
+  --color-muted-foreground: #65756d;
+  --color-accent: rgba(33, 185, 120, 0.12);
+  --color-accent-foreground: #117a51;
+  --color-destructive: #d84e45;
+  --color-destructive-foreground: #ffffff;
+  --color-border: rgba(31, 166, 112, 0.1);
+  --color-input: rgba(31, 166, 112, 0.16);
+  --color-ring: #21b978;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: "Elms Sans", "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+  background-image:
+    linear-gradient(rgba(31, 166, 112, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 166, 112, 0.055) 1px, transparent 1px),
+    radial-gradient(circle at 8% 8%, rgba(31, 166, 112, 0.12), transparent 28%),
+    linear-gradient(180deg, #f4faf9 0%, #eef8f4 100%);
+  background-size: 42px 42px, 42px 42px, auto, auto;
+}
+
+/* Global scrollbar theme (Windows + macOS + Firefox) */
+:root {
+  --scrollbar-thumb: rgba(33, 185, 120, 0.52);
+  --scrollbar-thumb-hover: rgba(17, 122, 81, 0.72);
+  --scrollbar-track: rgba(223, 248, 235, 0.72);
+}
+
+* {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(33, 185, 120, 0.72), rgba(88, 216, 156, 0.72));
+  border: 2px solid rgba(244, 251, 250, 0.9);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+#root {
+  min-height: 100%;
+}
+
+:root {
+  --app-titlebar-height: 48px;
+  --app-titlebar-control-safe-area: 136px;
+}
+
+.app-drag-region {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Reserve space for custom titlebar on Windows/Linux */
+.app-titlebar-spacer {
+  height: var(--app-titlebar-height);
+  flex-shrink: 0;
+}
+
+.app-titlebar {
+  height: var(--app-titlebar-height);
+  flex-shrink: 0;
+}
+
+.app-titlebar-content {
+  padding-left: 64px;
+  padding-right: var(--app-titlebar-control-safe-area);
+}
+
+.app-shell {
+  animation: shell-enter 280ms ease-out;
+}
+
+.soft-card {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.95), rgba(239, 250, 245, 0.88));
+  box-shadow: 0 14px 34px rgba(17, 122, 81, 0.08), 0 2px 8px rgba(17, 122, 81, 0.06);
+  border: 1px solid rgba(31, 166, 112, 0.16);
+  border-radius: 10px;
+}
+
+.soft-card-hover {
+  transition: all 180ms ease;
+}
+
+.soft-card-hover:hover {
+  box-shadow: 0 18px 36px rgba(31, 124, 125, 0.12), 0 4px 12px rgba(31, 124, 125, 0.08);
+  transform: translateY(-2px);
+}
+
+.soft-btn {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(232, 251, 241, 0.95));
+  box-shadow: 0 8px 20px rgba(17, 122, 81, 0.09), 0 2px 6px rgba(17, 122, 81, 0.06);
+  border: 1px solid rgba(31, 166, 112, 0.22);
+}
+
+.soft-btn:hover {
+  box-shadow: 0 11px 24px rgba(17, 122, 81, 0.14), 0 3px 8px rgba(17, 122, 81, 0.08);
+  transform: translateY(-2px);
+}
+
+.soft-btn:active {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+  transform: translateY(0);
+}
+
+.soft-input {
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: inset 0 2px 6px rgba(17, 122, 81, 0.05);
+  border: 1px solid rgba(31, 166, 112, 0.2);
+}
+
+.soft-input:focus {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: #21b978;
+  box-shadow: 0 0 0 3px rgba(33, 185, 120, 0.18);
+}
+
+.soft-surface,
+.soft-surface-subtle,
+.soft-titlebar {
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 28px rgba(17, 122, 81, 0.08), 0 2px 6px rgba(17, 122, 81, 0.05);
+  border: 1px solid rgba(31, 166, 112, 0.16);
+}
+
+.soft-inset {
+  background: rgba(238, 250, 245, 0.75);
+  box-shadow: inset 0 2px 6px rgba(17, 122, 81, 0.06);
+  border: 1px solid rgba(31, 166, 112, 0.18);
+}
+
+.soft-pill {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(31, 166, 112, 0.2);
+  box-shadow: 0 6px 14px rgba(17, 122, 81, 0.08), 0 1px 3px rgba(17, 122, 81, 0.05);
+}
+
+.soft-panel-edge {
+  border: 1px solid rgba(31, 166, 112, 0.16);
+}
+
+.organic-serif {
+  font-family: "Elms Sans", "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.organic-shape {
+  border-radius: 12px;
+}
+
+.leaf-shape {
+  border-radius: 12px;
+}
+
+/* App-wide radius scale: keep the UI soft, but avoid overly pill-like controls. */
+.rounded-sm {
+  border-radius: 3px !important;
+}
+
+.rounded,
+.rounded-md {
+  border-radius: 5px !important;
+}
+
+.rounded-lg {
+  border-radius: 8px !important;
+}
+
+.rounded-xl {
+  border-radius: 10px !important;
+}
+
+.rounded-2xl,
+.rounded-3xl,
+[class*="rounded-[1rem]"],
+[class*="rounded-[1.15rem]"],
+[class*="rounded-[1.25rem]"],
+[class*="rounded-[1.35rem]"],
+[class*="rounded-[1.4rem]"],
+[class*="rounded-[1.5rem]"],
+[class*="rounded-[1.55rem]"],
+[class*="rounded-[2rem]"] {
+  border-radius: 12px !important;
+}
+
+.rounded-full,
+[class*="rounded-[30%"],
+[class*="rounded-[38%"],
+[class*="rounded-[5%"] {
+  border-radius: 10px !important;
+}
+
+@keyframes shell-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gen-grid {
+  background-image:
+    linear-gradient(rgba(132, 141, 102, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(132, 141, 102, 0.16) 1px, transparent 1px);
+  background-size: 36px 36px;
+  animation: gen-grid-pan 18s linear infinite;
+}
+
+.gen-orb {
+  animation: gen-orb-float 9s ease-in-out infinite;
+}
+
+.gen-shimmer {
+  background-size: 220% 100%;
+  animation: gen-shimmer-slide 2.2s linear infinite;
+}
+
+@keyframes gen-grid-pan {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-36px, -36px, 0);
+  }
+}
+
+@keyframes gen-orb-float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-18px);
+  }
+}
+
+@keyframes gen-shimmer-slide {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 220% 50%;
+  }
+}

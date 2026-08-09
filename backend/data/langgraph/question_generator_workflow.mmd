@@ -1,0 +1,40 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	document_parser_agent(document_parser_agent)
+	task_planner_agent(task_planner_agent)
+	route_by_requested_types(route_by_requested_types)
+	aggregate_batches(aggregate_batches)
+	single_choice_agent(single_choice_agent)
+	multiple_choice_agent(multiple_choice_agent)
+	true_false_agent(true_false_agent)
+	fill_blank_agent(fill_blank_agent)
+	short_answer_agent(short_answer_agent)
+	calculation_agent(calculation_agent)
+	application_agent(application_agent)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> document_parser_agent;
+	application_agent --> aggregate_batches;
+	calculation_agent --> aggregate_batches;
+	document_parser_agent --> task_planner_agent;
+	fill_blank_agent --> aggregate_batches;
+	multiple_choice_agent --> aggregate_batches;
+	route_by_requested_types -.-> application_agent;
+	route_by_requested_types -.-> calculation_agent;
+	route_by_requested_types -.-> fill_blank_agent;
+	route_by_requested_types -.-> multiple_choice_agent;
+	route_by_requested_types -.-> short_answer_agent;
+	route_by_requested_types -.-> single_choice_agent;
+	route_by_requested_types -.-> true_false_agent;
+	short_answer_agent --> aggregate_batches;
+	single_choice_agent --> aggregate_batches;
+	task_planner_agent --> route_by_requested_types;
+	true_false_agent --> aggregate_batches;
+	aggregate_batches --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc

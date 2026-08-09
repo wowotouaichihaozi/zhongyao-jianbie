@@ -1,0 +1,49 @@
+<view class="page">
+  <view class="page-head">
+    <text class="eyebrow">KNOWLEDGE-GROUNDED TUTOR</text>
+    <view class="page-title">智能辅导</view>
+    <view class="page-subtitle">围绕嵌入式课程提问，辅导智能体会结合当前画像与可用知识来源组织回答。</view>
+  </view>
+  <view class="ask-card card">
+    <textarea class="field-textarea" data-field="question" value="{{question}}" bindinput="input" maxlength="800" placeholder="例如：为什么 STM32 定时器的预分频系数需要减 1？"></textarea>
+    <button class="primary ask" bindtap="ask" loading="{{loading}}" disabled="{{loading || !question}}">开始辅导</button>
+  </view>
+  <view class="running" wx:if="{{loading}}">
+    <text class="running-dot"></text>
+    <view><text>辅导智能体正在工作</text><text>{{waitingStages[waitingIndex]}}</text></view>
+  </view>
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+
+  <block wx:if="{{answer}}">
+    <view class="answer card">
+      <text class="eyebrow">回答</text>
+      <text class="answer-title">{{answer.title}}</text>
+      <text class="answer-text">{{answer.answerText}}</text>
+      <view class="evidence">
+        <text>{{answer.grounded ? '含知识来源' : '未返回引用，请结合教材核验'}}</text>
+        <text>{{answer.qualityScore ? '质量评分 ' + answer.qualityScore : '已完成结构化检查'}}</text>
+      </view>
+    </view>
+    <view class="lesson card" wx:if="{{answer.analogy || answer.steps.length}}">
+      <text class="section-title">机制讲解</text>
+      <text class="analogy" wx:if="{{answer.analogy}}">{{answer.analogy}}</text>
+      <view class="step" wx:for="{{answer.steps}}" wx:key="index"><text>{{index + 1}}</text><text>{{item}}</text></view>
+    </view>
+    <view class="lesson card" wx:if="{{answer.socratic.length}}">
+      <text class="section-title">引导追问</text>
+      <view class="line" wx:for="{{answer.socratic}}" wx:key="index">{{item}}</view>
+    </view>
+    <view class="lesson card" wx:if="{{answer.practice.length}}">
+      <text class="section-title">即时练习</text>
+      <view class="line" wx:for="{{answer.practice}}" wx:key="index">{{index + 1}}. {{item}}</view>
+    </view>
+    <view class="lesson card references" wx:if="{{answer.references.length}}">
+      <text class="section-title">知识引用</text>
+      <view class="reference" wx:for="{{answer.references}}" wx:key="index"><text>[{{index + 1}}] {{item.label}}</text><text wx:if="{{item.detail}}">{{item.detail}}</text></view>
+    </view>
+    <view class="follow-up">
+      <input data-field="followUp" value="{{followUp}}" bindinput="input" maxlength="400" placeholder="继续追问这个知识点..." />
+      <button class="primary" data-followup="true" bindtap="ask" disabled="{{loading || !followUp}}">发送</button>
+    </view>
+  </block>
+</view>

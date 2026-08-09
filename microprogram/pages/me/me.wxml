@@ -1,0 +1,27 @@
+<view class="page">
+  <view class="page-head">
+    <text class="eyebrow">LEARNER CENTER</text>
+    <view class="page-title">我的</view>
+    <view class="page-subtitle">查看学习画像、服务端任务与效果评估。</view>
+  </view>
+  <view class="user-card card">
+    <image src="/assets/logo.png" mode="aspectFit"></image>
+    <view><text class="user-name">{{user.displayName || user.username || '学习者'}}</text><text class="muted">{{user.email || user.username || '已登录'}}</text></view>
+    <text class="verified">已认证</text>
+  </view>
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+  <view class="loading" wx:if="{{loading}}">正在汇总学习证据...</view>
+  <block wx:else>
+    <view class="assessment card">
+      <view class="assessment-head"><view><text class="section-title">学习效果</text><text class="muted">基于做题、反馈与任务完成证据</text></view><text class="score">{{assessment ? (assessment.overallScore || assessment.score || '--') : '--'}}</text></view>
+      <text class="summary">{{assessment ? (assessment.summary || assessment.conclusion || '评估会随新的学习证据持续更新。') : '完成学习任务并提交反馈后，这里会形成效果评估。'}}</text>
+      <view class="recommendation" wx:for="{{recommendations}}" wx:key="index">{{item}}</view>
+    </view>
+    <view class="account-list">
+      <view bindtap="profile"><text class="icon">像</text><view><text>学习画像</text><text>{{profile ? (profile.profileName || '当前画像') + ' v' + (profile.version || 1) : '尚未完成'}}</text></view><text>›</text></view>
+      <view bindtap="profile"><text class="icon">聊</text><view><text>对话更新</text><text>共有 {{profileCount}} 个已保存画像</text></view><text>›</text></view>
+      <view bindtap="resources"><text class="icon">史</text><view><text>历史任务</text><text>共 {{taskCount}} 个服务端任务</text></view><text>›</text></view>
+    </view>
+    <button class="secondary logout" bindtap="logout">退出登录</button>
+  </block>
+</view>

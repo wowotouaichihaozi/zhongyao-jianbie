@@ -1,0 +1,18 @@
+.user-card { display: grid; grid-template-columns: 104rpx 1fr auto; align-items: center; gap: 18rpx; }
+.user-card image { width: 104rpx; height: 104rpx; border-radius: 50%; background: #edf5f1; }
+.user-card text { display: block; }
+.user-name { margin-bottom: 8rpx; font-size: 30rpx; font-weight: 800; }
+.verified { padding: 10rpx 13rpx; border-radius: 8rpx; background: #edf5f1; color: #176f4b; font-size: 19rpx; font-weight: 700; }
+.assessment { margin-top: 22rpx; border-top: 6rpx solid #a16f19; }
+.assessment-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20rpx; }
+.assessment-head text { display: block; }
+.score { color: #176f4b; font-size: 54rpx; font-weight: 850; line-height: 1; }
+.summary { display: block; margin-top: 22rpx; color: #4a5f54; font-size: 23rpx; line-height: 1.7; }
+.recommendation { margin-top: 12rpx; padding: 14rpx 16rpx; background: #edf5f1; color: #476056; font-size: 21rpx; line-height: 1.5; }
+.account-list { margin-top: 20rpx; border: 1rpx solid #d9e3de; border-radius: 14rpx; background: #fff; overflow: hidden; }
+.account-list > view { min-height: 120rpx; display: grid; grid-template-columns: 54rpx 1fr 24rpx; align-items: center; gap: 16rpx; padding: 18rpx 24rpx; border-bottom: 1rpx solid #e2e9e5; }
+.account-list > view:last-child { border-bottom: 0; }
+.account-list view text { display: block; font-size: 25rpx; font-weight: 700; }
+.account-list view text + text { margin-top: 7rpx; color: #7b8881; font-size: 20rpx; font-weight: 400; }
+.icon { width: 52rpx; height: 52rpx; display: flex !important; align-items: center; justify-content: center; border-radius: 8rpx; background: #edf5f1; color: #176f4b; font-size: 20rpx !important; }
+.logout { margin-top: 24rpx; color: #9b4134; border-color: #e0c0b9; }

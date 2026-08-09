@@ -1,0 +1,50 @@
+{
+  "compileType": "miniprogram",
+  "libVersion": "latest",
+  "packOptions": {
+    "ignore": [
+      { "type": "folder", "value": "pages/index" },
+      { "type": "folder", "value": "pages/logs" }
+    ],
+    "include": []
+  },
+  "setting": {
+    "coverView": true,
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "enhance": true,
+    "showShadowRootInWxmlPanel": true,
+    "packNpmRelationList": [],
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "condition": true,
+    "swc": false,
+    "disableSWC": true,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false
+  },
+  "condition": {
+    "miniprogram": {
+      "list": [
+        { "name": "登录页", "pathName": "pages/login/login", "query": "", "scene": null }
+      ]
+    }
+  },
+  "editorSetting": {
+    "tabIndent": "auto",
+    "tabSize": 2
+  },
+  "appid": "wx698aeecb85c5dd8a",
+  "simulatorPluginLibVersion": {}
+}

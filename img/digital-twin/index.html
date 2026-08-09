@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="en"><head>
+  <script type="module" crossorigin src="./js/polyfills.BOatvGHn1777381803121.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html, body, #tvt-app {
+            width: 100vw !important;
+            height: 100vh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+        #tvt-app {
+            position: fixed;
+            inset: 0;
+            background: #000;
+        }
+    </style>
+    <meta name="referrer" content="never">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>&#x5D4C;&#x667A;&#x5B66;&#x822A;&middot;&#x667A;&#x80FD;&#x4F53;&#x6570;&#x5B57;&#x5B6A;&#x751F;</title>
+    <link rel="shortcut icon" type="image/x-icon" href="./logo.png">
+    <script>
+        var _hmt = _hmt || [];
+        (function () {
+            if (!window.__POWERED_BY_QIANKUN__) {
+                const hm = document.createElement("script")
+                hm.src = "https://hm.baidu.com/hm.js?3c442b1ada04ec23771dfc94ea581c10"
+                const s = document.getElementsByTagName("script")[0]
+                s.parentNode.insertBefore(hm, s)
+            }
+        })()
+    </script>
+
+<script>window.__LDATA_READY__=fetch('./lData.json?v=20260730-ldata7',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(data){window.__LDATA_CONFIG__=data}).catch(function(error){console.error('lData.json load failed',error)})</script>
+    <script src="./lib/jweixin-1.6.0.js"></script>
+    <script src="./lib/uni.webview.0.1.52.js"></script>
+  <script crossorigin="">(window.__LDATA_READY__||Promise.resolve()).finally(function(){return import('./js/index.C_VlI55A1777381803121.js?v=20260730-ldata7')}).finally(() => {
+            
+    const qiankunLifeCycle = window.moudleQiankunAppLifeCycles && window.moudleQiankunAppLifeCycles['TvT.js'];
+    if (qiankunLifeCycle) {
+      window.proxy.vitemount((props) => qiankunLifeCycle.mount(props));
+      window.proxy.viteunmount((props) => qiankunLifeCycle.unmount(props));
+      window.proxy.vitebootstrap(() => qiankunLifeCycle.bootstrap());
+      window.proxy.viteupdate((props) => qiankunLifeCycle.update(props));
+    }
+  
+          })</script>
+  <link rel="modulepreload" crossorigin="" href="./js/3d-tiles-renderer.C5T3nAaD1777381803121.js">
+  <link rel="modulepreload" crossorigin="" href="./js/runtime-core.esm-bundler.ArYz6XHd1777381803121.js">
+  <link rel="modulepreload" crossorigin="" href="./js/three.rfxgIYhh1777381803121.js">
+  <link rel="stylesheet" crossorigin="" href="./css/index.D6pGoBCc1777381803121.css">
+</head>
+
+<body>
+    <div id="tvt-app"></div>
+
+<script>
+  const createDeffer = (hookName) => {
+    const d = new Promise((resolve, reject) => {
+      window.proxy && (window.proxy[`vite${hookName}`] = resolve)
+    })
+    return props => d.then(fn => fn(props));
+  }
+  const bootstrap = createDeffer('bootstrap');
+  const mount = createDeffer('mount');
+  const unmount = createDeffer('unmount');
+  const update = createDeffer('update');
+
+  ;(global => {
+    global.qiankunName = 'TvT.js';
+    global['TvT.js'] = {
+      bootstrap,
+      mount,
+      unmount,
+      update
+    };
+  })(window);
+</script></body></html>

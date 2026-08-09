@@ -1,0 +1,24 @@
+.profile-list { margin-bottom: 24rpx; }
+.profile-card { min-height: 112rpx; display: flex; align-items: center; justify-content: space-between; gap: 20rpx; padding: 20rpx 24rpx; border: 1rpx solid #d9e3de; border-left: 6rpx solid #c9d5cf; background: #fff; }
+.profile-card + .profile-card { border-top: 0; }
+.profile-card.active { border-left-color: #176f4b; background: #f3f8f5; }
+.profile-name, .profile-card .muted { display: block; }
+.profile-name { margin-bottom: 8rpx; font-size: 26rpx; font-weight: 750; }
+.mini, .text-btn { margin: 0; padding: 0 16rpx; background: transparent; color: #176f4b; font-size: 22rpx; line-height: 56rpx; }
+.active-tag { color: #176f4b; font-size: 21rpx; font-weight: 700; }
+.collector { padding: 0; overflow: hidden; }
+.collector-head { display: flex; align-items: center; justify-content: space-between; padding: 24rpx 24rpx 18rpx; }
+.collector-head text { display: block; }
+.collector-head .section-title { margin-bottom: 6rpx; }
+.collector > .progress { margin: 0 24rpx; }
+.progress-label { display: block; margin: 10rpx 24rpx 0; color: #6c7a73; font-size: 20rpx; }
+.conversation { height: 620rpx; margin-top: 16rpx; padding: 22rpx 22rpx 8rpx; border-top: 1rpx solid #e2e9e5; background: #f7f9f8; }
+.bubble { width: fit-content; max-width: 86%; margin-bottom: 18rpx; padding: 18rpx 20rpx; border-radius: 12rpx; font-size: 24rpx; line-height: 1.65; }
+.bubble.assistant { border: 1rpx solid #d9e3de; background: #fff; color: #31463b; }
+.bubble.user { margin-left: auto; background: #176f4b; color: #fff; }
+.waiting, .missing { margin: 14rpx 22rpx 0; color: #176f4b; font-size: 21rpx; line-height: 1.5; }
+.waiting text { width: 12rpx; height: 12rpx; display: inline-block; margin-right: 10rpx; border-radius: 50%; background: #176f4b; }
+.missing { padding: 12rpx 16rpx; background: #edf5f1; }
+.composer { display: grid; grid-template-columns: 1fr 132rpx; gap: 12rpx; padding: 20rpx 22rpx 24rpx; }
+.composer textarea { min-height: 88rpx; max-height: 180rpx; padding: 18rpx; border: 1rpx solid #cad8d1; border-radius: 12rpx; background: #fff; font-size: 24rpx; }
+.send { min-height: 88rpx; padding: 0; font-size: 24rpx; }

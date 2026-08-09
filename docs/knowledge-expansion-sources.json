@@ -1,0 +1,118 @@
+{
+    "generatedAt":  "2026-07-28",
+    "outputDirectory":  "knowledge-expansion-20260728",
+    "normalizedBytes":  110100385,
+    "sha256Deduplicated":  true,
+    "sources":  [
+                    {
+                        "id":  "freertos",
+                        "name":  "FreeRTOS Kernel",
+                        "repository":  "https://github.com/FreeRTOS/FreeRTOS-Kernel.git",
+                        "commit":  "4269c69a16f924c11adeedbb31591f6fad9f41b2",
+                        "license":  "MIT",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  507,
+                        "normalizedBytes":  10447827
+                    },
+                    {
+                        "id":  "riscv",
+                        "name":  "RISC-V ISA Manual",
+                        "repository":  "https://github.com/riscv/riscv-isa-manual.git",
+                        "commit":  "4757308fad67f6a8bc7235703d4bb8101ccf296a",
+                        "license":  "CC-BY-4.0",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  172,
+                        "normalizedBytes":  2210797
+                    },
+                    {
+                        "id":  "lvgl",
+                        "name":  "LVGL",
+                        "repository":  "https://github.com/lvgl/lvgl.git",
+                        "commit":  "65bc757457270152ea27a0c8922023dc7290761f",
+                        "license":  "MIT",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  1599,
+                        "normalizedBytes":  31687194
+                    },
+                    {
+                        "id":  "tinyusb",
+                        "name":  "TinyUSB",
+                        "repository":  "https://github.com/hathach/tinyusb.git",
+                        "commit":  "1eb216ed024002119a16ac15004e0b0124a7da6a",
+                        "license":  "MIT",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  577,
+                        "normalizedBytes":  5873861
+                    },
+                    {
+                        "id":  "lwip",
+                        "name":  "lwIP",
+                        "repository":  "https://github.com/lwip-tcpip/lwip.git",
+                        "commit":  "3d896ba0a37ff3ce73270ca5e230707fe47f60e3",
+                        "license":  "BSD-3-Clause",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  306,
+                        "normalizedBytes":  4635867
+                    },
+                    {
+                        "id":  "pico-sdk",
+                        "name":  "Raspberry Pi Pico SDK",
+                        "repository":  "https://github.com/raspberrypi/pico-sdk.git",
+                        "commit":  "98a542c1a62fb549ffb5d66a3e5892b06276b670",
+                        "license":  "BSD-3-Clause",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  875,
+                        "normalizedBytes":  15548972
+                    },
+                    {
+                        "id":  "cmsis5",
+                        "name":  "Arm CMSIS 5",
+                        "repository":  "https://github.com/ARM-software/CMSIS_5.git",
+                        "commit":  "55b19837f5703e418ca37894d5745b1dc05e4c91",
+                        "license":  "Apache-2.0",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  128,
+                        "normalizedBytes":  4148081
+                    },
+                    {
+                        "id":  "cmsis6",
+                        "name":  "Arm CMSIS 6",
+                        "repository":  "https://github.com/ARM-software/CMSIS_6.git",
+                        "commit":  "8753b993c7544f0329b2ccc61bfbc967fdb3b112",
+                        "license":  "Apache-2.0",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  312,
+                        "normalizedBytes":  6001642
+                    },
+                    {
+                        "id":  "cpputest",
+                        "name":  "CppUTest",
+                        "repository":  "https://github.com/cpputest/cpputest.git",
+                        "commit":  "79c066ef278263b25d7c4512ccddce81345050a3",
+                        "license":  "BSD-3-Clause",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  125,
+                        "normalizedBytes":  902699
+                    },
+                    {
+                        "id":  "unity",
+                        "name":  "Unity Test",
+                        "repository":  "https://github.com/ThrowTheSwitch/Unity.git",
+                        "commit":  "3a6eb6dfd7706b703adf60f5ce3bcad57f94de4f",
+                        "license":  "MIT",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  36,
+                        "normalizedBytes":  481385
+                    },
+                    {
+                        "id":  "mbed-os",
+                        "name":  "Arm Mbed OS",
+                        "repository":  "https://github.com/ARMmbed/mbed-os.git",
+                        "commit":  "d723bf9e55415433e108124ee6d36337feddf1b8",
+                        "license":  "Apache-2.0",
+                        "importedAt":  "2026-07-28",
+                        "normalizedFiles":  1929,
+                        "normalizedBytes":  28162060
+                    }
+                ]
+}

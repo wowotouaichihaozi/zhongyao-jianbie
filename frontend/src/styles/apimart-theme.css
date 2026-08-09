@@ -1,0 +1,1115 @@
+/* APIMart-inspired operator console theme. Loaded after legacy page styles. */
+:root {
+  color-scheme: light;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  --console-bg: #ffffff;
+  --console-surface: #ffffff;
+  --console-subtle: #f5f8f6;
+  --console-line: #d7ddda;
+  --console-text: #080b0a;
+  --console-muted: #3d4642;
+  --console-primary: #176f4b;
+  --console-primary-hover: #10583b;
+  --console-primary-soft: #edf5f1;
+  --primary: #176f4b;
+  --primary-deep: #10583b;
+  --primary-soft: #edf5f1;
+}
+
+html,
+body,
+#app {
+  color: var(--console-text) !important;
+  background: var(--console-bg) !important;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif !important;
+}
+
+#app .topnavbar :is(.icon-button, .logout-button) {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #202724 !important;
+}
+
+#app .topnavbar :is(.icon-button, .logout-button):hover {
+  border: 0 !important;
+  background: #f4f6f5 !important;
+  color: var(--console-primary) !important;
+}
+
+#app .topnavbar .logout-button:hover {
+  background: transparent !important;
+}
+
+#app :is(button, input, select, textarea) {
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+#app :is(input, select, textarea) {
+  border: 1px solid #cdd5d1 !important;
+  background: #ffffff !important;
+  color: var(--console-text) !important;
+}
+
+#app :is(input, select, textarea):focus {
+  border-color: var(--console-primary) !important;
+  outline: 2px solid rgba(32, 36, 36, 0.12) !important;
+  outline-offset: 0;
+}
+
+#app :is(button, [class*="-btn"], [class*="-button"]) {
+  border: 1px solid #cbd3cf !important;
+  background: #ffffff !important;
+  color: #151a18 !important;
+  box-shadow: none !important;
+}
+
+#app :is(button, [class*="-btn"], [class*="-button"]):hover:not(:disabled) {
+  border-color: #8f9b96 !important;
+  background: #f4f7f5 !important;
+  color: #0c1713 !important;
+  transform: none !important;
+}
+
+/* Password visibility is an inline icon control, not a themed action button. */
+#app .auth-page .password-field .password-visibility-toggle,
+#app .auth-page .password-field .password-visibility-toggle:hover,
+#app .auth-page .password-field .password-visibility-toggle:focus,
+#app .auth-page .password-field .password-visibility-toggle:focus-visible,
+#app .auth-page .password-field .password-visibility-toggle:active {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  margin: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #64748b !important;
+  line-height: 1;
+  transform: translateY(-50%) !important;
+  transition: color 0.16s ease;
+  appearance: none;
+}
+
+#app .auth-page .password-field .password-visibility-toggle:hover,
+#app .auth-page .password-field .password-visibility-toggle:focus-visible {
+  color: #176f4b !important;
+}
+
+#app .auth-page .password-field .password-visibility-toggle svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 18px;
+}
+
+#app :is(
+  .primary-button, .link-button, .generate-btn, .banner-btn, .chat-send,
+  .enter-button, .current-profile-path-switcher > button,
+  [class*="primary-btn"], [class*="generate-btn"], [class*="submit-btn"], [class*="send-btn"]
+) {
+  border-color: var(--console-primary) !important;
+  background: var(--console-primary) !important;
+  color: #ffffff !important;
+}
+
+#app :is(
+  .primary-button, .link-button, .generate-btn, .banner-btn, .chat-send,
+  .enter-button, .current-profile-path-switcher > button,
+  [class*="primary-btn"], [class*="generate-btn"], [class*="submit-btn"], [class*="send-btn"]
+):hover:not(:disabled) {
+  border-color: var(--console-primary-hover) !important;
+  background: var(--console-primary-hover) !important;
+  color: #ffffff !important;
+}
+
+#app :is(
+  .resource-tool-card, .resource-card, .week-card, .profile-dash-card,
+  .empty-report-card, .history-item, .metric-grid > article,
+  .assessment-grid > article, .diagnosis-grid > article
+) {
+  border: 1px solid #d2d9d6 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+#app :is(
+  .resource-tool-card, .resource-card, .week-card, .profile-dash-card,
+  .empty-report-card, .history-item, .metric-grid > article,
+  .assessment-grid > article, .diagnosis-grid > article
+):not(.map-dot):hover {
+  box-shadow: 0 2px 8px rgba(20, 34, 30, 0.06) !important;
+}
+
+#app :is(.resources-page, .assessment-page, .learning-path-page, .clean-map-page, .lp-page) {
+  background: #ffffff !important;
+}
+
+#app .resources-header h1::before,
+#app .resources-header p::before,
+#app .resource-tools-head h2::before,
+#app .resource-tools-head p::before,
+#app .history-resources-head h2::before,
+#app .history-resources-head h2::after {
+  content: none !important;
+}
+
+#app .resources-header h1,
+#app .resources-header p,
+#app .resource-tools-head h2,
+#app .resource-tools-head p {
+  font-size: revert !important;
+}
+
+#app .history-resources-head h2 {
+  font-size: 20px !important;
+}
+
+#app .lp-page,
+#app .lp-page > .lp-sidebar,
+#app .lp-page > .lp-content {
+  background: #ffffff !important;
+}
+
+#app .lp-page > .lp-sidebar {
+  border-right: 1px solid #d7ddda !important;
+  background: #ffffff !important;
+}
+
+#app .lp-page :is(.assessment-chat-shell, .profile-portrait-panel, .chat-bubble, .sidebar-stage-card) {
+  border-color: #d7ddda !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+#app .lp-page .chat-bubble.user {
+  border-color: #bdd6ca !important;
+  background: #eef8f3 !important;
+  color: #14211b !important;
+}
+
+#app .lp-page .chat-bubble.bot {
+  border-color: #d4dad7 !important;
+  background: #ffffff !important;
+  color: #151a18 !important;
+}
+
+#app .lp-page :is(.portrait-score-ring, .stage-status, .sidebar-stage-state) {
+  box-shadow: none !important;
+}
+
+#app .lp-page :is(.nav-item.active, .nav-item.active:hover) {
+  background: #eff1f0 !important;
+  color: #151818 !important;
+}
+
+#app .resources-header,
+#app .assessment-head {
+  margin: 0 0 28px !important;
+  padding: 0 0 20px !important;
+  border-bottom: 1px solid var(--console-line) !important;
+}
+
+#app .resources-header h1,
+#app .assessment-head h1 {
+  margin: 0 0 6px !important;
+  font-size: 26px !important;
+  font-weight: 750 !important;
+  line-height: 1.25 !important;
+}
+
+#app .resources-header p,
+#app .assessment-head p {
+  margin: 0 !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+#app :is(.resources-header, .assessment-head, .path-heading, .resource-tools-head, .history-resources-head) :is(h1, h2, h3, strong) {
+  color: #080b0a !important;
+  letter-spacing: 0 !important;
+}
+
+#app :is(.resources-header, .assessment-head, .path-heading, .resource-tools-head, .history-resources-head) :is(p, span) {
+  color: var(--console-muted) !important;
+}
+
+#app :is(.no-profile-banner, .path-context-state, .path-basis-notice) {
+  border: 1px solid #ead8a6 !important;
+  border-radius: 8px !important;
+  background: #fffbed !important;
+  box-shadow: none !important;
+}
+
+#app :is(.resource-tools-grid, .resources-grid, .metric-grid, .assessment-grid, .diagnosis-grid) {
+  gap: 12px !important;
+}
+
+#app .resource-tool-card,
+#app .resource-card,
+#app .metric-grid > article,
+#app .assessment-grid > article,
+#app .diagnosis-grid > article {
+  background: #ffffff !important;
+}
+
+#app .week-icon {
+  border-radius: 6px !important;
+  background: var(--console-primary-soft) !important;
+  color: var(--console-primary) !important;
+}
+
+#app :is(.tab-btn, .category-tabs button, .segment-button, .chip-button) {
+  border-radius: 6px !important;
+  background: #ffffff !important;
+}
+
+#app :is(.tab-btn.active, .category-tabs button.active, .segment-button.active) {
+  border-color: var(--console-primary) !important;
+  background: var(--console-primary-soft) !important;
+  color: var(--console-primary) !important;
+}
+
+#app :is(table, .history-table, .history-list) {
+  border: 1px solid var(--console-line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+#app :is(th, .table-head) {
+  color: #4e5654 !important;
+  background: #f7f8f8 !important;
+  font-weight: 600 !important;
+}
+
+#app :is(td, th) {
+  border-color: var(--console-line) !important;
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+  #app :is(.resources-page, .assessment-page, .learning-path-page) {
+    padding-bottom: 88px !important;
+  }
+}
+
+/* Strict monochrome pass. Bitmap images intentionally keep their source colors. */
+#app .topnavbar .nav-links a {
+  color: #202724 !important;
+}
+
+#app .topnavbar .nav-links a:hover,
+#app .topnavbar .nav-links a.active {
+  color: #050706 !important;
+}
+
+#app .topnavbar .nav-links a.active::after {
+  background: #176f4b !important;
+}
+
+#app :is(button, [class*="-btn"], [class*="-button"]) svg {
+  color: currentColor !important;
+}
+
+#app :where(h1, h2, h3, h4, h5, h6, strong, b):not(button *):not(.dot-core *) {
+  color: #090c0b !important;
+}
+
+#app :where(p, small, em, dt, dd):not(button *):not(.dot-core *) {
+  color: #3b4440 !important;
+}
+
+/* The digital-twin workspace is an intentional dark visualization surface. */
+#app .twin-page .twin-header h1 {
+  color: #f4f7f6 !important;
+}
+
+#app .twin-page .twin-header p {
+  color: #71d7bb !important;
+}
+
+#app .twin-page .truth-panel strong {
+  color: #ffffff !important;
+}
+
+#app .twin-page .truth-panel small {
+  color: #65d5b3 !important;
+}
+
+#app .twin-page .empty-runs strong,
+#app .twin-page .action-card strong,
+#app .twin-page .inspector-title strong {
+  color: #e7efec !important;
+}
+
+#app .twin-page .action-card em {
+  color: #ffbd59 !important;
+}
+
+#app .twin-page .action-card small,
+#app .twin-page .inspector-title small,
+#app .twin-page .node-inspector p,
+#app .twin-page .node-inspector dt,
+#app .twin-page .node-inspector dd {
+  color: #94a39e !important;
+}
+
+/* Knowledge growth shares the graph's intentional dark visualization surface. */
+#app .growth-workspace :is(h1, h2, h3, h4, strong, b) {
+  color: #edf6f3 !important;
+}
+
+#app .growth-workspace :is(p, small, dt, dd) {
+  color: #9aada7 !important;
+}
+
+#app .growth-workspace :is(.timeline-list article > div, .section-title p, .timeline-heading p, .queue-heading p) {
+  color: #5bd2b3 !important;
+}
+
+#app .growth-workspace .audit-rule strong {
+  color: #75e0c2 !important;
+}
+
+#app :is(.no-profile-banner, .path-context-state, .path-basis-notice) {
+  border-color: #d9dddc !important;
+  background: #ffffff !important;
+  color: #4b5251 !important;
+}
+
+#app :is(.banner-icon, .path-context-state > svg, .path-basis-notice > svg) {
+  color: #c77700 !important;
+}
+
+#app :is(.tab-btn.active, .category-tabs button.active, .segment-button.active) {
+  border-color: #9ab8aa !important;
+  background: #edf5f1 !important;
+  color: #176f4b !important;
+}
+
+#app .resources-page::-webkit-scrollbar-track {
+  background: #f1f2f2 !important;
+}
+
+#app .resources-page::-webkit-scrollbar-thumb {
+  border-color: #f1f2f2 !important;
+  background: #c6cbca !important;
+}
+
+#app .resource-tool-card,
+#app .resource-tool-card[class*="tool-"] {
+  border-color: #e1e4e3 !important;
+  color: #242827 !important;
+}
+
+#app :is(.type-tag, .match-score, .quality-badge, .citation-badge, .learned-badge) {
+  border-color: #dfe3e2 !important;
+  background: #f3f4f4 !important;
+  color: #555d5b !important;
+}
+
+#app .lp-page .sidebar-nav {
+  gap: 2px !important;
+}
+
+#app .lp-page .nav-item,
+#app .lp-page .nav-item:hover,
+#app .lp-page .nav-item.active,
+#app .lp-page .nav-item.active:hover {
+  min-height: 44px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: #4f5756 !important;
+  box-shadow: none !important;
+}
+
+#app .lp-page .nav-item:hover,
+#app .lp-page .nav-item.active,
+#app .lp-page .nav-item.active:hover {
+  background: #eff1f0 !important;
+  color: #141616 !important;
+}
+
+#app .lp-page :is(.assessment-chat-shell, .profile-portrait-panel) {
+  border-radius: 6px !important;
+}
+
+#app .lp-page .portrait-panel-head {
+  border: 0 !important;
+  border-bottom: 1px solid #e5e7e7 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+#app .lp-page :is(.chat-eyebrow, .sidebar-stage-state, .sidebar-stage-state.error),
+#app .lp-page .face-dimension-tag:not(.done) {
+  border-color: #d9dddc !important;
+  background: #ffffff !important;
+  color: #29312e !important;
+  box-shadow: none !important;
+}
+
+#app .lp-page .face-dimension-tag:not(.done) span {
+  border-color: #cdd2d1 !important;
+  background: #eef2f0 !important;
+  color: #202623 !important;
+}
+
+#app .lp-page .face-dimension-tag.done {
+  border-color: #0b9965 !important;
+  background: #eaf8f1 !important;
+  color: #075c3e !important;
+  box-shadow: 0 0 0 2px rgba(11, 153, 101, 0.08), 0 8px 20px rgba(11, 98, 67, 0.12) !important;
+}
+
+#app .lp-page .face-dimension-tag.done span {
+  border-color: #087b52 !important;
+  background: #087b52 !important;
+  color: #ffffff !important;
+}
+
+#app .lp-page .portrait-score-ring {
+  background:
+    radial-gradient(circle at center, #ffffff 0 60%, transparent 61%),
+    conic-gradient(#343938 0 var(--score), #e6e8e8 var(--score) 100%) !important;
+}
+
+#app .lp-page :is(.chat-input-row, .profile-input-tools button, .chat-reset-btn) {
+  border-color: #dfe3e2 !important;
+  background: #ffffff !important;
+  color: #4c5352 !important;
+  box-shadow: none !important;
+}
+
+#app .lp-page .chat-send {
+  border-color: #171919 !important;
+  background: #171919 !important;
+  color: #ffffff !important;
+}
+
+#app .lp-page :is(.empty-icon, .history-empty-icon, .empty-state-icon) {
+  background: #e8f7ef !important;
+  color: #177a4e !important;
+}
+
+#app :is(.map-dot.current, .map-dot.done) .dot-core {
+  background: #252929 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 5px #ffffff, 0 0 0 10px rgba(37, 41, 41, 0.12) !important;
+}
+
+#app .map-dot.locked .dot-core {
+  background: #ffffff !important;
+  color: #444b4a !important;
+}
+
+#app :is(.route-pending, .route-done) {
+  stroke: #8f9695 !important;
+  filter: none !important;
+}
+
+#app :is(.dot-state, .map-dot.current .dot-state, .map-dot.done .dot-state, .week-status, .task-evidence b) {
+  border-color: #dfe3e2 !important;
+  background: #f1f2f2 !important;
+  color: #4f5756 !important;
+  box-shadow: none !important;
+}
+
+#app .assessment-page :is(.metric-grid svg, .card-title svg, .heatmap-panel svg) {
+  color: #16875a !important;
+}
+
+#app .assessment-page :is(.heatmap-row, .weak-panel b, .radar-legend i) {
+  border-color: #dfe3e2 !important;
+  background: #f1f2f2 !important;
+  color: #4f5756 !important;
+}
+
+#app .xiaozhi-orb {
+  border-color: rgba(16, 185, 129, 0.34) !important;
+  border-radius: 50% !important;
+  background: radial-gradient(circle at 32% 24%, #ffffff, #f3fffb 54%, #dff8ed) !important;
+  color: #1f3433 !important;
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.2), inset 0 0 0 6px rgba(255, 255, 255, 0.76) !important;
+}
+
+#app .xiaozhi-window :is(.task-state, .card-icon, .runtime-security-note) {
+  border-color: #dfe3e2 !important;
+  background: #f7f8f7 !important;
+  color: #3d4342 !important;
+}
+
+#app .xiaozhi-window .mode-tabs button.active {
+  border-color: #176f4b !important;
+  background: #176f4b !important;
+  color: #ffffff !important;
+}
+
+/* Public entry page: white product surface with deep-green primary actions. */
+#app .auth-landing-page :is(.auth-register-button, .auth-start-button),
+#app .auth-landing-page :is(.auth-register-button, .auth-start-button):hover:not(:disabled),
+#app .auth-page .auth-modal-panel .auth-primary-action,
+#app .auth-page .auth-modal-panel .auth-primary-action:hover:not(:disabled) {
+  border-color: #176f4b !important;
+  border-radius: 6px !important;
+  background: #176f4b !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#app .auth-landing-page .auth-login-link {
+  border: 0 !important;
+  background: transparent !important;
+  color: #5f6665 !important;
+}
+
+#app .auth-landing-page .auth-login-link:hover {
+  color: #171919 !important;
+}
+
+#app .auth-page .auth-modal-panel :is(.auth-role-option, .auth-icon-action, .auth-tab-action) {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#app .auth-page .auth-modal-panel .auth-role-option {
+  border: 1px solid #dfe3e2 !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+}
+
+#app .auth-page .auth-modal-panel .auth-role-option-active {
+  border-color: #9ab8aa !important;
+  background: #f2f7f4 !important;
+}
+
+#app .auth-page .auth-modal-panel :is(.auth-tab-action-active, .auth-icon-action:hover) {
+  color: #176f4b !important;
+}
+
+/* Standalone resource tools share a white workspace and restrained green actions. */
+#app :is(
+  .qg-page, .qg-page .qg-workbench, .qg-page .qg-workspace,
+  .ppt-workbench-page, .mind-map-page, .video-search-page,
+  .mcu-board-select-page, .interview-page, .profile-page,
+  .tutor-page, .document-page, .animation-page
+) {
+  background-color: #ffffff !important;
+}
+
+/* Question bank */
+#app .qg-page .qg-module-sidebar {
+  border-right-color: #e5e7e7 !important;
+  background: #ffffff !important;
+}
+
+#app .qg-page .qg-module-nav-item,
+#app .qg-page .qg-module-nav-item:hover {
+  margin: 0 18px 4px !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: #555c5b !important;
+}
+
+#app .qg-page .qg-module-nav-item.active,
+#app .qg-page .qg-module-nav-item.active:hover {
+  background: #f0f2f1 !important;
+  color: #171919 !important;
+}
+
+#app .qg-page .qg-module-nav-item.active::before {
+  width: 3px !important;
+  border-radius: 0 !important;
+  background: #176f4b !important;
+}
+
+#app .qg-page .qg-module-tip {
+  margin: 14px 18px 0 !important;
+  padding: 14px !important;
+  border-color: #e1e4e3 !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+}
+
+#app .qg-page .qg-module-tip strong {
+  color: #303534 !important;
+}
+
+#app .qg-page .qg-sidebar-deco {
+  display: none !important;
+}
+
+#app .qg-page :is(
+  button, .qg-soft-btn, .qg-secondary-btn, .qg-link-btn,
+  .qg-card-toggle-btn, .qg-filter-clear-btn, .qg-inline-clear-btn,
+  .qg-batch-btn, .qg-copy-btn, .qg-similar-btn, .qg-collapse-btn,
+  .qg-profile-clear-btn, .qg-config-toggle-btn, .qg-lock-ratio-btn
+) {
+  border: 1px solid #d9dddc !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  color: #3f4645 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#app .qg-page :is(
+  .qg-primary-btn, .qg-generate-btn, .qg-card-submit-btn,
+  .qg-generate-sheet-btn, .qg-config-goto-btn
+) {
+  border-color: #176f4b !important;
+  border-radius: 6px !important;
+  background: #176f4b !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+#app .qg-page .qg-dashboard-panel .qg-refresh-btn,
+#app .qg-page .qg-dashboard-panel .qg-refresh-btn:hover {
+  border-color: #d9dddc !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  color: #444b4a !important;
+  transform: none !important;
+}
+
+#app .qg-page .qg-dashboard-panel .qg-stat-card,
+#app .qg-page .qg-dashboard-panel .qg-stat-card + .qg-stat-card,
+#app .qg-page .qg-dashboard-panel .qg-dashboard-grid > .qg-glass-card,
+#app .qg-page .qg-dashboard-panel .qg-dashboard-grid > .qg-glass-card:nth-child(n + 3) {
+  border-color: #e1e4e3 !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+#app .qg-page .qg-dashboard-panel .qg-stat-icon {
+  border: 1px solid #cfe9e5 !important;
+  border-radius: 6px !important;
+  background: #e8f7f5 !important;
+  color: #0f8f8a !important;
+  box-shadow: none !important;
+}
+
+#app .qg-page :is(.qg-panel-foot, .qg-review-foot, .qg-chip-cloud span) {
+  border-radius: 5px !important;
+  background: #f5f6f6 !important;
+  color: #555c5b !important;
+}
+
+#app .qg-page :is(.qg-activity-sheet, .qg-activity-exam, .qg-activity-file) {
+  border-radius: 5px !important;
+  background: #eff1f0 !important;
+  color: #555c5b !important;
+}
+
+#app .qg-page .qg-activity-title-row em,
+#app .qg-page .qg-activity-foot {
+  color: #555c5b !important;
+}
+
+#app .qg-page :is(.qg-trend-line, .qg-progress-row i) {
+  stroke: #176f4b !important;
+  background: #176f4b !important;
+}
+
+#app .qg-page .qg-trend-dot {
+  fill: #176f4b !important;
+}
+
+/* Mind map and video search */
+#app :is(.mind-map-page, .video-search-page) {
+  color: #202323 !important;
+  background: #fbfbfb !important;
+}
+
+#app :is(.mind-map-create-shell, .video-search-shell, .task-map-shell) {
+  background: transparent !important;
+}
+
+#app :is(.mind-map-create-shell, .video-search-shell) :is(header, form) {
+  border-color: #e1e4e3 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#app :is(.task-map-kicker, .video-search-kicker, .history-kicker) {
+  color: #176f4b !important;
+}
+
+#app :is(.history-nav-button, .resource-back-button) {
+  border-color: #d9dddc !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  color: #3f4645 !important;
+  box-shadow: none !important;
+}
+
+#app :is(.mind-map-create-shell form button, .video-search-form button):not(:disabled) {
+  border-color: #176f4b !important;
+  border-radius: 6px !important;
+  background: #176f4b !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+#app .mind-map-page :is(.status-icon, .history-kicker + svg) {
+  color: #7c3aed !important;
+}
+
+/* Restore semantic colors without bringing back decorative color washes. */
+#app .resource-tool-card.tool-green .resource-tool-icon {
+  border-color: #cce8d8 !important;
+  background: #e8f7ef !important;
+  color: #177a4e !important;
+}
+
+#app .resource-tool-card.tool-blue .resource-tool-icon {
+  border-color: #cfe0ff !important;
+  background: #e8f1ff !important;
+  color: #2563eb !important;
+}
+
+#app .resource-tool-card.tool-purple .resource-tool-icon {
+  border-color: #e2d1ff !important;
+  background: #f3e8ff !important;
+  color: #7c3aed !important;
+}
+
+#app .resource-tool-card.tool-teal .resource-tool-icon {
+  border-color: #c8e9e5 !important;
+  background: #e5f8f6 !important;
+  color: #0f8f8a !important;
+}
+
+#app .resource-tool-card.tool-orange .resource-tool-icon {
+  border-color: #f2d8bf !important;
+  background: #fff1e7 !important;
+  color: #d66a08 !important;
+}
+
+#app .resource-tool-card.tool-green > svg { color: #177a4e !important; }
+#app .resource-tool-card.tool-blue > svg { color: #2563eb !important; }
+#app .resource-tool-card.tool-purple > svg { color: #7c3aed !important; }
+#app .resource-tool-card.tool-teal > svg { color: #0f8f8a !important; }
+#app .resource-tool-card.tool-orange > svg { color: #d66a08 !important; }
+
+#app .lp-page .sidebar-nav .nav-item:nth-child(1) .nav-icon {
+  color: #0f8f8a !important;
+}
+
+#app .lp-page .sidebar-nav .nav-item:nth-child(2) .nav-icon {
+  color: #2563eb !important;
+}
+
+#app .lp-page .sidebar-nav .nav-item:nth-child(3) .nav-icon {
+  color: #7c3aed !important;
+}
+
+#app .lp-page .profile-input-tools button:nth-child(1) {
+  color: #177a4e !important;
+}
+
+#app .lp-page .profile-input-tools button:nth-child(2) {
+  color: #2563eb !important;
+}
+
+#app .lp-page .profile-input-tools button:nth-child(3) {
+  color: #c77700 !important;
+}
+
+#app .mind-map-page :is(.history-list, .history-panel, .history-item, .task-map-header),
+#app .video-search-page :is(.video-card, .quality-summary) {
+  border-color: #e1e4e3 !important;
+  border-radius: 6px !important;
+  background-color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+/* MCU board selector */
+#app .mcu-board-select-page {
+  background: #fbfbfb !important;
+}
+
+#app .mcu-resource-return,
+#app .mcu-resource-return:hover {
+  border-color: #d9dddc !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  color: #3f4645 !important;
+  box-shadow: none !important;
+}
+
+#app .mcu-board-card {
+  border-color: #dfe3e2 !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+#app .mcu-board-card:hover {
+  border-color: #aeb5b4 !important;
+  transform: none !important;
+}
+
+#app .mcu-board-card-visual {
+  border-radius: 4px !important;
+  background: #2c3130 !important;
+  color: #ffffff !important;
+}
+
+#app .mcu-board-card a,
+#app .mcu-board-card button {
+  color: #176f4b !important;
+}
+
+/* Digital-human interview. Keep the stage bitmap, remove CSS tint layers. */
+#app .interview-page {
+  background: #ffffff !important;
+}
+
+#app .interview-page .visual-panel {
+  border-color: #dfe3e2 !important;
+  border-radius: 6px !important;
+  background-color: #f7f8f7 !important;
+  background-image: url('/shuzirenbg.png') !important;
+  background-position: center !important;
+  background-size: cover !important;
+  box-shadow: none !important;
+}
+
+#app .interview-page :is(.interview-options, .analysis-panel, .chat-panel, .status-strip, .answer-bar) {
+  border-color: #dfe3e2 !important;
+  border-radius: 6px !important;
+  background-color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+#app .interview-page .analysis-heading {
+  color: #343938 !important;
+}
+
+#app .interview-page .primary-button,
+#app .interview-page .primary-button:hover:not(:disabled) {
+  border-color: #176f4b !important;
+  background: #176f4b !important;
+  color: #ffffff !important;
+}
+
+#app .interview-page .secondary-button {
+  border-color: #d9dddc !important;
+  background: #ffffff !important;
+  color: #3f4645 !important;
+}
+
+/* User profile */
+#app .profile-page {
+  background: #ffffff !important;
+}
+
+/* Preserve the learning-path interaction above the global button reset. */
+#app .learning-path-page .week-card:hover:not(:disabled):not(.placeholder-card):not(.week-card-skeleton) {
+  border-color: color-mix(in srgb, var(--tone) 48%, #d2d9d6) !important;
+  box-shadow: 0 18px 38px rgba(9, 19, 15, 0.14) !important;
+  transform: translateY(-6px) scale(1.008) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app .learning-path-page .week-card:hover:not(:disabled) {
+    transform: none !important;
+  }
+}
+
+#app .profile-page .profile-card {
+  border: 1px solid #e1e4e3 !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+#app .profile-page .avatar-display {
+  border-color: #d9dddc !important;
+  box-shadow: none !important;
+}
+
+#app .profile-page .upload-trigger {
+  border: 1px solid #dfe3e2 !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  color: #176f4b !important;
+}
+
+#app .profile-page .save-btn,
+#app .profile-page .save-btn:hover:not(:disabled) {
+  border-color: #176f4b !important;
+  border-radius: 6px !important;
+  background: #176f4b !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Knowledge network is a dedicated dark graph workspace. */
+#app .network-page.graph-mode .view-tabs {
+  border-color: #263140 !important;
+  background: #0f151d !important;
+}
+
+#app .network-page.graph-mode .view-tabs button {
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #9ca9ba !important;
+  box-shadow: none !important;
+}
+
+#app .network-page.graph-mode .view-tabs button:hover:not(:disabled) {
+  background: #151f2a !important;
+  color: #eef3ff !important;
+  transform: none !important;
+}
+
+#app .network-page.graph-mode .view-tabs button.active {
+  border-bottom-color: #45d2b0 !important;
+  background: #131c26 !important;
+  color: #f4f7ff !important;
+}
+
+#app .network-page.graph-mode .graph-toolbar :is(input, select) {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #e3e9f2 !important;
+  box-shadow: none !important;
+}
+
+#app .network-page.graph-mode .graph-toolbar input::placeholder {
+  color: #758398 !important;
+}
+
+#app .network-page.graph-mode .graph-toolbar option {
+  background: #111923 !important;
+  color: #e3e9f2 !important;
+}
+
+#app .network-page.graph-mode :is(.icon-command, .sigma-controls button, .close-panel) {
+  border: 1px solid #344153 !important;
+  border-radius: 4px !important;
+  background: #151d27 !important;
+  color: #b9c5d6 !important;
+  box-shadow: none !important;
+}
+
+#app .network-page.graph-mode :is(.icon-command, .sigma-controls button, .close-panel):hover:not(:disabled) {
+  border-color: #55cdb3 !important;
+  background: #1b2733 !important;
+  color: #ffffff !important;
+  transform: none !important;
+}
+
+#app .network-page.graph-mode .search-results,
+#app .network-page.graph-mode .search-results button {
+  border-color: #2b3746 !important;
+  border-radius: 0 !important;
+  background: #111923 !important;
+  color: #dce4ef !important;
+  box-shadow: none !important;
+}
+
+#app .network-page.graph-mode .search-results button:hover:not(:disabled),
+#app .network-page.graph-mode .search-results button.active {
+  background: #192532 !important;
+  transform: none !important;
+}
+
+#app .network-page.graph-mode .search-results :is(strong, b) {
+  color: #edf2fa !important;
+}
+
+#app .network-page.graph-mode .search-results :is(small, em) {
+  color: #8d9bad !important;
+}
+
+#app .network-page.graph-mode .node-panel {
+  border-color: #2b3746 !important;
+  background: #10161f !important;
+  color: #d6deea !important;
+}
+
+#app .network-page.graph-mode .node-panel h2 {
+  color: #f4f7ff !important;
+}
+
+#app .network-page.graph-mode .node-panel p {
+  color: #aab6c6 !important;
+}
+
+#app .network-page.graph-mode .node-panel dt {
+  color: #78879a !important;
+}
+
+#app .network-page.graph-mode .node-panel dd {
+  color: #d2dae6 !important;
+}
+
+#app .network-page.graph-mode .node-panel dd.verified {
+  color: #64d8b5 !important;
+}
+
+#app .network-page.graph-mode .node-panel dd.pending {
+  color: #ff9ca8 !important;
+}
+
+#app .network-page.graph-mode .related-nodes {
+  border-color: #2b3746 !important;
+}
+
+#app .network-page.graph-mode .related-nodes button {
+  border: 0 !important;
+  border-bottom: 1px solid #222d3a !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #d6deea !important;
+  box-shadow: none !important;
+}
+
+#app .network-page.graph-mode .related-nodes button:hover:not(:disabled) {
+  background: #172330 !important;
+  transform: none !important;
+}
+
+#app .network-page.graph-mode .related-nodes :is(strong, b) {
+  color: #e8edf6 !important;
+}
+
+#app .network-page.graph-mode .related-nodes :is(small, p) {
+  color: #8998aa !important;
+}
+
+#app .network-page.graph-mode .primary-command {
+  border: 1px solid #36b99e !important;
+  background: #123c37 !important;
+  color: #dffbf4 !important;
+  box-shadow: none !important;
+}
+
+#app .network-page.graph-mode .secondary-command {
+  border: 1px solid #3a485a !important;
+  background: #151d27 !important;
+  color: #d4dce8 !important;
+  box-shadow: none !important;
+}

@@ -1,0 +1,939 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <script>
+        (() => {
+            const target = new URL('/personalized-resources/mind-map', window.location.origin);
+            new URLSearchParams(window.location.search).forEach((value, key) => {
+                target.searchParams.append(key, value);
+            });
+            window.location.replace(target.href);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>思维导图向导</title>
+    <meta name="language" content="zh-CN">
+
+
+    <link rel="icon" type="image/png" href="/mind-map-wizard/img/favicon96.png" sizes="96x96">
+    <link rel="icon" type="image/png" href="/mind-map-wizard/img/favicon64.png" sizes="64x48">
+    <link rel="icon" type="image/png" href="/mind-map-wizard/img/favicon48.png" sizes="48x48">
+    <link rel="icon" type="image/png" href="/mind-map-wizard/img/favicon32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="/mind-map-wizard/img/favicon16.png" sizes="16x16">
+    <link rel="icon" type="image/x-icon" href="/mind-map-wizard/img/favicon.ico">
+
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="思维导图向导">
+    <link rel="manifest" href="/mind-map-wizard/img/site.webmanifest" />
+
+    <link rel="stylesheet" href="/mind-map-wizard/styles/mmw.css">
+    <link rel="stylesheet" href="/mind-map-wizard/styles/new.css">
+    <link rel="stylesheet" href="/mind-map-wizard/styles/mind-map-elements.css">
+
+
+    <script src="/mind-map-wizard/scripts/llm-api.js"></script>
+    <script src="/mind-map-wizard/scripts/mm-rendering/notes.js"></script>
+    <script src="/mind-map-wizard/scripts/mm-rendering/image-handler.js"></script>
+    <script src="/mind-map-wizard/scripts/squircles.js"></script>
+    <script src="/mind-map-wizard/scripts/chat-edits.js" type="module"></script>
+    <script src="/mind-map-wizard/scripts/chat-ui.js"></script>
+
+    <script src="/mind-map-wizard/scripts/libraries/jspdf.umd.min.js"></script>
+
+    <link rel="preload" href="/mind-map-wizard/OpenSans-ExtraBold.ttf" as="font" type="font/ttf" crossorigin="anonymous">
+    <link rel="preload" href="/mind-map-wizard/img/fonts/Bebas_Neue/BebasNeue-Regular.ttf" as="font" type="font/ttf"
+        crossorigin="anonymous">
+    <link rel="preload" href="/mind-map-wizard/img/fonts/PT_Serif/PTSerif-Regular.ttf" as="font" type="font/ttf"
+        crossorigin="anonymous">
+    <link rel="preload" href="/mind-map-wizard/img/fonts/Roboto_Mono/RobotoMono-VariableFont_wght.ttf" as="font" type="font/ttf"
+        crossorigin="anonymous">
+    <link rel="preload" href="/mind-map-wizard/img/fonts/Montserrat/Montserrat-VariableFont_wght.ttf" as="font" type="font/ttf"
+        crossorigin="anonymous">
+    <link rel="preload" href="/mind-map-wizard/img/fonts/Indie_Flower/IndieFlower-Regular.ttf" as="font" type="font/ttf"
+        crossorigin="anonymous">
+    <link rel="preload" href="/mind-map-wizard/img/fonts/open-runde/OpenRunde-Regular.otf" as="font" type="font/otf"
+        crossorigin="anonymous">
+
+    <script src="/mind-map-wizard/scripts/mmw.js" defer="defer"></script>
+    <script src="/mind-map-wizard/scripts/new.js" defer="defer"></script>
+    <style>
+        @font-face {
+            font-family: "Open Sans";
+            src: url("/mind-map-wizard/OpenSans-ExtraBold.ttf") format("truetype"),
+                url("/mind-map-wizard/OpenSans-ExtraBold.ttf") format("ttf");
+            font-weight: 800;
+            font-style: normal;
+            font-display: swap;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        @font-face {
+            font-family: 'Bebas Neue';
+            src: url('/mind-map-wizard/img/fonts/Bebas_Neue/BebasNeue-Regular.ttf') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'PT Serif';
+            src: url('/mind-map-wizard/img/fonts/PT_Serif/PTSerif-Regular.ttf') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Roboto Mono';
+            src: url('/mind-map-wizard/img/fonts/Roboto_Mono/RobotoMono-VariableFont_wght.ttf') format('truetype');
+            font-weight: 100 700;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('/mind-map-wizard/img/fonts/Montserrat/Montserrat-VariableFont_wght.ttf') format('truetype');
+            font-weight: 100 700;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Indie Flower';
+            src: url('/mind-map-wizard/img/fonts/Indie_Flower/IndieFlower-Regular.ttf') format('truetype');
+            font-weight: 100 700;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Open Runde';
+            src: url('/mind-map-wizard/img/fonts/open-runde/OpenRunde-Regular.otf') format('opentype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="banner-outage">
+        <div class="outage-banner-content">
+            <div class="banner-text">
+                我们目前遇到了一些技术问题，正在努力解决。
+            </div>
+        </div>
+    </div>
+    <div class="menubar" id="menubar"></div>
+    <button id="leftSidebarToggle" class="left-sidebar-toggle navbar-toggle" aria-label="切换左侧边栏">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="var(--text-color)" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 3H13C16.7712 3 18.6569 3 19.8284 4.17157C21 5.34315 21 7.22876 21 11V13C21 16.7712 21 18.6569 19.8284 19.8284C18.6569 21 16.7712 21 13 21H11C7.22876 21 5.34315 21 4.17157 19.8284C3 18.6569 3 16.7712 3 13V11C3 7.22876 3 5.34315 4.17157 4.17157C5.34315 3 7.22876 3 11 3Z"></path>
+                <path d="M8.00488 16.0049L8.00488 8.00488"></path>
+        </svg>
+    </button>
+
+    <button id="new-mind-map-button" class="new-mind-map-button" aria-label="新建思维导图">
+        <svg height="18" width="18" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 0h24v24H0z" fill="none"></path>
+            <path
+                d="M12 2C11.4477 2 11 2.44772 11 3V11H3C2.44772 11 2 11.4477 2 12C2 12.5523 2.44772 13 3 13H11V21C11 21.5523 11.4477 22 12 22C12.5523 22 13 21.5523 13 21V13H21C21.5523 13 22 12.5523 22 12C22 11.4477 21.5523 11 21 11H13V3C13 2.44772 12.5523 2 12 2Z"
+                fill="var(--text-color)" stroke="var(--text-color)" stroke-width="0.5" stroke-linecap="round"
+                stroke-linejoin="round"></path>
+        </svg>
+    </button>
+
+    <button id="openSearchPopupBtn" class="search-mind-maps-button" title="搜索思维导图"
+        aria-label="搜索思维导图">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="var(--text-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21 21-4.34-4.34" />
+            <circle cx="11" cy="11" r="8" />
+        </svg>
+    </button>
+    </div>
+    </p>
+
+
+    <div id="app">
+
+
+
+        <div class="loading-animation" id="loading-animation">
+                <div class="loader-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
+                        <defs>
+                            <style>
+                                .loader-container {
+                                    width: 100px;
+                                    height: 100px;
+                                    display: flex;
+                                    justify-content: center;
+                                    align-items: center;
+                                }
+        
+                                .wand {
+                                    fill: var(--text-color);
+                                    stroke: var(--text-color);
+                                    stroke-width: 4px;
+                                    stroke-linejoin: round;
+                                    vector-effect: non-scaling-stroke;
+                                    transform-origin: 45px 125px;
+                                    animation: magic-stretch-release 2.5s infinite;
+                                }
+        
+                                /* NEW RULE ADDED HERE TO MOVE STARS */
+                                .stars {
+                                    transform: translate(15px, -15px);
+                                }
+        
+                                @keyframes magic-stretch-release {
+                                    0% {
+                                        transform: rotate(43deg) scale3d(1, 1, 1) rotate(-43deg);
+                                        animation-timing-function: ease-in;
+                                    }
+        
+                                    40% {
+                                        transform: rotate(43deg) scale3d(1.25, 0.75, 1) rotate(-43deg);
+                                        animation-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                                    }
+        
+                                    45% {
+                                        transform: rotate(43deg) scale3d(0.9, 1.15, 1) rotate(-43deg);
+                                        animation-timing-function: cubic-bezier(0.455, 0.03, 0.515, 0.955);
+                                    }
+        
+                                    50% {
+                                        transform: rotate(43deg) scale3d(1.05, 0.98, 1) rotate(-43deg);
+                                    }
+        
+                                    55% {
+                                        transform: rotate(43deg) scale3d(1, 1, 1) rotate(-43deg);
+                                    }
+        
+                                    100% {
+                                        transform: rotate(43deg) scale3d(1, 1, 1) rotate(-43deg);
+                                    }
+                                }
+        
+                                .star {
+                                    transform-box: fill-box;
+                                    transform-origin: center;
+                                    animation:
+                                        star-color-cycle 2.5s linear infinite,
+                                        star-react 2.5s ease-out infinite;
+                                }
+        
+                                .star-2 {
+                                    animation-delay: 0.1s;
+                                }
+        
+                                .star-3 {
+                                    animation-delay: 0.05s;
+                                }
+        
+                                @keyframes star-color-cycle {
+        
+                                    0%,
+                                    100% {
+                                        fill: #ffd700;
+                                    }
+        
+                                    25% {
+                                        fill: #00ff00;
+                                    }
+        
+                                    50% {
+                                        fill: #1e90ff;
+                                    }
+        
+                                    75% {
+                                        fill: #ff4500;
+                                    }
+                                }
+        
+                                @keyframes star-react {
+        
+                                    0%,
+                                    40% {
+                                        transform: scale(1) rotate(0deg);
+                                        opacity: 0.7;
+                                    }
+        
+                                    45% {
+                                        transform: scale(1.3) rotate(45deg);
+                                        opacity: 1;
+                                    }
+        
+                                    50% {
+                                        transform: scale(1) rotate(90deg);
+                                        opacity: 1;
+                                    }
+        
+                                    100% {
+                                        transform: scale(1) rotate(90deg);
+                                        opacity: 0.7;
+                                    }
+                                }
+                            </style>
+                        </defs>
+        
+                        <path class="wand"
+                            d="M92.98 79.91l-9.98-6.64c-1.31-.87-2.99-.65-4.07.54l-8.53 9.43-35.51 39.25c-1.18 1.3-1.17 3.4.01 4.69 5.19 4.71 5.87 3.9 10.04.54l48.33-43.4c1.32-1.18 1.17-3.44-.28-4.41ZM92.9 84l-10.58 9.51-11.26-10.28 8.13-9c.74-.97 2.4-1.47 3.86-.37l9.76 6.52c1.2.83 1.26 2.6.09 3.62Z" />
+        
+                        <g class="stars">
+                            <path class="star star-1"
+                                d="M103.18 30.65c.52-1.51 2.53-1.51 3.05 0l2.61 7.51c.16.47.51.85.96 1.02l7.04 2.78c1.42.56 1.42 2.69 0 3.25l-7.04 2.78c-.45.18-.8.55-.96 1.02l-2.61 7.51c-.52 1.51-2.53 1.51-3.05 0l-2.61-7.51c-.16-.47-.52-.85-.96-1.02l-7.04-2.78c-1.42-.56-1.42-2.69 0-3.25l7.04-2.78c.44-.18.8-.55.96-1.02l2.61-7.51Z" />
+                            <path class="star star-2"
+                                d="M114.84 58.47c.4-1.07 1.91-1.07 2.31 0l1.98 5.34c.12.34.39.6.73.73l5.34 1.98c1.07.4 1.07 1.91 0 2.31l-5.34 1.98c-.34.13-.6.39-.73.73l-1.98 5.34c-.4 1.07-1.91 1.07-2.31 0l-1.98-5.34c-.12-.34-.39-.6-.73-.73l-5.34-1.98c-1.07-.4-1.07-1.91 0-2.31l5.34-1.98c.34-.13.6-.39.73-.73l1.98-5.34Z" />
+                            <path class="star star-3"
+                                d="M76.13 42.95c.4-1.07 1.91-1.07 2.31 0l1.98 5.34c.12.34.39.6.73.73l5.34 1.98c1.07.4 1.07 1.91 0 2.31l-5.34 1.98c-.34.13-.6.39-.73.73l-1.98 5.34c-.4 1.07-1.91 1.07-2.31 0l-1.98-5.34c-.12-.34-.39-.6-.73-.73l-5.34-1.98c-1.07-.4-1.07-1.91 0-2.31l5.34-1.98c.34-.13.6-.39.73-.73l1.98-5.34Z" />
+                        </g>
+                    </svg>
+                </div>
+            <br>
+            <small style="font-weight: 500;">正在生成思维导图...</small>
+        </div>
+
+        <div class="centered-div">
+
+            <div class="header" id="header">
+                <div class="whitespace" style="height: 60px;"></div>
+                <h1 id="randomText"></h1>
+                <div class="input-wrapper">
+                    <textarea name="text" class="input" id="prompt" placeholder="输入文本或URL..."
+                        rows="1"></textarea>
+                    <button id="generate-mindmap-btn" class="send-prompt-btn" aria-label="生成思维导图">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="26px" viewBox="0 -960 960 960" width="26px"
+                            fill="#FFFFFF">
+                            <path
+                                d="M166.67-179.67Q150-173 135-182.5T120-210v-193.33L428-480l-308-78v-192q0-18 15-27.5t31.67-2.83l640 269.33Q827-502 827-480t-20.33 31l-640 269.33Z" />
+                        </svg>
+                    </button>
+                </div>
+
+            <div class="model-selector-container" style="margin-top: 6px;">
+                <div class="model-dropdown-wrapper">
+                    <span id="current-model-name" style="font-size: 0.85em; opacity: 0.6;">正在读取模型...</span>
+                </div>
+            </div>
+
+                <div style="display: flex; justify-content: center; gap: 10px; margin-top: 18px;">
+                    <a href="/sign-up.html" class="upload-pdf-button">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                            stroke="var(--text-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="upload-icon">
+                            <path d="M4 12v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"></path>
+                            <polyline points="16 6 12 2 8 6"></polyline>
+                            <line x1="12" x2="12" y1="2" y2="12"></line>
+                        </svg>
+                        上传
+                    </a>
+                    <button type="button" id="import-learning-profile-btn" class="manual-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewbox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="manual-icon">
+                            <path d="M13 7 8.7 2.7a2.41 2.41 0 0 0-3.4 0L2.7 5.3a2.41 2.41 0 0 0 0 3.4L7 13" />
+                            <path d="m8 6 2-2" />
+                            <path d="m18 16 2-2" />
+                            <path d="m17 11 4.3 4.3c.94.94.94 2.46 0 3.4l-2.6 2.6c-.94.94-2.46.94-3.4 0L11 17" />
+                            <g class="rotatable-group" fill="var(--white)">
+                                <path
+                                    d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+                                <path d="m15 5 4 4" />
+                            </g>
+                        </svg>
+                        从学习画像中导入
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <small class="legals-disclaimer" id="legals-disclaimer">思维导图向导使用本地模型代理运行。</small>
+    </div>
+    </div>
+
+    <div id="mindmap"></div>
+
+    <div id="download-options-popup" class="download-options-popup" style="padding: 0px;">
+        <div class="download-options-popup-content">
+            <div class="popup-header">
+                <h2>下载思维导图</h2>
+                <button class="close-button" id="close-download-options-popup">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none"
+                        stroke="var(--tex-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="download-options">
+                <div class="format-selector">
+                    <label for="download-format">文件格式</label>
+                    <select id="download-format" class="material-dropdown">
+                        <option value="jpg">JPG - 图片</option>
+                        <option value="svg">SVG - 矢量图</option>
+                        <option value="pdf">PDF - 图片与大纲</option>
+                        <option value="markdown">Markdown - 大纲</option>
+                    </select>
+                </div>
+                <div class="popup-buttons">
+                    <button class="print-button secondary" id="print-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9" />
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                            <rect x="6" y="14" width="12" height="8" />
+                        </svg>
+                    </button>
+                    <button class="download-button primary" id="download-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" x2="12" y1="15" y2="3" />
+                        </svg>
+                        下载
+                    </button>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="help-popup" class="help-popup">
+        <div class="help-popup-content">
+            <div class="popup-header" style="padding: 10px 0px !important;">
+                <h2>快速入门</h2>
+                <button class="close-button" id="close-help-popup">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none"
+                        stroke="var(--text-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="help-content-grid">
+                <div class="help-item">
+                    <div class="help-image-container">
+                        <img src="/mind-map-wizard/img/screenshots/edit-text.svg" alt="" draggable="false">
+                    </div>
+                    <h3>双击编辑文本</h3>
+                    <p>双击任意节点即可编辑文本。光标出现后开始输入。</p>
+                </div>
+                <div class="help-item">
+                    <div class="help-image-container">
+                        <img src="/mind-map-wizard/img/screenshots/context-menu.svg" alt="" draggable="false">
+                    </div>
+                    <h3>右键菜单</h3>
+                    <p>右键点击节点可访问添加或删除分支等选项。</p>
+                </div>
+                <div class="help-item">
+                    <div class="help-image-container">
+                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" width="45" height="45" style="color: #FFBF00;">
+                            <defs>
+                            <path id="sparkle" d="M90.72,35.94c2.26,0,4.2,1.68,4.57,3.97,1.29,7.94,3.77,13.31,7.39,17.02,3.62,3.71,8.86,6.26,16.59,7.59,2.52.44,4.22,2.89,3.79,5.48-.33,1.99-1.85,3.56-3.79,3.89-7.73,1.33-12.97,3.87-16.59,7.59-3.62,3.71-6.1,9.09-7.39,17.02-.43,2.59-2.82,4.33-5.34,3.89-1.94-.34-3.47-1.9-3.79-3.89-1.29-7.94-3.77-13.31-7.39-17.02-3.62-3.71-8.86-6.26-16.59-7.59-2.52-.44-4.22-2.89-3.79-5.48.33-1.99,1.85-3.56,3.79-3.89,7.73-1.33,12.97-3.87,16.59-7.59,3.62-3.71,6.1-9.09,7.39-17.02l.08-.42c.53-2.09,2.38-3.55,4.48-3.55"></path>
+
+                            <mask id="cutout">
+                                <rect width="100%" height="100%" fill="white"></rect>
+                                <use href="#sparkle" stroke="black" stroke-width="19" stroke-linejoin="round" fill="black"></use>
+                            </mask>
+                            </defs>
+
+                            <g transform="translate(0.7 11)">
+                            <path d="M99.68,8.5H8.5 M69.29,47.25H8.5 M79.42,86.01H8.5" stroke="currentColor" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" mask="url(#cutout)"></path>
+                            <use href="#sparkle" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></use>
+                            </g>
+                        </svg>
+                    </div>
+                    <h3>长按生成 AI 摘要</h3>
+                    <p>长按节点可生成简短的 AI 摘要。</p>
+                </div>
+            </div>
+            <div class="popup-buttons" style="justify-content: flex-end; margin-top: 20px;">
+                <button class="download-button primary" id="close-help-btn-action">
+                    完成
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="button-container" id="button-container">
+        <button class="share-mm-button" id="share-btn" onclick="shareMindmap()" title="分享 (S)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="none" stroke="var(--text-color)"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" x2="12" y1="2" y2="15" />
+            </svg>
+        </button>
+        <button class="edit-mode-button" id="customize-mode-button" title="编辑 (E)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path
+                    d="M9 8c-1.804 2.71-3.97 3.46-6.583 3.948a.507.507 0 0 0-.302.819l7.32 8.883a1 1 0 0 0 1.185.204C12.735 20.405 16 16.792 16 15" />
+                <path fill="var(--white)"
+                    d="M18.376 2.622a1 1 0 1 1 3.002 3.002L17.36 9.643a.5.5 0 0 0 0 .707l.944.944a2.41 2.41 0 0 1 0 3.408l-.944.944a.5.5 0 0 1-.707 0L8.354 7.348a.5.5 0 0 1 0-.707l.944-.944a2.41 2.41 0 0 1 3.408 0l.944.944a.5.5 0 0 0 .707 0z" />
+            </svg> </button>
+        <button class="download-mindmap-btn" id="download-mindmap-btn" title="下载 (D)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="none" stroke="var(--text-color)"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" x2="12" y1="15" y2="3" />
+            </svg>
+        </button>
+        <button class="regenerate-button" id="regenerate-button" title="重新生成 (R)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="none" stroke="var(--text-color)"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+            </svg>
+        </button>
+        <button class="help-mm-button" id="help-btn" title="编辑指南">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-question-mark-icon lucide-circle-question-mark"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </button>
+        <button class="chat-toggle-button" id="chat-toggle-btn" title="AI 聊天">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-circle-icon lucide-message-circle"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/></svg>
+        </button>
+    </div>
+
+    <!-- Zoom Controls -->
+    <div class="zoom-controls" id="zoom-controls">
+        <button class="zoom-button" id="mm-fit" title="适应屏幕 (F)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="none" stroke="var(--text-color)"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+                <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+                <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+                <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+            </svg>
+        </button>
+        <button class="zoom-button" id="zoom-in-btn" title="放大 (+)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--text-color)"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+                <line x1="11" y1="8" x2="11" y2="14" />
+                <line x1="8" y1="11" x2="14" y2="11" />
+            </svg>
+        </button>
+        <button class="zoom-button" id="zoom-out-btn" title="缩小 (-)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--text-color)"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+                <line x1="8" y1="11" x2="14" y2="11" />
+            </svg>
+        </button>
+    </div>
+
+    <div class="editor-overlay" id="editor-overlay">
+        <div class="mm-customization-panel" id="mmCustomizationPanel">
+            <div class="customization-content-wrapper" style="display: flex; gap: 20px;">
+                <div class="customization-controls" style="flex: 1;">
+                    <h3 style="margin: 0 0 14px; font-weight: 600;">自定义选项</h3>
+
+                    <div class="field-group">
+                        <label>分支布局</label>
+                        <div class="segmented" style="display:flex;">
+                            <button id="align-balanced" class="seg-btn" style="flex:1;">均衡</button>
+                            <button id="align-right" class="seg-btn" style="flex:1;">右侧</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div>
+                            <label for="spacingRange">层级间距</label>
+                            <input type="range" id="spacingRange" min="10" max="100" step="2" style="width:100%;">
+                        </div>
+
+                        <div>
+                            <label for="roundingRange">节点圆角</label>
+                            <input type="range" id="roundingRange" min="0" max="24" step="1" style="width:100%;">
+                        </div>
+
+                        <div>
+                            <label for="branchWidthRange">连线宽度</label>
+                            <input type="range" id="branchWidthRange" min="1" max="8" step="0.1" style="width:100%;">
+                        </div>
+                    </div>
+
+                    <div class="field-group" style="margin-top: 20px; margin-bottom: 0;">
+                        <label style="margin: 0 0 8px 0; font-weight: 500; display: block;">节点背景</label>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" id="style-standard" class="seg-btn" style="flex:1;">标准</button>
+                            <button type="button" id="style-lines" class="seg-btn" style="flex:1;">线条</button>
+                            <button type="button" id="style-minimal" class="seg-btn" style="flex:1;">极简</button>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="fontSelect">字体</label>
+                        <select id="fontSelect" class="material-dropdown" style="width:100%;">
+                            <option value="standard">基础</option>
+                            <option value="PT Serif">优雅</option>
+                            <option value="Roboto Mono">等宽</option>
+                            <option value="Bebas Neue">现代</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Indie Flower">手写</option>
+                            <option value="Open Runde">圆润</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="customization-preview">
+                    <div id="svg-preview-container">
+                        <svg id="preview-svg" xmlns="http://www.w3.org/2000/svg" version="1.1" width="1300" height="200"
+                            viewBox="0 -24.5 1200 155">
+                            <defs>
+                                <style id="preview-style">
+                                    .mm--preview-node text {
+                                        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                                    }
+                                </style>
+                            </defs>
+                            <g class="mm-stage">
+                                <!-- Root node -->
+                                <g class="mm-preview-node" transform="translate(60,29)"
+                                    style="transition: transform 500ms cubic-bezier(0.4, 0, 0.2, 1), opacity 400ms;">
+                                    <rect id="preview-root-rect" x="0" y="0" width="179" height="48" rx="4" ry="4"
+                                        fill="var(--white)" stroke="none"
+                                        style="transition: height 500ms cubic-bezier(0.4, 0, 0.2, 1), fill 300ms;">
+                                    </rect>
+                                    <rect id="preview-root-rect" x="0" y="0" width="179" height="48" rx="4" ry="4"
+                                        fill-opacity="0.18" fill="#03a9f4" stroke="none"
+                                        style="transition: height 500ms cubic-bezier(0.4, 0, 0.2, 1), fill 300ms;">
+                                    </rect>
+
+                                    <text x="89.5" y="26" font-family="system-ui" font-size="26px" font-weight="700"
+                                        fill="var(--text-color)" text-anchor="middle" dominant-baseline="middle"
+                                        style="opacity: 1;">
+                                        思维导图
+                                    </text>
+                                    <line id="preview-root-underline" x1="0" y1="48" x2="179" y2="48" stroke="#03a9f4" stroke-width="2.5" stroke-linecap="round" style="display:none;"></line>
+                                </g>
+
+                                <!-- Branch node 1 -->
+                                <g class="mm-preview-node" id="preview-node-0" transform="translate(339, -29)"
+                                    style="transition: transform 500ms cubic-bezier(0.4, 0, 0.2, 1), opacity 400ms;">
+                                    <rect class="preview-rect" x="0" y="0" width="102" height="38" rx="4" ry="4"
+                                        fill="var(--white)" stroke="none"
+                                        style="transition: height 500ms cubic-bezier(0.4, 0, 0.2, 1), fill 300ms;">
+                                    </rect>
+                                    <rect class="preview-rect" x="0" y="0" width="102" height="38" rx="4" ry="4"
+                                        fill-opacity="0.18" fill="rgb(255, 127, 15)" stroke="none"
+                                        style="transition: height 500ms cubic-bezier(0.4, 0, 0.2, 1), fill 300ms;">
+                                    </rect>
+                                    <text x="51" y="21" font-family="system-ui" font-size="16px" font-weight="400"
+                                        fill="var(--text-color)" text-anchor="middle" dominant-baseline="middle"
+                                        style="opacity: 1;">
+                                        分支
+                                    </text>
+                                    <line class="preview-rect-underline" x1="0" y1="38" x2="102" y2="38" stroke="rgb(255, 127, 15)" stroke-width="2.5" stroke-linecap="round" style="display:none;"></line>
+                                </g>
+
+                                <!-- Branch node 2 -->
+                                <g class="mm-preview-node" id="preview-node-1" transform="translate(339, 97)"
+                                    style="transition: transform 500ms cubic-bezier(0.4, 0, 0.2, 1), opacity 400ms;">
+                                    <rect class="preview-rect" x="0" y="0" width="102" height="38" rx="4" ry="4"
+                                        fill="var(--white)" stroke="none"
+                                        style="transition: height 500ms cubic-bezier(0.4, 0, 0.2, 1), fill 300ms;">
+                                    </rect>
+                                    <rect class="preview-rect" x="0" y="0" width="102" height="38" rx="4" ry="4"
+                                        fill-opacity="0.18" fill="rgb(0, 191, 191)" stroke="none"
+                                        style="transition: height 500ms cubic-bezier(0.4, 0, 0.2, 1), fill 300ms;">
+                                    </rect>
+                                    <text x="51" y="21" font-family="system-ui" font-size="16px" font-weight="400"
+                                        fill="var(--text-color)" text-anchor="middle" dominant-baseline="middle"
+                                        style="opacity: 1;">
+                                        分支
+                                    </text>
+                                    <line class="preview-rect-underline" x1="0" y1="38" x2="102" y2="38" stroke="rgb(0, 191, 191)" stroke-width="2.5" stroke-linecap="round" style="display:none;"></line>
+                                </g>
+
+                                <path class="mm-link" id="preview-link-0" d="M 239,53 C 299,53 279,-10 339,-10"
+                                    stroke="rgb(255, 127, 15)" stroke-width="2.5" stroke-linecap="round"
+                                    stroke-linejoin="round" fill="none" pointer-events="none"
+                                    style="transition: d 500ms cubic-bezier(0.4, 0, 0.2, 1), stroke 300ms, opacity 400ms; z-index: 1;">
+                                </path>
+                                <path class="mm-link" id="preview-link-1" d="M 239,53 C 299,53 279,116 339,116"
+                                    stroke="rgb(0, 191, 191)" stroke-width="2.5" stroke-linecap="round"
+                                    stroke-linejoin="round" fill="none" pointer-events="none"
+                                    style="transition: d 500ms cubic-bezier(0.4, 0, 0.2, 1), stroke 300ms, opacity 400ms; z-index: 1;">
+                                </path>
+
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="editor-buttons">
+                <button class="editor-button cancel-button" id="cancel-edit">取消</button>
+                <button class="editor-button save-button" id="save-edit">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="undo-redo-container">
+        <button id="mm-undo-btn" class="undo-redo-btn" title="撤销" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="lucide lucide-undo-2">
+                <path d="M9 14 4 9l5-5" />
+                <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
+            </svg>
+        </button>
+        <button id="mm-redo-btn" class="undo-redo-btn" title="重做" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="lucide lucide-redo-2">
+                <path d="m15 14 5-5-5-5" />
+                <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13" />
+            </svg>
+        </button>
+    </div>
+
+    <div id="notes-drawer" class="notes-drawer">
+        <div class="notes-drawer-header">
+            <span id="notes-drawer-title">节点笔记</span>
+            <button id="notes-drawer-close" class="notes-drawer-close-btn" title="关闭笔记">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div id="notes-drawer-editor" contenteditable="true" placeholder="在此输入笔记..."></div>
+    </div>
+
+    <div id="node-expand-loader" class="node-expand-loader">
+    <div class="expand-spinner"></div>
+    <span>深入探索中...</span>
+    </div>
+    <div id="revert-changes-container" class="node-expand-loader revert-changes-container"
+        style="background: var(--background-color, #F4D0D6); border: none; cursor: pointer; padding: 8px 16px; gap: 8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+        </svg>
+        <span>还原更改</span>
+    </div>
+
+    <div class="info-menu">
+        <a class="hotkeys-button" style="display: none;">快捷键</a>
+        <a href="#" onclick="showLicensePopup(); return false;" class="license-button">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-scale-icon lucide-scale" style="margin-right: 8px; flex-shrink: 0;"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>
+        许可证
+    </a>
+        <a href="#" class="disable-ai-button" id="disable-ai-button">
+        <label class="toggle-switch" style="margin-right: 10px;">
+            <input type="checkbox" id="disable-ai-toggle" aria-label="AI 功能">
+            <span class="toggle-slider" aria-hidden="true"></span>
+        </label>
+        <span class="disable-ai-label">AI 功能</span>
+        </a>
+        <a href="#" onclick="clearHistory(); return false;" class="clear-history-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-5 -5 34 34" fill="none"
+                stroke="crimson" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="delete-icon">
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <path d="M3 6h18" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+            </svg>
+            清除历史</a>
+    </div>
+
+
+<!-- License Popup -->
+<div id="licensePopup" class="license-popup">
+    <div class="license-popup-content">
+        <div class="popup-header">
+            <h2>许可证</h2>
+            <button class="close-button" id="closeLicensePopup">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewbox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--text-color)"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+        </div>
+        <div class="license-content">
+
+            <p><em>由 Linus Schärli 创建 — 采用 CC BY‑NC 4.0 许可</em></p>
+            <p>本作品采用 <strong>Creative Commons 署名-非商业性使用 4.0 国际许可证</strong> 授权。</p>
+
+            <h4>您可以自由地：</h4>
+            <ul>
+                <li><strong>分享</strong> — 在任何媒介或格式中复制和重新分发材料</li>
+                <li><strong>改编</strong> — 混音、转换并基于材料进行创作</li>
+            </ul>
+
+            <h4>须遵守以下条款：</h4>
+            <ul>
+                <li><strong>署名</strong> — 您必须提供适当的署名，提供许可证链接，并注明是否进行了更改。您可以以任何合理的方式进行，但不得暗示许可方认可您或您的使用。</li>
+                <li><strong>非商业性使用</strong> — 您不得将材料用于商业目的。</li>
+            </ul>
+            <p class="license-footer">如需商业使用，请通过 <a href="mailto:contact@mindmapwizard.com">contact@mindmapwizard.com</a> 联系我们。我们欢迎合作和伙伴关系的机会。</p>
+        </div>
+    </div>
+</div>
+
+    <!-- Left Sidebar -->
+    <div id="leftSidebar" class="left-sidebar">
+        <div class="left-sidebar-header"></div>
+        <div class="left-sidebar-content">
+            <div id="leftSidebarMindmapList" class="sidebar-mindmap-list">
+                <!-- Mind map items will be loaded here -->
+            </div>
+            <div class="sidebar-boxlet">
+            </div>
+        </div>
+    </div>
+
+    <div class="search-mindmaps-popup-overlay" id="searchMindmapsPopupOverlay">
+        <div class="search-mindmaps-popup" id="searchMindmapsPopup">
+            <div class="popup-header">
+                <h3>搜索思维导图</h3>
+                <button class="popup-close" id="closeSearchPopupBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18"></path>
+                        <path d="m6 6 12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="popup-content">
+                <div class="search-input-container">
+                    <input type="text" id="popupMindmapSearchInput" placeholder="按主题搜索..."
+                        autocomplete="off" />
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="search-icon">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.3-4.3"></path>
+                    </svg>
+                </div>
+                <div class="search-results-list" id="searchResultsList">
+                    <!-- Search results will be loaded here -->
+                    <div class="no-results-message">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            style="opacity: 0.5; margin-bottom: 10px">
+                            <path
+                                d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+                            <path d="M2 10h20" />
+                        </svg>
+                        <h3>开始输入以搜索</h3>
+                        <p>您的思维导图将显示在这里。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- AI Chat Drawer -->
+    <div id="chat-drawer">
+        <div class="chat-header">
+            <h3>
+                AI 助手
+            </h3>
+            <button class="chat-close-btn" id="close-chat-btn" aria-label="关闭聊天">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="chat-messages" id="chat-messages">
+            <!-- Messages will appear here -->
+            <div class="chat-loading" id="chat-loading">
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-suggestions" id="chat-suggestions" style="padding-top: 10px;">
+            <p style="margin-bottom: 0px;">试试这些...</p>
+            <button class="chat-suggestion">将此思维导图导出为 JPG 图片。</button>
+            <button class="chat-suggestion">将所有分支设为蓝色并仅显示线条。</button>
+            <button class="chat-suggestion">通过添加更多子分支来深入探索各个主题。</button>
+        </div>
+        
+        <div class="chat-input-area">
+            <div class="chat-input-wrapper">
+                <textarea id="chat-input" placeholder="让 AI 编辑导图..." rows="1"></textarea>
+                <button id="chat-send-btn" aria-label="发送消息" title="发送">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-icon lucide-arrow-up"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="keyboard-shortcuts-popup">
+        <h3>键盘快捷键</h3>
+
+        <div class="shortcut-item">
+            <span class="key">K</span>
+            <span class="shortcut-description">搜索所有已生成的思维导图</span>
+        </div>
+
+        <div class="shortcut-item">
+            <span class="key">E</span>
+            <span class="shortcut-description">编辑当前思维导图</span>
+        </div>
+
+        <div class="shortcut-item">
+            <span class="key">R</span>
+            <span class="shortcut-description">重新生成当前思维导图</span>
+        </div>
+
+        <div class="shortcut-item">
+            <span class="key">D</span>
+            <span class="shortcut-description">下载当前思维导图</span>
+        </div>
+
+        <div class="shortcut-item">
+            <span class="key">F</span>
+            <span class="shortcut-description">将当前思维导图居中显示</span>
+        </div>
+    </div>
+    <div id="profile-import-overlay" class="profile-import-overlay" aria-hidden="true">
+        <div class="profile-import-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-import-title">
+            <div class="profile-import-header">
+                <div>
+                    <h3 id="profile-import-title">从学习画像中导入</h3>
+                    <p>选择项目数据库中已保存的学习画像，导入到输入框后生成思维导图。</p>
+                </div>
+                <button type="button" id="profile-import-close" class="profile-import-close" aria-label="关闭">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewbox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18"></path>
+                        <path d="m6 6 12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="profile-import-list" class="profile-import-list"></div>
+            <div id="profile-import-status" class="profile-import-status"></div>
+        </div>
+    </div>
+    <div id="snackbar" style="display: none;"></div>
+    <script src="/mind-map-wizard/scripts/profile-import.js" defer></script>
+</body>
+
+</html>
+

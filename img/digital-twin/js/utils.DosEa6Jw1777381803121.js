@@ -1,0 +1,1 @@
+import{importShared as e}from"./3d-tiles-renderer.C5T3nAaD1777381803121.js";import{RGBELoader as r}from"./index.C_VlI55A1777381803121.js";const i=await e("three"),t=e=>new Promise(((t,n)=>{(new r).load(e,((e,r)=>{e.minFilter=i.LinearFilter,e.magFilter=i.LinearFilter,e.mapping=i.EquirectangularReflectionMapping,e.needsUpdate=!0,t(e)}))}));export{t as loadHDR};

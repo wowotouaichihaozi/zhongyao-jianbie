@@ -1,0 +1,520 @@
+{
+    "nlist":  [
+                  {
+                      "text":  "学习者与任务入口",
+                      "iconType":  "member",
+                      "position":  {
+                                       "x":  -18,
+                                       "y":  0.6,
+                                       "z":  0
+                                   },
+                      "baseType":  1
+                  },
+                  {
+                      "text":  "Harness主控编排",
+                      "iconType":  "zhuti",
+                      "position":  {
+                                       "x":  -13,
+                                       "y":  0.6,
+                                       "z":  0
+                                   },
+                      "baseType":  2
+                  },
+                  {
+                      "text":  "共享状态与任务队列",
+                      "iconType":  "buildings",
+                      "position":  {
+                                       "x":  -13,
+                                       "y":  0.6,
+                                       "z":  -7
+                                   },
+                      "baseType":  2
+                  },
+                  {
+                      "text":  "安全审核与防幻觉",
+                      "iconType":  "safe",
+                      "position":  {
+                                       "x":  -13,
+                                       "y":  0.6,
+                                       "z":  7
+                                   },
+                      "baseType":  1
+                  },
+                  {
+                      "text":  "知识检索多智能体",
+                      "iconType":  "docText",
+                      "position":  {
+                                       "x":  -8,
+                                       "y":  0.6,
+                                       "z":  -5
+                                   },
+                      "baseType":  2
+                  },
+                  {
+                      "text":  "学习画像多智能体",
+                      "iconType":  "dataPlane",
+                      "position":  {
+                                       "x":  -8,
+                                       "y":  0.6,
+                                       "z":  5
+                                   },
+                      "baseType":  2
+                  },
+                  {
+                      "text":  "资源生成多智能体",
+                      "iconType":  "code",
+                      "position":  {
+                                       "x":  -3,
+                                       "y":  0.6,
+                                       "z":  -5
+                                   },
+                      "baseType":  1
+                  },
+                  {
+                      "text":  "路径规划多智能体",
+                      "iconType":  "mofang1",
+                      "position":  {
+                                       "x":  -3,
+                                       "y":  0.6,
+                                       "z":  5
+                                   },
+                      "baseType":  1
+                  },
+                  {
+                      "text":  "题库与测评生成",
+                      "iconType":  "code",
+                      "position":  {
+                                       "x":  2,
+                                       "y":  0.6,
+                                       "z":  -9
+                                   },
+                      "baseType":  2
+                  },
+                  {
+                      "text":  "PPT与导图生成",
+                      "iconType":  "docText",
+                      "position":  {
+                                       "x":  2,
+                                       "y":  0.6,
+                                       "z":  -3
+                                   },
+                      "baseType":  2
+                  },
+                  {
+                      "text":  "音视频讲解生成",
+                      "iconType":  "mofang2",
+                      "position":  {
+                                       "x":  2,
+                                       "y":  0.6,
+                                       "z":  3
+                                   },
+                      "baseType":  1
+                  },
+                  {
+                      "text":  "实验实践多智能体",
+                      "iconType":  "pc",
+                      "position":  {
+                                       "x":  2,
+                                       "y":  0.6,
+                                       "z":  9
+                                   },
+                      "baseType":  2
+                  },
+                  {
+                      "text":  "单片机仿真实验",
+                      "iconType":  "pc",
+                      "position":  {
+                                       "x":  7,
+                                       "y":  0.6,
+                                       "z":  8
+                                   },
+                      "baseType":  1
+                  },
+                  {
+                      "text":  "评估反馈多智能体",
+                      "iconType":  "mofang2",
+                      "position":  {
+                                       "x":  7,
+                                       "y":  0.6,
+                                       "z":  0
+                                   },
+                      "baseType":  2
+                  }
+              ],
+    "llist":  [
+                  {
+                      "sPos":  {
+                                   "x":  -17.3,
+                                   "y":  0.6,
+                                   "z":  0
+                               },
+                      "ePos":  {
+                                   "x":  -13.7,
+                                   "y":  0.6,
+                                   "z":  0
+                               },
+                      "twoWay":  true,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -13,
+                                   "y":  0.6,
+                                   "z":  -0.7
+                               },
+                      "ePos":  {
+                                   "x":  -13,
+                                   "y":  0.6,
+                                   "z":  -6.3
+                               },
+                      "twoWay":  true,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -13,
+                                   "y":  0.6,
+                                   "z":  0.7
+                               },
+                      "ePos":  {
+                                   "x":  -13,
+                                   "y":  0.6,
+                                   "z":  6.3
+                               },
+                      "twoWay":  true,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -12.505,
+                                   "y":  0.6,
+                                   "z":  -0.495
+                               },
+                      "ePos":  {
+                                   "x":  -8.495,
+                                   "y":  0.6,
+                                   "z":  -4.505
+                               },
+                      "twoWay":  true,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -12.505,
+                                   "y":  0.6,
+                                   "z":  0.495
+                               },
+                      "ePos":  {
+                                   "x":  -8.495,
+                                   "y":  0.6,
+                                   "z":  4.505
+                               },
+                      "twoWay":  true,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -12.3501,
+                                   "y":  0.6,
+                                   "z":  -6.74
+                               },
+                      "ePos":  {
+                                   "x":  -8.6499,
+                                   "y":  0.6,
+                                   "z":  -5.26
+                               },
+                      "twoWay":  true,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -12.5519,
+                                   "y":  0.6,
+                                   "z":  6.4622
+                               },
+                      "ePos":  {
+                                   "x":  -3.4481,
+                                   "y":  0.6,
+                                   "z":  -4.4622
+                               },
+                      "twoWay":  true,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -7.3,
+                                   "y":  0.6,
+                                   "z":  -5
+                               },
+                      "ePos":  {
+                                   "x":  -3.7,
+                                   "y":  0.6,
+                                   "z":  -5
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -7.687,
+                                   "y":  0.6,
+                                   "z":  -4.3739
+                               },
+                      "ePos":  {
+                                   "x":  -3.313,
+                                   "y":  0.6,
+                                   "z":  4.3739
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -7.3,
+                                   "y":  0.6,
+                                   "z":  5
+                               },
+                      "ePos":  {
+                                   "x":  -3.7,
+                                   "y":  0.6,
+                                   "z":  5
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -3,
+                                   "y":  0.6,
+                                   "z":  -4.3
+                               },
+                      "ePos":  {
+                                   "x":  -3,
+                                   "y":  0.6,
+                                   "z":  4.3
+                               },
+                      "twoWay":  true,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -2.4534,
+                                   "y":  0.6,
+                                   "z":  -5.4373
+                               },
+                      "ePos":  {
+                                   "x":  1.4534,
+                                   "y":  0.6,
+                                   "z":  -8.5627
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -2.3501,
+                                   "y":  0.6,
+                                   "z":  -4.74
+                               },
+                      "ePos":  {
+                                   "x":  1.3501,
+                                   "y":  0.6,
+                                   "z":  -3.26
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -2.629,
+                                   "y":  0.6,
+                                   "z":  -4.4064
+                               },
+                      "ePos":  {
+                                   "x":  1.629,
+                                   "y":  0.6,
+                                   "z":  2.4064
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  -2.4534,
+                                   "y":  0.6,
+                                   "z":  5.4373
+                               },
+                      "ePos":  {
+                                   "x":  1.4534,
+                                   "y":  0.6,
+                                   "z":  8.5627
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  2.6864,
+                                   "y":  0.6,
+                                   "z":  8.8627
+                               },
+                      "ePos":  {
+                                   "x":  6.3136,
+                                   "y":  0.6,
+                                   "z":  8.1373
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  2.34,
+                                   "y":  0.6,
+                                   "z":  -8.3881
+                               },
+                      "ePos":  {
+                                   "x":  6.66,
+                                   "y":  0.6,
+                                   "z":  -0.6119
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  2.6002,
+                                   "y":  0.6,
+                                   "z":  -2.6399
+                               },
+                      "ePos":  {
+                                   "x":  6.3998,
+                                   "y":  0.6,
+                                   "z":  -0.3601
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  2.6002,
+                                   "y":  0.6,
+                                   "z":  2.6399
+                               },
+                      "ePos":  {
+                                   "x":  6.3998,
+                                   "y":  0.6,
+                                   "z":  0.3601
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  2.34,
+                                   "y":  0.6,
+                                   "z":  8.3881
+                               },
+                      "ePos":  {
+                                   "x":  6.66,
+                                   "y":  0.6,
+                                   "z":  0.6119
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  6.3359,
+                                   "y":  0.6,
+                                   "z":  0.2214
+                               },
+                      "ePos":  {
+                                   "x":  -7.3359,
+                                   "y":  0.6,
+                                   "z":  4.7786
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  },
+                  {
+                      "sPos":  {
+                                   "x":  6.3,
+                                   "y":  0.6,
+                                   "z":  0
+                               },
+                      "ePos":  {
+                                   "x":  -12.3,
+                                   "y":  0.6,
+                                   "z":  0
+                               },
+                      "twoWay":  false,
+                      "twoWayOffset":  {
+                                           "x":  0,
+                                           "y":  0.6
+                                       }
+                  }
+              ]
+}

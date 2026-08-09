@@ -1,0 +1,369 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <script>
+    (() => {
+      const target = new URL('/personalized-resources/video-search', window.location.origin);
+      new URLSearchParams(window.location.search).forEach((value, key) => {
+        target.searchParams.append(key, value);
+      });
+      window.location.replace(target.href);
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/video-search/favicon.svg" />
+  <title>AI 学习视频推荐</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f4f8f6; color: #17352f; }
+    .app { min-height: 100vh; padding: 28px clamp(16px, 3vw, 40px) 34px; }
+    .header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .logo { width: 42px; height: 42px; border-radius: 8px; display: grid; place-items: center; background: #0e9f6e; color: #fff; font-weight: 800; }
+    h1 { margin: 0; font-size: clamp(22px, 3vw, 34px); letter-spacing: 0; }
+    .subtitle { margin: 6px 0 0; color: #5c766f; font-size: 14px; }
+    .model { color: #3f665e; font-size: 13px; white-space: nowrap; }
+    .panel { background: #fff; border: 1px solid #dcebe5; border-radius: 8px; padding: 18px; box-shadow: 0 16px 38px rgba(30, 68, 58, 0.08); }
+    .input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+    label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 700; color: #294f47; }
+    textarea { width: 100%; min-height: 92px; resize: vertical; border: 1px solid #cfe1db; border-radius: 8px; padding: 12px 14px; font: inherit; line-height: 1.55; color: #17352f; outline: none; background: #fbfdfc; }
+    textarea:focus { border-color: #0e9f6e; box-shadow: 0 0 0 3px rgba(14, 159, 110, 0.12); }
+    button { height: 44px; border: 0; border-radius: 8px; padding: 0 18px; font: inherit; font-weight: 800; color: #fff; background: #0e9f6e; cursor: pointer; }
+    button:disabled { opacity: 0.62; cursor: not-allowed; }
+    .progress { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; color: #517269; font-size: 13px; }
+    .step { border: 1px solid #dcebe5; border-radius: 999px; padding: 6px 10px; background: #f8fbfa; }
+    .step.active { border-color: #0e9f6e; color: #0d805b; background: #effaf5; }
+    .keywords { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .chip { border: 1px solid #bfe4d5; background: #effaf5; color: #0d805b; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
+    .status { min-height: 22px; margin-top: 14px; color: #5b746d; font-size: 14px; }
+    .status.error { color: #b42318; }
+    .results-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 14px; }
+    .results-head h2 { margin: 0; font-size: 20px; }
+    .count { color: #628079; font-size: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(246px, 1fr)); gap: 16px; }
+    .card { overflow: hidden; border: 1px solid #dcebe5; border-radius: 8px; background: #fff; text-decoration: none; color: inherit; box-shadow: 0 10px 26px rgba(30, 68, 58, 0.07); transition: transform 0.18s ease, box-shadow 0.18s ease; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 16px 34px rgba(30, 68, 58, 0.11); }
+    .cover-shell { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #e9f6f0; }
+    .cover { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; object-fit: cover; display: block; background: linear-gradient(135deg, #dcebe5, #f4f8f6); }
+    .cover-shell.image-failed .cover { display: none; }
+    .cover-fallback {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 13px;
+      overflow: hidden;
+      color: #0b6b4d;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(215, 246, 232, 0.54)),
+        radial-gradient(circle at 82% 18%, rgba(14, 159, 110, 0.23), transparent 30%),
+        linear-gradient(135deg, #eaf8f2 0%, #cfeee0 100%);
+    }
+    .cover-fallback::before,
+    .cover-fallback::after {
+      content: "";
+      position: absolute;
+      pointer-events: none;
+    }
+    .cover-fallback::before {
+      inset: 15px 18px;
+      border: 1px solid rgba(14, 159, 110, 0.18);
+      border-radius: 7px;
+    }
+    .cover-fallback::after {
+      right: -22px;
+      bottom: -22px;
+      width: 96px;
+      height: 96px;
+      border: 18px solid rgba(14, 159, 110, 0.1);
+      border-radius: 50%;
+    }
+    .cover-tag { position: relative; z-index: 1; width: fit-content; max-width: 100%; padding: 4px 8px; border: 1px solid rgba(14, 159, 110, 0.22); border-radius: 999px; background: rgba(255, 255, 255, 0.72); font-size: 12px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cover-main { position: relative; z-index: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+    .cover-title { min-width: 0; max-width: calc(100% - 52px); font-size: 17px; line-height: 1.32; font-weight: 900; color: #12463b; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .cover-play { width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; background: rgba(14, 159, 110, 0.96); box-shadow: 0 8px 22px rgba(14, 159, 110, 0.25); color: #fff; }
+    .card-body { padding: 12px 13px 14px; }
+    .title { margin: 0; min-height: 44px; font-size: 15px; line-height: 1.45; color: #17352f; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; color: #6c847e; font-size: 12px; }
+    .reason { margin: 10px 0 0; color: #45655d; font-size: 13px; line-height: 1.45; }
+    .empty { margin-top: 18px; padding: 26px; text-align: center; color: #607a73; border: 1px dashed #c7ddd5; border-radius: 8px; background: #fbfdfc; }
+    footer { margin-top: 22px; color: #7b918b; font-size: 12px; text-align: center; }
+    @media (max-width: 700px) { .header, .input-row, .results-head { display: block; } .model { margin-top: 10px; } button { width: 100%; margin-top: 10px; } }
+  </style>
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">AI</div>
+        <div>
+          <h1>学习视频推荐</h1>
+          <p class="subtitle">输入薄弱点或课程主题，自动检索并筛选 B 站学习视频。</p>
+        </div>
+      </div>
+      <div class="model">嵌小智视频检索智能体 · Bilibili</div>
+    </header>
+
+    <section class="panel">
+      <div class="input-row">
+        <div>
+          <label for="query">学习主题</label>
+          <textarea id="query" maxlength="500" placeholder="例如：STM32 基础视频、GPIO 入门、开发环境搭建"></textarea>
+        </div>
+        <button id="searchBtn" type="button">智能搜索</button>
+      </div>
+      <div id="progress" class="progress" hidden>
+        <span class="step" data-step="1">分析关键词</span>
+        <span class="step" data-step="2">检索视频</span>
+        <span class="step" data-step="3">排序推荐</span>
+      </div>
+      <div id="keywords" class="keywords"></div>
+      <div id="status" class="status"></div>
+    </section>
+
+    <section>
+      <div class="results-head">
+        <h2>推荐视频</h2>
+        <span id="count" class="count">0 个结果</span>
+      </div>
+      <div id="grid" class="grid"></div>
+      <div id="empty" class="empty">输入主题后会在这里展示推荐视频。</div>
+    </section>
+    <footer>嵌小智视频检索智能体 · Bilibili</footer>
+  </div>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var initialKeyword = (params.get('keyword') || params.get('q') || params.get('topic') || '').trim();
+      var cacheKey = (params.get('cacheKey') || '').trim();
+      var source = (params.get('source') || 'learning-path').trim();
+      var stageId = (params.get('stageId') || '').trim();
+      var nodeId = (params.get('nodeId') || '').trim();
+      var storageKey = 'qianzhi-learning-path-node-results:v1';
+      var query = document.getElementById('query');
+      var button = document.getElementById('searchBtn');
+      var status = document.getElementById('status');
+      var progress = document.getElementById('progress');
+      var keywordsBox = document.getElementById('keywords');
+      var grid = document.getElementById('grid');
+      var empty = document.getElementById('empty');
+      var count = document.getElementById('count');
+      query.value = initialKeyword;
+
+      function uniq(values) {
+        return Array.from(new Set(values.map(function (v) { return String(v || '').trim(); }).filter(Boolean)));
+      }
+
+      function topicFrom(text) {
+        return String(text || 'STM32 基础').replace(/视频|教程|课件/g, '').replace(/\s+/g, ' ').trim() || 'STM32 基础';
+      }
+
+      function buildKeywords(text) {
+        var topic = topicFrom(text);
+        return uniq([text, topic + ' 入门教程', topic + ' 基础讲解', topic + ' GPIO 实战', topic + ' 开发环境 搭建']).slice(0, 5);
+      }
+
+      function setStep(step) {
+        progress.hidden = false;
+        Array.from(progress.querySelectorAll('.step')).forEach(function (el) {
+          el.classList.toggle('active', Number(el.dataset.step) <= step);
+        });
+      }
+
+      function formatNumber(value) {
+        var number = Number(value || 0);
+        if (number >= 10000) return (number / 10000).toFixed(1) + '万';
+        return String(number || 0);
+      }
+
+      function normalizePic(pic) {
+        if (!pic) return '';
+        if (pic.indexOf('//') === 0) return 'https:' + pic;
+        return pic;
+      }
+
+      function proxyPic(pic) {
+        var normalized = normalizePic(pic);
+        return normalized ? '/api-cover?url=' + encodeURIComponent(normalized) : '';
+      }
+
+      async function searchBili(keyword) {
+        var url = '/api-bili/x/web-interface/search/all/v2?keyword=' + encodeURIComponent(keyword) + '&page=1';
+        var response = await fetch(url);
+        if (!response.ok) throw new Error('B 站搜索请求失败：' + response.status);
+        var data = await response.json();
+        var groups = ((data.data || {}).result || []).filter(function (item) { return item.result_type === 'video'; });
+        var videos = [];
+        groups.forEach(function (group) {
+          (group.data || []).forEach(function (item) {
+            videos.push({
+              bvid: item.bvid,
+              title: String(item.title || '').replace(/<[^>]+>/g, ''),
+              author: item.author || '',
+              play: item.play || 0,
+              duration: item.duration || '',
+              pic: proxyPic(item.pic),
+              rawPic: normalizePic(item.pic),
+              url: 'https://www.bilibili.com/video/' + item.bvid,
+              reason: '与当前学习主题匹配，适合作为入门或复习资料。'
+            });
+          });
+        });
+        return videos;
+      }
+
+      function fallbackVideos(text) {
+        var topic = topicFrom(text);
+        var items = [
+          topic + ' 入门教程',
+          topic + ' GPIO 基础',
+          topic + ' 开发环境搭建',
+          topic + ' HAL 库实践',
+          topic + ' 寄存器基础',
+          topic + ' 项目实战'
+        ];
+        return items.map(function (title, index) {
+          return {
+            bvid: 'fallback-' + index,
+            title: title,
+            author: 'Bilibili 搜索',
+            play: 0,
+            duration: '--',
+            pic: '',
+            url: 'https://search.bilibili.com/all?keyword=' + encodeURIComponent(title),
+            reason: '当前接口暂时没有返回视频，点击可在 B 站继续搜索这个方向。'
+          };
+        });
+      }
+
+      function rankVideos(text, videos) {
+        var words = topicFrom(text).toLowerCase().split(/[\s,，、]+/).filter(function (w) { return w.length >= 2; });
+        var seen = new Set();
+        return videos.filter(function (item) {
+          if (!item.bvid || seen.has(item.bvid)) return false;
+          seen.add(item.bvid);
+          return true;
+        }).map(function (item) {
+          var title = String(item.title || '').toLowerCase();
+          var score = Math.log10(Math.max(Number(item.play || 1), 1));
+          words.forEach(function (word) { if (title.indexOf(word) !== -1) score += 4; });
+          return Object.assign({}, item, { score: score });
+        }).sort(function (a, b) { return b.score - a.score; }).slice(0, 12);
+      }
+
+      function renderKeywords(values) {
+        keywordsBox.innerHTML = values.map(function (kw) { return '<span class="chip">' + escapeHtml(kw) + '</span>'; }).join('');
+      }
+
+      function escapeHtml(text) {
+        return String(text || '').replace(/[&<>"]/g, function (ch) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+        });
+      }
+
+      function compactText(text, fallback, maxLength) {
+        var value = String(text || fallback || '').replace(/\s+/g, ' ').trim();
+        if (!value) value = '学习视频';
+        return value.length > maxLength ? value.slice(0, maxLength - 1) + '…' : value;
+      }
+
+      function renderCover(video) {
+        var title = compactText(video.title, '学习视频', 38);
+        var tag = compactText(topicFrom(query.value || video.title), '课程视频', 16);
+        var image = video.pic
+          ? '<img class="cover" src="' + escapeHtml(video.pic) + '" alt="' + escapeHtml(video.title) + '" loading="lazy" onerror="this.parentElement.classList.add(\'image-failed\');this.remove()">'
+          : '';
+        return '<div class="cover-shell' + (video.pic ? '' : ' image-failed') + '">' +
+          image +
+          '<div class="cover-fallback" aria-hidden="true">' +
+          '<span class="cover-tag">' + escapeHtml(tag) + '</span>' +
+          '<div class="cover-main"><strong class="cover-title">' + escapeHtml(title) + '</strong>' +
+          '<span class="cover-play"><svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"></path></svg></span></div>' +
+          '</div></div>';
+      }
+
+      function renderVideos(videos) {
+        count.textContent = videos.length + ' 个结果';
+        empty.hidden = videos.length > 0;
+        grid.innerHTML = videos.map(function (video) {
+          return '<a class="card" href="' + escapeHtml(video.url) + '" target="_blank" rel="noopener noreferrer">' +
+            renderCover(video) + '<div class="card-body"><h3 class="title">' + escapeHtml(video.title) + '</h3>' +
+            '<div class="meta"><span>' + escapeHtml(video.author || 'Bilibili') + '</span><span>' + formatNumber(video.play) + ' 播放</span></div>' +
+            '<p class="reason">' + escapeHtml(video.reason) + '</p></div></a>';
+        }).join('');
+      }
+
+      function readCaches() {
+        try { return JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch (error) { return {}; }
+      }
+
+      function writeCache(patch) {
+        if (!cacheKey) return;
+        var caches = readCaches();
+        var previous = caches[cacheKey] || {};
+        var next = Object.assign({}, previous, patch, {
+          cacheKey: cacheKey,
+          source: source,
+          stageId: stageId,
+          nodeId: nodeId,
+          resourceType: 'video',
+          title: 'STM32 基础视频',
+          route: location.pathname + location.search,
+          updatedAt: Date.now(),
+          createdAt: previous.createdAt || Date.now()
+        });
+        caches[cacheKey] = next;
+        try { localStorage.setItem(storageKey, JSON.stringify(caches)); } catch (error) {}
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'learning-path-node-cache-updated', cacheKey: cacheKey, entry: next }, location.origin);
+        }
+      }
+
+      async function runSearch() {
+        var text = query.value.trim();
+        if (!text) return;
+        button.disabled = true;
+        status.className = 'status';
+        status.textContent = '正在分析学习主题...';
+        grid.innerHTML = '';
+        empty.hidden = false;
+        empty.textContent = '正在生成推荐...';
+        writeCache({ status: 'running', keyword: text, startedAt: Date.now() });
+        try {
+          setStep(1);
+          var keywords = buildKeywords(text);
+          renderKeywords(keywords);
+          setStep(2);
+          status.textContent = '正在检索 B 站视频...';
+          var all = [];
+          for (var i = 0; i < keywords.length; i += 1) {
+            try { all = all.concat(await searchBili(keywords[i])); } catch (error) {}
+          }
+          setStep(3);
+          var ranked = rankVideos(text, all.length ? all : fallbackVideos(text));
+          renderVideos(ranked);
+          status.textContent = ranked.length ? '已生成视频推荐。' : '没有找到匹配视频。';
+          writeCache({ status: 'complete', keyword: text, resultCount: ranked.length, completedAt: Date.now(), lastOpenedAt: Date.now() });
+        } catch (error) {
+          status.className = 'status error';
+          status.textContent = '视频推荐生成失败：' + error.message;
+          renderVideos(fallbackVideos(text));
+          writeCache({ status: 'complete', keyword: text, resultCount: 6, completedAt: Date.now(), lastOpenedAt: Date.now() });
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      button.addEventListener('click', runSearch);
+      query.addEventListener('keydown', function (event) {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') runSearch();
+      });
+      if (initialKeyword) setTimeout(runSearch, 150);
+    })();
+  </script>
+</body>
+</html>

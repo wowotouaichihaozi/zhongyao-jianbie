@@ -1,0 +1,410 @@
+import { useState, useEffect, useCallback, type ReactElement } from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '../ui/Dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select'
+import { Button } from '../ui/Button'
+import { Input } from '../ui/Input'
+import { useT } from '@renderer/i18n'
+import { ipc, type FontListItem } from '@renderer/lib/ipc'
+import type { FontSelection, SourceDocumentPlan } from '@shared/generation'
+import type { ThinkingPrepareGenerationResult } from '@shared/thinking'
+import { Sparkles } from 'lucide-react'
+import { ModelSplitButton } from '../model/ModelActionButton'
+import { useModelAction } from '@renderer/hooks/useModelAction'
+
+type FontPairRef = Extract<FontSelection, { mode: 'pair' }>['title']
+
+const MIN_PAGE_COUNT = 1
+const MAX_PAGE_COUNT = 500
+
+const resolvePageCount = (value: string, fallback: number): number => {
+  const parsed = Number.parseInt(value, 10)
+  const resolved = Number.isFinite(parsed) ? parsed : fallback
+  return Math.min(MAX_PAGE_COUNT, Math.max(MIN_PAGE_COUNT, resolved))
+}
+
+interface StyleOption {
+  id: string
+  styleKey?: string
+  label: string
+  description: string
+  aliases?: string[]
+  styleCase?: string
+}
+
+const tokenizeStyleText = (value: string): string[] => {
+  const compact = value.trim().toLowerCase()
+  const baseTokens = compact
+    .split(/[\s,，、/|;；:：()[\]{}"'“”‘’<>《》]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const latinTokens = Array.from(compact.matchAll(/[a-z0-9-]{2,}/g), (match) => match[0])
+  const cnBigrams = Array.from(compact.matchAll(/[\u4e00-\u9fa5]{2,}/g)).flatMap((match) => {
+    const text = match[0]
+    const grams: string[] = []
+    for (let index = 0; index < text.length - 1; index += 1) {
+      grams.push(text.slice(index, index + 2))
+    }
+    return grams
+  })
+  return Array.from(new Set([...baseTokens, ...latinTokens, ...cnBigrams]))
+}
+
+const resolveFallbackStyleId = (fallbackStyleId: string, options: StyleOption[]): string => {
+  if (fallbackStyleId) return fallbackStyleId
+  return (
+    options.find((option) => option.styleKey === 'bauhaus')?.id ||
+    options.find((option) => option.id === 'bauhaus')?.id ||
+    options[0]?.id ||
+    ''
+  )
+}
+
+const resolveMatchedStyleId = (
+  styleText: string | undefined,
+  fallbackStyleId: string,
+  options: StyleOption[]
+): string => {
+  const normalizedStyleText = (styleText || '').trim().toLowerCase()
+  const resolvedFallbackStyleId = resolveFallbackStyleId(fallbackStyleId, options)
+  if (options.length === 0) return resolvedFallbackStyleId
+  if (!normalizedStyleText) return resolvedFallbackStyleId
+
+  const exact = options.find((option) => {
+    const candidates = [
+      option.id,
+      option.styleKey || '',
+      option.label,
+      ...(option.aliases || [])
+    ].map((value) => value.toLowerCase())
+    return candidates.includes(normalizedStyleText)
+  })
+  if (exact) return exact.id
+
+  const queryTokens = tokenizeStyleText(normalizedStyleText)
+  let best: { id: string; score: number } | null = null
+  for (const option of options) {
+    const haystack = [
+      option.id,
+      option.styleKey || '',
+      option.label,
+      ...(option.aliases || []),
+      option.description,
+      option.styleCase || ''
+    ]
+      .join(' ')
+      .toLowerCase()
+    let score = 0
+    for (const token of queryTokens) {
+      if (!token || !haystack.includes(token)) continue
+      score += token.length >= 2 ? 2 : 1
+    }
+    if (!best || score > best.score) best = { id: option.id, score }
+  }
+  return best && best.score > 0 ? best.id : resolvedFallbackStyleId
+}
+
+interface GenerationConfirmDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  prepared: ThinkingPrepareGenerationResult | null
+  onConfirm: (params: {
+    topic: string
+    pageCount: number
+    styleId: string
+    fontSelection: FontSelection
+    referenceDocumentPath: string
+    sourcePlan?: SourceDocumentPlan
+    modelConfigId?: string
+  }) => void
+}
+
+export function GenerationConfirmDialog({
+  open,
+  onOpenChange,
+  prepared,
+  onConfirm
+}: GenerationConfirmDialogProps): ReactElement {
+  const t = useT()
+  const modelAction = useModelAction()
+  const { selectedModelConfigId, ensureModelActive } = modelAction
+  const [confirming, setConfirming] = useState(false)
+  const [topic, setTopic] = useState('')
+  const [pageCount, setPageCount] = useState('5')
+  const [styleId, setStyleId] = useState('')
+  const [styleOptions, setStyleOptions] = useState<StyleOption[]>([])
+  const [fontOptions, setFontOptions] = useState<FontListItem[]>([])
+  const [titleFontId, setTitleFontId] = useState('auto')
+  const [bodyFontId, setBodyFontId] = useState('auto')
+
+  useEffect(() => {
+    if (prepared) {
+      setTopic(prepared.topic)
+      setPageCount(String(prepared.pageCount))
+      if (styleOptions.length > 0) {
+        setStyleId(resolveMatchedStyleId(prepared.styleText, prepared.styleId, styleOptions))
+      }
+    }
+  }, [prepared, styleOptions])
+
+  useEffect(() => {
+    if (!prepared || prepared.fontSelection.mode !== 'pair') {
+      setTitleFontId('auto')
+      setBodyFontId('auto')
+      return
+    }
+
+    const resolveSelectId = (font: FontPairRef): string => {
+      if (font.id) return `${font.source}:${font.id}`
+      const match = fontOptions.find(
+        (option) => option.source === font.source && option.family === font.family
+      )
+      return match ? `${match.source}:${match.id}` : 'auto'
+    }
+
+    setTitleFontId(resolveSelectId(prepared.fontSelection.title))
+    setBodyFontId(resolveSelectId(prepared.fontSelection.body))
+  }, [prepared, fontOptions])
+
+  const loadOptions = useCallback(async (): Promise<void> => {
+    const [styleRes, fontRes] = await Promise.all([ipc.listStyles(), ipc.listFonts()])
+    const sorted = [...styleRes.items].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    setStyleOptions(
+      sorted.map((item) => ({
+        id: item.id,
+        styleKey: item.styleKey,
+        label: item.label,
+        description: item.description,
+        aliases: item.aliases,
+        styleCase: item.styleCase
+      }))
+    )
+    const fonts = [...fontRes.userFonts, ...fontRes.googleFonts]
+    setFontOptions(fonts)
+  }, [])
+
+  useEffect(() => {
+    if (open) void loadOptions()
+  }, [open, loadOptions])
+
+  if (!prepared) return <></>
+
+  const titleFonts = fontOptions.filter((f) => f.role.includes('title'))
+  const bodyFonts = fontOptions.filter((f) => f.role.includes('body'))
+  const availableTitle = titleFonts.length > 0 ? titleFonts : fontOptions
+  const availableBody = bodyFonts.length > 0 ? bodyFonts : fontOptions
+
+  const resolveFontSelection = (): FontSelection => {
+    const find = (id: string): FontListItem | undefined =>
+      fontOptions.find((f) => `${f.source}:${f.id}` === id)
+    const tf = find(titleFontId)
+    const bf = find(bodyFontId)
+    if (tf && bf) {
+      return {
+        mode: 'pair',
+        title: { source: tf.source, family: tf.family, id: tf.id },
+        body: { source: bf.source, family: bf.family, id: bf.id }
+      }
+    }
+    if (
+      prepared?.fontSelection.mode === 'pair' &&
+      (fontOptions.length === 0 || (titleFontId !== 'auto' && bodyFontId !== 'auto'))
+    ) {
+      return prepared.fontSelection
+    }
+    return { mode: 'auto' }
+  }
+
+  const resolvedConfirmStyleId = styleId || resolveFallbackStyleId(prepared.styleId, styleOptions)
+
+  const handleConfirm = async (modelConfigId = selectedModelConfigId): Promise<void> => {
+    if (!resolvedConfirmStyleId || confirming) return
+    const resolvedModelConfigId = await ensureModelActive(modelConfigId)
+    if (!resolvedModelConfigId) return
+    setConfirming(true)
+    try {
+      const resolvedPageCount = resolvePageCount(pageCount, prepared.pageCount)
+      onConfirm({
+        topic: topic.trim() || prepared.topic,
+        pageCount: resolvedPageCount,
+        styleId: resolvedConfirmStyleId,
+        fontSelection: resolveFontSelection(),
+        referenceDocumentPath: prepared.thinkingDocumentPath,
+        sourcePlan:
+          prepared.sourcePlan?.pageSkeleton.length === resolvedPageCount
+            ? prepared.sourcePlan
+            : undefined,
+        modelConfigId: resolvedModelConfigId
+      })
+      onOpenChange(false)
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>{t('thinking.generationDialogTitle')}</DialogTitle>
+          <DialogDescription className="text-[12px]">
+            {t('thinking.generationDialogDescription')}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-w-0 space-y-3 py-2 [&_button[role=combobox]]:h-8 [&_input]:h-8 [&_label]:mb-1.5 [&_label]:text-xs">
+          <div className="min-w-0">
+            <label className="block font-medium">{t('home.topic')}</label>
+            <Input className="min-w-0" value={topic} onChange={(e) => setTopic(e.target.value)} />
+          </div>
+
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_6.25rem]">
+            <div className="min-w-0">
+              <label className="block font-medium">{t('home.style')}</label>
+              <Select value={styleId} onValueChange={setStyleId}>
+                <SelectTrigger className="min-w-0">
+                  <SelectValue placeholder={t('home.stylePlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {styleOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="min-w-0 truncate">{option.label}</span>
+                        {option.styleCase && (
+                          <span className="max-w-[220px] shrink-0 truncate rounded-md border border-[#b5c4a1]/80 bg-[#e8f8f3] px-1.5 py-px text-[10px] font-medium text-[#5d6b4d]">
+                            {option.styleCase}
+                          </span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="min-w-0">
+              <label className="block font-medium">{t('home.pageCount')}</label>
+              <Input
+                className="min-w-0 text-center"
+                type="text"
+                inputMode="numeric"
+                value={pageCount}
+                onChange={(e) => {
+                  const next = e.target.value
+                  if (next === '' || /^\d+$/.test(next)) setPageCount(next)
+                }}
+                onBlur={() => {
+                  setPageCount(String(resolvePageCount(pageCount, prepared.pageCount)))
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <label className="block font-medium">{t('home.fontScheme')}</label>
+            <div className="mt-1 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <Select value={titleFontId} onValueChange={setTitleFontId}>
+                <SelectTrigger className="min-w-0">
+                  <SelectValue placeholder={t('home.fontSchemeAuto')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{t('home.fontSchemeAuto')}</SelectItem>
+                  {availableTitle.map((font) => {
+                    const isUploaded = font.source === 'uploaded'
+                    return (
+                      <SelectItem
+                        key={`${font.source}:${font.id}`}
+                        value={`${font.source}:${font.id}`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span
+                            className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium ${
+                              isUploaded
+                                ? 'bg-[#eef9ec] text-[#4a7a46]'
+                                : 'bg-[#eefbf4] text-[#117a51]'
+                            }`}
+                          >
+                            {isUploaded
+                              ? t('home.fontSourceUploaded')
+                              : t('home.fontSourceBuiltIn')}
+                          </span>
+                          <span className="truncate">
+                            {t('home.fontPairTitle')} · {font.family}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+              <Select value={bodyFontId} onValueChange={setBodyFontId}>
+                <SelectTrigger className="min-w-0">
+                  <SelectValue placeholder={t('home.fontSchemeAuto')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{t('home.fontSchemeAuto')}</SelectItem>
+                  {availableBody.map((font) => {
+                    const isUploaded = font.source === 'uploaded'
+                    return (
+                      <SelectItem
+                        key={`${font.source}:${font.id}`}
+                        value={`${font.source}:${font.id}`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span
+                            className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium ${
+                              isUploaded
+                                ? 'bg-[#eef9ec] text-[#4a7a46]'
+                                : 'bg-[#eefbf4] text-[#117a51]'
+                            }`}
+                          >
+                            {isUploaded
+                              ? t('home.fontSourceUploaded')
+                              : t('home.fontSourceBuiltIn')}
+                          </span>
+                          <span className="truncate">
+                            {t('home.fontPairBody')} · {font.family}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            disabled={confirming}
+            className="w-full rounded-full sm:w-auto"
+          >
+            {t('common.cancel')}
+          </Button>
+          <ModelSplitButton
+            modelAction={modelAction}
+            label={t('home.createAndStart')}
+            loadingLabel={t('home.creating')}
+            loading={confirming}
+            disabled={!resolvedConfirmStyleId}
+            icon={Sparkles}
+            tone="primary"
+            className="w-full sm:w-auto"
+            mainClassName="min-w-0 flex-1 sm:flex-none sm:min-w-[156px]"
+            onRun={handleConfirm}
+          />
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
