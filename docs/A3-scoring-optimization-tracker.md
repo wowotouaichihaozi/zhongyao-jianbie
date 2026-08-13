@@ -88,6 +88,11 @@ Acceptance criteria for this batch:
 
 - [ ] Prioritize after Phase 1 evidence review.
 
+### Repository integrity - Admin log route
+
+- [x] Scope the admin ignore rule to the runtime root `admin/logs/` directory so `admin/src/views/logs/index.vue` is included in source control.
+- [x] Verify the tracked route from an isolated clean source copy: frozen-lockfile install, typecheck, and production build with `--emptyOutDir=false` all pass without copying environment files.
+
 ### Phase 3 - Demo evidence and documentation consistency
 
 - [ ] Reconcile UI labels, README claims, scoring evidence, and repeatable verification steps.
@@ -98,13 +103,14 @@ Acceptance criteria for this batch:
 | --- | --- | --- | --- | --- |
 | 2026-08-14 | Governance | Added repository rules and this living tracker. | Reviewed and committed with Phase 1. | Phase 1 commit |
 | 2026-08-14 | Phase 1 | Restored task-backed resource deep links, exposed profile/orchestration/quality/source evidence, isolated generated content, added honest history states, and separated per-resource learning feedback with closed-loop next actions. | Frontend non-clean build; resource detail unit tests 5/5; synthetic Playwright contract and visual review at 1440x900 and 390x844; backend 79 tests and 25 subtests; `git diff --check`. | This Phase 1 commit |
+| 2026-08-14 | Repository integrity | Narrowed the admin runtime-log ignore rule and restored the router-referenced server-monitor page to source control. | Isolated frozen-lockfile install; admin typecheck; admin production build with `--emptyOutDir=false`; runtime `admin/logs/` remains ignored. | Admin integrity commit |
 
 ## Remaining work
 
 - Complete the remaining rubric-to-route and shared-shell audits.
 - Phase 2: fix scoring-critical deep-page recovery, beginning with the empty exam session and authenticated deep-link restoration.
 - Phase 2: make learning-path generation failures distinguishable from genuinely personalized paths.
-- Phase 3: reconcile README claims, missing delivery documents, admin packaging, and repeatable scoring evidence.
+- Phase 3: reconcile README claims, missing delivery documents, and repeatable scoring evidence.
 
 ## Decision log
 
