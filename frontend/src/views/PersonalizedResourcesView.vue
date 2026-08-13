@@ -6,7 +6,14 @@
     </div>
 
     <!-- 无学习画像引导提示条 -->
-    <div v-if="!hasProfile" class="no-profile-banner">
+    <div v-if="profileError" class="no-profile-banner status-banner error-banner" role="alert">
+      <TriangleAlert :size="20" aria-hidden="true" />
+      <span>{{ profileError }}</span>
+      <button class="banner-btn" type="button" :disabled="profileLoading" @click="loadProfile">
+        {{ profileLoading ? '正在重试' : '重试画像' }}
+      </button>
+    </div>
+    <div v-else-if="!profileLoading && !hasProfile" class="no-profile-banner">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="banner-icon">
         <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
@@ -47,6 +54,21 @@
     <div class="resources-content">
       <div class="history-resources-head">
         <h2>历史资源</h2>
+        <button
+          type="button"
+          class="history-refresh-btn"
+          :disabled="resourcesLoading"
+          aria-label="刷新历史资源"
+          @click="loadResources"
+        >
+          <RefreshCw :size="16" :class="{ spin: resourcesLoading }" aria-hidden="true" />
+          {{ resourcesLoading ? '加载中' : '刷新' }}
+        </button>
+      </div>
+      <div v-if="resourcesWarning" class="history-status warning" role="status">
+        <TriangleAlert :size="18" aria-hidden="true" />
+        <span>{{ resourcesWarning }}</span>
+        <button type="button" @click="loadResources">重新加载</button>
       </div>
       <!-- 分类标签栏 -->
       <div class="category-tabs">
@@ -62,7 +84,9 @@
 
       <!-- 操作栏 -->
       <div class="action-bar">
-        <span class="resource-count">共 {{ filteredResources.length }} 个资源</span>
+        <span class="resource-count">
+          {{ resourcesLoading ? '正在同步历史资源' : `共 ${filteredResources.length} 个资源` }}
+        </span>
         <button class="generate-btn" @click="generateNewResource" :disabled="generating || !hasProfile">
           <svg v-if="!generating" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -73,10 +97,22 @@
       </div>
 
       <!-- 资源卡片网格 -->
-      <div class="resources-grid">
-        <div
+      <div v-if="resourcesLoading && !resources.length" class="history-loading" role="status" aria-live="polite">
+        <LoaderCircle :size="28" class="spin" aria-hidden="true" />
+        <strong>正在同步真实资源记录</strong>
+        <span>正在读取嵌小智任务与已生成视频，请稍候。</span>
+      </div>
+      <div v-else-if="resourcesError && !resources.length" class="history-error" role="alert">
+        <TriangleAlert :size="30" aria-hidden="true" />
+        <strong>历史资源暂时无法加载</strong>
+        <span>{{ resourcesError }}</span>
+        <button type="button" @click="loadResources">重试</button>
+      </div>
+      <div v-else class="resources-grid">
+        <button
           v-for="resource in filteredResources"
           :key="resource.id"
+          type="button"
           class="resource-card"
           @click="openResource(resource)"
         >
@@ -120,7 +156,7 @@
               <time v-if="resource.createdAt" class="history-time" :datetime="resource.createdAt">
                 {{ formatResourceTime(resource.createdAt) }}
               </time>
-              <span class="match-score" :style="{ color: getMatchColor(resource.matchScore) }">
+              <span v-if="Number.isFinite(resource.matchScore)" class="match-score" :style="{ color: getMatchColor(resource.matchScore) }">
                 匹配度 {{ resource.matchScore }}%
               </span>
               <span v-if="resourceQuality(resource).score" class="quality-badge">
@@ -147,11 +183,11 @@
               <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
-        </div>
+        </button>
       </div>
 
       <!-- 空状态 -->
-      <div v-if="filteredResources.length === 0" class="empty-state">
+      <div v-if="!resourcesLoading && !resourcesError && filteredResources.length === 0" class="empty-state">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -164,7 +200,18 @@
 <script setup>
 import { ref, computed, markRaw, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, BookOpenCheck, Clapperboard, Cpu, Presentation, Search, Share2 } from 'lucide-vue-next'
+import {
+  ArrowRight,
+  BookOpenCheck,
+  Clapperboard,
+  Cpu,
+  LoaderCircle,
+  Presentation,
+  RefreshCw,
+  Search,
+  Share2,
+  TriangleAlert,
+} from 'lucide-vue-next'
 import {
   getLearningProfiles,
   getGeneratedVideoTaskHistory,
@@ -172,6 +219,12 @@ import {
   getXiaoZhiTask,
   startPersonalizedResourceAgentTask,
 } from '../services/api.js'
+import {
+  defaultResourceTitle,
+  extractTaskResources,
+  resourceCitationCount,
+  resourceQuality,
+} from '../utils/personalizedResourceHistory.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -238,6 +291,11 @@ const resources = ref([])
 const hasProfile = ref(false)
 const profileData = ref(null)
 const evaluations = ref([])
+const profileLoading = ref(true)
+const profileError = ref('')
+const resourcesLoading = ref(true)
+const resourcesError = ref('')
+const resourcesWarning = ref('')
 const hiddenResourceTypes = new Set(['document', 'animation', 'code'])
 
 onMounted(async () => {
@@ -246,43 +304,70 @@ onMounted(async () => {
 })
 
 async function loadProfile() {
+  profileLoading.value = true
+  profileError.value = ''
   try {
     const data = await getLearningProfiles()
     const activeId = Number(data?.activeReportId || 0)
     const activeProfile = (data?.profiles || []).find(item => Number(item?.id || 0) === activeId) || null
     hasProfile.value = Boolean(activeProfile)
     profileData.value = activeProfile
-  } catch {
+  } catch (error) {
     hasProfile.value = false
     profileData.value = null
+    profileError.value = error?.response?.data?.msg || error?.message || '学习画像暂时无法读取，当前不能确认个性化生成条件。'
+  } finally {
+    profileLoading.value = false
   }
 }
 
 async function loadResources() {
+  resourcesLoading.value = true
+  resourcesError.value = ''
+  resourcesWarning.value = ''
   const [historyResult, videoResult] = await Promise.allSettled([
     getXiaoZhiHistory(100),
     loadAllCompletedGeneratedVideos(),
   ])
-  const response = historyResult.status === 'fulfilled' ? historyResult.value : {}
-  const generatedVideoTasks = videoResult.status === 'fulfilled' ? videoResult.value : []
-  const generatedVideoResources = generatedVideoTasks.flatMap(extractTaskResources)
-  const backendResources = (response?.data?.tasks || []).flatMap(extractTaskResources)
-  let legacyResources = []
   try {
-    const saved = localStorage.getItem('personalizedResources')
-    legacyResources = saved
-      ? JSON.parse(saved).filter(item => item?.source === 'workflow-real-data' || item?.metadata)
-      : []
-  } catch {}
-  const seen = new Set()
-  resources.value = sortResourceHistory(
-    [...generatedVideoResources, ...backendResources, ...legacyResources].filter(item => {
-      const key = String(item?.id || `${item?.type}:${item?.title}`)
-      if (!item || seen.has(key)) return false
-      seen.add(key)
-      return true
-    }),
-  )
+    const response = historyResult.status === 'fulfilled' ? historyResult.value : {}
+    const generatedVideoTasks = videoResult.status === 'fulfilled' ? videoResult.value : []
+    const generatedVideoResources = generatedVideoTasks.flatMap(extractTaskResources)
+    const backendResources = (response?.data?.tasks || []).flatMap(extractTaskResources)
+    let legacyResources = []
+    try {
+      const saved = localStorage.getItem('personalizedResources')
+      legacyResources = saved
+        ? JSON.parse(saved).filter(item => item?.source === 'workflow-real-data' || item?.metadata)
+        : []
+    } catch {}
+
+    const failedSources = []
+    if (historyResult.status === 'rejected') failedSources.push('嵌小智任务历史')
+    if (videoResult.status === 'rejected') failedSources.push('AI 视频历史')
+    const seen = new Set()
+    const mergedResources = sortResourceHistory(
+      [...generatedVideoResources, ...backendResources, ...legacyResources].filter(item => {
+        const key = String(item?.id || `${item?.type}:${item?.title}`)
+        if (!item || seen.has(key)) return false
+        seen.add(key)
+        return true
+      }),
+    )
+    resources.value = mergedResources
+
+    if (failedSources.length === 2 && legacyResources.length) {
+      resourcesWarning.value = `资源服务暂时未响应，当前仅展示 ${legacyResources.length} 条本地历史。重试后可同步真实任务记录。`
+    } else if (failedSources.length === 2) {
+      resourcesError.value = '资源服务暂时未响应，无法确认是否存在历史资源。请重试。'
+    } else if (failedSources.length) {
+      resourcesWarning.value = `${failedSources.join('、')}暂时未同步，当前列表可能不完整。`
+    }
+  } catch (error) {
+    resourcesError.value = error?.message || '历史资源解析失败，请重试。'
+  } finally {
+    resourcesLoading.value = false
+  }
 }
 
 async function loadAllCompletedGeneratedVideos() {
@@ -319,98 +404,6 @@ function getEvaluation(resourceId) {
 
 function saveResources() {
   localStorage.setItem('personalizedResources', JSON.stringify(resources.value))
-}
-
-const taskResourceTypes = {
-  question_bank: 'quiz',
-  ppt: 'ppt',
-  document: 'document',
-  mindmap: 'mindmap',
-  video: 'video',
-  generated_video: 'generated_video',
-  animation: 'animation',
-  mcu: 'simulator',
-}
-
-function extractTaskResources(task) {
-  if (!task || task.status !== 'complete') return []
-  const result = task.result && typeof task.result === 'object' ? task.result : {}
-  const taskType = String(task.taskType || '')
-  let items = []
-
-  if (taskType === 'personalized_resources') {
-    items = Array.isArray(result.workflow?.resources) ? result.workflow.resources : []
-  } else if (result.selectedResource && typeof result.selectedResource === 'object') {
-    items = [result.selectedResource]
-  } else if (taskType === 'generated_video') {
-    const content = result.content && typeof result.content === 'object' ? result.content : {}
-    items = [{
-      type: 'generated_video',
-      title: task.title,
-      description: result.message || 'AI 讲解视频已生成并保存',
-      content: {
-        ...content,
-        videoUrl: content.videoUrl || `/api/personalized-resources/generated-videos/${encodeURIComponent(task.taskId)}/file`,
-        posterUrl: content.posterUrl || `/api/personalized-resources/generated-videos/${encodeURIComponent(task.taskId)}/poster`,
-      },
-      metadata: { taskId: task.taskId },
-    }]
-  } else {
-    const payloadByType = {
-      question_bank: result.questionGenerator,
-      ppt: result.ppt,
-      document: result.document,
-      animation: result.animation,
-    }
-    const payload = payloadByType[taskType]
-    if (payload && typeof payload === 'object') {
-      items = [{
-        type: taskResourceTypes[taskType],
-        title: task.title,
-        description: result.message,
-        content: payload,
-      }]
-    }
-  }
-
-  const reviewScore = Number(result.orchestration?.review?.score || 0)
-  return items.map((item, index) => {
-    const itemType = String(item?.type || taskResourceTypes[taskType] || 'document')
-    const route = String(item?.route || item?.actionRoute || (taskType !== 'personalized_resources' ? task.route : '') || '')
-    return {
-      id: `task:${task.taskId}:${item?.id || index}`,
-      title: item?.title || task.title || getDefaultTitle(itemType),
-      description: item?.description || result.message || getDefaultDesc(itemType),
-      type: itemType,
-      matchScore: Number(item?.matchScore || reviewScore || 80),
-      content: item?.content ?? item,
-      route,
-      agent: result.orchestrator || 'xiaozhi-companion-agent',
-      source: 'xiaozhi-task',
-      metadata: {
-        ...(item?.metadata || {}),
-        taskId: task.taskId,
-        runId: result.orchestration?.runId || '',
-        reviewScore,
-      },
-      qualityEvaluation: item?.qualityEvaluation || item?.metadata?.qualityEvaluation || result.qualityEvaluation || {},
-      knowledgeSources: item?.knowledgeSources || item?.metadata?.knowledgeSources || result.knowledgeSources || [],
-      createdAt: task.createdAt || task.updatedAt || '',
-    }
-  })
-}
-
-function resourceQuality(resource) {
-  const quality = resource?.qualityEvaluation || resource?.metadata?.qualityEvaluation
-  return quality && typeof quality === 'object' ? quality : {}
-}
-
-function resourceCitationCount(resource) {
-  const qualityCount = Number(resourceQuality(resource).citationCount || 0)
-  const sources = Array.isArray(resource?.knowledgeSources)
-    ? resource.knowledgeSources
-    : (Array.isArray(resource?.metadata?.knowledgeSources) ? resource.metadata.knowledgeSources : [])
-  return Math.max(qualityCount, sources.length)
 }
 
 function initDefaultResources() {
@@ -735,15 +728,7 @@ async function generateNewResource() {
 }
 
 function getDefaultTitle(type) {
-  const titles = {
-    mindmap: '嵌入式学习思维导图',
-    ppt: '嵌入式学习课件',
-    video: '嵌入式视频教程',
-    generated_video: 'AI 学习讲解视频',
-    code: '嵌入式代码示例',
-    quiz: '嵌入式练习题',
-  }
-  return titles[type]
+  return defaultResourceTitle(type)
 }
 
 function getDefaultDesc(type) {
@@ -1289,6 +1274,7 @@ function formatResourceTime(value) {
 
 .resource-card {
   min-height: 132px;
+  width: 100%;
   background: rgba(255, 255, 255, 0.96);
   border-radius: 14px;
   padding: 20px;
@@ -1299,6 +1285,9 @@ function formatResourceTime(value) {
   transition: all 0.2s;
   box-shadow: 0 10px 28px rgba(31, 72, 66, 0.06);
   border: 1px solid #edf2f1;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 
 .resource-card:hover {
@@ -1417,6 +1406,111 @@ function formatResourceTime(value) {
 .empty-state p {
   font-size: 14px;
   margin: 0;
+}
+
+.history-resources-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.history-refresh-btn,
+.history-status button,
+.history-error button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #cbd9d3;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 11px;
+  color: #27664f;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.history-refresh-btn:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.history-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 14px 0 2px;
+  border-left: 3px solid #a7771c;
+  background: #fff8e8;
+  padding: 11px 13px;
+  color: #73581e;
+  font-size: 13px;
+}
+
+.history-status span {
+  min-width: 0;
+  flex: 1;
+}
+
+.history-status button {
+  flex: 0 0 auto;
+  border-color: #e2cb91;
+  color: #73581e;
+}
+
+.history-loading,
+.history-error {
+  display: grid;
+  min-height: 260px;
+  place-content: center;
+  justify-items: center;
+  gap: 9px;
+  padding: 36px 20px;
+  text-align: center;
+}
+
+.history-loading {
+  color: #287356;
+}
+
+.history-error {
+  color: #a34431;
+}
+
+.history-loading strong,
+.history-error strong {
+  color: #30483f;
+  font-size: 15px;
+}
+
+.history-loading span,
+.history-error span {
+  max-width: 520px;
+  color: #72817b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.status-banner svg {
+  flex: 0 0 auto;
+}
+
+.error-banner {
+  border-color: #e4bdb4;
+  background: #fff1ed;
+  color: #99462f;
+}
+
+.spin {
+  animation: history-spin 0.85s linear infinite;
+}
+
+@keyframes history-spin {
+  to { transform: rotate(360deg); }
 }
 
 .learned-badge {
@@ -1652,6 +1746,15 @@ function formatResourceTime(value) {
 
   .resource-tools-grid {
     grid-template-columns: 1fr;
+  }
+
+  .history-status {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .history-status button {
+    margin-left: 27px;
   }
 
   .resources-header h1 {

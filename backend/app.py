@@ -1727,6 +1727,22 @@ def learning_feedback_from_row(row: sqlite3.Row) -> dict:
     }
 
 
+def normalize_learning_feedback_cache_key(value: object) -> str:
+    raw_key = str(value or "").strip()
+    normalized = re.sub(
+        r"[^a-zA-Z0-9_.:-]+",
+        "-",
+        raw_key,
+    ).strip("-")
+    if not raw_key:
+        return ""
+    if normalized == raw_key and len(raw_key) <= 160:
+        return raw_key
+    digest = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()[:16]
+    prefix = normalized[: 160 - len(digest) - 1].rstrip("-")
+    return f"{prefix}-{digest}" if prefix else digest
+
+
 def list_learning_feedback_records(
     conn: sqlite3.Connection,
     user_id: int,
@@ -1737,13 +1753,15 @@ def list_learning_feedback_records(
 ) -> list[dict]:
     safe_limit = max(1, min(200, int(limit or 40)))
     values: list[object] = [int(user_id)]
-    record_filter = ""
+    record_filters: list[str] = []
     if str(task_id or "").strip():
-        record_filter = " AND task_id = ?"
+        record_filters.append("task_id = ?")
         values.append(str(task_id).strip())
-    elif str(cache_key or "").strip():
-        record_filter = " AND cache_key = ?"
-        values.append(str(cache_key).strip())
+    cache_key = normalize_learning_feedback_cache_key(cache_key)
+    if cache_key:
+        record_filters.append("cache_key = ?")
+        values.append(cache_key)
+    record_filter = f" AND {' AND '.join(record_filters)}" if record_filters else ""
     values.append(safe_limit)
     rows = conn.execute(
         f"""
@@ -1774,11 +1792,9 @@ def record_learning_feedback(conn: sqlite3.Connection, user_id: int, payload: di
         raise ValueError("rating 必须是 1 到 5 的整数")
 
     task_id = str(payload.get("taskId") or payload.get("task_id") or "").strip()[:100]
-    cache_key = re.sub(
-        r"[^a-zA-Z0-9_.:-]+",
-        "-",
-        str(payload.get("cacheKey") or payload.get("cache_key") or "").strip(),
-    ).strip("-")[:160]
+    cache_key = normalize_learning_feedback_cache_key(
+        payload.get("cacheKey") or payload.get("cache_key")
+    )
     task_row = None
     task_result: dict = {}
     if task_id:
@@ -1833,18 +1849,72 @@ def record_learning_feedback(conn: sqlite3.Connection, user_id: int, payload: di
     timestamp = now_iso()
 
     existing_row = None
-    if task_id:
+    if task_id and cache_key:
         existing_row = conn.execute(
-            "SELECT id, cache_key, created_at FROM learning_feedback_records WHERE user_id = ? AND task_id = ? ORDER BY id DESC LIMIT 1",
+            """
+            SELECT id, task_id, cache_key, created_at
+            FROM learning_feedback_records
+            WHERE user_id = ? AND task_id = ? AND cache_key = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (int(user_id), task_id, cache_key),
+        ).fetchone()
+        if existing_row is None:
+            legacy_rows = conn.execute(
+                """
+                SELECT id, task_id, cache_key, created_at
+                FROM learning_feedback_records
+                WHERE user_id = ? AND task_id = ?
+                ORDER BY id DESC
+                LIMIT 2
+                """,
+                (int(user_id), task_id),
+            ).fetchall()
+            if len(legacy_rows) == 1 and not str(legacy_rows[0]["cache_key"] or "").strip():
+                existing_row = legacy_rows[0]
+    elif task_id:
+        existing_row = conn.execute(
+            """
+            SELECT id, task_id, cache_key, created_at
+            FROM learning_feedback_records
+            WHERE user_id = ? AND task_id = ? AND cache_key = ''
+            ORDER BY id DESC
+            LIMIT 1
+            """,
             (int(user_id), task_id),
         ).fetchone()
+        # A legacy caller may only know the task id. Preserve its sole resource
+        # feedback, but never guess once the task has multiple resource records.
+        if existing_row is None:
+            task_rows = conn.execute(
+                """
+                SELECT id, task_id, cache_key, created_at
+                FROM learning_feedback_records
+                WHERE user_id = ? AND task_id = ?
+                ORDER BY id DESC
+                LIMIT 2
+                """,
+                (int(user_id), task_id),
+            ).fetchall()
+            if len(task_rows) == 1:
+                existing_row = task_rows[0]
     elif cache_key:
         existing_row = conn.execute(
-            "SELECT id, cache_key, created_at FROM learning_feedback_records WHERE user_id = ? AND cache_key = ? ORDER BY id DESC LIMIT 1",
+            """
+            SELECT id, task_id, cache_key, created_at
+            FROM learning_feedback_records
+            WHERE user_id = ? AND cache_key = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
             (int(user_id), cache_key),
         ).fetchone()
-    if existing_row and not cache_key:
-        cache_key = str(existing_row["cache_key"] or "").strip()
+    if existing_row:
+        if not task_id:
+            task_id = str(existing_row["task_id"] or "").strip()
+        if not cache_key:
+            cache_key = str(existing_row["cache_key"] or "").strip()
 
     values = (
         profile_report_id,
@@ -1893,7 +1963,10 @@ def record_learning_feedback(conn: sqlite3.Connection, user_id: int, payload: di
             "SELECT * FROM learning_path_node_caches WHERE user_id = ? AND cache_key = ?",
             (int(user_id), cache_key),
         ).fetchone()
-        cache_entry = learning_path_node_cache_from_row(cache_row) if cache_row else {}
+    else:
+        cache_row = None
+    if cache_row:
+        cache_entry = learning_path_node_cache_from_row(cache_row)
         previous_feedback = (
             cache_entry.get("learningFeedback")
             if isinstance(cache_entry.get("learningFeedback"), dict)

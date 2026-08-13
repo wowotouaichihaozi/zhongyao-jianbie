@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:interview-fail-open": "node tests/interviewFailOpen.playwright.mjs",
-    "test:learning-profile-chat": "node --test tests/learningProfileChat.test.mjs"
+    "test:learning-profile-chat": "node --test tests/learningProfileChat.test.mjs",
+    "test:resource-detail": "node --test tests/resourceDetail.test.mjs",
+    "test:resource-detail:e2e": "node tests/resourceDetail.e2e.mjs"
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",

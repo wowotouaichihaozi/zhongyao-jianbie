@@ -51,7 +51,8 @@ code6.14/
 - 思维导图：静态 H5 工具集成在 `/mind-map`。
 - 视频查找：B 站学习视频检索集成在 `/video-search`，后端提供必要代理、主题筛选和封面字段；该能力是视频检索，不宣称生成视频成片。
 - 单片机模拟器：内置 Arduino Uno 与 AT89S52 两套板卡、21 个实验预设和 17 类可选元件；支持五步实验指南、完整引脚能力检查、多端子接线联动、代码编辑、虚拟编译烧录、运行记录保存，以及结合当前画像和历史实验的推荐接口。
-- 个性化资源：基于画像、实验和路径生成学习资源。
+- 个性化资源：基于画像、实验和路径生成学习资源。资源历史页会合并持久化任务与旧版本地记录，并明确区分加载中、部分来源失败、全部失败和真实空记录；资源详情页通过 URL 中的任务/资源身份调用 `GET /api/xiaozhi/tasks/:taskId` 恢复内容，旧版本地缓存只作为带来源标记的兼容回退。详情页展示任务来源、画像依据、规划策略、专项智能体、Harness 运行与 Handoff、Skill/MCP、质量审核、验证状态和知识引用；未返回的证据明确标为“未返回”，不会伪造分数或智能体。Markdown 先转义再有限渲染，Mermaid 使用严格安全模式，模型生成的 HTML PPT 只在禁用脚本且带 CSP 的沙箱 iframe 中预览。
+- 资源学习反馈闭环：资源详情可记录“完成学习”“需要巩固”或“暂时受阻”，反馈按当前用户、任务 ID 与资源缓存键组合隔离，避免同一生成任务中的多个资源互相覆盖。已有学习路径节点会同步完成状态；没有对应节点时不会创建伪路径缓存。提交后可继续查看效果评估、返回学习路径，或在需要巩固时转入智能导师。
 - 智能辅导：`/smart-tutor` 展示嵌小智通过 `learning.tutor.answer` Skill 生成的苏格拉底追问、费曼复述任务、三级提示、带解析练习、Mermaid 学习流程、学习卡、知识引用和 Harness 执行轨迹；同一页面支持悬浮窗嵌入预览与新页面完整打开。
 - 数字人面试：集成讯飞数字人 SDK、题目生成、追问和可选关键帧分析。数字人连接、销毁和播报是独立的限时 best-effort 支线，面试 API 返回首题、下一题或总结后会立即解锁文字输入、发送、结束与重新开始；数字人或摄像头失败不会覆盖面试状态，也不会阻断完整文字面试。`/api/avatar/config`、`/api/avatar/diagnostics` 与备用会话接口均要求登录，防止匿名请求消耗数字人额度。
 
@@ -367,6 +368,21 @@ curl http://localhost:3000/api/ppt-h5/health
 - 基于画像、进度与掌握情况的动态学习路径和资源推送。
 - 采集分析、资源生成、学习验证、反馈调整的完整闭环。
 - 知识库依据、防幻觉与内容安全审核，以及可见的生成进度追踪。
+
+资源历史与详情闭环的聚焦验证命令：
+
+```powershell
+Set-Location frontend
+npm run test:resource-detail
+$env:E2E_BASE_URL = 'http://127.0.0.1:5088'
+npm run test:resource-detail:e2e
+npm run build -- --emptyOutDir=false
+
+Set-Location ../backend
+python -m pytest tests/test_learning_profile_api.py tests/test_harness_real_e2e.py tests/test_mcp_protocol.py -q
+```
+
+资源详情 E2E 在桌面 `1440x900` 与移动 `390x844` 视口中拦截合成 API 响应，验证 URL 恢复、404 重试、真实证据、脚本注入隔离、Markdown 导图分支、两类反馈分支、闭环入口和横向溢出；它不写入生产 SQLite。
 
 标准交付文档：
 

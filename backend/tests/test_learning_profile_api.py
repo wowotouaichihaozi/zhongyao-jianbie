@@ -1469,6 +1469,7 @@ class LearningProfileApiTests(unittest.TestCase):
             )
             self.assertEqual(review_response.status_code, 200, review_response.get_json())
             review_feedback = review_response.get_json()["data"]["feedback"]
+            self.assertEqual(review_feedback["id"], feedback["id"])
             self.assertEqual(review_feedback["outcome"], "needs_review")
             self.assertEqual(review_feedback["cacheKey"], cache_key)
             self.assertEqual(review_feedback["pathCache"]["status"], "running")
@@ -1479,6 +1480,11 @@ class LearningProfileApiTests(unittest.TestCase):
                     (cache_key,),
                 ).fetchone()
                 self.assertEqual(cache["status"], "running")
+                feedback_count = conn.execute(
+                    "SELECT COUNT(*) AS total FROM learning_feedback_records WHERE user_id = 101 AND task_id = ?",
+                    (task_id,),
+                ).fetchone()
+                self.assertEqual(feedback_count["total"], 1)
 
             forbidden = self.client.post(
                 "/api/xiaozhi/feedback",
@@ -1493,6 +1499,231 @@ class LearningProfileApiTests(unittest.TestCase):
                 conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
                 conn.execute("DELETE FROM xiaozhi_events WHERE user_id IN (101, 102) AND event_type = 'learning_feedback'")
                 if run_id:
+                    conn.execute("DELETE FROM agent_orchestration_runs WHERE run_id = ?", (run_id,))
+
+    def test_learning_feedback_separates_resources_without_creating_path_caches(self) -> None:
+        task_id = "feedback-multi-resource-task-101"
+        cache_keys = (
+            "resource-detail-feedback-multi-resource-task-101-video",
+            "resource-detail-feedback-multi-resource-task-101-mindmap",
+        )
+        run_ids: list[str] = []
+        try:
+            with app_module.auth_db() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO xiaozhi_tasks
+                        (task_id, user_id, task_type, title, prompt, status, route,
+                         result_json, error, created_at, updated_at)
+                    VALUES (?, 101, 'personalized_resources', 'GPIO 资源包', '', 'complete',
+                            '/personalized-resources', '{}', '', ?, ?)
+                    """,
+                    (
+                        task_id,
+                        "2026-07-12T13:00:00+08:00",
+                        "2026-07-12T13:00:00+08:00",
+                    ),
+                )
+                legacy_feedback = app_module.record_learning_feedback(
+                    conn,
+                    101,
+                    {
+                        "taskId": task_id,
+                        "topic": "GPIO 旧版资源反馈",
+                        "resourceType": "personalized_resources",
+                        "outcome": "completed",
+                    },
+                )
+
+            submitted = []
+            for cache_key, resource_type, outcome in (
+                (cache_keys[0], "video", "completed"),
+                (cache_keys[1], "mindmap", "needs_review"),
+            ):
+                response = self.client.post(
+                    "/api/xiaozhi/feedback",
+                    headers=self.headers,
+                    json={
+                        "taskId": task_id,
+                        "cacheKey": cache_key,
+                        "topic": f"GPIO {resource_type}",
+                        "resourceType": resource_type,
+                        "outcome": outcome,
+                        "difficulty": "appropriate",
+                    },
+                )
+                self.assertEqual(response.status_code, 200, response.get_json())
+                result = response.get_json()["data"]
+                run_ids.append(result["orchestration"]["runId"])
+                submitted.append(result["feedback"])
+
+            update_response = self.client.post(
+                "/api/xiaozhi/feedback",
+                headers=self.headers,
+                json={
+                    "taskId": task_id,
+                    "cacheKey": cache_keys[0],
+                    "topic": "GPIO video",
+                    "resourceType": "video",
+                    "outcome": "blocked",
+                    "difficulty": "hard",
+                    "note": "需要先复习中断优先级",
+                },
+            )
+            self.assertEqual(update_response.status_code, 200, update_response.get_json())
+            update_result = update_response.get_json()["data"]
+            run_ids.append(update_result["orchestration"]["runId"])
+            updated = update_result["feedback"]
+
+            with app_module.auth_db() as conn:
+                cache_only_updated = app_module.record_learning_feedback(
+                    conn,
+                    101,
+                    {
+                        "cacheKey": cache_keys[1],
+                        "topic": "GPIO mindmap",
+                        "resourceType": "mindmap",
+                        "outcome": "needs_review",
+                    },
+                )
+
+            self.assertNotEqual(submitted[0]["id"], submitted[1]["id"])
+            self.assertEqual(submitted[0]["id"], legacy_feedback["id"])
+            self.assertEqual(updated["id"], submitted[0]["id"])
+            self.assertEqual(updated["cacheKey"], cache_keys[0])
+            self.assertNotIn("pathCache", updated)
+            self.assertEqual(cache_only_updated["id"], submitted[1]["id"])
+            self.assertEqual(cache_only_updated["taskId"], task_id)
+
+            filtered = self.client.get(
+                f"/api/learning-feedback?taskId={task_id}&cacheKey={cache_keys[1]}",
+                headers=self.headers,
+            )
+            self.assertEqual(filtered.status_code, 200)
+            filtered_feedbacks = filtered.get_json()["data"]["feedbacks"]
+            self.assertEqual(len(filtered_feedbacks), 1)
+            self.assertEqual(filtered_feedbacks[0]["cacheKey"], cache_keys[1])
+            self.assertEqual(filtered_feedbacks[0]["outcome"], "needs_review")
+
+            by_task = self.client.get(
+                f"/api/learning-feedback?taskId={task_id}",
+                headers=self.headers,
+            )
+            self.assertEqual(by_task.status_code, 200)
+            task_feedbacks = by_task.get_json()["data"]["feedbacks"]
+            self.assertEqual(len(task_feedbacks), 2)
+            self.assertEqual({item["cacheKey"] for item in task_feedbacks}, set(cache_keys))
+
+            with app_module.auth_db() as conn:
+                feedback_rows = conn.execute(
+                    """
+                    SELECT cache_key, outcome
+                    FROM learning_feedback_records
+                    WHERE user_id = 101 AND task_id = ?
+                    """,
+                    (task_id,),
+                ).fetchall()
+                fake_path_rows = conn.execute(
+                    """
+                    SELECT cache_key
+                    FROM learning_path_node_caches
+                    WHERE user_id = 101 AND cache_key IN (?, ?)
+                    """,
+                    cache_keys,
+                ).fetchall()
+            self.assertEqual(len(feedback_rows), 2)
+            self.assertEqual(
+                {row["cache_key"]: row["outcome"] for row in feedback_rows},
+                {cache_keys[0]: "blocked", cache_keys[1]: "needs_review"},
+            )
+            self.assertEqual(fake_path_rows, [])
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute("DELETE FROM learning_feedback_records WHERE task_id = ?", (task_id,))
+                conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
+                conn.execute(
+                    "DELETE FROM xiaozhi_events WHERE user_id = 101 AND event_type = 'learning_feedback' AND payload_json LIKE ?",
+                    (f'%"taskId": "{task_id}"%',),
+                )
+                for run_id in run_ids:
+                    conn.execute("DELETE FROM agent_orchestration_runs WHERE run_id = ?", (run_id,))
+
+    def test_learning_feedback_query_normalizes_non_ascii_resource_key(self) -> None:
+        task_id = "feedback-non-ascii-key-task-101"
+        raw_cache_keys = (
+            f"resource-detail:task:{task_id}:GPIO 讲义",
+            f"resource-detail:task:{task_id}:GPIO 导图",
+        )
+        normalized_cache_keys = tuple(
+            app_module.normalize_learning_feedback_cache_key(value)
+            for value in raw_cache_keys
+        )
+        self.assertNotEqual(normalized_cache_keys[0], normalized_cache_keys[1])
+        self.assertEqual(
+            app_module.normalize_learning_feedback_cache_key("resource-detail:plain-ascii"),
+            "resource-detail:plain-ascii",
+        )
+        run_ids: list[str] = []
+        try:
+            with app_module.auth_db() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO xiaozhi_tasks
+                        (task_id, user_id, task_type, title, prompt, status, route,
+                         result_json, error, created_at, updated_at)
+                    VALUES (?, 101, 'personalized_resources', 'GPIO 资源包', '', 'complete',
+                            '/personalized-resources', '{}', '', ?, ?)
+                    """,
+                    (
+                        task_id,
+                        "2026-07-12T14:00:00+08:00",
+                        "2026-07-12T14:00:00+08:00",
+                    ),
+                )
+
+            for index, raw_cache_key in enumerate(raw_cache_keys):
+                response = self.client.post(
+                    "/api/xiaozhi/feedback",
+                    headers=self.headers,
+                    json={
+                        "taskId": task_id,
+                        "cacheKey": raw_cache_key,
+                        "topic": "GPIO 讲义" if index == 0 else "GPIO 导图",
+                        "resourceType": "document" if index == 0 else "mindmap",
+                        "outcome": "completed" if index == 0 else "needs_review",
+                    },
+                )
+                self.assertEqual(response.status_code, 200, response.get_json())
+                result = response.get_json()["data"]
+                run_ids.append(result["orchestration"]["runId"])
+                self.assertEqual(result["feedback"]["cacheKey"], normalized_cache_keys[index])
+
+                restored = self.client.get(
+                    "/api/learning-feedback",
+                    headers=self.headers,
+                    query_string={"taskId": task_id, "cacheKey": raw_cache_key},
+                )
+                self.assertEqual(restored.status_code, 200, restored.get_json())
+                feedbacks = restored.get_json()["data"]["feedbacks"]
+                self.assertEqual(len(feedbacks), 1)
+                self.assertEqual(feedbacks[0]["cacheKey"], normalized_cache_keys[index])
+
+            by_task = self.client.get(
+                "/api/learning-feedback",
+                headers=self.headers,
+                query_string={"taskId": task_id},
+            )
+            self.assertEqual(by_task.status_code, 200, by_task.get_json())
+            self.assertEqual(len(by_task.get_json()["data"]["feedbacks"]), 2)
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute("DELETE FROM learning_feedback_records WHERE task_id = ?", (task_id,))
+                conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
+                conn.execute(
+                    "DELETE FROM xiaozhi_events WHERE user_id = 101 AND event_type = 'learning_feedback' AND payload_json LIKE ?",
+                    (f'%"taskId": "{task_id}"%',),
+                )
+                for run_id in run_ids:
                     conn.execute("DELETE FROM agent_orchestration_runs WHERE run_id = ?", (run_id,))
 
     def test_stage_detail_resolves_the_requested_saved_week(self) -> None:
