@@ -520,26 +520,17 @@
                 class="profile-face-stage"
                 role="img"
                 aria-label="由点阵区块逐步补全的学习画像人脸"
-                :style="profileFaceStageStyle"
               >
-                <img
-                  class="profile-face-base"
-                  :src="profileFaceBaseSrc"
-                  alt=""
-                  aria-hidden="true"
-                  @error="hideMissingProfileFaceAsset"
-                />
-                <img
-                  v-for="segment in profileFaceSegments"
-                  :key="segment.id"
-                  class="profile-face-segment"
-                  :class="{ active: segment.active }"
-                  :src="segment.src"
-                  alt=""
-                  aria-hidden="true"
-                  :style="segment.style"
-                  @error="hideMissingProfileFaceAsset"
-                />
+                <svg class="profile-face-vector" viewBox="0 0 218 282" aria-hidden="true">
+                  <g class="profile-face-dots" :style="{ '--portrait-progress': portraitCompletionRatio }">
+                    <ellipse cx="109" cy="135" rx="72" ry="112" />
+                    <path d="M58 103 Q78 88 98 103 M120 103 Q140 88 160 103" />
+                    <path d="M62 119 Q80 132 98 119 M120 119 Q138 132 156 119" />
+                    <path d="M109 116 Q101 151 109 162 Q117 164 123 159" />
+                    <path d="M83 185 Q109 201 135 185 Q109 212 83 185" />
+                    <path d="M69 225 Q109 256 149 225" />
+                  </g>
+                </svg>
               </div>
               <button
                 v-for="tag in profileFaceDimensionTags"
@@ -1274,118 +1265,22 @@ const avatarDisplayStatus = computed(() => {
   return learningAvatarStatus.value || '连接中'
 })
 
-const portraitBuildProgress = computed(() => {
-  const result = {}
-  profileDimensionKeys.forEach((key) => {
-    result[key] = isProfileDimensionFilled(chatStudentProfile.value[key]) ? 1 : 0
-  })
-  return result
-})
-
-function portraitStrength(group) {
-  return portraitBuildProgress.value[group] ?? 0.12
-}
-
-const FACE_ASSET_BASE = '/learning-face-cropped-split'
-const FACE_CANVAS_FALLBACK = { width: 832, height: 1078 }
-const profileFaceManifest = ref(null)
-const profileFaceBaseSrc = `${FACE_ASSET_BASE}/face-cropped-dots-transparent.png`
-
-function hideMissingProfileFaceAsset(event) {
-  event.currentTarget.hidden = true
-}
-
-const faceBlockGroups = {
-  forehead_top: '专业/课程背景',
-  forehead_left: '学习目标',
-  forehead_right: '当前知识基础',
-  forehead_center: '学习进度',
-  left_brow: '薄弱知识点',
-  right_brow: '易错点类型',
-  left_eye: '薄弱知识点',
-  right_eye: '易错点类型',
-  nose_bridge: '资源形式偏好',
-  nose_tip: '资源形式偏好',
-  left_ear: '学习风格/认知偏好',
-  right_ear: '难度接受程度',
-  left_cheek: '学习风格/认知偏好',
-  right_cheek: '难度接受程度',
-  mouth: '学习风格/认知偏好',
-  left_jaw: '可投入时间',
-  right_jaw: '可投入时间',
-  chin: '难度接受程度',
-}
-
-const faceDimensionPrimaryBlocks = {
-  '专业/课程背景': 'forehead_top',
-  '学习目标': 'forehead_left',
-  '当前知识基础': 'forehead_right',
-  '学习进度': 'forehead_center',
-  '薄弱知识点': 'left_eye',
-  '易错点类型': 'right_eye',
-  '学习风格/认知偏好': 'left_cheek',
-  '资源形式偏好': 'nose_bridge',
-  '可投入时间': 'left_jaw',
-  '难度接受程度': 'right_cheek',
-}
-
-async function loadProfileFaceManifest() {
-  try {
-    const response = await fetch(`${FACE_ASSET_BASE}/manifest.json`)
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const manifest = await response.json()
-    if (!manifest?.crop?.width || !manifest?.crop?.height || !Array.isArray(manifest.blocks)) {
-      throw new Error('invalid face manifest')
-    }
-    profileFaceManifest.value = manifest
-  } catch (error) {
-    profileFaceManifest.value = null
-    addLog({ error: String(error) }, 'warn', '学习画像点阵人脸')
-  }
-}
-
-const profileFaceCanvas = computed(() => ({
-  width: Number(profileFaceManifest.value?.crop?.width) || FACE_CANVAS_FALLBACK.width,
-  height: Number(profileFaceManifest.value?.crop?.height) || FACE_CANVAS_FALLBACK.height,
-}))
-
-const profileFaceStageStyle = computed(() => ({
-  '--face-ratio': `${profileFaceCanvas.value.width} / ${profileFaceCanvas.value.height}`,
-}))
-
-const profileFaceSegments = computed(() => {
-  const blocks = Array.isArray(profileFaceManifest.value?.blocks) ? profileFaceManifest.value.blocks : []
-  const { width, height } = profileFaceCanvas.value
-  return blocks.map((block) => {
-    const group = faceBlockGroups[block.id] || 'chat'
-    const strength = portraitStrength(group)
-    const active = strength > 0.82
-    const opacity = active ? 0.92 : 0.18 + strength * 0.5
-    const scale = 0.985 + strength * 0.015
-    const filter = active
-      ? `drop-shadow(0 0 ${5 + strength * 6}px rgba(32, 36, 36, ${0.08 + strength * 0.12}))`
-      : 'drop-shadow(0 0 4px rgba(32, 36, 36, 0.08))'
-    return {
-      id: block.id,
-      src: `${FACE_ASSET_BASE}/${block.file}`,
-      active,
-      style: {
-        left: `${(Number(block.x) || 0) / width * 100}%`,
-        top: `${(Number(block.y) || 0) / height * 100}%`,
-        width: `${(Number(block.width) || 1) / width * 100}%`,
-        height: `${(Number(block.height) || 1) / height * 100}%`,
-        opacity,
-        transform: `scale(${scale})`,
-        filter,
-        '--segment-delay': `${Math.max(0, (Number(block.index) || 1) - 1) * 28}ms`,
-        '--target-opacity': opacity,
-        '--segment-progress': strength,
-      },
-    }
-  })
-})
+const portraitCompletionRatio = computed(() => profileMatchScore.value / 100)
 
 const FACE_LINK_CANVAS = { width: 430, height: 430, faceWidth: 218, faceTop: 44 }
+
+const profileFaceAnchors = {
+  '专业/课程背景': [109, 35],
+  '学习目标': [65, 78],
+  '当前知识基础': [153, 78],
+  '学习进度': [109, 116],
+  '薄弱知识点': [76, 120],
+  '易错点类型': [142, 120],
+  '学习风格/认知偏好': [72, 168],
+  '资源形式偏好': [109, 154],
+  '可投入时间': [82, 226],
+  '难度接受程度': [136, 226],
+}
 
 const profileFaceTagLayout = {
   '专业/课程背景': { side: 'top', tag: [216, 6], width: 132 },
@@ -1408,18 +1303,12 @@ const profileFaceDimensionTags = computed(() => profileDimensionKeys.map((name, 
   const [tagX, tagY] = layout.tag
   const tagWidth = Number(layout.width) || 116
   const tagHeight = 34
-  const blocks = Array.isArray(profileFaceManifest.value?.blocks) ? profileFaceManifest.value.blocks : []
-  const primaryBlock = blocks.find(block => block.id === faceDimensionPrimaryBlocks[name])
   const faceWidth = FACE_LINK_CANVAS.faceWidth
-  const faceHeight = faceWidth * profileFaceCanvas.value.height / profileFaceCanvas.value.width
   const faceLeft = (FACE_LINK_CANVAS.width - faceWidth) / 2
   const faceTop = FACE_LINK_CANVAS.faceTop
-  const centroid = primaryBlock?.centroid || {
-    x: profileFaceCanvas.value.width / 2,
-    y: profileFaceCanvas.value.height / 2,
-  }
-  const anchorX = faceLeft + Number(centroid.x || 0) / profileFaceCanvas.value.width * faceWidth
-  const anchorY = faceTop + Number(centroid.y || 0) / profileFaceCanvas.value.height * faceHeight
+  const [localAnchorX, localAnchorY] = profileFaceAnchors[name] || [109, 141]
+  const anchorX = faceLeft + localAnchorX
+  const anchorY = faceTop + localAnchorY
   const tagEdgeX = layout.side === 'left'
     ? tagX + tagWidth
     : layout.side === 'right'
@@ -1486,7 +1375,7 @@ const selectedFaceDimensionDetailStyle = computed(() => {
   const canvasWidth = FACE_LINK_CANVAS.width
   const canvasHeight = FACE_LINK_CANVAS.height
   const faceWidth = FACE_LINK_CANVAS.faceWidth
-  const faceHeight = faceWidth * profileFaceCanvas.value.height / profileFaceCanvas.value.width
+  const faceHeight = 282
   const faceLeft = (canvasWidth - faceWidth) / 2
   const faceTop = FACE_LINK_CANVAS.faceTop
   const faceRect = {
@@ -3062,7 +2951,6 @@ onMounted(() => {
   applyRouteQuery()
   loadHistoryReports()
   initializeProfileSessions().catch((error) => addLog(error, 'error', '初始化学习画像会话'))
-  loadProfileFaceManifest()
   const saved = profileData.value.scaleScores
   if (saved) {
     saved.forEach((v, i) => { scaleAnswers[i] = v })
@@ -7775,6 +7663,24 @@ onBeforeUnmount(() => {
   display: block;
   pointer-events: none;
   user-select: none;
+}
+
+.lp-page.lp-page .profile-face-vector {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.lp-page.lp-page .profile-face-dots {
+  fill: none;
+  stroke: #0b9965;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 0.1 7.2;
+  filter: drop-shadow(0 0 5px rgba(11, 153, 101, 0.22));
+  opacity: calc(0.58 + var(--portrait-progress) * 0.38);
 }
 
 .lp-page.lp-page .profile-face-base {
