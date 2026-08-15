@@ -13,6 +13,7 @@
     "test:learning-profile-chat": "node --test tests/learningProfileChat.test.mjs",
     "test:question-exam-session": "node --test tests/questionExamSession.test.mjs",
     "test:question-exam-session:e2e": "node tests/questionExamSession.e2e.mjs",
+    "test:wrapper-pages": "node --test tests/wrapperPages.test.mjs",
     "test:resource-detail": "node --test tests/resourceDetail.test.mjs",
     "test:resource-detail:e2e": "node tests/resourceDetail.e2e.mjs"
   },

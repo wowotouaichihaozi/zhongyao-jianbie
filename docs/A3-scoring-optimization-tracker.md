@@ -103,9 +103,9 @@ Acceptance criteria for this batch:
 
 ### Deep-page wrapper polish
 
-- [~] Fit the 1920x1080 digital-twin scene to desktop and mobile viewports while preserving an inspectable architecture canvas and explicit loading/error recovery.
-- [~] Add an explicit return path, preflight failure state, and retry action to the navbar-free PPT workbench wrapper without changing the embedded OhMyPPT engine.
-- [ ] Add focused tests, run a non-clean frontend build, and visually verify both routes at 1440x900 and 390x844.
+- [x] Fit the 1920x1080 digital-twin scene to desktop and mobile viewports while preserving an inspectable architecture canvas and explicit loading/error recovery.
+- [x] Add an explicit return path, preflight failure state, and retry action to the navbar-free PPT workbench wrapper without changing the embedded OhMyPPT engine.
+- [~] Add focused tests, run a non-clean frontend build, and visually verify both routes at 1440x900 and 390x844.
 
 Acceptance criteria for this batch:
 
@@ -171,6 +171,7 @@ Acceptance criteria for this batch:
 | 2026-08-15 | Phase 3 scoring evidence pipeline | Extended the real Harness run from one to five distinct intelligent-tutoring cases, linked summary generation directly to redacted E2E task artifacts, and documented a repository-relative reproduction flow. | Python compile checks; `tests.test_harness_real_e2e` and `tests.test_scoring_evidence_suite`, 13/13 passed without model calls. Formal real-model evidence remains pending. | This Phase 3 evidence commit |
 | 2026-08-15 | Phase 2 auth and exam recovery | Preserved protected deep links across login and runtime 401 redirects; normalized exam payloads, blocked empty-exam timing/history/evidence writes, used wall-clock timing, and added deliberate exit plus mobile layout. | Frontend contract tests 8/8; Playwright deep-link and exam fixtures passed; non-clean production build passed. | `3f1d48f` |
 | 2026-08-15 | Phase 2 learning-path integrity | Delayed embedded-assistant path persistence until Harness review, rejected degraded stage baselines, separated load/generation errors from empty profile state, and blocked resource dispatch from degraded paths in both metadata and the backend executor. | Learning-profile/path API 61/61 plus 7 subtests; Harness/MCP 32/32 plus 42 subtests; non-clean frontend build passed. Desktop/mobile visual review remains pending. | This learning-path integrity commit |
+| 2026-08-15 | Deep-page wrappers | Fitted the 1920x1080 digital-twin scene into the available viewport and added return, preflight, unavailable and retry states to the OhMyPPT wrapper. | Wrapper source contracts 2/2; non-clean production build passed; route chunks remain 2.11 KB and 2.81 KB before gzip. Desktop/mobile visual review remains pending. | This wrapper-page commit |
 
 ## Remaining work
 
