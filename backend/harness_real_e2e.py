@@ -134,6 +134,29 @@ CASES = [
 ]
 
 
+# The registry needs one probe per Skill, while the rubric requires five
+# independently inspectable tutoring cases. Keep the four extra calls outside
+# CASES so registry cardinality checks continue to describe the real Skill set.
+ADDITIONAL_TUTOR_CASES = [
+    (
+        "learning.tutor.answer",
+        {"topic": f"{PREFIX} GPIO output stays low after initialization. Guide me with Socratic questions and a Feynman recap."},
+    ),
+    (
+        "learning.tutor.answer",
+        {"topic": f"{PREFIX} UART output is garbled. Help me diagnose clock, baud rate, and frame format step by step."},
+    ),
+    (
+        "learning.tutor.answer",
+        {"topic": f"{PREFIX} A push-button interrupt triggers repeatedly. Guide me through debounce and interrupt-flag checks."},
+    ),
+    (
+        "learning.tutor.answer",
+        {"topic": f"{PREFIX} An ADC reading is unstable. Use progressive hints, a practice task, and knowledge citations."},
+    ),
+]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://localhost:3000")
@@ -539,7 +562,8 @@ def main() -> int:
     if set(by_tool) != {tool for tool, _ in CASES}:
         raise RuntimeError(f"skill registry mismatch: {sorted(by_tool)}")
     selected_tools = set(args.tool or [])
-    run_cases = [case for case in CASES if not selected_tools or case[0] in selected_tools]
+    evidence_cases = [*CASES, *ADDITIONAL_TUTOR_CASES]
+    run_cases = [case for case in evidence_cases if not selected_tools or case[0] in selected_tools]
 
     status_payload = request_json(session, "GET", f"{args.base_url.rstrip('/')}/api/xiaozhi/status")
     architecture = nested(status_payload, "data", "architecture") or {}

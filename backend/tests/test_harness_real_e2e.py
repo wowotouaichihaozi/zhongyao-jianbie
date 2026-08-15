@@ -1,7 +1,7 @@
 import unittest
 
 from agent_manifest import DEFAULT_AGENT_MANIFEST
-from harness_real_e2e import CASES, validate_specific
+from harness_real_e2e import ADDITIONAL_TUTOR_CASES, CASES, validate_specific
 
 
 class HarnessRealE2ETests(unittest.TestCase):
@@ -11,6 +11,12 @@ class HarnessRealE2ETests(unittest.TestCase):
 
         self.assertEqual(case_tools, manifest_tools)
         self.assertEqual(len(CASES), len(DEFAULT_AGENT_MANIFEST.skills))
+
+    def test_real_e2e_produces_five_distinct_tutoring_cases(self):
+        tutor_cases = [case for case in [*CASES, *ADDITIONAL_TUTOR_CASES] if case[0] == "learning.tutor.answer"]
+
+        self.assertEqual(len(tutor_cases), 5)
+        self.assertEqual(len({case[1]["topic"] for case in tutor_cases}), 5)
 
     def test_profile_management_validation_requires_active_profile(self):
         valid = {

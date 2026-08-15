@@ -725,9 +725,23 @@ def generate_effect_evidence(output_dir: Path) -> dict[str, Any]:
     return evidence
 
 
-def generate_tutor_evidence(output_dir: Path) -> dict[str, Any]:
+def tutor_artifacts(output_dir: Path, report: dict[str, Any] | None = None) -> list[Path]:
+    if report is not None:
+        paths = []
+        for case in report.get("cases") or []:
+            if not isinstance(case, dict) or case.get("skillId") != "learning.tutor.answer":
+                continue
+            paths.append(latest_artifact_for_case(output_dir, case))
+        return paths
+
+    # Compatibility with evidence packages produced before the real E2E runner
+    # emitted all five tutoring calls itself.
     tutor_dir = output_dir / "智能辅导案例"
-    paths = sorted(tutor_dir.glob("*.json"), key=lambda item: item.name)
+    return sorted(tutor_dir.glob("*.json"), key=lambda item: item.name)
+
+
+def generate_tutor_evidence(output_dir: Path, report: dict[str, Any] | None = None) -> dict[str, Any]:
+    paths = tutor_artifacts(output_dir, report)
     cases: list[dict[str, Any]] = []
     for path in paths:
         task = load_json(path)
@@ -811,7 +825,7 @@ def main() -> int:
     resources = generate_resource_evidence(output_dir, report)
     recommendations = generate_profile_recommendation_evidence(output_dir)
     effects = generate_effect_evidence(output_dir)
-    tutoring = generate_tutor_evidence(output_dir)
+    tutoring = generate_tutor_evidence(output_dir, report)
     summary = {
         "generatedAt": datetime.now().astimezone().isoformat(timespec="seconds"),
         "e2eReport": str(e2e_report_path),

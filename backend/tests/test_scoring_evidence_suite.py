@@ -65,6 +65,39 @@ class ScoringEvidenceSuiteTests(unittest.TestCase):
         self.assertEqual(evidence["cases"][0]["runId"], "run-test")
         self.assertEqual(evidence["cases"][0]["errors"], [])
 
+    def test_tutor_evidence_reads_real_e2e_artifacts_by_task_id(self):
+        tutor = {
+            "question": "Why is UART output garbled?",
+            "source": "grounded-test",
+            "answer": "Compare clock, baud rate, and frame format.",
+            "explanation": {"concept": "UART peers must agree on timing and framing.", "steps": ["clock", "baud", "frame"]},
+            "socraticQuestions": ["Which clock is active?", "What baud is measured?", "Do frame formats match?"],
+            "feynmanTask": {"prompt": "Explain UART framing.", "checklist": ["clock", "baud", "frame"]},
+            "hintLadder": [{"level": 1}, {"level": 2}, {"level": 3}],
+            "practiceTasks": [{"question": "Diagnose UART.", "answer": "Check timing.", "explanation": "Timing affects symbols.", "acceptanceCriteria": "Find the mismatch."}],
+            "multimodal": {"mermaid": {"code": "flowchart TD\nA[Clock] --> B[Baud]"}, "learningCard": {"front": "UART", "back": "Match framing", "keyPoints": ["clock"]}},
+            "references": [{"title": "UART note", "source": "KB1"}],
+            "qualityEvaluation": {"score": 92, "passed": True},
+        }
+        result = {
+            "tutor": tutor,
+            "orchestration": {"rootAgent": "xiaozhi-companion-agent", "runId": "run-real"},
+            "harness": {"skill": {"id": "learning.tutor.answer", "mcpTool": "learning.tutor.answer"}, "modelRuntime": {"model": "xsparkx2agent"}},
+        }
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tempdir:
+            output_dir = Path(tempdir)
+            artifact_dir = output_dir / "真实讯飞接口结果"
+            artifact_dir.mkdir(parents=True)
+            (artifact_dir / "01-smart_tutor-task-1.json").write_text(
+                json.dumps({"taskId": "task-1", "result": result}, ensure_ascii=False), encoding="utf-8"
+            )
+            report = {"cases": [{"skillId": "learning.tutor.answer", "taskId": "task-1"}]}
+            evidence = generate_tutor_evidence(output_dir, report)
+
+        self.assertEqual(evidence["caseCount"], 1)
+        self.assertEqual(evidence["passed"], 1)
+        self.assertEqual(evidence["cases"][0]["runId"], "run-real")
+
     def test_code_resource_quality_requires_code_and_grounding(self):
         quality = resource_quality(
             "code",

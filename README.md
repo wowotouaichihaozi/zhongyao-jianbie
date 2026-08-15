@@ -345,7 +345,15 @@ python -m pytest backend/tests/test_learning_path_profile_switch.py -q
 python -m pytest backend/tests/test_ohmyppt_parser.py backend/tests/test_ohmyppt_client.py backend/tests/test_model_runtime_hardening.py -q
 
 # 评分表硬指标案例：5 类资源、4 组推荐、5 个辅导、3 个评估
-python backend/scoring_evidence_suite.py --output-dir "C:\Users\han\Desktop\03_项目与作品\软件杯\测试报告"
+# 先启动统一 3000 入口，并为已有激活画像的验收账号设置密码。
+$env:HARNESS_E2E_PASSWORD = "<评审账号密码>"
+python backend/harness_real_e2e.py --base-url http://localhost:3000 --output-dir .\测试报告
+python backend/scoring_evidence_suite.py --output-dir .\测试报告
+
+# 不调用真实模型的证据链回归测试
+Set-Location backend
+python -m unittest tests.test_harness_real_e2e tests.test_scoring_evidence_suite -v
+Set-Location ..
 
 cd frontend
 npm run build
