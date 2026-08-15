@@ -339,22 +339,28 @@
               <section id="profile-ai" class="profile-dash-card profile-ai-analysis-card">
                 <h3>AI 画像分析（结论）</h3>
                 <div class="profile-ai-conclusion">
-                  <figure v-if="reportPortraitState === 'ready' && reportPortraitUrl" class="profile-ai-portrait">
-                    <img :src="reportPortraitUrl" alt="由学习画像智能体生成的学习者人像" />
+                  <figure
+                    class="profile-ai-portrait"
+                    :class="`profile-portrait-${reportPortraitState}`"
+                    :aria-label="reportPortraitState === 'ready' ? '报告专属学习者头像' : '默认学习者头像'"
+                  >
+                    <img
+                      :src="reportPortraitUrl || DEFAULT_PROFILE_PORTRAIT_URL"
+                      :alt="reportPortraitState === 'ready' ? '由学习画像智能体生成的学习者人像' : '默认嵌入式学习者头像'"
+                    />
+                    <figcaption v-if="reportPortraitState === 'loading'" class="profile-portrait-status" role="status">
+                      <span class="profile-portrait-spinner" aria-hidden="true"></span>
+                      <small>{{ reportPortraitLoadingLabel }}</small>
+                    </figcaption>
+                    <figcaption v-else-if="reportPortraitState === 'missing'" class="profile-portrait-status" role="status">
+                      <small>当前为默认头像</small>
+                      <button type="button" title="生成报告专属头像" @click.stop="retryReportPortrait"><Sparkles :size="13" />生成</button>
+                    </figcaption>
+                    <figcaption v-else-if="reportPortraitState === 'failed'" class="profile-portrait-status profile-portrait-status-error" role="alert" :title="reportPortraitError">
+                      <small>专属头像生成失败</small>
+                      <button type="button" title="重试生成报告专属头像" aria-label="重试生成报告专属头像" @click.stop="retryReportPortrait"><RefreshCcw :size="14" /></button>
+                    </figcaption>
                   </figure>
-                  <div v-else-if="reportPortraitState === 'loading'" class="profile-ai-portrait profile-portrait-loader" role="status" aria-label="正在读取或生成画像人像">
-                    <span></span>
-                    <small>{{ reportPortraitLoadingLabel }}</small>
-                  </div>
-                  <div v-else-if="reportPortraitState === 'missing'" class="profile-ai-portrait profile-portrait-missing" role="status">
-                    <UserRound :size="28" :stroke-width="1.8" />
-                    <span>头像尚未生成</span>
-                    <button type="button" title="生成画像人像" @click.stop="retryReportPortrait"><Sparkles :size="14" />生成</button>
-                  </div>
-                  <div v-else class="profile-ai-portrait profile-portrait-error" role="alert" :title="reportPortraitError">
-                    <span>生成失败</span>
-                    <button type="button" title="重试生成画像人像" aria-label="重试生成画像人像" @click.stop="retryReportPortrait"><RefreshCcw :size="16" /></button>
-                  </div>
                   <p>{{ currentReport.aiAnalysis?.summary || '已结合学习目标、知识基础、学习偏好和薄弱知识点生成当前学习画像。' }}</p>
                 </div>
                 <div class="profile-ai-compare">
@@ -1620,6 +1626,7 @@ const currentReportStudentProfile = computed(() => {
   return chatStudentProfile.value
 })
 const reportPortraitUrl = ref('')
+const DEFAULT_PROFILE_PORTRAIT_URL = '/default-profile-avatar.webp'
 const reportPortraitStates = reactive({})
 let reportPortraitObjectUrl = ''
 let reportPortraitRequestToken = 0
@@ -9403,6 +9410,7 @@ onBeforeUnmount(() => {
 }
 
 .profile-ai-portrait {
+  position: relative;
   display: grid;
   width: 106px;
   height: 106px;
@@ -9422,89 +9430,83 @@ onBeforeUnmount(() => {
   border-radius: inherit;
 }
 
-.profile-ai-portrait.profile-portrait-loader {
-  align-content: center;
-  gap: 9px;
-  border: 1px solid #d4e7dc;
-  background: #eaf5ef;
+.profile-portrait-status {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  left: 5px;
+  display: flex;
+  min-height: 27px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border: 1px solid rgba(212, 231, 220, 0.96);
+  border-radius: 6px;
+  background: rgba(246, 252, 249, 0.94);
+  color: #426d57;
+  backdrop-filter: blur(5px);
 }
 
-.profile-ai-portrait.profile-portrait-loader span {
-  width: 34px;
-  height: 34px;
-  border: 3px solid #cce6d8;
+.profile-portrait-spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  border: 2px solid #cce6d8;
   border-top-color: #58a97f;
   border-radius: 50%;
   animation: profile-dashboard-spin 0.85s linear infinite;
 }
 
-.profile-ai-portrait.profile-portrait-loader small {
-  color: #668475;
-  font-size: 10px;
+.profile-portrait-status small {
+  min-width: 0;
+  color: inherit;
+  font-size: 9px;
+  font-weight: 700;
   line-height: 1.2;
   text-align: center;
 }
 
-.profile-ai-portrait.profile-portrait-missing {
-  align-content: center;
-  gap: 6px;
-  border: 1px solid #d4e7dc;
-  background: #f3faf6;
-  color: #668475;
-}
-
-.profile-ai-portrait.profile-portrait-missing > span {
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.profile-ai-portrait.profile-portrait-missing button {
+.profile-portrait-status button {
   display: inline-flex;
-  min-height: 25px;
+  min-height: 21px;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
+  padding: 2px 6px;
   border: 1px solid #a8d2bb;
-  border-radius: 6px;
+  border-radius: 5px;
   background: #fff;
   color: #357b59;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
 }
 
-.profile-ai-portrait.profile-portrait-missing button:hover {
+.profile-portrait-status button:hover {
   border-color: #65ad86;
   color: #246443;
 }
 
-.profile-ai-portrait.profile-portrait-error {
-  gap: 9px;
-  align-content: center;
+.profile-portrait-status-error {
   border: 1px solid #ead7d1;
-  background: #fff8f5;
+  background: rgba(255, 248, 245, 0.94);
   color: #875246;
 }
 
-.profile-ai-portrait.profile-portrait-error > span {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.profile-ai-portrait.profile-portrait-error button {
+.profile-portrait-status-error button {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 1px solid #d9bcb3;
-  border-radius: 50%;
+  border-radius: 5px;
   background: #fff;
   color: #875246;
   cursor: pointer;
   place-items: center;
 }
 
-.profile-ai-portrait.profile-portrait-error button:hover {
+.profile-portrait-status-error button:hover {
   border-color: #b88576;
   color: #6e4035;
 }
@@ -10587,15 +10589,13 @@ onBeforeUnmount(() => {
   fill: #202424 !important;
 }
 
-#app .lp-page.lp-page .profile-ai-portrait.profile-portrait-loader,
-#app .lp-page.lp-page .profile-ai-portrait.profile-portrait-missing,
-#app .lp-page.lp-page .profile-ai-portrait.profile-portrait-error {
+#app .lp-page.lp-page .profile-portrait-status {
   border-color: #d9dddc !important;
   background: #f3f4f4 !important;
   color: #555c5b !important;
 }
 
-#app .lp-page.lp-page .profile-ai-portrait.profile-portrait-loader span {
+#app .lp-page.lp-page .profile-portrait-spinner {
   border-color: #d5d9d8 !important;
   border-top-color: #303534 !important;
 }
@@ -10746,19 +10746,18 @@ onBeforeUnmount(() => {
   color: #df8a42 !important;
 }
 
-#app .lp-page.lp-page.profile-report-mode .profile-ai-portrait.profile-portrait-loader,
-#app .lp-page.lp-page.profile-report-mode .profile-ai-portrait.profile-portrait-missing {
+#app .lp-page.lp-page.profile-report-mode .profile-portrait-status {
   border-color: #d4e7dc !important;
   background: #eaf5ef !important;
   color: #668475 !important;
 }
 
-#app .lp-page.lp-page.profile-report-mode .profile-ai-portrait.profile-portrait-loader span {
+#app .lp-page.lp-page.profile-report-mode .profile-portrait-spinner {
   border-color: #cce6d8 !important;
   border-top-color: #58a97f !important;
 }
 
-#app .lp-page.lp-page.profile-report-mode .profile-ai-portrait.profile-portrait-error {
+#app .lp-page.lp-page.profile-report-mode .profile-portrait-status-error {
   border-color: #ead7d1 !important;
   background: #fff8f5 !important;
   color: #875246 !important;
