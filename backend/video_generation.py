@@ -1,6 +1,9 @@
 """Persisted, server-side AI learning-video generation workflow."""
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -8,11 +11,13 @@ import subprocess
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from email.utils import formatdate
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
 import requests
+import websocket
 
 try:
     from common import get_setting
@@ -37,6 +42,9 @@ DEFAULT_VIDEO_RESOLUTION = "720p"
 VIDEO_OUTPUT_SIZE = "16:9"
 SEEDREAM_MODEL = "seedream-4-5"
 SEEDREAM_RESOLUTION = "2K"
+DEFAULT_TTS_PROVIDER = "xfyun"
+DEFAULT_XFYUN_TTS_URL = "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6"
+DEFAULT_XFYUN_TTS_VOICE = "x6_lingxiaoxuan_pro"
 VIDEO_ENGINE_MODELS: dict[str, str | None] = {
     "seedance_1_5_coze": None,
     "seedance_2_mini": "doubao-seedance-2.0-mini",
@@ -133,7 +141,19 @@ def _image_api_token() -> str:
     )
 
 
-def _tts_api_token() -> str:
+def _tts_provider() -> str:
+    return _setting("VIDEO_TTS_PROVIDER", DEFAULT_TTS_PROVIDER).lower()
+
+
+def _xfyun_tts_credentials() -> tuple[str, str, str]:
+    return (
+        _setting("XFYUN_TTS_APP_ID", ""),
+        _setting("XFYUN_TTS_API_KEY", ""),
+        _setting("XFYUN_TTS_API_SECRET", ""),
+    )
+
+
+def _legacy_tts_api_token() -> str:
     return _setting("VIDEO_TTS_API_KEY", "") or _setting("TTS_API_KEY", "")
 
 
@@ -157,10 +177,25 @@ def _seedance_2_model(engine: str) -> str:
 
 
 def _validate_video_configuration(engine: str) -> None:
-    required = [
-        ("SEEDREAM_API_KEY/VIDEO_IMAGE_API_KEY/IMAGE2_API_KEY", _image_api_token()),
-        ("VIDEO_TTS_API_KEY/TTS_API_KEY", _tts_api_token()),
-    ]
+    required = [("SEEDREAM_API_KEY/VIDEO_IMAGE_API_KEY/IMAGE2_API_KEY", _image_api_token())]
+    if _tts_provider() == "xfyun":
+        app_id, api_key, api_secret = _xfyun_tts_credentials()
+        required.extend(
+            [
+                ("XFYUN_TTS_APP_ID", app_id),
+                ("XFYUN_TTS_API_KEY", api_key),
+                ("XFYUN_TTS_API_SECRET", api_secret),
+            ]
+        )
+    elif _tts_provider() == "openai_compatible":
+        required.extend(
+            [
+                ("VIDEO_TTS_API_KEY/TTS_API_KEY", _legacy_tts_api_token()),
+                ("VIDEO_TTS_MODEL/TTS_MODEL", _setting("VIDEO_TTS_MODEL", _setting("TTS_MODEL", ""))),
+            ]
+        )
+    else:
+        raise VideoGenerationError(f"Unsupported TTS provider: {_tts_provider()}")
     if engine == DEFAULT_VIDEO_ENGINE:
         required.extend(
             [
@@ -305,15 +340,119 @@ def _create_image(prompt: str) -> str:
     return _first_url((_wait_media_task(base_url, token, task_id).get("result") or {}).get("images"))
 
 
-def _create_tts(text: str, voice: str, destination: Path) -> None:
+def _xfyun_tts_signed_url(base_url: str, api_key: str, api_secret: str, *, date: str | None = None) -> str:
+    parsed = urlsplit(base_url)
+    if parsed.scheme not in {"ws", "wss"} or not parsed.hostname:
+        raise VideoGenerationError("Invalid XFYun TTS WebSocket URL")
+    request_date = date or formatdate(timeval=None, localtime=False, usegmt=True)
+    signature_origin = f"host: {parsed.hostname}\ndate: {request_date}\nGET {parsed.path} HTTP/1.1"
+    signature = base64.b64encode(
+        hmac.new(api_secret.encode("utf-8"), signature_origin.encode("utf-8"), hashlib.sha256).digest()
+    ).decode("ascii")
+    authorization_origin = (
+        f'api_key="{api_key}", algorithm="hmac-sha256", '
+        f'headers="host date request-line", signature="{signature}"'
+    )
+    query = urlencode(
+        {
+            "authorization": base64.b64encode(authorization_origin.encode("utf-8")).decode("ascii"),
+            "date": request_date,
+            "host": parsed.hostname,
+        },
+        quote_via=quote,
+    )
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, query, ""))
+
+
+def _xfyun_tts_request(text: str, app_id: str, voice: str) -> dict[str, Any]:
+    return {
+        "header": {"app_id": app_id, "status": 2},
+        "parameter": {
+            "tts": {
+                "vcn": voice,
+                "speed": int(_setting("XFYUN_TTS_SPEED", "50")),
+                "volume": int(_setting("XFYUN_TTS_VOLUME", "50")),
+                "pitch": int(_setting("XFYUN_TTS_PITCH", "50")),
+                "audio": {
+                    "encoding": "lame",
+                    "sample_rate": 24000,
+                    "channels": 1,
+                    "bit_depth": 16,
+                    "frame_size": 0,
+                },
+            }
+        },
+        "payload": {
+            "text": {
+                "encoding": "utf8",
+                "compress": "raw",
+                "format": "plain",
+                "status": 2,
+                "text": base64.b64encode(text.encode("utf-8")).decode("ascii"),
+            }
+        },
+    }
+
+
+def _create_xfyun_tts(text: str, voice: str, destination: Path) -> None:
+    app_id, api_key, api_secret = _xfyun_tts_credentials()
+    selected_voice = _setting("XFYUN_TTS_VOICE", DEFAULT_XFYUN_TTS_VOICE)
+    signed_url = _xfyun_tts_signed_url(
+        _setting("XFYUN_TTS_URL", DEFAULT_XFYUN_TTS_URL), api_key, api_secret
+    )
+    timeout = max(10, min(120, int(_setting("XFYUN_TTS_TIMEOUT_SECONDS", "45"))))
+    connection = websocket.create_connection(signed_url, timeout=timeout)
+    mp3 = bytearray()
+    try:
+        connection.send(json.dumps(_xfyun_tts_request(text, app_id, selected_voice), ensure_ascii=False))
+        while True:
+            response = json.loads(connection.recv())
+            header = response.get("header") or {}
+            if int(header.get("code") or 0) != 0:
+                raise VideoGenerationError(
+                    f"XFYun TTS error {header.get('code')}: {str(header.get('message') or '')[:200]}"
+                )
+            audio = (response.get("payload") or {}).get("audio") or {}
+            if audio.get("audio"):
+                mp3.extend(base64.b64decode(audio["audio"], validate=True))
+            if int(audio.get("status", header.get("status", 0)) or 0) == 2:
+                break
+    finally:
+        connection.close()
+    if not mp3:
+        raise VideoGenerationError("XFYun TTS returned empty audio")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    mp3_path = destination.with_suffix(".mp3")
+    mp3_path.write_bytes(mp3)
+    try:
+        _run(
+            [
+                _ffmpeg_path("ffmpeg"), "-y", "-i", str(mp3_path),
+                "-c:a", "aac", "-b:a", "96k", str(destination),
+            ]
+        )
+    finally:
+        mp3_path.unlink(missing_ok=True)
+
+
+def _create_legacy_tts(text: str, voice: str, destination: Path) -> None:
     base_url = _setting("VIDEO_MEDIA_BASE_URL", _setting("MEDIA_BASE_URL", "https://api.apib.ai/v1"))
-    token = _tts_api_token()
-    model = _setting("VIDEO_TTS_MODEL", _setting("TTS_MODEL", "gpt-4o-mini-tts"))
+    token = _legacy_tts_api_token()
+    model = _setting("VIDEO_TTS_MODEL", _setting("TTS_MODEL", ""))
+    if not model:
+        raise VideoGenerationError("VIDEO_TTS_MODEL/TTS_MODEL is required for openai_compatible TTS")
     response = requests.post(f"{base_url.rstrip('/')}/audio/speech", headers=_headers(token), json={"model": model, "input": text, "voice": voice, "response_format": "aac", "speed": 1.0}, timeout=90)
     if not response.ok or not response.content:
         raise VideoGenerationError(f"配音服务失败：HTTP {response.status_code}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(response.content)
+
+
+def _create_tts(text: str, voice: str, destination: Path) -> None:
+    if _tts_provider() == "xfyun":
+        _create_xfyun_tts(text, voice, destination)
+        return
+    _create_legacy_tts(text, voice, destination)
 
 
 def _create_seedance_15(image_url: str, prompt: str) -> str:

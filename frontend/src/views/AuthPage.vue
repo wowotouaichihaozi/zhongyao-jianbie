@@ -162,7 +162,7 @@
               <small class="auth-model-tag adapter">讯飞 SDK + 音频适配器</small>
             </div>
             <h3>视频旁白与讯飞数字人 TTS</h3>
-            <code>gpt-4o-mini-tts · x4_yezi</code>
+            <code>讯飞超拟人语音合成 · x4_yezi</code>
             <p>数字人播报由讯飞 SDK 提供；视频旁白通过可替换 TTS 适配器生成，x4_yezi 仅为配置音色。</p>
           </article>
         </div>

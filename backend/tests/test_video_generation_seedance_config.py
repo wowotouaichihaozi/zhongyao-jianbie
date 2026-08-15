@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import base64
 import json
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -132,6 +134,114 @@ def test_video_engine_and_default_model_contract():
     assert video_generation._video_engine({"videoEngine": "unsupported"}) == (
         "seedance_1_5_coze"
     )
+
+
+def test_xfyun_tts_signed_url_uses_hmac_authorization_without_secret():
+    signed = video_generation._xfyun_tts_signed_url(
+        "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6",
+        "public-key",
+        "private-secret",
+        date="Sat, 15 Aug 2026 09:00:00 GMT",
+    )
+    query = parse_qs(urlsplit(signed).query)
+    authorization = base64.b64decode(query["authorization"][0]).decode("utf-8")
+
+    assert urlsplit(signed).scheme == "wss"
+    assert query["host"] == ["cbm01.cn-huabei-1.xf-yun.com"]
+    assert query["date"] == ["Sat, 15 Aug 2026 09:00:00 GMT"]
+    assert 'api_key="public-key"' in authorization
+    assert 'algorithm="hmac-sha256"' in authorization
+    assert "private-secret" not in signed
+
+
+def test_xfyun_tts_request_uses_authorized_voice_and_utf8_payload(monkeypatch):
+    monkeypatch.setattr(video_generation, "_setting", lambda _key, default="": default)
+    request = video_generation._xfyun_tts_request(
+        "GPIO 中断实验",
+        "app-id",
+        "x6_lingxiaoxuan_pro",
+    )
+
+    assert request["header"] == {"app_id": "app-id", "status": 2}
+    assert request["parameter"]["tts"]["vcn"] == "x6_lingxiaoxuan_pro"
+    assert request["parameter"]["tts"]["audio"] == {
+        "encoding": "lame",
+        "sample_rate": 24000,
+        "channels": 1,
+        "bit_depth": 16,
+        "frame_size": 0,
+    }
+    assert base64.b64decode(request["payload"]["text"]["text"]).decode("utf-8") == "GPIO 中断实验"
+
+
+def test_xfyun_tts_collects_frames_and_converts_mp3_to_aac(monkeypatch, tmp_path):
+    settings = {
+        "XFYUN_TTS_APP_ID": "app-id",
+        "XFYUN_TTS_API_KEY": "api-key",
+        "XFYUN_TTS_API_SECRET": "api-secret",
+        "XFYUN_TTS_VOICE": "x6_lingxiaoxuan_pro",
+    }
+    monkeypatch.setattr(video_generation, "_setting", lambda key, default="": settings.get(key, default))
+    monkeypatch.setattr(video_generation, "_xfyun_tts_signed_url", lambda *_args, **_kwargs: "wss://signed.example/tts")
+    sent = []
+
+    class FakeSocket:
+        frames = iter(
+            [
+                json.dumps({"header": {"code": 0}, "payload": {"audio": {"audio": base64.b64encode(b"mp3-1").decode(), "status": 1}}}),
+                json.dumps({"header": {"code": 0}, "payload": {"audio": {"audio": base64.b64encode(b"mp3-2").decode(), "status": 2}}}),
+            ]
+        )
+
+        def send(self, value):
+            sent.append(json.loads(value))
+
+        def recv(self):
+            return next(self.frames)
+
+        def close(self):
+            sent.append("closed")
+
+    monkeypatch.setattr(video_generation.websocket, "create_connection", lambda url, timeout: FakeSocket())
+
+    destination = tmp_path / "segment.aac"
+
+    def fake_run(command):
+        assert (tmp_path / "segment.mp3").read_bytes() == b"mp3-1mp3-2"
+        assert command[-1] == str(destination)
+        destination.write_bytes(b"aac")
+
+    monkeypatch.setattr(video_generation, "_run", fake_run)
+    video_generation._create_xfyun_tts("测试配音", "nova", destination)
+
+    assert destination.read_bytes() == b"aac"
+    assert not (tmp_path / "segment.mp3").exists()
+    assert sent[-1] == "closed"
+    assert sent[0]["parameter"]["tts"]["vcn"] == "x6_lingxiaoxuan_pro"
+
+
+def test_xfyun_tts_surfaces_business_error(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        video_generation,
+        "_xfyun_tts_credentials",
+        lambda: ("app-id", "api-key", "api-secret"),
+    )
+    monkeypatch.setattr(video_generation, "_xfyun_tts_signed_url", lambda *_args, **_kwargs: "wss://signed.example/tts")
+
+    class FakeSocket:
+        def send(self, _value):
+            pass
+
+        def recv(self):
+            return json.dumps({"header": {"code": 10005, "message": "invalid parameter"}})
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(video_generation.websocket, "create_connection", lambda *_args, **_kwargs: FakeSocket())
+
+    with pytest.raises(video_generation.VideoGenerationError, match="10005"):
+        video_generation._create_xfyun_tts("测试", "x6_lingxiaoxuan_pro", tmp_path / "segment.aac")
 
 
 @pytest.mark.parametrize(
@@ -292,7 +402,9 @@ def test_invalid_resolution_and_size_fall_back_to_defaults():
             "seedance_1_5_coze",
             {
                 "VIDEO_IMAGE_API_KEY": "configured",
-                "VIDEO_TTS_API_KEY": "configured",
+                "XFYUN_TTS_APP_ID": "configured",
+                "XFYUN_TTS_API_KEY": "configured",
+                "XFYUN_TTS_API_SECRET": "configured",
                 "COZE_SEEDANCE_15_API_TOKEN": "configured",
             },
             "COZE_SEEDANCE_15_WORKFLOW_ID",
@@ -301,7 +413,9 @@ def test_invalid_resolution_and_size_fall_back_to_defaults():
             "seedance_2_mini",
             {
                 "VIDEO_IMAGE_API_KEY": "configured",
-                "VIDEO_TTS_API_KEY": "configured",
+                "XFYUN_TTS_APP_ID": "configured",
+                "XFYUN_TTS_API_KEY": "configured",
+                "XFYUN_TTS_API_SECRET": "configured",
             },
             "VIDEO_VIDEO_API_KEY",
         ),
@@ -309,7 +423,9 @@ def test_invalid_resolution_and_size_fall_back_to_defaults():
             "seedance_2",
             {
                 "VIDEO_IMAGE_API_KEY": "configured",
-                "VIDEO_TTS_API_KEY": "configured",
+                "XFYUN_TTS_APP_ID": "configured",
+                "XFYUN_TTS_API_KEY": "configured",
+                "XFYUN_TTS_API_SECRET": "configured",
             },
             "VIDEO_VIDEO_API_KEY",
         ),
@@ -360,7 +476,7 @@ def test_execute_preflights_all_credentials_before_planning_or_first_image(
 
     with pytest.raises(
         video_generation.VideoGenerationError,
-        match="VIDEO_TTS_API_KEY/TTS_API_KEY",
+        match="XFYUN_TTS_APP_ID",
     ):
         video_generation.execute_generated_video_task(
             "task-1",
