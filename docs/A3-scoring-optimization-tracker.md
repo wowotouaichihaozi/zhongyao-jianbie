@@ -156,6 +156,7 @@ Acceptance criteria for this batch:
 - [x] Make the real Harness E2E run five distinct `learning.tutor.answer` cases while preserving one registry probe per Skill.
 - [x] Make the scoring summary resolve those tutoring tasks directly from the E2E report and redacted raw-artifact directory; retain the former manually collected directory as a compatibility fallback.
 - [x] Replace the machine-specific scoring command with a repository-relative, two-stage real-E2E and evidence-summary workflow.
+- [x] Add `SCORING_MATRIX.md` with the official score structure, current verifiable evidence, reproduction entry points, and explicit unresolved risks without claiming a self-score.
 - [ ] Run the five tutoring calls against the final review account and archive the redacted evidence package; unit tests prove the pipeline contract but are not presented as real model evidence.
 
 ## Completed changes
@@ -172,12 +173,13 @@ Acceptance criteria for this batch:
 | 2026-08-15 | Phase 2 auth and exam recovery | Preserved protected deep links across login and runtime 401 redirects; normalized exam payloads, blocked empty-exam timing/history/evidence writes, used wall-clock timing, and added deliberate exit plus mobile layout. | Frontend contract tests 8/8; Playwright deep-link and exam fixtures passed; non-clean production build passed. | `3f1d48f` |
 | 2026-08-15 | Phase 2 learning-path integrity | Delayed embedded-assistant path persistence until Harness review, rejected degraded stage baselines, separated load/generation errors from empty profile state, and blocked resource dispatch from degraded paths in both metadata and the backend executor. | Learning-profile/path API 61/61 plus 7 subtests; Harness/MCP 32/32 plus 42 subtests; non-clean frontend build passed. Desktop/mobile visual review remains pending. | This learning-path integrity commit |
 | 2026-08-15 | Deep-page wrappers | Fitted the 1920x1080 digital-twin scene into the available viewport and added return, preflight, unavailable and retry states to the OhMyPPT wrapper. | Wrapper source contracts 2/2; non-clean production build passed; route chunks remain 2.11 KB and 2.81 KB before gzip. Desktop/mobile visual review remains pending. | This wrapper-page commit |
+| 2026-08-15 | A3 scoring matrix | Added a judge-facing 110-point evidence index that separates implemented facts, repeatable checks, missing real-model cases, missing documents, and unverified presentation assets. | Referenced files and routes checked; Manifest JSON parsed as 22 agents and 18 Skills; `git diff --check` passed. | This scoring-matrix commit |
 
 ## Remaining work
 
 - Complete the remaining rubric-to-route and shared-shell audits.
 - Phase 2: visually verify the learning-path load, generation failure, degraded-path and retry states at desktop/mobile widths.
-- Phase 3: replace or create the seven README-declared `docs/*.md` deliverables, `SCORING_MATRIX.md`, and the referenced test report; none currently exists in the Git tree.
+- Phase 3: create the seven README-declared `docs/*.md` deliverables and the referenced test report; `SCORING_MATRIX.md` now exists as their evidence index.
 - Phase 3: run the final real Harness E2E with the review account so the five tutoring cases and scoring summary are backed by archived redacted Xunfei outputs.
 - Deep-page polish: make the 1920x1080 digital-twin scene fit desktop/mobile viewports without requiring horizontal scrolling.
 - Deep-page polish: add a judge-visible return path and load-failure recovery to the navbar-free PPT workbench iframe.
