@@ -1,4 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getCurrentUser } from '../services/api.js'
+import { clearAuthSession, getAuthToken, readCurrentUser, setAuthSession } from '../stores/auth.js'
+import { safeInternalRedirect } from '../utils/authRedirect.js'
+
 const AuthPage = () => import('../views/AuthPage.vue')
 const QuestionGeneratorView = () => import('../views/QuestionGeneratorView.vue')
 const QuestionExamSessionView = () => import('../views/QuestionExamSessionView.vue')
@@ -23,8 +27,8 @@ const EffectAssessmentView = () => import('../views/EffectAssessmentView.vue')
 const LearningDocumentView = () => import('../views/LearningDocumentView.vue')
 const SmartTutorView = () => import('../views/SmartTutorView.vue')
 const KnowledgeBaseView = () => import('../views/KnowledgeBaseView.vue')
-import { getCurrentUser } from '../services/api.js'
-import { clearAuthSession, getAuthToken, readCurrentUser, setAuthSession } from '../stores/auth.js'
+const KnowledgeNetworkView = () => import('../views/KnowledgeNetworkView.vue')
+const AgentDigitalTwinView = () => import('../views/AgentDigitalTwinView.vue')
 
 const CODEX_PREVIEW_AUTH_KEY = 'codexPreviewAuth'
 
@@ -180,7 +184,7 @@ const routes = [
   {
     path: '/knowledge-network',
     name: 'knowledge-network',
-    component: () => import('../views/KnowledgeNetworkView.vue'),
+    component: KnowledgeNetworkView,
     meta: { requiresAuth: true },
   },
   {
@@ -190,7 +194,7 @@ const routes = [
   {
     path: '/agent-digital-twin',
     name: 'agent-digital-twin',
-    component: () => import('../views/AgentDigitalTwinView.vue'),
+    component: AgentDigitalTwinView,
     meta: { requiresAuth: true },
   },
   {
@@ -298,7 +302,10 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   if (to.meta.requiresAuth && !(await hasValidLogin(to))) {
     clearAuthSession()
-    return '/login'
+    return {
+      name: 'login',
+      query: { redirect: safeInternalRedirect(to.fullPath) },
+    }
   }
   return true
 })

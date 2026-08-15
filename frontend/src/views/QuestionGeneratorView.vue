@@ -499,15 +499,16 @@
               </div>
               <div class="qg-exam-pre-toolbar">
                 <button type="button" class="qg-soft-btn" @click="enterSheetSelectMode">选择题单</button>
-                <button type="button" class="qg-primary-btn" :disabled="!selectedSheet" @click="handleExamAction">开始考试</button>
+                <button type="button" class="qg-primary-btn" :disabled="!canLaunchSelectedExam" @click="handleExamAction">开始考试</button>
               </div>
               <div class="qg-glass-card">
                 <div class="qg-card-title">当前试卷</div>
                 <div v-if="!selectedSheet" class="qg-empty-state">请先选择一份题单，然后开始考试。</div>
-                <div v-else class="qg-exam-pre-info">
+                <div v-else-if="selectedQuestions.length" class="qg-exam-pre-info">
                   <span>{{ selectedSheet.title }}</span>
                   <span>{{ selectedQuestions.length }} 题 · {{ examResult.total_score }} 分</span>
                 </div>
+                <div v-else class="qg-empty-state">当前题单没有可用题目，请重新选择或生成题单。</div>
               </div>
             </div>
           </section>
@@ -609,6 +610,7 @@ import {
   markNodeCacheStarted,
   setNodeCache,
 } from '../services/learningPathNodeCache.js'
+import { resolveExamQuestions } from '../utils/questionExamSession.js'
 
 const activeTab = ref('generate')
 const activeModule = ref('dashboard')
@@ -1317,11 +1319,8 @@ const latestAccuracy = computed(() => {
   if (!latest.question_count) return 0
   return Math.round((latest.correct_count / latest.question_count) * 100)
 })
-const selectedQuestions = computed(() => (
-  selectedSheet.value?.question_bank?.questions
-  || selectedSheet.value?.questions
-  || []
-))
+const selectedQuestions = computed(() => resolveExamQuestions({ sheet: selectedSheet.value }))
+const canLaunchSelectedExam = computed(() => Boolean(selectedSheet.value && selectedQuestions.value.length))
 const answeredCount = computed(() => examAnswers.value.filter(a => Array.isArray(a) ? a.length > 0 : Boolean(String(a || '').trim())).length)
 const historyDetailQuestions = computed(() => {
   if (!historyDetail.value) return []
@@ -2485,6 +2484,7 @@ function startExamFromSheet(sheet) {
 }
 
 function startExamTimer() {
+  if (!selectedQuestions.value.length) return false
   examStarted.value = true
   examSubmitted.value = false
   examStartAt.value = Date.now()
@@ -2501,6 +2501,7 @@ function startExamTimer() {
     }
   }, 1000)
   nextTick(setupExamScrollObserver)
+  return true
 }
 
 function toggleTimerMode() {
@@ -2534,6 +2535,7 @@ function setupExamScrollObserver() {
 
 async function handleExamAction() {
   if (!examStarted.value) {
+    if (!canLaunchSelectedExam.value) return
     openExamSessionInNewTab()
     return
   }
@@ -2541,7 +2543,7 @@ async function handleExamAction() {
 }
 
 function openExamSessionInNewTab() {
-  if (!selectedSheet.value) return
+  if (!canLaunchSelectedExam.value) return
 
   // 淇濆瓨鑰冭瘯鏁版嵁鍒?sessionStorage
   const examData = {
@@ -2557,8 +2559,7 @@ function openExamSessionInNewTab() {
 }
 
 function openExamSession() {
-  if (!selectedSheet.value) return
-  startExamTimer()
+  if (!canLaunchSelectedExam.value || !startExamTimer()) return
   examAnswers.value = selectedQuestions.value.map(q => (isMultiQuestion(q) ? [] : ''))
   examResult.value = { score: 0, total_score: sheetTotalScore(selectedSheet.value), correct_count: 0, question_count: selectedQuestions.value.length, detail: [] }
 }
@@ -2635,6 +2636,7 @@ function isCorrect(question, userAnswer) {
 }
 
 async function submitExam() {
+  if (!selectedQuestions.value.length) return
   aiScoreMessage.value = ''
   aiScoring.value = false
   const questions = selectedQuestions.value
@@ -2805,7 +2807,7 @@ function scoreForQuestion(question) {
 }
 
 function sheetTotalScore(sheet) {
-  const questions = sheet?.question_bank?.questions || []
+  const questions = resolveExamQuestions({ sheet })
   return Number(questions.reduce((sum, question) => sum + scoreForQuestion(question), 0).toFixed(1))
 }
 

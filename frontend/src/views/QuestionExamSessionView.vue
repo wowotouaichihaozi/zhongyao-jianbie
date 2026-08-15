@@ -1,12 +1,21 @@
 ﻿<template>
   <main class="qg-exam-session">
     <div class="qg-session-topbar">
-      <span>考试详情</span>
-      <div class="qg-session-timer" v-if="!examFinished">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
-        </svg>
-        <span>{{ formattedElapsedTime }}</span>
+      <strong>考试详情</strong>
+      <div class="qg-session-topbar-actions">
+        <div v-if="questions.length && !examFinished" class="qg-session-timer" aria-label="考试用时">
+          <Clock3 :size="16" aria-hidden="true" />
+          <span>{{ formattedElapsedTime }}</span>
+        </div>
+        <button
+          type="button"
+          class="qg-session-exit"
+          :aria-label="examFinished || !questions.length ? '返回题库' : '退出考试'"
+          @click="exitExam"
+        >
+          <ArrowLeft :size="16" aria-hidden="true" />
+          <span>{{ examFinished || !questions.length ? '返回题库' : '退出考试' }}</span>
+        </button>
       </div>
     </div>
 
@@ -73,7 +82,7 @@
     </div>
 
     <!-- 考试进行中 -->
-    <div v-else class="qg-session-shell">
+    <div v-else class="qg-session-shell" :class="{ 'is-empty': !questions.length }">
       <section class="qg-session-paper">
         <div class="qg-session-head">
           <h1>{{ sheet.title || '模拟考试' }}</h1>
@@ -86,6 +95,10 @@
         <div v-if="!questions.length" class="qg-session-empty">
           <strong>暂无可考试题目</strong>
           <span>请从题库生成页面选择一份已生成的题单后开始考试。</span>
+          <button type="button" class="qg-empty-return" @click="backToGenerator">
+            <ArrowLeft :size="16" aria-hidden="true" />
+            返回题库生成
+          </button>
         </div>
 
         <div v-else class="qg-session-question-list">
@@ -126,7 +139,7 @@
         </div>
       </section>
 
-      <aside class="qg-session-answer-card">
+      <aside v-if="questions.length" class="qg-session-answer-card">
         <div class="qg-session-card-head">
           <strong>答题卡</strong>
           <div>
@@ -167,10 +180,13 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { ArrowLeft, Clock3 } from 'lucide-vue-next'
 import { requestQuestionGeneratorAiScore, saveQuestionGeneratorExamResult } from '../services/api'
+import { elapsedSecondsSince, resolveExamQuestions } from '../utils/questionExamSession.js'
 
 const sheet = ref({})
-const questions = computed(() => sheet.value?.question_bank?.questions || sheet.value?.questions || [])
+const sessionQuestions = ref([])
+const questions = computed(() => resolveExamQuestions({ sheet: sheet.value, questions: sessionQuestions.value }))
 const answers = ref([])
 const elapsedSeconds = ref(0)
 const examFinished = ref(false)
@@ -178,6 +194,7 @@ const examResult = ref({ score: 0, total_score: 0, correct_count: 0, question_co
 const aiScoring = ref(false)
 const aiScoreMessage = ref('')
 let timer = 0
+let examStartedAt = 0
 
 const totalScore = computed(() => Number(questions.value.reduce((sum, q) => sum + scoreForQuestion(q), 0).toFixed(1)))
 const answeredCount = computed(() => answers.value.filter(a => (Array.isArray(a) ? a.length : String(a || '').trim())).length)
@@ -230,9 +247,10 @@ const questionGroups = computed(() => {
 })
 
 function loadSheet() {
+  let examData = {}
   try {
     // 优先从新的 sessionStorage 格式读取
-    const examData = JSON.parse(sessionStorage.getItem('qgExamSessionData') || '{}')
+    examData = JSON.parse(sessionStorage.getItem('qgExamSessionData') || '{}')
     if (examData.sheet) {
       sheet.value = examData.sheet
     } else {
@@ -242,7 +260,25 @@ function loadSheet() {
   } catch {
     sheet.value = {}
   }
+  sessionQuestions.value = Array.isArray(examData.questions) ? examData.questions : []
   answers.value = questions.value.map(q => (isMultiQuestion(q) ? [] : ''))
+}
+
+function stopTimer({ sync = false } = {}) {
+  if (sync && examStartedAt) elapsedSeconds.value = elapsedSecondsSince(examStartedAt)
+  if (timer) window.clearInterval(timer)
+  timer = 0
+}
+
+function startTimer() {
+  stopTimer()
+  elapsedSeconds.value = 0
+  examStartedAt = 0
+  if (!questions.value.length) return
+  examStartedAt = Date.now()
+  timer = window.setInterval(() => {
+    elapsedSeconds.value = elapsedSecondsSince(examStartedAt)
+  }, 1000)
 }
 
 function normalizeType(type) {
@@ -332,7 +368,9 @@ function isCorrect(question, userAnswer) {
 }
 
 function finishExam() {
+  if (!questions.value.length) return
   if (!confirm('确定要结束考试吗？')) return
+  stopTimer({ sync: true })
   aiScoreMessage.value = ''
   aiScoring.value = false
 
@@ -376,16 +414,11 @@ function finishExam() {
   saveToHistory(examResult.value)
   persistExamResult(examResult.value)
 
-  // 停止计时器
-  if (timer) {
-    window.clearInterval(timer)
-    timer = 0
-  }
-
   examFinished.value = true
 }
 
 function saveToHistory(result) {
+  if (!result?.question_count) return
   try {
     let quizHistory = []
     try { quizHistory = JSON.parse(localStorage.getItem('quizHistory') || '[]') } catch {}
@@ -425,6 +458,7 @@ function saveToHistory(result) {
 }
 
 async function persistExamResult(result) {
+  if (!result?.question_count) return
   try {
     const saved = await saveQuestionGeneratorExamResult(result)
     examResult.value = { ...examResult.value, id: saved?.id || examResult.value.id }
@@ -473,23 +507,31 @@ function backToGenerator() {
   }
 }
 
+function exitExam() {
+  if (questions.value.length && !examFinished.value) {
+    const confirmed = window.confirm('退出后本次作答不会保存，确定返回题库吗？')
+    if (!confirmed) return
+  }
+  stopTimer({ sync: true })
+  backToGenerator()
+}
+
 function retryExam() {
   examFinished.value = false
   examResult.value = { score: 0, total_score: 0, correct_count: 0, question_count: 0, detail: [] }
   aiScoreMessage.value = ''
   aiScoring.value = false
   answers.value = questions.value.map(q => (isMultiQuestion(q) ? [] : ''))
-  elapsedSeconds.value = 0
-  timer = window.setInterval(() => { elapsedSeconds.value += 1 }, 1000)
+  startTimer()
 }
 
 onMounted(() => {
   loadSheet()
-  timer = window.setInterval(() => { elapsedSeconds.value += 1 }, 1000)
+  startTimer()
 })
 
 onUnmounted(() => {
-  if (timer) window.clearInterval(timer)
+  stopTimer()
 })
 </script>
 
@@ -502,16 +544,24 @@ onUnmounted(() => {
 }
 
 .qg-session-topbar {
-  height: 56px;
+  min-height: 56px;
+  padding: 0 max(24px, calc((100vw - 1450px) / 2));
   background: linear-gradient(135deg, #2f5d8a 0%, #3b7dd8 100%);
   color: var(--surface, rgba(255, 255, 255, 0.94));
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   font-size: 18px;
   font-weight: 700;
-  gap: 24px;
+  gap: 20px;
+  box-sizing: border-box;
   box-shadow: 0 2px 8px rgba(47, 93, 138, 0.2);
+}
+
+.qg-session-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .qg-session-timer {
@@ -524,6 +574,31 @@ onUnmounted(() => {
   font-size: 15px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+.qg-session-exit,
+.qg-empty-return {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.qg-session-exit {
+  min-height: 36px;
+  padding: 0 14px;
+}
+
+.qg-session-exit:hover {
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .qg-session-shell {
@@ -788,6 +863,23 @@ onUnmounted(() => {
   gap: 10px;
 }
 
+.qg-session-shell.is-empty {
+  max-width: 900px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.qg-empty-return {
+  min-height: 42px;
+  margin: 16px auto 0;
+  padding: 0 18px;
+  border-color: #2f5d8a;
+  background: #2f5d8a;
+}
+
+.qg-empty-return:hover {
+  background: #244c73;
+}
+
 /* 考试结果样式 */
 .qg-session-result {
   width: min(1120px, calc(100vw - 48px));
@@ -1020,6 +1112,110 @@ onUnmounted(() => {
 
 .qg-btn-secondary:hover {
   background: #f0f5fa;
+}
+
+@media (max-width: 900px) {
+  .qg-session-topbar {
+    min-height: 64px;
+    padding: 10px 16px;
+  }
+
+  .qg-session-topbar > strong {
+    font-size: 16px;
+  }
+
+  .qg-session-topbar-actions {
+    gap: 8px;
+  }
+
+  .qg-session-timer {
+    padding: 4px 10px;
+    font-size: 14px;
+  }
+
+  .qg-session-exit {
+    padding: 0 10px;
+  }
+
+  .qg-session-shell {
+    width: calc(100vw - 24px);
+    margin: 16px auto 28px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .qg-session-head {
+    padding: 22px 20px 18px;
+  }
+
+  .qg-session-head h1 {
+    font-size: 19px;
+  }
+
+  .qg-session-question-list {
+    padding: 22px 20px 36px;
+  }
+
+  .qg-session-answer-card {
+    position: static;
+    max-height: none;
+    padding: 20px;
+  }
+
+  .qg-session-answer-grid {
+    grid-template-columns: repeat(auto-fill, 42px);
+  }
+
+  .qg-session-empty {
+    min-height: 300px;
+    padding: 28px 20px;
+  }
+
+  .qg-session-result {
+    width: calc(100vw - 24px);
+    margin: 20px auto;
+  }
+
+  .qg-result-card {
+    padding: 28px 20px;
+  }
+
+  .qg-result-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px 12px;
+  }
+
+  .qg-ai-rescore-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .qg-btn-ai {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .qg-session-exit span {
+    display: none;
+  }
+
+  .qg-session-exit {
+    width: 36px;
+    padding: 0;
+  }
+
+  .qg-session-head p,
+  .qg-result-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .qg-btn-primary,
+  .qg-btn-secondary {
+    width: 100%;
+  }
 }
 </style>
 

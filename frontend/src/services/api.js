@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { clearAuthSession, getAuthToken } from '../stores/auth.js'
+import { buildLoginRedirectPath, internalRedirectFromLocation } from '../utils/authRedirect.js'
 
 const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const usesLocalBackend =
@@ -34,9 +35,10 @@ function sleep(ms) {
 function clearAuthAndRedirect() {
   const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
   if (isLocalHost && localStorage.getItem(CODEX_PREVIEW_AUTH_KEY) === '1') return
+  const redirectTarget = internalRedirectFromLocation(window.location)
   clearAuthSession()
-  if (!window.location.pathname.includes('/login')) {
-    window.location.href = '/login'
+  if (redirectTarget) {
+    window.location.href = buildLoginRedirectPath(redirectTarget)
   }
 }
 

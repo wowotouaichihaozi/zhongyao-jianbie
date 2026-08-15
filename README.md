@@ -46,7 +46,8 @@ code6.14/
 - 效果评估：`/effect-assessment` 汇总聊天、题单与考试、MCU 实验、资源调用和学习路径完成记录，展示前后能力雷达、薄弱点与可验证的进步；可在该页自动更新当前画像，不新增画像条目。
 - 学习路径：学习画像保存完成后，后端立即创建可追踪且幂等的 `learning_path` 后台任务，无需用户先进入学习路径页面；路径根据该画像的目标、薄弱点和偏好生成，并由资源路由智能体逐任务选择子智能体、补齐参数和后台预生成结果。
 - 渐进式学习路径：后台任务先生成并保存第一周，再基于同一画像逐周补全后续周，每周生成 7-10 个可验收任务与资源入口。用户中途打开页面时读取 `meta.backgroundGeneration` 显示进度并轮询数据库，不会另起重复规划；后台失败后仍可通过原有页面生成接口继续缺失周次。生产环境使用独立路径执行器承载画像后的长任务，避免占满普通资源或视频任务线程池。
-- 题库生成：支持文档上传、题目生成、考试记录与 AI 评分。
+- 题库生成：支持文档上传、题目生成、考试记录与 AI 评分。考试会同时兼容题单内嵌题目和会话顶层题目；空题单不会启动计时、写入历史或提交评估证据，并提供明确返回入口。考试计时按会话开始后的真实经过时间计算，进行中可确认退出，移动端不会横向溢出。
+- 登录深链恢复：访问受保护的二级或更深页面时，路由守卫会把同源 `path + query + hash` 带到登录页；运行中遇到 401 也使用同一规则。登录完成后回到原目标，外部地址、协议相对地址、畸形地址和登录循环均回退到默认学习画像页。
 - PPT 生成：`/personalized-resources/ppt` 全屏嵌入精简版 OhMyPPT（仅首页与会话，默认包豪斯风格），普通访问进入快速创建，学习路径携带主题、要求和页数时直接进入可恢复的生成会话；原有 Harness 后台任务与 `/ppt-generator/generating/:sessionId` 继续兼容。
 - 思维导图：静态 H5 工具集成在 `/mind-map`。
 - 视频查找：B 站学习视频检索集成在 `/video-search`，后端提供必要代理、主题筛选和封面字段；该能力是视频检索，不宣称生成视频成片。
@@ -353,6 +354,15 @@ python backend/scoring_evidence_suite.py --output-dir .\测试报告
 # 不调用真实模型的证据链回归测试
 Set-Location backend
 python -m unittest tests.test_harness_real_e2e tests.test_scoring_evidence_suite -v
+Set-Location ..
+
+# 登录深链与考试会话：单元契约 + Playwright 桌面/移动验收
+Set-Location frontend
+npm run test:auth-redirect
+npm run test:auth-redirect:e2e
+npm run test:question-exam-session
+npm run test:question-exam-session:e2e
+npm run build -- --emptyOutDir=false
 Set-Location ..
 
 cd frontend

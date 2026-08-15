@@ -565,6 +565,7 @@ import RoleSelector from '../components/auth/RoleSelector.vue'
 import TabSwitch from '../components/auth/TabSwitch.vue'
 import { getLoginCaptcha, loginAdminUser, loginUser, registerUser, sendRegisterEmailCode } from '../services/api.js'
 import { readRememberedLoginAccount, rememberLoginAccount, setAuthSession } from '../stores/auth.js'
+import { DEFAULT_AUTHENTICATED_PATH, safeInternalRedirect } from '../utils/authRedirect.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -580,7 +581,7 @@ const heroShift = ref(0)
 const captchaRequired = ref(false)
 const captchaId = ref('')
 const captchaQuestion = ref('')
-const pendingRoute = ref('')
+const pendingRoute = ref(safeInternalRedirect(route.query.redirect))
 const emailCodeSending = ref(false)
 const emailCodeCountdown = ref(0)
 let emailCodeTimer = null
@@ -640,7 +641,7 @@ function openAuth(tab = 'login') {
 }
 
 function openAuthForRoute(target) {
-  pendingRoute.value = target
+  pendingRoute.value = safeInternalRedirect(target)
   openAuth('login')
 }
 
@@ -691,6 +692,7 @@ onMounted(() => {
   window.addEventListener('scroll', updateLandingScrollState, { passive: true })
   updateLandingScrollState()
   requestAnimationFrame(setupLandingReveals)
+  if (pendingRoute.value) openAuth('login')
 })
 
 function getAdminBaseUrl() {
@@ -865,7 +867,7 @@ async function submitLogin() {
       return
     }
     setMessage('登录成功，正在进入系统...', false)
-    await router.push(pendingRoute.value || '/learning-profile')
+    await router.replace(pendingRoute.value || DEFAULT_AUTHENTICATED_PATH)
   } catch (error) {
     const data = error.response?.data || {}
     if (data.captchaRequired) await refreshCaptcha(data)
@@ -896,7 +898,7 @@ async function submitRegister() {
     persistUser(user)
     localStorage.setItem('appMode', 'user')
     setMessage('注册成功，正在进入系统...', false)
-    await router.push(pendingRoute.value || '/learning-profile')
+    await router.replace(pendingRoute.value || DEFAULT_AUTHENTICATED_PATH)
   } catch (error) {
     const data = error.response?.data || {}
     setMessage(data.msg || data.message || '注册失败，请稍后再试')
