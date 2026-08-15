@@ -6,7 +6,10 @@
     @pointerdown="handlePointerDown"
   >
     <button class="xiaozhi-orb" type="button" aria-label="打开嵌小智" @click.prevent>
-      <img class="xiaozhi-orb-logo" src="/logogif.gif" alt="嵌小智" draggable="false" />
+      <picture>
+        <source srcset="/logogif-128.webp" type="image/webp" />
+        <img class="xiaozhi-orb-logo" src="/logogif.gif" alt="嵌小智" draggable="false" decoding="async" />
+      </picture>
       <span class="orb-pulse" aria-hidden="true"></span>
       <span v-if="runningTaskCount" class="task-dot">{{ runningTaskCount }}</span>
     </button>

@@ -99,8 +99,8 @@ Acceptance criteria for this batch:
 - [x] Stop only application services proven unrelated to `lzhan.xyz` and the three QR item routes, then reverify every retained endpoint.
 - [x] Restore effective immutable caching for fingerprinted assets while keeping SPA HTML uncached.
 - [x] Split learner routes into page-level chunks so secondary-page code and CSS are loaded on demand.
-- [ ] Replace oversized always-on animation media and defer below-the-fold landing media without removing source assets.
-- [ ] Run focused deployment tests, a non-clean frontend build, bundle-size comparison, and desktop/mobile browser checks before phased production deployment.
+- [x] Replace oversized always-on animation media and defer below-the-fold landing media without removing source assets.
+- [~] Run focused deployment tests, a non-clean frontend build, bundle-size comparison, and user-led desktop/mobile checks before phased production deployment.
 
 Acceptance criteria for this batch:
 
@@ -121,7 +121,7 @@ Acceptance criteria for this batch:
 | 2026-08-14 | Governance | Added repository rules and this living tracker. | Reviewed and committed with Phase 1. | Phase 1 commit |
 | 2026-08-14 | Phase 1 | Restored task-backed resource deep links, exposed profile/orchestration/quality/source evidence, isolated generated content, added honest history states, and separated per-resource learning feedback with closed-loop next actions. | Frontend non-clean build; resource detail unit tests 5/5; synthetic Playwright contract and visual review at 1440x900 and 390x844; backend 79 tests and 25 subtests; `git diff --check`. | This Phase 1 commit |
 | 2026-08-14 | Repository integrity | Narrowed the admin runtime-log ignore rule and restored the router-referenced server-monitor page to source control. | Isolated frozen-lockfile install; admin typecheck; admin production build with `--emptyOutDir=false`; runtime `admin/logs/` remains ignored. | Admin integrity commit |
-| 2026-08-15 | Production performance batches 1-2 | Stopped unrelated application services, restored desktop SPA deployment, fixed fingerprinted/static cache policy, and split learner views into route-level chunks. | Retained live endpoints all 200; available host memory increased from about 716 MB to 1.1 GB; deployment tests 6/6; auth redirect tests 4/4; non-clean build reduced entry JS from about 1.45 MB to 70.8 KB and entry CSS from about 868 KB to 197 KB. | `616269e` plus this route-splitting commit |
+| 2026-08-15 | Production performance batches 1-3 | Stopped unrelated application services, restored desktop SPA deployment, fixed static caching, split learner views into route-level chunks, and replaced oversized initial media with WebP plus original fallbacks. | Retained live endpoints all 200; available host memory increased from about 716 MB to 1.1 GB; deployment tests 6/6; media tests 2/2; non-clean build reduced entry JS from about 1.45 MB to 70.8 KB, entry CSS from about 868 KB to 197 KB, five landing images from about 10.7 MB to 0.55 MB, and the floating animation from 10.6 MB to 193 KB. | `616269e`, `f0adc6e`, plus this media commit |
 
 ## Remaining work
 

@@ -51,13 +51,22 @@
 
       <div class="auth-hero-gallery" aria-label="嵌入式学习场景">
         <figure class="auth-gallery-main" :style="heroVisualStyle">
-          <img src="/auth-hero-embedded-collage.png" alt="示波器、开发板、机器人与数字人组成的嵌入式学习场景" />
+          <picture>
+            <source srcset="/auth-hero-embedded-collage.webp" type="image/webp" />
+            <img src="/auth-hero-embedded-collage.png" alt="示波器、开发板、机器人与数字人组成的嵌入式学习场景" decoding="async" fetchpriority="high" />
+          </picture>
         </figure>
         <figure class="auth-gallery-crop crop-scope" aria-hidden="true">
-          <img src="/auth-capability-assessment.png" alt="" />
+          <picture>
+            <source srcset="/auth-capability-assessment.webp" type="image/webp" />
+            <img src="/auth-capability-assessment.png" alt="" decoding="async" />
+          </picture>
         </figure>
         <figure class="auth-gallery-crop crop-face" aria-hidden="true">
-          <img src="/auth-capability-profile.png" alt="" />
+          <picture>
+            <source srcset="/auth-capability-profile.webp" type="image/webp" />
+            <img src="/auth-capability-profile.png" alt="" decoding="async" />
+          </picture>
         </figure>
         <span class="auth-gallery-label label-live"><Activity :size="14" />实时学习证据</span>
         <span class="auth-gallery-label label-profile"><Network :size="14" />动态画像</span>
@@ -177,7 +186,10 @@
       <div class="auth-capability-grid auth-stagger">
         <article id="profile-capability" class="auth-capability-card" style="--reveal-delay: 0ms">
           <figure class="auth-capability-media media-profile">
-            <img src="/auth-capability-profile.png" alt="点云数字人学习画像" />
+            <picture>
+              <source srcset="/auth-capability-profile.webp" type="image/webp" />
+              <img src="/auth-capability-profile.png" alt="点云数字人学习画像" loading="lazy" decoding="async" />
+            </picture>
           </figure>
           <div class="auth-capability-copy">
             <span><Network :size="18" />学习画像</span>
@@ -188,7 +200,10 @@
 
         <article class="auth-capability-card" style="--reveal-delay: 90ms">
           <figure class="auth-capability-media media-path">
-            <img src="/auth-capability-path.png" alt="嵌入式开发板与学习路径" />
+            <picture>
+              <source srcset="/auth-capability-path.webp" type="image/webp" />
+              <img src="/auth-capability-path.png" alt="嵌入式开发板与学习路径" loading="lazy" decoding="async" />
+            </picture>
           </figure>
           <div class="auth-capability-copy">
             <span><Route :size="18" />学习路径</span>
@@ -199,7 +214,10 @@
 
         <article id="resources-capability" class="auth-capability-card" style="--reveal-delay: 180ms">
           <figure class="auth-capability-media media-resource">
-            <img src="/auth-capability-resources.png" alt="多模态学习资源生成工作台" />
+            <picture>
+              <source srcset="/auth-capability-resources.webp" type="image/webp" />
+              <img src="/auth-capability-resources.png" alt="多模态学习资源生成工作台" loading="lazy" decoding="async" />
+            </picture>
           </figure>
           <div class="auth-capability-copy">
             <span><BookOpenCheck :size="18" />个性化资源</span>
@@ -210,7 +228,10 @@
 
         <article id="assessment-capability" class="auth-capability-card" style="--reveal-delay: 270ms">
           <figure class="auth-capability-media media-assessment">
-            <img src="/auth-capability-assessment.png" alt="嵌入式实验与学习效果评估" />
+            <picture>
+              <source srcset="/auth-capability-assessment.webp" type="image/webp" />
+              <img src="/auth-capability-assessment.png" alt="嵌入式实验与学习效果评估" loading="lazy" decoding="async" />
+            </picture>
           </figure>
           <div class="auth-capability-copy">
             <span><Gauge :size="18" />效果评估</span>
@@ -232,7 +253,7 @@
       <div class="auth-innovation-grid auth-stagger">
         <article style="--reveal-delay: 0ms">
           <div class="innovation-preview knowledge-preview">
-            <img src="/auth-knowledge-network.png" alt="嵌智学航真实知识网络页面" />
+            <img src="/auth-knowledge-network.png" alt="嵌智学航真实知识网络页面" loading="lazy" decoding="async" />
             <span class="knowledge-preview-badge">真实知识网络</span>
           </div>
           <div class="innovation-copy">
@@ -1516,6 +1537,14 @@ async function submitRegister() {
   position: absolute;
   inset: 42px 0 30px 72px;
   will-change: transform;
+}
+
+.auth-gallery-main picture,
+.auth-gallery-crop picture,
+.auth-capability-media picture {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .auth-gallery-main img,
