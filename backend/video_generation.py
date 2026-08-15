@@ -35,6 +35,8 @@ ROOT = Path(__file__).resolve().parent / "generated" / "video"
 DEFAULT_VIDEO_ENGINE = "seedance_1_5_coze"
 DEFAULT_VIDEO_RESOLUTION = "720p"
 VIDEO_OUTPUT_SIZE = "16:9"
+SEEDREAM_MODEL = "seedream-4-5"
+SEEDREAM_RESOLUTION = "2K"
 VIDEO_ENGINE_MODELS: dict[str, str | None] = {
     "seedance_1_5_coze": None,
     "seedance_2_mini": "doubao-seedance-2.0-mini",
@@ -124,7 +126,11 @@ def _normalize_segment_duration(value: object) -> int:
 
 
 def _image_api_token() -> str:
-    return _setting("VIDEO_IMAGE_API_KEY", "") or _setting("IMAGE2_API_KEY", "")
+    return (
+        _setting("SEEDREAM_API_KEY", "")
+        or _setting("VIDEO_IMAGE_API_KEY", "")
+        or _setting("IMAGE2_API_KEY", "")
+    )
 
 
 def _tts_api_token() -> str:
@@ -152,7 +158,7 @@ def _seedance_2_model(engine: str) -> str:
 
 def _validate_video_configuration(engine: str) -> None:
     required = [
-        ("VIDEO_IMAGE_API_KEY/IMAGE2_API_KEY", _image_api_token()),
+        ("SEEDREAM_API_KEY/VIDEO_IMAGE_API_KEY/IMAGE2_API_KEY", _image_api_token()),
         ("VIDEO_TTS_API_KEY/TTS_API_KEY", _tts_api_token()),
     ]
     if engine == DEFAULT_VIDEO_ENGINE:
@@ -273,10 +279,24 @@ def _wait_media_task(base_url: str, token: str, task_id: str) -> dict[str, Any]:
 
 
 def _create_image(prompt: str) -> str:
-    base_url = _setting("VIDEO_MEDIA_BASE_URL", _setting("MEDIA_BASE_URL", "https://api.apib.ai/v1"))
+    base_url = _setting(
+        "SEEDREAM_BASE_URL",
+        _setting("VIDEO_MEDIA_BASE_URL", _setting("MEDIA_BASE_URL", "https://api.apimart.ai/v1")),
+    )
     token = _image_api_token()
-    model = _setting("VIDEO_IMAGE_MODEL", _setting("IMAGE2_MODEL", "gpt-image-2-ext"))
-    response = requests.post(f"{base_url.rstrip('/')}/images/generations", headers=_headers(token), json={"model": model, "prompt": prompt, "size": "16:9", "resolution": "1k", "quality": "low", "n": 1}, timeout=60)
+    response = requests.post(
+        f"{base_url.rstrip('/')}/images/generations",
+        headers=_headers(token),
+        json={
+            "model": SEEDREAM_MODEL,
+            "prompt": prompt,
+            "size": VIDEO_OUTPUT_SIZE,
+            "resolution": SEEDREAM_RESOLUTION,
+            "n": 1,
+            "watermark": False,
+        },
+        timeout=60,
+    )
     payload = _json_response(response)
     first = (payload.get("data") or [{}])[0]
     task_id = str(first.get("task_id") or first.get("id") or "")

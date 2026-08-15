@@ -44,9 +44,8 @@ class ProfilePortraitServiceTests(unittest.TestCase):
                 patch.dict(
                     portrait_service.os.environ,
                     {
-                        "IMAGE2_BASE_URL": "https://image.example/",
-                        "IMAGE2_API_KEY": "test-key",
-                        "IMAGE2_MODEL": "gpt-image-2",
+                        "SEEDREAM_BASE_URL": "https://image.example/v1",
+                        "SEEDREAM_API_KEY": "test-key",
                     },
                     clear=False,
                 ),
@@ -59,9 +58,12 @@ class ProfilePortraitServiceTests(unittest.TestCase):
 
         request = urlopen.call_args.args[0]
         payload = json.loads(request.data.decode("utf-8"))
-        self.assertEqual(payload["model"], "gpt-image-2")
-        self.assertEqual(payload["background"], "opaque")
-        self.assertEqual(payload["output_format"], "png")
+        self.assertEqual(payload["model"], "seedream-4-5")
+        self.assertEqual(payload["size"], "1:1")
+        self.assertEqual(payload["resolution"], "2K")
+        self.assertEqual(payload["watermark"], False)
+        self.assertNotIn("background", payload)
+        self.assertNotIn("output_format", payload)
         self.assertEqual(generated["imageBytes"], image_bytes)
         self.assertEqual(generated["mimeType"], "image/png")
         self.assertEqual(generated["source"], "image2")
@@ -86,9 +88,8 @@ class ProfilePortraitServiceTests(unittest.TestCase):
                 patch.dict(
                     portrait_service.os.environ,
                     {
-                        "IMAGE2_BASE_URL": "https://image.example/",
-                        "IMAGE2_API_KEY": "test-key",
-                        "IMAGE2_MODEL": "gpt-image-2",
+                        "SEEDREAM_BASE_URL": "https://image.example/v1",
+                        "SEEDREAM_API_KEY": "test-key",
                     },
                     clear=False,
                 ),
@@ -119,7 +120,7 @@ class ProfilePortraitServiceTests(unittest.TestCase):
                 patch.object(portrait_service, "PORTRAIT_DIR", Path(tempdir)),
                 patch.dict(
                     portrait_service.os.environ,
-                    {"IMAGE2_BASE_URL": "https://image.example/", "IMAGE2_API_KEY": "test-key"},
+                    {"SEEDREAM_BASE_URL": "https://image.example/v1", "SEEDREAM_API_KEY": "test-key"},
                     clear=False,
                 ),
                 patch.object(
@@ -149,8 +150,8 @@ class ProfilePortraitServiceTests(unittest.TestCase):
                 patch.dict(
                     portrait_service.os.environ,
                     {
-                        "IMAGE2_BASE_URL": "https://image.example/",
-                        "IMAGE2_API_KEY": "test-key",
+                        "SEEDREAM_BASE_URL": "https://image.example/v1",
+                        "SEEDREAM_API_KEY": "test-key",
                         "IMAGE2_MAX_ATTEMPTS": "2",
                     },
                     clear=False,
@@ -179,7 +180,7 @@ class ProfilePortraitServiceTests(unittest.TestCase):
                 patch.object(portrait_service, "PORTRAIT_DIR", portrait_dir),
                 patch.dict(
                     portrait_service.os.environ,
-                    {"IMAGE2_BASE_URL": "https://image.example/", "IMAGE2_API_KEY": "test-key"},
+                    {"SEEDREAM_BASE_URL": "https://image.example/v1", "SEEDREAM_API_KEY": "test-key"},
                     clear=False,
                 ),
                 patch.object(portrait_service.urllib.request, "urlopen", return_value=response) as urlopen,

@@ -19,6 +19,46 @@ class FakeResponse:
         return self._payload
 
 
+def test_video_first_frame_uses_seedream_45_contract(monkeypatch):
+    settings = {
+        "SEEDREAM_BASE_URL": "https://api.apimart.ai/v1",
+        "SEEDREAM_API_KEY": "test-key",
+    }
+    calls = []
+    monkeypatch.setattr(
+        video_generation,
+        "_setting",
+        lambda key, default="": settings.get(key, default),
+    )
+
+    def fake_post(url, *, headers, json, timeout):
+        calls.append((url, headers, json, timeout))
+        return FakeResponse({"data": [{"status": "submitted", "task_id": "task-frame-1"}]})
+
+    monkeypatch.setattr(video_generation.requests, "post", fake_post)
+    monkeypatch.setattr(
+        video_generation,
+        "_wait_media_task",
+        lambda base_url, token, task_id: {
+            "result": {"images": [{"url": ["https://media.example/frame.png"]}]}
+        },
+    )
+
+    result = video_generation._create_image("GPIO lesson cover")
+
+    assert result == "https://media.example/frame.png"
+    assert calls[0][0] == "https://api.apimart.ai/v1/images/generations"
+    assert calls[0][1]["Authorization"] == "Bearer test-key"
+    assert calls[0][2] == {
+        "model": "seedream-4-5",
+        "prompt": "GPIO lesson cover",
+        "size": "16:9",
+        "resolution": "2K",
+        "n": 1,
+        "watermark": False,
+    }
+
+
 def test_seedance_15_uses_dedicated_workflow_credentials(monkeypatch):
     settings = {
         "COZE_SEEDANCE_15_API_BASE_URL": "https://workflow.example/v1/",

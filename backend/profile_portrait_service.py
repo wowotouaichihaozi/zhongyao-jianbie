@@ -1,4 +1,4 @@
-"""Server-side Image2 portraits for learning-profile reports."""
+"""Server-side Seedream portraits for learning-profile reports."""
 
 from __future__ import annotations
 
@@ -15,15 +15,19 @@ from typing import Any
 
 PORTRAIT_DIR = Path(__file__).resolve().parent / "data" / "profile_portraits"
 RETRYABLE_HTTP_CODES = {408, 429, 500, 502, 503, 504, 524}
-DEFAULT_IMAGE2_MODEL = "gpt-image-2"
+DEFAULT_SEEDREAM_BASE_URL = "https://api.apimart.ai/v1"
+SEEDREAM_MODEL = "seedream-4-5"
 FAILED_TASK_STATUSES = {"failed", "failure", "error", "cancelled", "canceled"}
 
 
 def _image2_settings() -> tuple[str, str, str]:
-    base_url = os.getenv("IMAGE2_BASE_URL", "").strip()
-    api_key = os.getenv("IMAGE2_API_KEY", "").strip()
-    model = os.getenv("IMAGE2_MODEL", DEFAULT_IMAGE2_MODEL).strip() or DEFAULT_IMAGE2_MODEL
-    return base_url, api_key, model
+    base_url = (
+        os.getenv("SEEDREAM_BASE_URL", "").strip()
+        or os.getenv("IMAGE2_BASE_URL", "").strip()
+        or DEFAULT_SEEDREAM_BASE_URL
+    )
+    api_key = os.getenv("SEEDREAM_API_KEY", "").strip() or os.getenv("IMAGE2_API_KEY", "").strip()
+    return base_url, api_key, SEEDREAM_MODEL
 
 
 def _max_request_attempts() -> int:
@@ -107,6 +111,14 @@ def _extract_image_source(payload: Any) -> tuple[str, str]:
     return "", ""
 
 
+def _api_url(base_url: str, path: str) -> str:
+    normalized_base = base_url.rstrip("/")
+    normalized_path = path.lstrip("/")
+    if normalized_base.lower().endswith("/v1") and normalized_path.lower().startswith("v1/"):
+        normalized_path = normalized_path[3:]
+    return f"{normalized_base}/{normalized_path}"
+
+
 def _candidate_status_urls(base_url: str, payload: Any) -> list[str]:
     urls: list[str] = []
     direct_url = _first_payload_string(
@@ -123,7 +135,7 @@ def _candidate_status_urls(base_url: str, payload: Any) -> list[str]:
             f"v1/images/tasks/{task_id}",
             f"v1/tasks/{task_id}/result",
         ):
-            urls.append(urllib.parse.urljoin(base_url.rstrip("/") + "/", path))
+            urls.append(_api_url(base_url, path))
     return list(dict.fromkeys(urls))
 
 
@@ -227,14 +239,14 @@ def generate_profile_portrait(
     base_url, api_key, model = _image2_settings()
     if not base_url or not api_key:
         raise RuntimeError("Image2 service is not configured on the server")
-    endpoint = urllib.parse.urljoin(base_url.rstrip("/") + "/", "v1/images/generations")
+    endpoint = _api_url(base_url, "v1/images/generations")
     body = json.dumps({
         "model": model,
         "prompt": portrait_prompt(profile),
-        "size": "1024x1024",
+        "size": "1:1",
+        "resolution": "2K",
         "n": 1,
-        "background": "opaque",
-        "output_format": "png",
+        "watermark": False,
     }, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(endpoint, data=body, method="POST", headers={
         "Authorization": f"Bearer {api_key}",
