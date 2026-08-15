@@ -1,28 +1,28 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import AuthPage from '../views/AuthPage.vue'
-import QuestionGeneratorView from '../views/QuestionGeneratorView.vue'
-import QuestionExamSessionView from '../views/QuestionExamSessionView.vue'
-import McuSimulatorView from '../views/McuSimulatorView.vue'
-import LearningProfileView from '../views/LearningProfileView.vue'
-import LearningProfileSubmitView from '../views/LearningProfileSubmitView.vue'
-import LearningProfileUploadView from '../views/LearningProfileUploadView.vue'
-import LearningPathView from '../views/LearningPathView.vue'
-import LearningPathStageDetailView from '../views/LearningPathStageDetailView.vue'
-import PersonalizedResourcesView from '../views/PersonalizedResourcesView.vue'
-import ResourceDetailView from '../views/ResourceDetailView.vue'
-import DigitalHumanInterviewView from '../views/DigitalHumanInterviewView.vue'
-import UserProfileView from '../views/UserProfileView.vue'
-import PptGeneratorView from '../views/PptGeneratorView.vue'
-import PptWorkbenchView from '../views/PptWorkbenchView.vue'
-import PptGeneratingView from '../views/PptGeneratingView.vue'
-import MindMapView from '../views/MindMapView.vue'
-import VideoSearchView from '../views/VideoSearchView.vue'
-import VideoGeneratorView from '../views/VideoGeneratorView.vue'
-import LearningAnimationView from '../views/LearningAnimationView.vue'
-import EffectAssessmentView from '../views/EffectAssessmentView.vue'
-import LearningDocumentView from '../views/LearningDocumentView.vue'
-import SmartTutorView from '../views/SmartTutorView.vue'
-import KnowledgeBaseView from '../views/KnowledgeBaseView.vue'
+const AuthPage = () => import('../views/AuthPage.vue')
+const QuestionGeneratorView = () => import('../views/QuestionGeneratorView.vue')
+const QuestionExamSessionView = () => import('../views/QuestionExamSessionView.vue')
+const McuSimulatorView = () => import('../views/McuSimulatorView.vue')
+const LearningProfileView = () => import('../views/LearningProfileView.vue')
+const LearningProfileSubmitView = () => import('../views/LearningProfileSubmitView.vue')
+const LearningProfileUploadView = () => import('../views/LearningProfileUploadView.vue')
+const LearningPathView = () => import('../views/LearningPathView.vue')
+const LearningPathStageDetailView = () => import('../views/LearningPathStageDetailView.vue')
+const PersonalizedResourcesView = () => import('../views/PersonalizedResourcesView.vue')
+const ResourceDetailView = () => import('../views/ResourceDetailView.vue')
+const DigitalHumanInterviewView = () => import('../views/DigitalHumanInterviewView.vue')
+const UserProfileView = () => import('../views/UserProfileView.vue')
+const PptGeneratorView = () => import('../views/PptGeneratorView.vue')
+const PptWorkbenchView = () => import('../views/PptWorkbenchView.vue')
+const PptGeneratingView = () => import('../views/PptGeneratingView.vue')
+const MindMapView = () => import('../views/MindMapView.vue')
+const VideoSearchView = () => import('../views/VideoSearchView.vue')
+const VideoGeneratorView = () => import('../views/VideoGeneratorView.vue')
+const LearningAnimationView = () => import('../views/LearningAnimationView.vue')
+const EffectAssessmentView = () => import('../views/EffectAssessmentView.vue')
+const LearningDocumentView = () => import('../views/LearningDocumentView.vue')
+const SmartTutorView = () => import('../views/SmartTutorView.vue')
+const KnowledgeBaseView = () => import('../views/KnowledgeBaseView.vue')
 import { getCurrentUser } from '../services/api.js'
 import { clearAuthSession, getAuthToken, readCurrentUser, setAuthSession } from '../stores/auth.js'
 
