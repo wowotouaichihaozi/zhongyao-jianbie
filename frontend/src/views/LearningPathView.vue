@@ -53,123 +53,151 @@
       </div>
 
       <template v-else>
-        <div v-if="!hasActiveLearningProfile" class="path-context-state no-profile-state" role="status">
-          <CircleAlert :size="17" stroke-width="2.3" aria-hidden="true" />
-          <span>当前没有学习画像，请先完成学习画像后再生成个性化周任务。</span>
-          <button type="button" @click="router.push('/learning-profile')">完成学习画像</button>
-        </div>
-
-        <div v-if="hasActiveLearningProfile && planningRemaining" class="path-generation-status" role="status">
-          <Activity :size="16" stroke-width="2.4" aria-hidden="true" />
-          <span>第一周已生成，正在根据学习画像补全后续周任务与资源...</span>
-        </div>
-
-        <div v-if="hasActiveLearningProfile && isWeekTaskPage && pathNotice" class="path-context-state" role="status">
-          <CircleAlert :size="17" stroke-width="2.3" aria-hidden="true" />
-          <span>{{ pathNotice }}</span>
-          <button type="button" @click="handlePathNoticeAction">{{ pathNoticeActionLabel }}</button>
-        </div>
-
-        <div
-          v-if="hasActiveLearningProfile && isWeekTaskPage && (resourcePreparing || resourcePrepareError)"
-          class="resource-generation-state"
-          :class="{ failed: resourcePrepareError }"
-          role="status"
-        >
-          <CircleAlert v-if="resourcePrepareError" :size="17" stroke-width="2.3" aria-hidden="true" />
-          <LoaderCircle v-else :size="17" stroke-width="2.3" aria-hidden="true" />
-          <span>{{ resourcePrepareError || resourcePreparationText }}</span>
-          <button v-if="resourcePrepareError" type="button" @click="prepareWeekResources(String(route.params.stageId || ''))">
-            重试
-          </button>
-        </div>
-
-        <div v-if="hasActiveLearningProfile" class="week-rail" :aria-label="isWeekTaskPage ? '本周任务进度' : '周学习进度'">
-          <i :style="{ width: `${railProgressPercent}%` }"></i>
-          <component
-            v-for="(week, weekIndex) in visibleWeeks"
-            :key="`${week.id}-rail`"
-            :is="weekEntryTag(week)"
-            :type="weekEntryTag(week) === 'button' ? 'button' : null"
-            :href="weekEntryHref(week)"
-            :target="weekEntryHref(week) ? '_blank' : null"
-            :rel="weekEntryHref(week) ? 'noopener noreferrer' : null"
-            class="rail-node"
-            :class="[`status-${week.status || 'locked'}`]"
-            :disabled="weekEntryTag(week) === 'button' ? (isWeekTaskPage && !week.actionRoute) : undefined"
-            @click="openWeek(week, $event)"
-          >
-            <span class="rail-dot">
-              <component :is="resolveIcon(week.icon)" :size="16" stroke-width="2.15" aria-hidden="true" />
-            </span>
-            <b>{{ week.weekLabel }}</b>
-          </component>
-          <span v-if="placeholderCard" class="rail-node rail-placeholder">
-            <span class="rail-dot">
-              <Flag :size="16" stroke-width="2.15" aria-hidden="true" />
-            </span>
-            <b>{{ displayMeta.placeholderTitle }}</b>
+        <div v-if="pathLoadError" class="path-request-error" role="alert">
+          <CircleAlert :size="22" stroke-width="2.3" aria-hidden="true" />
+          <span>
+            <strong>{{ pathLoadError.title }}</strong>
+            <small>{{ pathLoadError.message }}</small>
+            <small v-if="isWeekTaskPage">已保留成功读取的学习画像与路径配置，不会自动创建资源。</small>
           </span>
+          <button type="button" @click="retryLearningPathLoad">
+            <RotateCcw :size="15" aria-hidden="true" />
+            重新加载
+          </button>
         </div>
 
-        <TransitionGroup v-if="hasActiveLearningProfile" name="task-reveal" tag="div" class="week-grid">
-          <component
-            v-for="(week, weekIndex) in visibleWeeks"
-            :key="week.id"
-            :is="weekEntryTag(week)"
-            :type="weekEntryTag(week) === 'button' ? 'button' : null"
-            :href="weekEntryHref(week)"
-            :target="weekEntryHref(week) ? '_blank' : null"
-            :rel="weekEntryHref(week) ? 'noopener noreferrer' : null"
-            class="week-card"
-            :class="[
-              isWeekTaskPage ? 'task-resource-card' : `tone-${week.tone || 'green'}`,
-              `status-${week.visualStatus || week.status || 'locked'}`,
-            ]"
-            :data-resource-type="isWeekTaskPage ? week.resourceType : undefined"
-            :style="isWeekTaskPage ? taskCardColorStyle(week, weekIndex) : undefined"
-            :aria-label="`${week.weekLabel}${week.resourceLabel ? ` ${week.resourceLabel}` : ''} ${week.title}`"
-            :disabled="weekEntryTag(week) === 'button' ? (isWeekTaskPage && !week.actionRoute) : undefined"
-            @click="openWeek(week, $event)"
-          >
-            <span class="week-icon" aria-hidden="true">
-              <component :is="resolveIcon(week.icon)" :size="28" stroke-width="2.1" />
+        <template v-else>
+          <div v-if="generationError" class="path-request-error generation-failed" role="alert">
+            <CircleAlert :size="22" stroke-width="2.3" aria-hidden="true" />
+            <span>
+              <strong>{{ generationError.title }}</strong>
+              <small>{{ generationError.message }}</small>
+              <small>已生成并保存的周次会继续保留。</small>
             </span>
-            <span class="week-copy">
-              <small>
-                {{ week.weekLabel }}
-                <template v-if="week.resourceLabel"> · {{ week.resourceLabel }}</template>
-              </small>
-              <strong>{{ week.title }}</strong>
-              <em>{{ week.description }}</em>
-            </span>
-            <span class="week-status">
-              <component :is="statusIcon(week.visualStatus || week.status)" :size="14" stroke-width="2.4" aria-hidden="true" />
-              {{ week.statusText || statusLabel(week.status) }}
-            </span>
-            <component class="week-watermark" :is="resolveIcon(week.icon)" :size="76" stroke-width="1.35" aria-hidden="true" />
-            <ChevronRight class="week-arrow" :size="24" stroke-width="2.2" aria-hidden="true" />
-          </component>
+            <button type="button" :disabled="planning || planningRemaining" @click="retryLearningPathGeneration">
+              <RotateCcw :size="15" aria-hidden="true" />
+              继续生成
+            </button>
+          </div>
 
-          <button
-            v-if="placeholderCard"
-            key="path-placeholder"
-            type="button"
-            class="week-card placeholder-card"
-            disabled
-            aria-label="后续周数"
+          <div v-if="!generationError && !hasActiveLearningProfile" class="path-context-state no-profile-state" role="status">
+            <CircleAlert :size="17" stroke-width="2.3" aria-hidden="true" />
+            <span>当前没有学习画像，请先完成学习画像后再生成个性化周任务。</span>
+            <button type="button" @click="router.push('/learning-profile')">完成学习画像</button>
+          </div>
+
+          <div v-if="hasActiveLearningProfile && planningRemaining" class="path-generation-status" role="status">
+            <Activity :size="16" stroke-width="2.4" aria-hidden="true" />
+            <span>第一周已生成，正在根据学习画像补全后续周任务与资源...</span>
+          </div>
+
+          <div v-if="hasActiveLearningProfile && isWeekTaskPage && pathNotice" class="path-context-state" role="status">
+            <CircleAlert :size="17" stroke-width="2.3" aria-hidden="true" />
+            <span>{{ pathNotice }}</span>
+            <button type="button" @click="handlePathNoticeAction">{{ pathNoticeActionLabel }}</button>
+          </div>
+
+          <div
+            v-if="hasActiveLearningProfile && isWeekTaskPage && (resourcePreparing || resourcePrepareError)"
+            class="resource-generation-state"
+            :class="{ failed: resourcePrepareError }"
+            role="status"
           >
-            <span class="week-icon" aria-hidden="true">
-              <MoreHorizontal :size="28" stroke-width="2.4" />
+            <CircleAlert v-if="resourcePrepareError" :size="17" stroke-width="2.3" aria-hidden="true" />
+            <LoaderCircle v-else :size="17" stroke-width="2.3" aria-hidden="true" />
+            <span>{{ resourcePrepareError || resourcePreparationText }}</span>
+            <button v-if="resourcePrepareError" type="button" @click="prepareWeekResources(String(route.params.stageId || ''))">
+              重试
+            </button>
+          </div>
+
+          <div v-if="hasActiveLearningProfile" class="week-rail" :aria-label="isWeekTaskPage ? '本周任务进度' : '周学习进度'">
+            <i :style="{ width: `${railProgressPercent}%` }"></i>
+            <component
+              v-for="(week, weekIndex) in visibleWeeks"
+              :key="`${week.id}-rail`"
+              :is="weekEntryTag(week)"
+              :type="weekEntryTag(week) === 'button' ? 'button' : null"
+              :href="weekEntryHref(week)"
+              :target="weekEntryHref(week) ? '_blank' : null"
+              :rel="weekEntryHref(week) ? 'noopener noreferrer' : null"
+              class="rail-node"
+              :class="[`status-${week.status || 'locked'}`]"
+              :disabled="weekEntryTag(week) === 'button' ? (isWeekTaskPage && !week.actionRoute) : undefined"
+              @click="openWeek(week, $event)"
+            >
+              <span class="rail-dot">
+                <component :is="resolveIcon(week.icon)" :size="16" stroke-width="2.15" aria-hidden="true" />
+              </span>
+              <b>{{ week.weekLabel }}</b>
+            </component>
+            <span v-if="placeholderCard" class="rail-node rail-placeholder">
+              <span class="rail-dot">
+                <Flag :size="16" stroke-width="2.15" aria-hidden="true" />
+              </span>
+              <b>{{ displayMeta.placeholderTitle }}</b>
             </span>
-            <span class="week-copy">
-              <small>{{ displayMeta.placeholderWeekLabel }}</small>
-              <strong>{{ displayMeta.placeholderTitle }}</strong>
-              <em>更多阶段将根据学习进度继续开放。</em>
-            </span>
-            <LockKeyhole class="placeholder-lock" :size="16" stroke-width="2.2" aria-hidden="true" />
-          </button>
-        </TransitionGroup>
+          </div>
+
+          <TransitionGroup v-if="hasActiveLearningProfile" name="task-reveal" tag="div" class="week-grid">
+            <component
+              v-for="(week, weekIndex) in visibleWeeks"
+              :key="week.id"
+              :is="weekEntryTag(week)"
+              :type="weekEntryTag(week) === 'button' ? 'button' : null"
+              :href="weekEntryHref(week)"
+              :target="weekEntryHref(week) ? '_blank' : null"
+              :rel="weekEntryHref(week) ? 'noopener noreferrer' : null"
+              class="week-card"
+              :class="[
+                isWeekTaskPage ? 'task-resource-card' : `tone-${week.tone || 'green'}`,
+                `status-${week.visualStatus || week.status || 'locked'}`,
+              ]"
+              :data-resource-type="isWeekTaskPage ? week.resourceType : undefined"
+              :style="isWeekTaskPage ? taskCardColorStyle(week, weekIndex) : undefined"
+              :aria-label="`${week.weekLabel}${week.resourceLabel ? ` ${week.resourceLabel}` : ''} ${week.title}`"
+              :disabled="weekEntryTag(week) === 'button' ? (isWeekTaskPage && !week.actionRoute) : undefined"
+              @click="openWeek(week, $event)"
+            >
+              <span class="week-icon" aria-hidden="true">
+                <component :is="resolveIcon(week.icon)" :size="28" stroke-width="2.1" />
+              </span>
+              <span class="week-copy">
+                <small>
+                  {{ week.weekLabel }}
+                  <template v-if="week.resourceLabel"> · {{ week.resourceLabel }}</template>
+                </small>
+                <strong>{{ week.title }}</strong>
+                <em>{{ week.description }}</em>
+              </span>
+              <span class="week-status">
+                <component :is="statusIcon(week.visualStatus || week.status)" :size="14" stroke-width="2.4" aria-hidden="true" />
+                {{ week.statusText || statusLabel(week.status) }}
+              </span>
+              <component class="week-watermark" :is="resolveIcon(week.icon)" :size="76" stroke-width="1.35" aria-hidden="true" />
+              <ChevronRight class="week-arrow" :size="24" stroke-width="2.2" aria-hidden="true" />
+            </component>
+
+            <button
+              v-if="placeholderCard"
+              key="path-placeholder"
+              type="button"
+              class="week-card placeholder-card"
+              disabled
+              aria-label="后续周数"
+            >
+              <span class="week-icon" aria-hidden="true">
+                <MoreHorizontal :size="28" stroke-width="2.4" />
+              </span>
+              <span class="week-copy">
+                <small>{{ displayMeta.placeholderWeekLabel }}</small>
+                <strong>{{ displayMeta.placeholderTitle }}</strong>
+                <em>更多阶段将根据学习进度继续开放。</em>
+              </span>
+              <LockKeyhole class="placeholder-lock" :size="16" stroke-width="2.2" aria-hidden="true" />
+            </button>
+          </TransitionGroup>
+        </template>
       </template>
     </section>
   </main>
@@ -196,6 +224,7 @@ import {
   LoaderCircle,
   MoreHorizontal,
   Rocket,
+  RotateCcw,
   Target,
 } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
@@ -213,6 +242,8 @@ const route = useRoute()
 const loading = ref(false)
 const planning = ref(false)
 const planningRemaining = ref(false)
+const pathLoadError = ref(null)
+const generationError = ref(null)
 const pathConfig = ref(cloneLearningPathConfig())
 const taskStage = ref(createFallbackTaskStage(String(route.params.stageId || '')))
 const resourcePreparing = ref(false)

@@ -24,7 +24,7 @@
       </button>
 
       <aside
-        v-if="isWeekOverview && hasActiveLearningProfile"
+        v-if="isWeekOverview && hasActiveLearningProfile && !pathLoadError"
         class="current-profile-path-switcher"
         aria-label="当前学习画像路径切换"
         @pointerdown.stop
@@ -51,7 +51,7 @@
       </aside>
 
       <aside
-        v-if="hasActiveLearningProfile"
+        v-if="hasActiveLearningProfile && !pathLoadError"
         class="stage-overview"
         :aria-label="isWeekOverview ? '学习周次与进度' : '本周任务与资源'"
         @pointerdown.stop
@@ -80,7 +80,7 @@
       </aside>
 
       <div
-        v-if="profileSwitchNotice"
+        v-if="profileSwitchNotice && !pathLoadError"
         class="path-basis-notice"
         role="status"
         @pointerdown.stop
@@ -95,7 +95,7 @@
         </button>
       </div>
 
-      <div v-if="hasActiveLearningProfile" class="map-board" :style="boardStyle">
+      <div v-if="hasActiveLearningProfile && !pathLoadError" class="map-board" :style="boardStyle">
         <svg class="route-layer" :viewBox="`0 0 ${boardSize.width} ${boardSize.height}`" aria-hidden="true">
           <defs>
             <linearGradient id="learning-route-done" x1="0" y1="0" x2="1" y2="0">
@@ -166,7 +166,20 @@
         </article>
       </div>
 
-      <div v-if="!loading && (!hasActiveLearningProfile || !sortedNodes.length)" class="empty-path-state" role="status">
+      <div v-if="!loading && pathLoadError" class="path-load-error" role="alert">
+        <CircleAlert :size="24" stroke-width="2.2" aria-hidden="true" />
+        <span>
+          <strong>学习路径加载失败</strong>
+          <small>{{ pathLoadError.message }}</small>
+          <small v-if="activeProfileSummary?.id">当前画像：{{ activeProfilePathTitle }}</small>
+        </span>
+        <button type="button" @click="retryLearningPathLoad">
+          <RotateCcw :size="15" aria-hidden="true" />
+          重新加载
+        </button>
+      </div>
+
+      <div v-if="!loading && !pathLoadError && !generationError && (!hasActiveLearningProfile || !sortedNodes.length)" class="empty-path-state" role="status">
         <strong>{{ hasActiveLearningProfile ? '尚未生成学习路径' : '当前没有学习画像' }}</strong>
         <span>{{ hasActiveLearningProfile ? '嵌小智会按你的目标、薄弱点和资源偏好生成周学习计划。' : '请先完成学习画像后再生成个性化周任务。' }}</span>
         <button type="button" @click="handlePersonalizationAction">
@@ -391,6 +404,7 @@ const staticWeekOneNodes = [
 const loading = ref(false)
 const planning = ref(false)
 const planningRemaining = ref(false)
+const pathLoadError = ref(null)
 const stageConfig = ref(getFallbackStage(normalizeStageId(String(route.params.stageId || ''))))
 const pathMeta = ref({})
 const activeNodeId = ref('')
@@ -661,33 +675,37 @@ async function loadStage(stageId) {
   loading.value = !Array.isArray(stageConfig.value?.nodes) || stageConfig.value.nodes.length === 0
   planning.value = false
   planningRemaining.value = false
+  pathLoadError.value = null
   generationError.value = null
+  stopBackgroundPathPolling()
   try {
     if (stageId === weekOverviewStageId) {
       await loadWeekOverview()
       return
     }
-    const [activeProfile, payload] = await Promise.all([
-      loadActiveProfileSummary(),
+    const [profileResult, stageResult] = await Promise.allSettled([
+      loadActiveProfileSummary({ throwOnError: true }),
       getLearningPathStage(stageId),
     ])
+    if (stageResult.status === 'fulfilled') {
+      const payload = stageResult.value
+      pathMeta.value = payload?.meta || payload?.config?.meta || pathMeta.value
+      stageConfig.value = applyStaticStageOverride(normalizeStage(payload?.stage || payload, stageId), stageId)
+    }
+    if (profileResult.status === 'rejected') throw profileResult.reason
+    if (stageResult.status === 'rejected') throw stageResult.reason
+    const activeProfile = profileResult.value
     if (!activeProfile?.id) {
       pathMeta.value = { activeProfileReportId: null, canGeneratePersonalized: false }
       stageConfig.value = { id: stageId, title: '学习路径', nodes: [], board: {} }
       return
     }
-    pathMeta.value = payload?.meta || payload?.config?.meta || {}
-    stageConfig.value = applyStaticStageOverride(normalizeStage(payload?.stage || payload, stageId), stageId)
   } catch (error) {
-    console.warn('Failed to load learning path stage, using fallback data.', error)
-    if (stageId === weekOverviewStageId) {
-      setGenerationFailure(error)
-      if (stageConfig.value?.id !== weekOverviewStageId) {
-        stageConfig.value = createWeekOverviewStage(cloneLearningPathConfig())
-      }
-    } else {
-      stageConfig.value = applyStaticStageOverride(getFallbackStage(stageId), stageId)
-    }
+    console.warn('Failed to load learning path stage.', error)
+    setPathLoadFailure(
+      error,
+      stageId === weekOverviewStageId ? '学习路径配置加载失败，请稍后重试。' : '本周学习任务加载失败，请稍后重试。',
+    )
   } finally {
     activeNodeId.value = ''
     loading.value = false
@@ -701,7 +719,7 @@ async function loadWeekOverview() {
   pathMeta.value = config.meta || {}
   applyActiveProfileSummary(config)
   if (!hasActiveLearningProfile.value && Number(config?.meta?.activeProfileReportId || 0) > 0) {
-    await loadActiveProfileSummary()
+    await loadActiveProfileSummary({ throwOnError: true })
   }
   if (!hasActiveLearningProfile.value) {
     stageConfig.value = { id: weekOverviewStageId, title: '学习路径', nodes: [], board: {} }
@@ -725,6 +743,12 @@ async function loadWeekOverview() {
     try {
       config = normalizePathConfig(await generateFirstLearningPath(totalWeeks, activeProfileSummary.value?.id))
       pathMeta.value = config.meta || {}
+    } catch (error) {
+      console.warn('Failed to generate the first learning-path week.', error)
+      setGenerationFailure(error)
+      stageConfig.value = createWeekOverviewStage(config)
+      loading.value = false
+      return
     } finally {
       planning.value = false
     }
@@ -803,9 +827,9 @@ async function loadActiveProfileSummary(options = {}) {
   try {
     return await requestPromise
   } catch (error) {
-    activeProfileSummary.value = null
     profilePathSwitchError.value = error?.response?.data?.msg || error?.message || '当前画像读取失败'
-    return null
+    if (options.throwOnError) throw error
+    return activeProfileSummary.value || null
   } finally {
     if (profileSummaryPromise === requestPromise) profileSummaryPromise = null
     profileSummaryLoading.value = false
@@ -973,6 +997,26 @@ function setGenerationFailure(error) {
     detail: String(error?.details?.detail || ''),
   }
   generationConsoleExpanded.value = true
+}
+
+function setPathLoadFailure(error, fallbackMessage) {
+  pathLoadError.value = {
+    message: String(
+      error?.response?.data?.msg
+      || error?.response?.data?.message
+      || error?.details?.msg
+      || error?.message
+      || fallbackMessage,
+    ),
+  }
+  planning.value = false
+  planningRemaining.value = false
+  stopBackgroundPathPolling()
+}
+
+function retryLearningPathLoad() {
+  const stageId = normalizeStageId(String(route.params.stageId || weekOverviewStageId))
+  void loadStage(stageId)
 }
 
 async function retryLearningPathGeneration() {

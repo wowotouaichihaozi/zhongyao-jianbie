@@ -1254,6 +1254,21 @@ def learning_path_profile_report_id(config: dict) -> int:
     return 0
 
 
+def learning_path_config_is_degraded(config: dict) -> bool:
+    """Return whether a persisted path came from a fallback generation contract."""
+    if not isinstance(config, dict):
+        return False
+    meta = config.get("meta") if isinstance(config.get("meta"), dict) else {}
+    planner = config.get("planner") if isinstance(config.get("planner"), dict) else {}
+    generation_status = str(meta.get("generationStatus") or "").strip().lower()
+    planner_source = str(planner.get("source") or "").strip().lower()
+    return (
+        bool(meta.get("degraded"))
+        or generation_status == "fallback"
+        or planner_source in {"fallback-rule", "profile-rule-agent"}
+    )
+
+
 def annotate_learning_path_personalization(config: dict, profile: dict | None) -> dict:
     """Attach current profile compatibility without mutating the persisted path."""
     annotated = _json_copy(config if isinstance(config, dict) else default_learning_path_config())
@@ -1275,11 +1290,14 @@ def annotate_learning_path_personalization(config: dict, profile: dict | None) -
         else None
     )
     has_saved_path = bool(annotated.get("weeks"))
+    degraded_path = has_saved_path and learning_path_config_is_degraded(annotated)
     pending_profile_id = int(meta.get("pendingProfileReportId") or 0)
     profile_switch_pending = bool(meta.get("profileSwitchPending")) and pending_profile_id == active_profile_id
 
     if not has_saved_path:
         status = "not-generated"
+    elif degraded_path:
+        status = "degraded"
     elif profile_switch_pending:
         status = "stale-profile"
     elif path_profile_id <= 0:
@@ -1302,7 +1320,8 @@ def annotate_learning_path_personalization(config: dict, profile: dict | None) -
             "pendingProfileReportId": pending_profile_id if profile_switch_pending else 0,
             "profileRequired": active_profile_id <= 0,
             "canGeneratePersonalized": active_profile_id > 0,
-            "canPrepareResources": active_profile_id > 0,
+            "canPrepareResources": active_profile_id > 0 and not degraded_path,
+            "needsRegeneration": degraded_path and active_profile_id > 0,
         }
     )
     return annotated
@@ -7263,7 +7282,11 @@ def learning_path_config_get():
             meta["backgroundGeneration"] = background_generation
             # A stale saved path remains usable. Refresh suggestions must not turn a page reload
             # into an implicit, destructive regeneration.
-            meta["needsRegeneration"] = not has_saved_path and active_profile_id > 0 and not background_pending
+            meta["needsRegeneration"] = (
+                (not has_saved_path or meta.get("personalizationStatus") == "degraded")
+                and active_profile_id > 0
+                and not background_pending
+            )
     return jsonify({"code": 0, "msg": "ok", "data": config})
 
 
@@ -10552,6 +10575,10 @@ def prepare_learning_path_stage_resources_for_user(
                 raise LearningProfileRequiredError(
                     "当前没有激活画像，暂不能为学习路径编排个性化资源。请先完成十个维度的画像采集。"
                 )
+            if learning_path_config_is_degraded(config):
+                raise LearningProfileRequiredError(
+                    "当前学习路径是未通过模型审核的降级结果，暂不能编排资源。请先重新生成个性化学习路径。"
+                )
 
         profile_id = int(profile.get("id") or profile.get("_profileReportId") or 0)
         if enrich_learning_path_task_descriptions(stage, profile):
@@ -12792,16 +12819,20 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
         return result
 
     if task_type == "learning_path":
-        path_result = generate_learning_path({"profile": xiaozhi_active_profile_with_evidence(context)})
+        grounded_profile = xiaozhi_active_profile_with_evidence(context)
+        path_result = generate_learning_path({"profile": grounded_profile})
         path_config = path_result.get("config") if isinstance(path_result, dict) else None
-        if isinstance(path_config, dict):
-            with auth_db() as conn:
-                path_result["config"] = write_learning_path_config(conn, path_config, int(user_id))
+        if not isinstance(path_config, dict):
+            raise RuntimeError("学习路径智能体未返回可保存的路径配置")
+        profile_report_id = int(grounded_profile.get("id") or grounded_profile.get("_profileReportId") or 0)
+        if profile_report_id > 0:
+            path_config.setdefault("meta", {})["profileReportId"] = profile_report_id
         result.update({"message": "学习路径智能体已生成路径。", "learningPath": path_result})
         return result
 
     if task_type == "learning_path_stage":
         grounded_profile = xiaozhi_active_profile_with_evidence(context)
+        grounded_profile_id = int(grounded_profile.get("id") or grounded_profile.get("_profileReportId") or 0)
         with auth_db() as conn:
             saved_row = conn.execute(
                 "SELECT 1 FROM user_learning_path_configs WHERE user_id = ?",
@@ -12809,32 +12840,63 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
             ).fetchone()
             saved_config = read_learning_path_config(conn, int(user_id)) if saved_row else {}
         stage = xiaozhi_resolve_learning_path_stage(saved_config, topic, params)
-        path_source = "persisted"
+        path_origin = "persisted"
+        path_result: dict = {}
+        candidate_config: dict | None = None
         if not stage:
             path_result = generate_learning_path({"profile": grounded_profile})
             path_config = path_result.get("config") if isinstance(path_result, dict) else None
             if not isinstance(path_config, dict):
                 raise RuntimeError("学习路径智能体未返回可细化的路径")
-            with auth_db() as conn:
-                saved_config = write_learning_path_config(conn, path_config, int(user_id))
+            saved_config = normalize_learning_path_config(path_config)
+            if grounded_profile_id > 0:
+                saved_config.setdefault("meta", {})["profileReportId"] = grounded_profile_id
+            candidate_config = saved_config
             stage = xiaozhi_resolve_learning_path_stage(saved_config, topic, params)
-            path_source = "generated"
+            path_origin = "generated"
         if not stage:
             raise RuntimeError("当前学习路径中没有可细化的周任务")
+        config_meta = saved_config.get("meta") if isinstance(saved_config.get("meta"), dict) else {}
+        planner = saved_config.get("planner") if isinstance(saved_config.get("planner"), dict) else {}
+        path_source = str(
+            path_result.get("source")
+            or config_meta.get("generationSource")
+            or planner.get("source")
+            or path_origin
+        ).strip()
+        generation_status = str(
+            path_result.get("generationStatus")
+            or config_meta.get("generationStatus")
+            or ("fallback" if learning_path_config_is_degraded(saved_config) else "persisted")
+        ).strip()
+        path_degraded = (
+            bool(path_result.get("degraded"))
+            or learning_path_config_is_degraded(saved_config)
+            or generation_status.lower() == "fallback"
+            or path_source.lower() in {"fallback-rule", "profile-rule-agent"}
+        )
+        path_error = str(path_result.get("error") or config_meta.get("generationError") or "").strip()
         detail = generate_learning_path_stage_detail(
             {"profile": grounded_profile, "stage": stage, "resources": [], "useLLM": True}
         )
-        result.update({
+        stage_result = {
             "message": f"阶段细化智能体已生成{stage.get('weekLabel') or '当前周'}学习任务。",
             "learningPath": {
                 "stageId": stage.get("id"),
-                "profileReportId": learning_path_profile_report_id(saved_config),
-                "savedPathUpdatedAt": saved_config.get("updatedAt") or "",
+                "profileReportId": learning_path_profile_report_id(saved_config) or grounded_profile_id,
+                "savedPathUpdatedAt": saved_config.get("updatedAt") or "" if path_origin == "persisted" else "",
                 "source": path_source,
+                "pathSource": path_origin,
+                "generationStatus": generation_status,
+                "degraded": path_degraded,
+                "error": path_error,
             },
             "stage": stage,
             "stageDetail": detail,
-        })
+        }
+        if isinstance(candidate_config, dict):
+            stage_result["_candidateLearningPathConfig"] = candidate_config
+        result.update(stage_result)
         return result
 
     if task_type == "question_bank":
@@ -13157,6 +13219,72 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
     raise ValueError(f"未知的小智任务类型: {task_type}")
 
 
+XIAOZHI_LEARNING_PATH_CANDIDATE_FIELD = "_candidateLearningPathConfig"
+
+
+def _persist_xiaozhi_reviewed_learning_path_candidate(
+    task_type: str,
+    user_id: int,
+    result: dict,
+) -> None:
+    learning_path = result.get("learningPath") if isinstance(result.get("learningPath"), dict) else {}
+    if task_type == "learning_path":
+        candidate = learning_path.get("config") if isinstance(learning_path.get("config"), dict) else None
+        if not isinstance(candidate, dict):
+            raise RuntimeError("审核通过的学习路径缺少可保存配置")
+    elif task_type == "learning_path_stage":
+        candidate = result.pop(XIAOZHI_LEARNING_PATH_CANDIDATE_FIELD, None)
+        if not isinstance(candidate, dict):
+            return
+    else:
+        return
+
+    trace = result.get("orchestration") if isinstance(result.get("orchestration"), dict) else {}
+    harness = result.get("harness") if isinstance(result.get("harness"), dict) else {}
+    profile_candidates = [
+        learning_path_profile_report_id(candidate),
+        learning_path.get("profileReportId"),
+        trace.get("profileReportId"),
+        harness.get("profileReportId"),
+    ]
+    profile_report_id = 0
+    for value in profile_candidates:
+        try:
+            profile_report_id = int(value or 0)
+        except (TypeError, ValueError):
+            continue
+        if profile_report_id > 0:
+            break
+    if profile_report_id <= 0:
+        raise LearningProfileRequiredError("审核通过的学习路径缺少有效画像版本，未保存候选路径。")
+
+    with _learning_path_config_write_lock(int(user_id)):
+        with auth_db() as conn:
+            profile_exists = conn.execute(
+                "SELECT 1 FROM learning_profile_reports WHERE id = ? AND user_id = ? AND archived = 0",
+                (profile_report_id, int(user_id)),
+            ).fetchone()
+            if not profile_exists:
+                raise LearningProfileRequiredError("学习路径关联的画像版本已失效，未保存候选路径。")
+            saved_config = write_learning_path_config(
+                conn,
+                candidate,
+                int(user_id),
+                profile_report_id=profile_report_id,
+            )
+
+    if task_type == "learning_path":
+        learning_path["config"] = saved_config
+        return
+    learning_path.update(
+        {
+            "profileReportId": learning_path_profile_report_id(saved_config) or profile_report_id,
+            "savedPathUpdatedAt": saved_config.get("updatedAt") or "",
+            "persisted": True,
+        }
+    )
+
+
 def xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic: str, params: dict | None = None) -> None:
     with private_knowledge_service.private_knowledge_scope(int(user_id), AUTH_DB_PATH):
         _xiaozhi_run_resource_task(task_id, user_id, task_type, topic, params)
@@ -13309,6 +13437,7 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
             failure_message = "；".join(issues[:5]) or "智能体产物未通过结构或安全审核"
             result["currentStage"] = "quality_review_failed"
             result["qualityError"] = failure_message
+            result.pop(XIAOZHI_LEARNING_PATH_CANDIDATE_FIELD, None)
             xiaozhi_update_task(
                 task_id,
                 status="failed",
@@ -13317,9 +13446,11 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
                 route=xiaozhi_route_with_task(route, task_id),
             )
             return
+        _persist_xiaozhi_reviewed_learning_path_candidate(task_type, int(user_id), result)
         xiaozhi_update_task(task_id, status="complete", result_json=result, route=xiaozhi_route_with_task(route, task_id))
     except SkillReviewError as exc:
         result = dict(exc.result)
+        result.pop(XIAOZHI_LEARNING_PATH_CANDIDATE_FIELD, None)
         trace = result.get("orchestration") if isinstance(result.get("orchestration"), dict) else {}
         result.setdefault("topic", topic)
         result["progress"] = 100

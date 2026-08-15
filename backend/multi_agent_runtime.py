@@ -649,15 +649,29 @@ def review_specialist_output(
             issues.append("完整学习路径至少需要 3 个阶段；渐进式 partial 路径至少需要 1 个阶段")
     elif task_type == "learning_path_stage":
         detail = output.get("stageDetail") if isinstance(output.get("stageDetail"), dict) else output
+        baseline = output.get("learningPath") if isinstance(output.get("learningPath"), dict) else {}
+        baseline_error = str(baseline.get("error") or "")
+        baseline_source = str(baseline.get("source") or "").strip().lower()
+        baseline_status = str(baseline.get("generationStatus") or "").strip().lower()
+        baseline_degraded = (
+            bool(baseline.get("degraded"))
+            or baseline_status == "fallback"
+            or baseline_source in {"fallback-rule", "profile-rule-agent"}
+        )
         generation_error = str(detail.get("error") or "") if isinstance(detail, dict) else ""
         degraded = bool(detail.get("degraded")) if isinstance(detail, dict) else False
+        if baseline_error or baseline_degraded:
+            structural_ok = False
+            issues.append("阶段细化依赖的学习路径基线为规则降级结果，不能冒充模型生成成功")
         if generation_error or degraded:
             structural_ok = False
             issues.append("阶段细化未由模型完成有效结构化生成，规则降级结果不能冒充成功")
-        elif any(detail.get(key) for key in ["weeks", "goals", "resources", "checkpoints", "tasks"]):
+        if not (baseline_error or baseline_degraded or generation_error or degraded) and any(
+            detail.get(key) for key in ["weeks", "goals", "resources", "checkpoints", "tasks"]
+        ):
             score += 18
             strengths.append("阶段详情包含目标、任务、资源或检查点")
-        else:
+        elif not (baseline_error or baseline_degraded or generation_error or degraded):
             structural_ok = False
             issues.append("阶段详情缺少可执行任务结构")
     elif task_type == "personalized_resources":

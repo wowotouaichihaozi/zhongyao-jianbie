@@ -105,6 +105,103 @@ class LearningProfileApiTests(unittest.TestCase):
             conn.execute("DELETE FROM learning_profile_reports WHERE id = ?", (int(report_id),))
             app_module.activate_profile(conn, 101, self.profile_two["id"])
 
+    def _snapshot_learning_path_storage(self, user_id: int = 101) -> dict:
+        with app_module.auth_db() as conn:
+            legacy = conn.execute(
+                "SELECT user_id, config_json, created_at, updated_at FROM user_learning_path_configs WHERE user_id = ?",
+                (int(user_id),),
+            ).fetchone()
+            scoped = conn.execute(
+                """
+                SELECT user_id, profile_report_id, config_json, created_at, updated_at
+                FROM learning_path_profile_configs
+                WHERE user_id = ?
+                ORDER BY profile_report_id
+                """,
+                (int(user_id),),
+            ).fetchall()
+        return {
+            "legacy": dict(legacy) if legacy else None,
+            "scoped": [dict(row) for row in scoped],
+        }
+
+    def _restore_learning_path_storage(self, snapshot: dict, user_id: int = 101) -> None:
+        with app_module.auth_db() as conn:
+            conn.execute("DELETE FROM user_learning_path_configs WHERE user_id = ?", (int(user_id),))
+            conn.execute("DELETE FROM learning_path_profile_configs WHERE user_id = ?", (int(user_id),))
+            legacy = snapshot.get("legacy") if isinstance(snapshot, dict) else None
+            if isinstance(legacy, dict):
+                conn.execute(
+                    """
+                    INSERT INTO user_learning_path_configs (user_id, config_json, created_at, updated_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        legacy["user_id"],
+                        legacy["config_json"],
+                        legacy["created_at"],
+                        legacy["updated_at"],
+                    ),
+                )
+            for row in snapshot.get("scoped") or []:
+                conn.execute(
+                    """
+                    INSERT INTO learning_path_profile_configs
+                        (user_id, profile_report_id, config_json, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        row["user_id"],
+                        row["profile_report_id"],
+                        row["config_json"],
+                        row["created_at"],
+                        row["updated_at"],
+                    ),
+                )
+
+    def _integrity_test_path_config(self, marker: str, planner_source: str = "llm") -> dict:
+        config = app_module.default_learning_path_config()
+        config["meta"].update(
+            {
+                "needsRegeneration": False,
+                "generationState": "complete",
+                "profileReportId": self.profile_two["id"],
+                "totalWeeks": 3,
+            }
+        )
+        config["planner"].update({"source": planner_source})
+        config["weeks"] = []
+        config["stages"] = {}
+        for index in range(1, 4):
+            stage_id = f"week-{marker}-{index}"
+            week_label = f"第{index}周"
+            title = f"{marker}-第{index}周"
+            config["weeks"].append(
+                {
+                    "id": stage_id,
+                    "order": index,
+                    "weekLabel": week_label,
+                    "title": title,
+                    "status": "current" if index == 1 else "locked",
+                    "enabled": True,
+                }
+            )
+            config["stages"][stage_id] = {
+                "id": stage_id,
+                "weekLabel": week_label,
+                "title": title,
+                "nodes": [
+                    {
+                        "id": "01",
+                        "label": "01",
+                        "title": f"{title}任务",
+                        "description": "完成可验证学习任务。",
+                        "resourceType": "video",
+                    }
+                ],
+            }
+        return config
+
     def test_waiting_generated_video_starts_same_persisted_task(self) -> None:
         with (
             patch.object(app_module.VIDEO_RESOURCE_EXECUTOR, "submit") as initial_submit,
@@ -3809,7 +3906,8 @@ class LearningProfileApiTests(unittest.TestCase):
         self.assertIn('"saveMode": "updated"', body)
         self.assertNotIn("apiKey", body)
 
-    def test_xiaozhi_generated_learning_path_is_persisted(self) -> None:
+    def test_xiaozhi_generated_learning_path_is_persisted_only_after_review(self) -> None:
+        storage_before = self._snapshot_learning_path_storage()
         generated_config = app_module.default_learning_path_config()
         generated_config["meta"].update({"needsRegeneration": False, "generationState": "complete"})
         generated_config["weeks"] = [
@@ -3822,20 +3920,70 @@ class LearningProfileApiTests(unittest.TestCase):
                 "enabled": True,
             }
         ]
-        context = app_module.xiaozhi_latest_context(101)
-        with patch.object(app_module, "generate_learning_path", return_value={"config": generated_config}):
-            result = app_module.xiaozhi_run_platform_agent(
-                "learning_path",
-                "重新规划学习路径",
-                context,
-                101,
-            )
+        try:
+            context = app_module.xiaozhi_latest_context(101)
+            with patch.object(app_module, "generate_learning_path", return_value={"config": generated_config}):
+                result = app_module.xiaozhi_run_platform_agent(
+                    "learning_path",
+                    "重新规划学习路径",
+                    context,
+                    101,
+                )
 
+            self.assertEqual(self._snapshot_learning_path_storage(), storage_before)
+            self.assertEqual(result["learningPath"]["config"]["weeks"][0]["title"], "嵌小智生成并保存的路径")
+            self.assertFalse(result["learningPath"]["config"]["meta"].get("persisted", False))
+
+            result["orchestration"] = {
+                "status": "complete",
+                "profileReportId": self.profile_two["id"],
+            }
+            app_module._persist_xiaozhi_reviewed_learning_path_candidate("learning_path", 101, result)
+
+            with app_module.auth_db() as conn:
+                persisted = app_module.read_learning_path_config(conn, 101)
+            self.assertEqual(persisted["weeks"][0]["title"], "嵌小智生成并保存的路径")
+            self.assertTrue(result["learningPath"]["config"]["meta"]["persisted"])
+        finally:
+            self._restore_learning_path_storage(storage_before)
+
+    def test_degraded_learning_path_cannot_prepare_resources(self) -> None:
+        storage_before = self._snapshot_learning_path_storage()
         with app_module.auth_db() as conn:
-            persisted = app_module.read_learning_path_config(conn, 101)
+            active_before = app_module.active_profile_for_user(conn, 101) or {}
+            app_module.activate_profile(conn, 101, self.profile_two["id"])
+        config = self._integrity_test_path_config("degraded", planner_source="fallback-rule")
+        config["meta"].update({"generationStatus": "fallback", "degraded": True})
+        stage_id = config["weeks"][0]["id"]
+        try:
+            with app_module.auth_db() as conn:
+                app_module.write_learning_path_config(
+                    conn,
+                    config,
+                    101,
+                    profile_report_id=self.profile_two["id"],
+                )
 
-        self.assertEqual(persisted["weeks"][0]["title"], "嵌小智生成并保存的路径")
-        self.assertTrue(result["learningPath"]["config"]["meta"]["persisted"])
+            response = self.client.get("/api/learning-path/config", headers=self.headers)
+            self.assertEqual(response.status_code, 200)
+            meta = response.get_json()["data"]["meta"]
+            self.assertEqual(meta["personalizationStatus"], "degraded")
+            self.assertFalse(meta["canPrepareResources"])
+            self.assertTrue(meta["needsRegeneration"])
+
+            prepared = self.client.post(
+                f"/api/learning-path/stages/{stage_id}/prepare-resources",
+                headers=self.headers,
+                json={"parallelDispatch": True, "advance": False},
+            )
+            self.assertEqual(prepared.status_code, 409)
+            self.assertIn("降级结果", prepared.get_json()["msg"])
+        finally:
+            self._restore_learning_path_storage(storage_before)
+            previous_profile_id = int(active_before.get("id") or 0)
+            if previous_profile_id > 0:
+                with app_module.auth_db() as conn:
+                    app_module.activate_profile(conn, 101, previous_profile_id)
 
 
 if __name__ == "__main__":
