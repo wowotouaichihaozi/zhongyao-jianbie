@@ -11,6 +11,7 @@ import type { IpcContext } from '../context'
 import { allowLocalAssetRoot } from '../io/assets-handlers'
 
 const VALID_IMAGE_PROVIDERS = [
+  'seedream',
   'jimeng',
   'jimeng4',
   'agnes',

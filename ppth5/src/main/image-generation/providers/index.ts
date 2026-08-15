@@ -1,21 +1,17 @@
 import type { ImageGenerationProviderAdapter, ResolvedImageModelConfig } from '../types'
-import { agnesAiAdapter } from './agnes-ai'
-import { geminiAdapter } from './gemini'
-import { jimengAdapter } from './jimeng'
-import { jimengV4Adapter } from './jimeng-v4'
-import { openAiChatCompletionsAdapter } from './openai-chat-completions'
-import { siliconFlowAdapter } from './siliconflow'
+import { seedreamAdapter } from './seedream'
 
 const PROVIDER_ADAPTERS: Record<
   ResolvedImageModelConfig['provider'],
   ImageGenerationProviderAdapter
 > = {
-  agnes: agnesAiAdapter,
-  jimeng: jimengAdapter,
-  jimeng4: jimengV4Adapter,
-  siliconflow: siliconFlowAdapter,
-  openaiCompatible: openAiChatCompletionsAdapter,
-  gemini: geminiAdapter
+  seedream: seedreamAdapter,
+  agnes: seedreamAdapter,
+  jimeng: seedreamAdapter,
+  jimeng4: seedreamAdapter,
+  siliconflow: seedreamAdapter,
+  openaiCompatible: seedreamAdapter,
+  gemini: seedreamAdapter
 }
 
 export function resolveImageGenerationProvider(

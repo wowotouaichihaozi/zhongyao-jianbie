@@ -110,6 +110,21 @@ Acceptance criteria for this batch:
 - The floating assistant no longer requires a 10 MB GIF download, and below-the-fold landing images do not block initial rendering.
 - Production changes are deployed in small verified batches with an immediate configuration rollback path.
 
+### Seedream 4.5 image-generation migration
+
+- [x] Verify the APIMart Seedream 4.5 submission, authentication, parameter, and task-polling contract against the provider documentation.
+- [x] Route learning-profile portraits, learning-video first frames, and PPT illustration generation through `seedream-4-5`.
+- [x] Add mocked contract tests for the model ID, 2K minimum resolution, Bearer authentication, asynchronous polling, result parsing, and failure handling.
+- [x] Update environment examples and root README claims without storing credentials in Git.
+- [x] Run focused backend and PPT checks, commit only migration files, then deploy the backend configuration and code in small verified batches.
+
+Acceptance criteria for this batch:
+
+- Every tracked runtime image-generation path submits `seedream-4-5` to APIMart's `/v1/images/generations`; legacy provider selections cannot silently fall back to a previous image model.
+- Seedream requests use supported aspect-ratio values and `2K` or `4K` resolution, never the unsupported `1K` value.
+- API credentials remain in ignored local/server environment configuration and never appear in source, logs, tests, commits, or user-facing responses.
+- Asynchronous tasks are polled through `/v1/tasks/{task_id}`, temporary result URLs are downloaded promptly, and empty, failed, cancelled, timed-out, or malformed responses produce explicit errors.
+
 ### Phase 3 - Demo evidence and documentation consistency
 
 - [ ] Reconcile UI labels, README claims, scoring evidence, and repeatable verification steps.
@@ -122,6 +137,7 @@ Acceptance criteria for this batch:
 | 2026-08-14 | Phase 1 | Restored task-backed resource deep links, exposed profile/orchestration/quality/source evidence, isolated generated content, added honest history states, and separated per-resource learning feedback with closed-loop next actions. | Frontend non-clean build; resource detail unit tests 5/5; synthetic Playwright contract and visual review at 1440x900 and 390x844; backend 79 tests and 25 subtests; `git diff --check`. | This Phase 1 commit |
 | 2026-08-14 | Repository integrity | Narrowed the admin runtime-log ignore rule and restored the router-referenced server-monitor page to source control. | Isolated frozen-lockfile install; admin typecheck; admin production build with `--emptyOutDir=false`; runtime `admin/logs/` remains ignored. | Admin integrity commit |
 | 2026-08-15 | Production performance batches 1-3 | Stopped unrelated application services, restored desktop SPA deployment, fixed static caching, split learner views into route-level chunks, and replaced oversized initial media with WebP plus original fallbacks. | Retained live endpoints all 200; server-local homepage 17 ms and application endpoints 2-6 ms; available host memory about 1.0 GiB; deployment tests 6/6; media tests 2/2; clean non-destructive build reduced entry JS from 1.45 MB to 236.5 KB (94.4 KB transferred with gzip), entry CSS from 868 KB to 197 KB, five landing images from 10.7 MB to 0.55 MB, and the floating animation from 10.6 MB to 193 KB. | `616269e`, `f0adc6e`, `4ff47ea`; deployed and HTTP-verified |
+| 2026-08-15 | Seedream 4.5 migration | Fixed all tracked image-generation paths to APIMart `seedream-4-5`, migrated legacy PPT provider selections at runtime, and stored credentials only in ignored local/server environment files. | Backend focused tests 33/33; PPT typecheck; Seedream adapter tests 3/3; APIMart credential check HTTP 200; production backend active and public health HTTP 200. Full backend suite: 285 passed and 1 unrelated dirty-worktree learning-path test failed. | `eeffc64` plus PPT follow-up commit; backend deployed |
 
 ## Remaining work
 

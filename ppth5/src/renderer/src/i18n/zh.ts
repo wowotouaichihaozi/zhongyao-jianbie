@@ -357,7 +357,7 @@ export const zh = {
     imageModelConfigHintSiliconflow:
       '连接硅基流动的图像模型服务，可按模型名称选择不同风格与速度的生成能力。示例：{"model":"Tongyi-MAI/Z-Image-Turbo","apiKey":"..."}',
     imageModelConfigHintOpenAICompatible:
-      '连接支持 OpenAI Chat Completions 图片能力的服务，用统一体验生成页面视觉素材。示例：{"baseUrl":"https://api.openai.com","apiKey":"...","model":"gpt-image-1"}',
+      '所有 PPT 配图统一通过 APIMart Seedream 4.5 生成，密钥会加密保存在本机配置中。示例：{"baseUrl":"https://api.apimart.ai/v1","apiKey":"...","model":"seedream-4-5","resolution":"2K"}',
     imageModelConfigHintGemini:
       '连接 Gemini 图像生成能力，用于根据页面内容创建插画、背景和视觉概念图。默认使用 Google 服务，也可填写 baseUrl 接入团队服务地址。示例：{"model":"gemini-3.1-flash-image","apiKey":"..."}',
     imageProviderOfficialDocs: '官方文档',

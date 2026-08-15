@@ -38,6 +38,7 @@ type ImageRunState = {
 const imageRunStates = new Map<string, ImageRunState>()
 
 const VALID_IMAGE_PROVIDERS = [
+  'seedream',
   'jimeng',
   'jimeng4',
   'agnes',
@@ -48,7 +49,7 @@ const VALID_IMAGE_PROVIDERS = [
 
 const resolveProvider = (provider: unknown): ImageModelProvider => {
   if (VALID_IMAGE_PROVIDERS.includes(provider as ImageModelProvider)) {
-    return provider as ImageModelProvider
+    return 'seedream'
   }
   throw new Error('Unsupported image provider')
 }
@@ -72,7 +73,9 @@ const readConfigString = (config: ResolvedImageModelConfig, key: string): string
 }
 
 const resolveDisplayModel = (config: ResolvedImageModelConfig): string =>
-  readConfigString(config, 'model') || readConfigString(config, 'reqKey') || config.provider
+  config.provider === 'seedream'
+    ? 'seedream-4-5'
+    : readConfigString(config, 'model') || readConfigString(config, 'reqKey') || config.provider
 
 const resolveImageModelConfig = async (
   ctx: IpcContext,
@@ -88,7 +91,11 @@ const resolveImageModelConfig = async (
     name: raw.name,
     provider: resolveProvider(raw.provider),
     active: raw.active === 1,
-    modelConfig: readJsonObject(ctx.decryptApiKey(raw.modelConfig || '{}'))
+    modelConfig: {
+      ...readJsonObject(ctx.decryptApiKey(raw.modelConfig || '{}')),
+      baseUrl: 'https://api.apimart.ai/v1',
+      model: 'seedream-4-5'
+    }
   }
 }
 

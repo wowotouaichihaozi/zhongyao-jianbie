@@ -5,6 +5,7 @@ import type { IpcContext } from '../context'
 import { readAppLocale, uiText } from './locale-utils'
 
 const VALID_IMAGE_PROVIDERS = [
+  'seedream',
   'jimeng',
   'jimeng4',
   'agnes',
@@ -15,7 +16,7 @@ const VALID_IMAGE_PROVIDERS = [
 
 const resolveProvider = (provider: unknown): ImageModelProvider => {
   if (VALID_IMAGE_PROVIDERS.includes(provider as ImageModelProvider)) {
-    return provider as ImageModelProvider
+    return 'seedream'
   }
   throw new Error('Unsupported image provider')
 }
@@ -26,7 +27,15 @@ const normalizeModelConfig = (value: unknown): string => {
   try {
     const parsed = JSON.parse(text)
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return '{}'
-    return text
+    return JSON.stringify(
+      {
+        ...(parsed as Record<string, unknown>),
+        baseUrl: 'https://api.apimart.ai/v1',
+        model: 'seedream-4-5'
+      },
+      null,
+      2
+    )
   } catch {
     return '{}'
   }

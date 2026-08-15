@@ -6,6 +6,13 @@ export type ImageSizeOption = {
 }
 
 const PROVIDER_SIZE_OPTIONS: Record<ImageModelProvider, ImageSizeOption[]> = {
+  seedream: [
+    { value: '16:9', label: '16:9 | 2560x1440 (2K)' },
+    { value: '1:1', label: '1:1 | 2048x2048 (2K)' },
+    { value: '4:3', label: '4:3 | 2304x1728 (2K)' },
+    { value: '3:4', label: '3:4 | 1728x2304 (2K)' },
+    { value: '9:16', label: '9:16 | 1440x2560 (2K)' }
+  ],
   jimeng: [
     { value: '16:9', label: '16:9 · 1664x936' },
     { value: '1:1', label: '1:1 · 1328x1328' },
@@ -164,5 +171,5 @@ export const resolveImageSizeOptions = (config?: ImageModelConfig): ImageSizeOpt
   }
 
   if (config?.provider) return PROVIDER_SIZE_OPTIONS[config.provider]
-  return PROVIDER_SIZE_OPTIONS.jimeng
+  return PROVIDER_SIZE_OPTIONS.seedream
 }

@@ -374,7 +374,7 @@ export const en = {
     imageModelConfigHintSiliconflow:
       'Connect SiliconFlow image models and choose a model name for the style and speed you need. Example: {"model":"Tongyi-MAI/Z-Image-Turbo","apiKey":"..."}',
     imageModelConfigHintOpenAICompatible:
-      'Connect a service with OpenAI Chat Completions image capability and generate slide visuals in the same workflow. Example: {"baseUrl":"https://api.openai.com","apiKey":"...","model":"gpt-image-1"}',
+      'All PPT visuals use APIMart Seedream 4.5. The API key is encrypted in local settings. Example: {"baseUrl":"https://api.apimart.ai/v1","apiKey":"...","model":"seedream-4-5","resolution":"2K"}',
     imageModelConfigHintGemini:
       'Connect Gemini image generation for illustrations, backgrounds, and visual concepts based on slide content. Uses Google by default, with baseUrl available for a team service endpoint. Example: {"model":"gemini-3.1-flash-image","apiKey":"..."}',
     imageProviderOfficialDocs: 'Official docs',

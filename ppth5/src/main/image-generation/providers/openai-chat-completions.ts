@@ -7,7 +7,7 @@ import type {
 import { collectImageResults, joinUrl, readRecord, readString } from './utils'
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1'
-const DEFAULT_MODEL = 'gpt-image-1'
+const DEFAULT_MODEL = 'seedream-4-5'
 const LOG_TAG = 'openai-chat-completions'
 
 type ChatMessage = {

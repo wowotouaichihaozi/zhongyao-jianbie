@@ -1,4 +1,5 @@
 export type ImageModelProvider =
+  | 'seedream'
   | 'jimeng'
   | 'jimeng4'
   | 'agnes'

@@ -19,6 +19,10 @@ interface ImageModelConfigDialogProps {
 }
 
 const PROVIDER_DOCS: Record<ImageModelForm['provider'], { label: string; url: string }> = {
+  seedream: {
+    label: 'Seedream 4.5',
+    url: 'https://docs.apimart.ai/cn/api-reference/images/seedream-4.5/generation'
+  },
   agnes: {
     label: 'Agnes AI',
     url: 'https://agnes-ai.com/'
@@ -46,6 +50,7 @@ const PROVIDER_DOCS: Record<ImageModelForm['provider'], { label: string; url: st
 }
 
 const PROVIDER_HINT_KEYS: Record<ImageModelForm['provider'], Parameters<SettingsTranslate>[0]> = {
+  seedream: 'settings.imageModelConfigHintOpenAICompatible',
   agnes: 'settings.imageModelConfigHintAgnes',
   jimeng: 'settings.imageModelConfigHintJimeng',
   jimeng4: 'settings.imageModelConfigHintJimeng4',

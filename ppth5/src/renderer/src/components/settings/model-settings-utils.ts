@@ -2,16 +2,8 @@ import type { ImageModelConfig, ImageModelProvider, ModelConfig } from '../../li
 import type { ImageModelForm, ModelForm } from './types'
 
 export const IMAGE_PROVIDER_OPTIONS: Array<{ value: ImageModelProvider; label: string }> = [
-  { value: 'agnes', label: 'Agnes AI' },
-  { value: 'jimeng', label: '即梦3.0' },
-  { value: 'jimeng4', label: '即梦4.0' },
-  { value: 'siliconflow', label: '硅基流动' },
-  { value: 'openaiCompatible', label: 'OpenAI 兼容' },
-  { value: 'gemini', label: 'Gemini' }
+  { value: 'seedream', label: 'Seedream 4.5' }
 ]
-
-const JIMENG_DEFAULT_REQ_KEY = 'jimeng_t2i_v30'
-const JIMENG_V4_DEFAULT_REQ_KEY = 'jimeng_t2i_v40'
 
 export const readJsonObject = (value: string): Record<string, unknown> | null => {
   const text = value.trim()
@@ -44,45 +36,12 @@ export const summarizeImageModelConfig = (value: string): string => {
   return [model || reqKey || 'model_config', endpoint].filter(Boolean).join(' · ')
 }
 
-export const createDefaultImageModelConfig = (provider: ImageModelProvider): string => {
-  if (provider === 'jimeng') {
-    return stringifyJsonObject({
-      reqKey: JIMENG_DEFAULT_REQ_KEY,
-      accessKeyId: '',
-      secretKey: ''
-    })
-  }
-  if (provider === 'jimeng4') {
-    return stringifyJsonObject({
-      reqKey: JIMENG_V4_DEFAULT_REQ_KEY,
-      accessKeyId: '',
-      secretKey: '',
-      force_single: true
-    })
-  }
-  if (provider === 'siliconflow') {
-    return stringifyJsonObject({
-      model: 'Tongyi-MAI/Z-Image-Turbo',
-      apiKey: ''
-    })
-  }
-  if (provider === 'openaiCompatible') {
-    return stringifyJsonObject({
-      baseUrl: 'https://api.openai.com',
-      apiKey: '',
-      model: 'gpt-image-1'
-    })
-  }
-  if (provider === 'gemini') {
-    return stringifyJsonObject({
-      model: 'gemini-3.1-flash-image',
-      apiKey: ''
-    })
-  }
+export const createDefaultImageModelConfig = (_provider: ImageModelProvider): string => {
   return stringifyJsonObject({
-    model: 'agnes-image-2.0-flash',
+    baseUrl: 'https://api.apimart.ai/v1',
     apiKey: '',
-    responseFormat: 'url'
+    model: 'seedream-4-5',
+    resolution: '2K'
   })
 }
 
@@ -111,8 +70,8 @@ export const createModelForm = (config: ModelConfig): ModelForm => ({
 
 export const createEmptyImageModelForm = (active = false): ImageModelForm => ({
   name: '',
-  provider: 'agnes',
-  modelConfig: createDefaultImageModelConfig('agnes'),
+  provider: 'seedream',
+  modelConfig: createDefaultImageModelConfig('seedream'),
   active
 })
 
