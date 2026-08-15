@@ -17,7 +17,7 @@ from typing import Any, Callable
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
 import requests
-import websocket
+from websockets.sync.client import connect as websocket_connect
 
 try:
     from common import get_setting
@@ -401,12 +401,12 @@ def _create_xfyun_tts(text: str, voice: str, destination: Path) -> None:
         _setting("XFYUN_TTS_URL", DEFAULT_XFYUN_TTS_URL), api_key, api_secret
     )
     timeout = max(10, min(120, int(_setting("XFYUN_TTS_TIMEOUT_SECONDS", "45"))))
-    connection = websocket.create_connection(signed_url, timeout=timeout)
+    connection = websocket_connect(signed_url, open_timeout=timeout, close_timeout=10)
     mp3 = bytearray()
     try:
         connection.send(json.dumps(_xfyun_tts_request(text, app_id, selected_voice), ensure_ascii=False))
         while True:
-            response = json.loads(connection.recv())
+            response = json.loads(connection.recv(timeout=timeout))
             header = response.get("header") or {}
             if int(header.get("code") or 0) != 0:
                 raise VideoGenerationError(

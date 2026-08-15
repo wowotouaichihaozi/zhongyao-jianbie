@@ -196,13 +196,13 @@ def test_xfyun_tts_collects_frames_and_converts_mp3_to_aac(monkeypatch, tmp_path
         def send(self, value):
             sent.append(json.loads(value))
 
-        def recv(self):
+        def recv(self, timeout=None):
             return next(self.frames)
 
         def close(self):
             sent.append("closed")
 
-    monkeypatch.setattr(video_generation.websocket, "create_connection", lambda url, timeout: FakeSocket())
+    monkeypatch.setattr(video_generation, "websocket_connect", lambda url, open_timeout, close_timeout: FakeSocket())
 
     destination = tmp_path / "segment.aac"
 
@@ -232,13 +232,13 @@ def test_xfyun_tts_surfaces_business_error(monkeypatch, tmp_path):
         def send(self, _value):
             pass
 
-        def recv(self):
+        def recv(self, timeout=None):
             return json.dumps({"header": {"code": 10005, "message": "invalid parameter"}})
 
         def close(self):
             pass
 
-    monkeypatch.setattr(video_generation.websocket, "create_connection", lambda *_args, **_kwargs: FakeSocket())
+    monkeypatch.setattr(video_generation, "websocket_connect", lambda *_args, **_kwargs: FakeSocket())
 
     with pytest.raises(video_generation.VideoGenerationError, match="10005"):
         video_generation._create_xfyun_tts("测试", "x6_lingxiaoxuan_pro", tmp_path / "segment.aac")
