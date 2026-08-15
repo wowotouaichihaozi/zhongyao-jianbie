@@ -3,7 +3,7 @@ import { readFile, stat } from 'node:fs/promises'
 import test from 'node:test'
 
 const source = await readFile(new URL('../src/views/LearningProfileView.vue', import.meta.url), 'utf8')
-const defaultAvatar = new URL('../public/default-profile-avatar.webp', import.meta.url)
+const defaultAvatar = new URL('../../img/default-profile-avatar.webp', import.meta.url)
 
 test('default portrait is lightweight and used until the report portrait is ready', async () => {
   const avatarStat = await stat(defaultAvatar)
