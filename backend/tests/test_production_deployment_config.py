@@ -55,7 +55,7 @@ def test_backend_defaults_target_the_new_production_host():
     assert LEGACY_HOST not in app_source
 
 
-def test_production_script_serves_mobile_while_desktop_stays_offline():
+def test_production_script_serves_desktop_and_mobile_with_safe_cache_rules():
     deploy_script = read_project_file("deploy-prod.sh")
 
     assert 'MOBILE_DIR="$PROJECT_DIR/mobile"' in deploy_script
@@ -67,7 +67,13 @@ def test_production_script_serves_mobile_while_desktop_stays_offline():
     assert "try_files $uri $uri/ /m/index.html;" in deploy_script
     assert "location /api {" in deploy_script
     assert "location /ppt-api/ {" in deploy_script
-    assert 'return 503 "Web frontend temporarily offline\\n";' in deploy_script
+    assert "location ^~ /assets/ {" in deploy_script
+    assert 'add_header Cache-Control "public, max-age=31536000, immutable" always;' in deploy_script
+    assert 'add_header Cache-Control "public, max-age=604800" always;' in deploy_script
+    assert "location / {" in deploy_script
+    assert "try_files $uri $uri/ /index.html;" in deploy_script
+    assert 'add_header Cache-Control "no-cache, no-store, must-revalidate" always;' in deploy_script
+    assert 'return 503 "Web frontend temporarily offline\\n";' not in deploy_script
 
 
 def test_production_package_contains_mobile_build():
