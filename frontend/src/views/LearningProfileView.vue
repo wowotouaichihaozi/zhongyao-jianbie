@@ -527,6 +527,7 @@
                   :src="profileFaceBaseSrc"
                   alt=""
                   aria-hidden="true"
+                  @error="hideMissingProfileFaceAsset"
                 />
                 <img
                   v-for="segment in profileFaceSegments"
@@ -534,8 +535,10 @@
                   class="profile-face-segment"
                   :class="{ active: segment.active }"
                   :src="segment.src"
-                  :alt="segment.alt"
+                  alt=""
+                  aria-hidden="true"
                   :style="segment.style"
+                  @error="hideMissingProfileFaceAsset"
                 />
               </div>
               <button
@@ -1288,6 +1291,10 @@ const FACE_CANVAS_FALLBACK = { width: 832, height: 1078 }
 const profileFaceManifest = ref(null)
 const profileFaceBaseSrc = `${FACE_ASSET_BASE}/face-cropped-dots-transparent.png`
 
+function hideMissingProfileFaceAsset(event) {
+  event.currentTarget.hidden = true
+}
+
 const faceBlockGroups = {
   forehead_top: '专业/课程背景',
   forehead_left: '学习目标',
@@ -1361,7 +1368,6 @@ const profileFaceSegments = computed(() => {
     return {
       id: block.id,
       src: `${FACE_ASSET_BASE}/${block.file}`,
-      alt: `${block.index || ''} ${block.id}`,
       active,
       style: {
         left: `${(Number(block.x) || 0) / width * 100}%`,
