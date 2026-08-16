@@ -253,7 +253,7 @@
       <div class="auth-innovation-grid auth-stagger">
         <article style="--reveal-delay: 0ms">
           <div class="innovation-preview knowledge-preview">
-            <img src="/auth-knowledge-network.jpg" alt="嵌智学航真实知识网络页面" loading="lazy" decoding="async" />
+            <img src="/auth-knowledge-network-focus.jpg" alt="嵌智学航真实知识网络页面" loading="lazy" decoding="async" />
             <span class="knowledge-preview-badge">真实知识网络</span>
           </div>
           <div class="innovation-copy">
