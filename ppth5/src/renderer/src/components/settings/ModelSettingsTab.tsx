@@ -6,16 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/Popover'
 import type { SettingsTranslate } from './types'
 
 const MODEL_PROVIDER_LINKS = [
-  { label: 'DeepSeek', url: 'https://platform.deepseek.com' },
-  { label: 'Moonshot (Kimi)', url: 'https://platform.moonshot.cn' },
-  { label: 'GLM (智谱)', url: 'https://open.bigmodel.cn' },
-  { label: 'Qwen (通义千问)', url: 'https://bailian.console.aliyun.com/' },
-  { label: 'Doubao (豆包)', url: 'https://console.volcengine.com/ark' },
-  { label: 'XFYun MaaS', url: 'https://maas-coding-api.cn-huabei-1.xf-yun.com' },
-  { label: 'MiniMax', url: 'https://www.minimaxi.com/' },
-  { label: 'OpenAI', url: 'https://platform.openai.com' },
-  { label: 'Claude (Anthropic)', url: 'https://console.anthropic.com' },
-  { label: 'Google Gemini', url: 'https://ai.google.dev' }
+  { label: '讯飞星辰 MaaS · Spark X2 Flash', url: 'https://maas-coding-api.cn-huabei-1.xf-yun.com' }
 ]
 
 interface ModelSettingsTabProps {
@@ -106,7 +97,7 @@ export function ModelSettingsTab({
                   {config.active && <CheckCircle2 className="h-4 w-4 text-[#5d7b4d]" />}
                   <p className="font-medium text-[#33402a]">{config.name}</p>
                   <span className="rounded-full bg-[#e9efde] px-2 py-0.5 text-[11px] uppercase text-[#506141]">
-                    {config.provider}
+                    讯飞星辰 MaaS
                   </span>
                 </div>
                 <p className="mt-1 truncate text-xs text-muted-foreground">{config.model}</p>

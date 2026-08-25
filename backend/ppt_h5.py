@@ -155,7 +155,7 @@ def call_llm(req: dict[str, Any], on_stage: StageCallback | None = None) -> list
     )
     base_url = str(default_base).rstrip("/")
     api_key = str(get_setting("ANTHROPIC_AUTH_TOKEN", setting_default("ANTHROPIC_AUTH_TOKEN")))
-    model = str(get_setting("ANTHROPIC_MODEL", setting_default("ANTHROPIC_MODEL")) or "xsparkx2agent")
+    model = str(get_setting("ANTHROPIC_MODEL", setting_default("ANTHROPIC_MODEL")) or "astron-code-latest")
     timeout = _setting_int("PPT_H5_LLM_TIMEOUT", 45, 10, 180)
     retries = _setting_int("PPT_H5_LLM_RETRIES", 2, 1, 5)
     if not base_url or not api_key:

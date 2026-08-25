@@ -346,7 +346,7 @@ CREATE TABLE IF NOT EXISTS user_agent_runtime_settings (
     enabled INTEGER NOT NULL DEFAULT 0,
     protocol TEXT NOT NULL DEFAULT 'openai',
     base_url TEXT NOT NULL DEFAULT '',
-    model TEXT NOT NULL DEFAULT 'xsparkx2agent',
+    model TEXT NOT NULL DEFAULT 'astron-code-latest',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE

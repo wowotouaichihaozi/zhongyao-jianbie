@@ -98,9 +98,9 @@ type BrowserCustomStyle = {
 const STORAGE_PREFIX = 'oh-my-ppt-h5:'
 const FIXED_MODEL_CONFIG: ModelConfig = {
   id: 'spark-x2-agent-default',
-  name: 'Spark X2 Agent',
+  name: 'Spark X2 Flash',
   provider: 'anthropic',
-  model: 'xsparkx2agent',
+  model: 'astron-code-latest',
   apiKey: '',
   serverManaged: true,
   baseUrl: 'https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic',
@@ -142,8 +142,30 @@ const writeJson = (key: string, value: unknown): void => {
 
 const readModels = (): ModelConfig[] => [FIXED_MODEL_CONFIG]
 const writeModels = (_models: ModelConfig[]): void => writeJson('models', [FIXED_MODEL_CONFIG])
-const readImageModels = (): ImageModelConfig[] => readJson<ImageModelConfig[]>('image-models', [])
-const writeImageModels = (models: ImageModelConfig[]): void => writeJson('image-models', models)
+const normalizeImageModel = (config: ImageModelConfig): ImageModelConfig => {
+  let modelConfig: Record<string, unknown> = {}
+  try {
+    const parsed = JSON.parse(config.modelConfig || '{}')
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) modelConfig = parsed
+  } catch {
+    modelConfig = {}
+  }
+  return {
+    ...config,
+    name: config.name || '豆包 Seedream 4.5',
+    provider: 'seedream',
+    modelConfig: JSON.stringify({
+      ...modelConfig,
+      baseUrl: 'https://api.apimart.ai/v1',
+      model: 'seedream-4-5',
+      resolution: modelConfig.resolution || '2K'
+    })
+  }
+}
+const readImageModels = (): ImageModelConfig[] =>
+  readJson<ImageModelConfig[]>('image-models', []).map(normalizeImageModel)
+const writeImageModels = (models: ImageModelConfig[]): void =>
+  writeJson('image-models', models.map(normalizeImageModel))
 const readSessions = (): SessionRecord[] => readJson<SessionRecord[]>('sessions', [])
 const writeSessions = (sessions: SessionRecord[]): void => writeJson('sessions', sessions)
 const readPages = (sessionId: string): GeneratedPageRecord[] =>
@@ -1194,7 +1216,7 @@ const handlers: Record<string, (...args: unknown[]) => unknown | Promise<unknown
     const id = data.id || uid('image_model')
     const next: ImageModelConfig = {
       id,
-      name: data.name || 'H5 Image Model',
+      name: data.name || '豆包 Seedream 4.5',
       provider: data.provider || 'openaiCompatible',
       modelConfig: data.modelConfig || '{}',
       active: Boolean(data.active || models.length === 0),

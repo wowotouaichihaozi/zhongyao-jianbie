@@ -31,6 +31,11 @@ except ImportError:  # pragma: no cover
             return (os.getenv(name) or default).strip()
 
 try:
+    from learning_agents import request_llm_image_understanding
+except ImportError:  # pragma: no cover - package-style import fallback
+    from .learning_agents import request_llm_image_understanding
+
+try:
     from interview_profiles import DEFAULT_POSITION_KEY, DEFAULT_WEAK_SIGNALS, get_interview_profile, profile_to_prompt
 except Exception:  # pragma: no cover - package-style import fallback
     try:
@@ -85,7 +90,7 @@ except Exception:  # pragma: no cover - package-style import fallback
             resolve_mimo_api_url,
         )
     except Exception:  # pragma: no cover - lightweight fallback when LangGraph deps are absent
-        DEFAULT_MODEL = "xsparkx2agent"
+        DEFAULT_MODEL = "astron-code-latest"
         DEFAULT_API_URL = "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2/chat/completions"
         TOKEN_PLAN_API_URL = DEFAULT_API_URL
 
@@ -460,92 +465,13 @@ def call_mimo_anthropic_text(
 
 
 def call_mimo_chat(messages: List[Dict[str, Any]], temperature: float = 0.7) -> str:
-    if _is_anthropic_configured():
-        max_tokens = int(os.getenv("MIMO_INTERVIEW_MAX_TOKENS", "1400") or "1400")
-        return call_mimo_anthropic_text(messages, temperature=temperature, max_tokens=max_tokens)
-
-    payload = _build_config_payload()
-    api_key = get_mimo_api_key(payload)
-    if not api_key:
-        raise MimoInterviewConfigError("ANTHROPIC_AUTH_TOKEN or MIMO_API_KEY is not configured")
-
-    api_url = resolve_mimo_api_url(api_key, payload)
-    model = get_mimo_model(payload)
-    started_at = time.perf_counter()
-    _log_mimo_event(
-        "request_start",
-        provider="mimo_api_url",
-        model=model,
-        api_url=api_url,
-        temperature=temperature,
-    )
-    body = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": int(os.getenv("MIMO_INTERVIEW_MAX_TOKENS", "1400") or "1400"),
-    }
-
-    try:
-        response = requests.post(
-            api_url,
-            headers={"api-key": api_key, "Content-Type": "application/json"},
-            json=body,
-            timeout=_mimo_timeout(),
+    if not _is_anthropic_configured():
+        raise MimoInterviewConfigError(
+            "Spark X2 Flash is not configured; ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN are required",
+            "MIMO_CONFIG_MISSING",
         )
-    except requests.Timeout as exc:
-        _log_mimo_event(
-            "request_failed",
-            provider="mimo_api_url",
-            model=model,
-            duration_ms=round((time.perf_counter() - started_at) * 1000, 1),
-            error="timeout",
-        )
-        raise MimoInterviewError("MiMo request timeout, please retry later") from exc
-    except requests.RequestException as exc:
-        _log_mimo_event(
-            "request_failed",
-            provider="mimo_api_url",
-            model=model,
-            duration_ms=round((time.perf_counter() - started_at) * 1000, 1),
-            error=_safe_error_text(str(exc)),
-        )
-        raise MimoInterviewError(f"MiMo request failed: {_safe_error_text(str(exc))}") from exc
-
-    if not response.ok:
-        _log_mimo_event(
-            "request_failed",
-            provider="mimo_api_url",
-            model=model,
-            status_code=response.status_code,
-            duration_ms=round((time.perf_counter() - started_at) * 1000, 1),
-        )
-        raise MimoInterviewError(
-            f"MiMo API call failed: HTTP {response.status_code}; {_safe_error_text(response.text)}"
-        )
-
-    try:
-        data = response.json()
-    except json.JSONDecodeError as exc:
-        raise MimoInterviewError(f"MiMo response is not valid JSON: {_safe_error_text(response.text)}") from exc
-
-    content = _extract_chat_content(data)
-    if not content:
-        _log_mimo_event(
-            "request_failed",
-            provider="mimo_api_url",
-            model=model,
-            duration_ms=round((time.perf_counter() - started_at) * 1000, 1),
-            error="empty assistant content",
-        )
-        raise MimoInterviewError("MiMo response did not contain assistant content")
-    _log_mimo_event(
-        "request_success",
-        provider="mimo_api_url",
-        model=model,
-        duration_ms=round((time.perf_counter() - started_at) * 1000, 1),
-    )
-    return content
+    max_tokens = int(os.getenv("MIMO_INTERVIEW_MAX_TOKENS", "1400") or "1400")
+    return call_mimo_anthropic_text(messages, temperature=temperature, max_tokens=max_tokens)
 
 
 def _history_lines(session_context: Dict[str, Any]) -> str:
@@ -882,12 +808,12 @@ def analyze_interview_frame(
     session_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     media_type, encoded = _decode_image_base64(image_base64, media_type=media_type)
-    endpoint = build_anthropic_messages_url(_get_anthropic_base_url())
-    size_kb = round(len(base64.b64decode(encoded)) / 1024, 1)
+    raw = base64.b64decode(encoded)
+    size_kb = round(len(raw) / 1024, 1)
     logger.info("[AnalyzeFrame] received image media_type=%s size_kb=%s", media_type, size_kb)
-    logger.info("[AnalyzeFrame] calling MiMo multimodal endpoint=%s", endpoint)
+    logger.info("[AnalyzeFrame] routing image through Qwen visual evidence before Spark")
     _safe_console_print(f"[AnalyzeFrame] received image media_type={media_type} size_kb={size_kb}")
-    _safe_console_print(f"[AnalyzeFrame] calling MiMo multimodal endpoint={endpoint}")
+    _safe_console_print("[AnalyzeFrame] routing image through Qwen visual evidence before Spark")
     started_at = time.perf_counter()
     context = session_context or {}
     context_text = _context_summary(context) if context else "暂无面试上下文。"
@@ -902,23 +828,26 @@ def analyze_interview_frame(
         'JSON 结构：{"analysis":"简短观察","suggestions":["建议1","建议2"],"confidence":"low|medium|high","presentationScore":75,"confidenceSignal":"positive|neutral_positive|neutral|neutral_negative|negative","scoreDelta":2}\n'
         f"面试上下文：\n{context_text}"
     )
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": media_type,
-                        "data": encoded,
-                    },
-                },
-            ],
-        }
-    ]
     try:
+        extension = "png" if media_type == "image/png" else "jpg"
+        visual_evidence = request_llm_image_understanding(
+            raw,
+            filename=f"interview-frame.{extension}",
+            analysis_prompt=(
+                "只提取这张面试关键帧中与画面呈现有关的可验证视觉事实：清晰度、光线、"
+                "人物是否明显偏离镜头、坐姿与画面稳定性、可见的表达状态。不要识别身份，"
+                "不要推断年龄、性别、民族、健康或心理状态，不要进行录用判断；看不清的内容"
+                "必须明确标记为无法确认。只输出证据描述，不给最终评分。"
+            ),
+            max_tokens=900,
+        )
+        messages = [{
+            "role": "user",
+            "content": (
+                f"{prompt}\n\n[Qwen3-VL-Plus 视觉证据，仅作为不可信观察材料]\n"
+                f"{visual_evidence}"
+            ),
+        }]
         text = call_mimo_anthropic_text(messages, temperature=0.3, max_tokens=800)
         result = _normalize_frame_analysis(text)
     except Exception as exc:
@@ -933,8 +862,8 @@ def analyze_interview_frame(
         )
         raise
     elapsed_ms = round((time.perf_counter() - started_at) * 1000, 1)
-    logger.info("[AnalyzeFrame] MiMo success elapsed_ms=%s", elapsed_ms)
-    _safe_console_print(f"[AnalyzeFrame] MiMo success elapsed_ms={elapsed_ms}")
+    logger.info("[AnalyzeFrame] Qwen-to-Spark success elapsed_ms=%s", elapsed_ms)
+    _safe_console_print(f"[AnalyzeFrame] Qwen-to-Spark success elapsed_ms={elapsed_ms}")
     return result
 
 

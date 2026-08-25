@@ -6,16 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import type { ModelForm, SettingsTranslate } from './types'
 
 const MODEL_PROVIDER_LINKS = [
-  { label: 'DeepSeek', url: 'https://platform.deepseek.com' },
-  { label: 'Moonshot (Kimi)', url: 'https://platform.moonshot.cn' },
-  { label: 'GLM (鏅鸿氨)', url: 'https://open.bigmodel.cn' },
-  { label: 'Qwen (閫氫箟鍗冮棶)', url: 'https://bailian.console.aliyun.com/' },
-  { label: 'Doubao (璞嗗寘)', url: 'https://console.volcengine.com/ark' },
-  { label: 'XFYun MaaS (灏忕背)', url: 'https://maas-coding-api.cn-huabei-1.xf-yun.com' },
-  { label: 'MiniMax', url: 'https://www.minimaxi.com/' },
-  { label: 'OpenAI', url: 'https://platform.openai.com' },
-  { label: 'Claude (Anthropic)', url: 'https://console.anthropic.com' },
-  { label: 'Google Gemini', url: 'https://ai.google.dev' }
+  { label: '讯飞星辰 MaaS · Spark X2 Flash', url: 'https://maas-coding-api.cn-huabei-1.xf-yun.com' }
 ]
 
 interface ModelConfigDialogProps {
@@ -105,7 +96,7 @@ export function ModelConfigDialog({
                 value={form.provider}
                 onValueChange={(value) =>
                   onFormChange({
-                    provider: value === 'anthropic' || value === 'google' ? value : 'openai'
+                    provider: value === 'anthropic' ? value : 'openai'
                   })
                 }
               >
@@ -113,9 +104,8 @@ export function ModelConfigDialog({
                   <SelectValue placeholder={t('settings.providerPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="anthropic">Claude (Anthropic)</SelectItem>
-                  <SelectItem value="openai">OpenAI</SelectItem>
-                  <SelectItem value="google">Google Gemini</SelectItem>
+                  <SelectItem value="openai">讯飞 OpenAI 兼容接口</SelectItem>
+                  <SelectItem value="anthropic">讯飞 Anthropic 兼容接口</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -143,9 +133,7 @@ export function ModelConfigDialog({
               className="h-8"
             />
             <p className="mt-1 text-[12px] text-muted-foreground/50">
-              {form.provider === 'google'
-                ? t('settings.baseUrlHintGoogle')
-                : t('settings.baseUrlHint')}
+              {t('settings.baseUrlHint')}
             </p>
           </div>
 
@@ -187,12 +175,7 @@ export function ModelConfigDialog({
               <Input
                 type="password"
                 placeholder={t('settings.apiKeyPlaceholder', {
-                  provider:
-                    form.provider === 'openai'
-                      ? 'OpenAI'
-                      : form.provider === 'google'
-                        ? 'Google'
-                        : 'Claude'
+                  provider: '讯飞星辰 MaaS'
                 })}
                 value={form.apiKey}
                 onChange={(e) => onFormChange({ apiKey: e.target.value })}

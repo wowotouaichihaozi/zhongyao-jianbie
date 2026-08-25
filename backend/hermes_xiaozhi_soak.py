@@ -67,7 +67,7 @@ def run_check(args: argparse.Namespace, iteration: int) -> dict[str, Any]:
         }
         assert runtime.get("runtime") == "hermes-agent"
         assert runtime.get("provider") == "mimo"
-        assert runtime.get("model") == "xsparkx2agent"
+        assert runtime.get("model") == "astron-code-latest"
         assert len(tools) == len(PLATFORM_TOOLS)
         assert set(tool_types) == set(PLATFORM_TOOLS)
         assert not missing_labels
@@ -143,7 +143,7 @@ def run_check(args: argparse.Namespace, iteration: int) -> dict[str, Any]:
             assert live.get("resourceType") == "learning_path"
             assert live.get("runtime") == "hermes-agent"
             assert live.get("provider") == "mimo"
-            assert live.get("model") == "xsparkx2agent"
+            assert live.get("model") == "astron-code-latest"
         except Exception as exc:
             record["ok"] = False
             record["errors"].append({"check": "liveMimoHermes", "error": str(exc)})

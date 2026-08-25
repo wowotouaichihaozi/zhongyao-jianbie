@@ -762,8 +762,8 @@ def generate_tutor_evidence(output_dir: Path, report: dict[str, Any] | None = No
             errors.append("Skill ID 不匹配")
         if (harness.get("skill") or {}).get("mcpTool") != "learning.tutor.answer":
             errors.append("MCP Tool 不匹配")
-        if (harness.get("modelRuntime") or {}).get("model") != "xsparkx2agent":
-            errors.append("文本模型不是 Spark X2 Agent（xsparkx2agent）")
+        if (harness.get("modelRuntime") or {}).get("model") != "astron-code-latest":
+            errors.append("文本模型不是 Spark X2 Flash（astron-code-latest）")
         quality = tutor.get("qualityEvaluation") if isinstance(tutor.get("qualityEvaluation"), dict) else {}
         if not quality.get("passed"):
             errors.append("辅导质量评价未通过")

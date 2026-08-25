@@ -18,54 +18,10 @@ interface ImageModelConfigDialogProps {
   onVerify: () => void
 }
 
-const PROVIDER_DOCS: Record<ImageModelForm['provider'], { label: string; url: string }> = {
-  seedream: {
-    label: 'Seedream 4.5',
-    url: 'https://docs.apimart.ai/cn/api-reference/images/seedream-4.5/generation'
-  },
-  agnes: {
-    label: 'Agnes AI',
-    url: 'https://agnes-ai.com/'
-  },
-  jimeng: {
-    label: '即梦3.0',
-    url: 'https://www.volcengine.com/docs/85621/1616429?lang=zh'
-  },
-  jimeng4: {
-    label: '即梦4.0',
-    url: 'https://www.volcengine.com/docs/85621/1817045?lang=zh'
-  },
-  siliconflow: {
-    label: '硅基流动',
-    url: 'https://www.siliconflow.cn/'
-  },
-  openaiCompatible: {
-    label: 'OpenAI 兼容',
-    url: 'https://platform.openai.com/docs/api-reference/chat/create'
-  },
-  gemini: {
-    label: 'Gemini',
-    url: 'https://ai.google.dev/gemini-api/docs/image-generation?hl=zh-cn'
-  }
+const SEEDREAM_DOCS = {
+  label: '豆包 Seedream 4.5',
+  url: 'https://docs.apimart.ai/cn/api-reference/images/seedream-4.5/generation'
 }
-
-const PROVIDER_HINT_KEYS: Record<ImageModelForm['provider'], Parameters<SettingsTranslate>[0]> = {
-  seedream: 'settings.imageModelConfigHintOpenAICompatible',
-  agnes: 'settings.imageModelConfigHintAgnes',
-  jimeng: 'settings.imageModelConfigHintJimeng',
-  jimeng4: 'settings.imageModelConfigHintJimeng4',
-  siliconflow: 'settings.imageModelConfigHintSiliconflow',
-  openaiCompatible: 'settings.imageModelConfigHintOpenAICompatible',
-  gemini: 'settings.imageModelConfigHintGemini'
-}
-
-const SILICONFLOW_MODELS = [
-  'Tongyi-MAI/Z-Image-Turbo',
-  'Tongyi-MAI/Z-Image',
-  'baidu/ERNIE-Image-Turbo',
-  'Qwen/Qwen-Image',
-  'Kwai-Kolors/Kolors'
-]
 
 export function ImageModelConfigDialog({
   form,
@@ -80,8 +36,8 @@ export function ImageModelConfigDialog({
   onVerify
 }: ImageModelConfigDialogProps): React.JSX.Element | null {
   if (!open) return null
-  const providerDocs = PROVIDER_DOCS[form.provider]
-  const providerHint = t(PROVIDER_HINT_KEYS[form.provider])
+  const providerDocs = SEEDREAM_DOCS
+  const providerHint = t('settings.imageModelConfigHintOpenAICompatible')
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#2d291f]/42 p-4"
@@ -156,18 +112,6 @@ export function ImageModelConfigDialog({
                   </a>
                 </div>
                 <p className="mt-1 leading-4 text-[#6d604d]">{providerHint}</p>
-                {form.provider === 'siliconflow' && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {SILICONFLOW_MODELS.map((model) => (
-                      <span
-                        key={model}
-                        className="rounded-md border border-[#b5c4a1]/78 bg-[#e8f8f3]/72 px-2 py-0.5 font-mono text-[11px] text-[#526044]"
-                      >
-                        {model}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </div>

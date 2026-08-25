@@ -39,10 +39,12 @@ code6.14/
 
 - 嵌小智总控与扩展：22 个已实现 Harness 角色和 18 个可调用 Skill 由 `backend/agent_manifests/xiaozhi_agents.json` 统一声明。角色数严格按 Manifest 中有实际职责的条目统计，执行步骤和占位名称不计入智能体数量。Handler Registry 在启动时校验重复 ID、缺失处理器、非法权限和 MCP 映射。新增可调用业务能力通过 Manifest、Handler 与 MCP 接入，不修改 Supervisor 主流程。
 - 学习画像：首次补齐十个画像维度时创建报告；后续重新评估、会话补全和证据更新都会合并到当前画像并原位保存，保持画像 ID、名称、版本和历史位置不变，只有明确选择另一份历史画像时才切换当前画像。
+- 学习画像会话恢复：部署切换或会话接口暂时返回空消息时，页面会保留当前账号已有的本地对话草稿，并只将其绑定到本次初始化的旧会话；新建会话不会继承旧记录。验证命令：`cd frontend && node --test tests/learningProfileChat.test.mjs`。
+- 历史画像与会话一一对应：历史记录是进入画像会话的唯一入口，点击画像条目会直接打开其关联聊天并恢复该画像的消息与画像上下文；聊天页不再提供跨画像下拉切换，报告操作按钮仍保持独立行为。验证命令：`cd frontend && node --test tests/learningProfileChat.test.mjs`。
 - 多模态对话输入：嵌小智悬浮窗和学习画像对话均支持图片、视频、PDF、Word、PPT 与文本附件。附件先经过登录用户隔离、格式/数量/大小校验并持久化；图片与文档尝试提取文字，视频保留为可追溯学习证据，随后以不可覆盖系统指令的受控上下文交给总控或学习画像智能体。嵌小智输入区固定在悬浮窗底部，并兼容中文输入法组合输入；请求失败时保留原始文本和附件，允许直接重试。
 - 嵌小智双视图：`陪伴式助手` 只承载对话，不再显示全局“资源任务”或“最近任务”列表。仅当用户在该轮对话中明确要求生成任务、且后端确实在该条回复的 `cards` 中返回任务时，回复下方才出现对应完整任务页面的缩放预览气泡；气泡持续展示排队、生成、完成或失败状态，点击会在新标签页沿原任务路由打开题库、PPT、导图、视频等完整页面，普通聊天不会出现任务预览。`Agent Harness` 只展示嵌小智总控与专项智能体的连接拓扑、当前动作、运行状态及 Skill/MCP 能力计数，不渲染资源 iframe、任务窗口或后台任务日志。前端验证命令为 `cd frontend && npm run build`，浏览器验收需覆盖普通消息无任务气泡、显式生成回复的内联预览、新标签页跳转、拓扑内部滚动及桌面/移动视口边界。
 - 学习画像详细执行信息：`POST /api/learning-profile/analyze-stream` 使用队列式 SSE 实时推送嵌小智总控、学习上下文、Skill Registry、MCP Tool、JSON 契约、质量审核、内容安全、保存报告和后台人像排队事件。画像报告生成页展示当前智能体、模型、`runId`、执行进度、累计耗时、审核得分以及每条事件的结构化详情；只展示计数与审核元数据，不输出 API Key、原始 Prompt 或完整画像隐私内容。
-- 画像人像与报告仪表盘：学习画像、画像报告和历史记录始终使用同一套三级侧栏；侧栏下方的 `#learning-profile-digital-human-stage` 真实挂载讯飞数字人组件，在画像对话页同步播报智能体回复，切换到报告或历史页时释放会话。数字人连接失败只显示降级状态，文字对话、历史消息和输入框继续可用，不挂载本地形象或静态兜底人物。报告主体包含六项摘要、十维能力条、六维雷达、证据矩阵、AI 结论和推荐方案；后端通过 APIMart Seedream 4.5 基于学习方向、目标、风格与薄弱点生成非真人化学习者插画，并把图片二进制按报告 ID 保存到 SQLite 的 `learning_profile_portraits` 表。报告头像读取、生成、缺失或失败期间先展示内置的非真人默认学习者头像及真实状态提示；数据库中的报告专属头像变为 `ready` 后立即替换默认图。报告保存后会立即排队生成，接口不再同步等待生图；前端轮询数据库状态并在 `ready` 后通过认证接口读取 BLOB，失败或超时会退出加载态并提供重试。服务从 `backend/.env` 读取 `SEEDREAM_BASE_URL` 与 `SEEDREAM_API_KEY`，模型固定为 `seedream-4-5`、最低使用服务支持的 `2K` 分辨率；提交后通过 `/v1/tasks/{task_id}` 轮询结果，轮询时限与间隔分别由 `IMAGE2_POLL_TIMEOUT_SECONDS`、`IMAGE2_POLL_INTERVAL_SECONDS` 控制。
+- 画像人像与报告仪表盘：学习画像、画像报告和历史记录始终使用同一套三级侧栏；侧栏下方的 `#learning-profile-digital-human-stage` 真实挂载讯飞数字人组件，在画像对话页同步播报智能体回复，切换到报告或历史页时释放会话。数字人连接失败只显示降级状态，文字对话、历史消息和输入框继续可用，不挂载本地形象或静态兜底人物。报告主体包含六项摘要、十维能力条、六维雷达、证据矩阵、AI 结论和推荐方案；后端使用豆包 Seedream 4.5（通过 APIMart 服务通道接入）基于学习方向、目标、风格与薄弱点生成非真人化学习者插画，并把图片二进制按报告 ID 保存到 SQLite 的 `learning_profile_portraits` 表。报告头像读取、生成、缺失或失败期间先展示内置的非真人默认学习者头像及真实状态提示；数据库中的报告专属头像变为 `ready` 后立即替换默认图。报告保存后会立即排队生成，接口不再同步等待生图；前端轮询数据库状态并在 `ready` 后通过认证接口读取 BLOB，失败或超时会退出加载态并提供重试。服务从 `backend/.env` 读取 `SEEDREAM_BASE_URL` 与 `SEEDREAM_API_KEY`，模型固定为 `seedream-4-5`、最低使用服务支持的 `2K` 分辨率；提交后通过 `/v1/tasks/{task_id}` 轮询结果，轮询时限与间隔分别由 `IMAGE2_POLL_TIMEOUT_SECONDS`、`IMAGE2_POLL_INTERVAL_SECONDS` 控制。
 - 效果评估：`/effect-assessment` 汇总聊天、题单与考试、MCU 实验、资源调用和学习路径完成记录，展示前后能力雷达、薄弱点与可验证的进步；可在该页自动更新当前画像，不新增画像条目。
 - 学习路径：学习画像保存完成后，后端立即创建可追踪且幂等的 `learning_path` 后台任务，无需用户先进入学习路径页面；路径根据该画像的目标、薄弱点和偏好生成，并由资源路由智能体逐任务选择子智能体、补齐参数和后台预生成结果。
 - 渐进式学习路径：后台任务先生成并保存第一周，再基于同一画像逐周补全后续周，每周生成 7-10 个可验收任务与资源入口。用户中途打开页面时读取 `meta.backgroundGeneration` 显示进度并轮询数据库，不会另起重复规划；后台失败后仍可通过原有页面生成接口继续缺失周次。生产环境使用独立路径执行器承载画像后的长任务，避免占满普通资源或视频任务线程池。
@@ -81,7 +83,7 @@ code6.14/
 
 知识网络顶部保留“关系网络”和“AI 知识库自生长”两个固定模式。“关系网络”只展示本地课程索引和当前用户私有知识，不再混入智能体运行、审核候选等展示节点；正式 `course_knowledge_index.json` 是文档关系的唯一课程索引来源，`course_knowledge_index_catalog.json` 是由该索引生成的文档级只读投影，使低内存部署无需反序列化全部切片文本即可展示同等数量的真实文档节点。便携源码包未携带体积较大的原始 `rag文档` 时，课程知识加载器会只读已打包索引，禁止用空语料覆盖正式索引。“AI 知识库自生长”用于用户隔离的长期对话记忆：嵌小智总控与学习画像每完成一轮对话，后端都会先保存原始用户消息，再在智能体回复后补全核心摘要、主题和目标/偏好/薄弱点等学习信号。最近完成的记忆通过 `longTermMemories` 合并到下一轮智能体上下文，并进入平台学习证据；聊天内容不会被当作已经核验的课程事实，也不会直接写入可信 RAG 文档。
 
-对话记忆保存在 `knowledge_growth_memories`，每条记录保留来源入口、来源消息、原始问答、提取器版本和时间，按用户鉴权隔离。`scripts/seed-conversation-growth-demo.py` 可为本地 `admin123` 幂等写入六轮明确标注的答辩演示对话，同时清理旧版候选/审核演示数据。相关接口均要求登录：
+对话记忆保存在 `knowledge_growth_memories`，每条记录保留来源入口、来源消息、原始问答、提取器版本和时间，按用户鉴权隔离。`scripts/seed-conversation-growth-demo.py` 可为本地 `admin123` 幂等写入六轮示例对话，同时清理旧版候选/审核示例数据。相关接口均要求登录：
 
 - `GET /api/knowledge-network/overview`
 - `GET /api/knowledge-network/expand`
@@ -191,19 +193,20 @@ cd backend && python -m unittest tests.test_multimodal_inputs -v
 
 ## 文本与多模态模型路由
 
-平台按照输入模态使用固定的预处理链，配置依据为[讯飞星辰 MaaS Astron Coding Plan](https://www.xfyun.cn/doc/spark/CodingPlan.html)：
+平台按照输入模态使用固定的国产模型预处理链：文本推理由讯飞星火提供，视觉理解由阿里云百炼通义千问提供：
 
 ```text
-文本 ------------------------------> Spark X2 Agent (xsparkx2agent, 256k)
-图片 -> Kimi-K2.6 (xopkimik26, 256k) -> 视觉证据文本 -> Spark X2 Agent
-文件 -> 本地结构化文字提取 ------------> 提取文字 ----> Spark X2 Agent
+文本 ------------------------------> Spark X2 Flash (astron-code-latest, 256k)
+图片 -> Qwen3-VL-Plus (qwen3-vl-plus, 128k) -> 视觉证据文本 -> Spark X2 Flash
+音频 -> Qwen3-Omni-Flash (qwen3-omni-flash) -> 转写/音频证据 -> Spark X2 Flash
+文件 -> 本地结构化文字提取 ------------> 提取文字 ----> Spark X2 Flash
 ```
 
-图片会先归一化尺寸并移除 EXIF 方向差异，Kimi 只负责提取可验证的文字、图表、电路和界面事实，不直接回答用户；文档原始二进制不会发送给文本模型。预处理结果作为不可信学习证据写入上下文，不能覆盖系统提示。实际模型、上下文长度和交接目标可通过 `GET /api/llm/runtime`、附件的 `processingRoute` 以及 Harness `modelRuntime.routing` 查看。视觉模型失败时仅允许使用带“待核验”标记的 OCR 结果，不能静默伪装成 Kimi 输出。
+图片会先归一化尺寸并移除 EXIF 方向差异，Qwen3-VL-Plus 只负责提取可验证的文字、图表、电路和界面事实；数字人面试的摄像头关键帧也先由该视觉模型提取非敏感、可核验的画面呈现证据，再由 Spark X2 Flash 生成结构化观察与建议，原始图片不会直接交给文本模型。音频通过百炼原生 DashScope 多模态接口交给 Qwen3-Omni-Flash 转写并提取事实。视觉与音频模型都不直接回答用户，而是把结果作为不可信学习证据交给 Spark，不能覆盖系统提示。文档原始二进制不会发送给文本模型。实际模型、上下文长度和交接目标可通过 `GET /api/llm/runtime`、附件的 `processingRoute` 以及 Harness `modelRuntime.routing` 查看。视觉模型失败时仅允许使用带“待核验”标记的 OCR 结果；音频分析失败时附件会明确显示未提取到文字，均不能静默伪装成模型输出。面试文本在 Spark 配置缺失时会明确失败，不再回退到旧 MiMo 地址。
 
-相关配置：`ANTHROPIC_MODEL=xsparkx2agent`、`VISION_LLM_MODEL=xopkimik26`、`LLM_CONTEXT_WINDOW=262144`、`VISION_LLM_CONTEXT_WINDOW=262144`。密钥仍只保存在后端 `.env`。
+相关配置：`ANTHROPIC_MODEL=astron-code-latest`、`VISION_LLM_BASE_URL`、`VISION_LLM_API_KEY`、`VISION_LLM_MODEL=qwen3-vl-plus`、`AUDIO_LLM_BASE_URL`、`AUDIO_LLM_MODEL=qwen3-omni-flash`、`LLM_CONTEXT_WINDOW=262144`、`VISION_LLM_CONTEXT_WINDOW=131072`。音频默认复用同一百炼工作区密钥，也可用 `AUDIO_LLM_API_KEY` 独立配置；所有密钥只保存在后端 `.env`。
 
-首页“真实模型能力”区按照实际代码与服务端配置公开模型分工：主控和文本智能体使用讯飞星火 Spark X2 Agent（`xsparkx2agent`）；国产视觉模型 Kimi K2.6（`xopkimik26`）负责视觉证据预处理；国产 Seedance 模型负责视频生成，默认通过 Coze 工作流调用 Seedance 1.5，并提供 `doubao-seedance-2.0-mini` 与 `doubao-seedance-2.0` 可选引擎。学习画像插画、视频首帧和 PPT 配图统一使用 APIMart Seedream 4.5（固定模型 ID `seedream-4-5`）；视频旁白默认使用讯飞超拟人语音合成 WebSocket 服务，发音人由 `XFYUN_TTS_VOICE` 指定。讯飞数字人播报属于数字人 SDK 能力，`x4_yezi` 是服务端配置音色，不计作独立大模型。首页不展示密钥、工作流 ID 或服务端地址。
+首页“真实模型能力”区通过 `GET /api/model-capabilities` 读取服务端实际文本主控模型，不再把源码默认值冒充为生产配置；该公开接口只返回模型名称、ID 与输入输出类型，不返回地址或凭据。阿里云百炼 Qwen3-VL-Plus（`qwen3-vl-plus`）与 Qwen3-Omni-Flash（`qwen3-omni-flash`）分别负责视觉和音频证据预处理；国产 Seedance 模型负责视频生成，默认通过 Coze 工作流调用 Seedance 1.5，并提供 `doubao-seedance-2.0-mini` 与 `doubao-seedance-2.0` 可选引擎。学习画像插画、视频首帧和 PPT 配图统一使用豆包 Seedream 4.5（固定模型 ID `seedream-4-5`，通过 APIMart 服务通道接入）；视频旁白默认使用讯飞超拟人语音合成 WebSocket 服务，发音人由 `XFYUN_TTS_VOICE` 指定。讯飞数字人播报属于数字人 SDK 能力，`x4_yezi` 是服务端配置音色，不计作独立大模型。首页不展示密钥、工作流 ID 或服务端地址。
 
 多模型由 `XiaoZhiAgentHarness` 统一封装，运行时架构标识为 `agent-harness-supervisor-blackboard`：Supervisor 与共享黑板接收画像、任务和学习证据；`model_routing.py` 按模态选择文本、视觉或本地文档提取链路；版本化 Skill 通过 Skill Registry、MCP Tool Gateway 与 Handler Registry 调用真实执行器；输入输出经过 JSON 契约校验，并进入质量审核、安全审核、检查点持久化和可观察执行轨迹。该架构说明同步展示在首页模型区。
 
@@ -229,7 +232,7 @@ Supervisor / Skill / MCP / Handoff / 质量与安全审核
 
 浏览器不会直接携带模型 API Key 调用 OhMyPPT。Flask 与 FastAPI 之间使用带时间戳的 HMAC 内部签名传递当前用户选择的协议、模型地址和模型名；FastAPI 同时校验地址白名单、页数、HTML 结构和外部资源。解析层兼容严格 JSON、标准分隔格式以及中英文 Markdown 字段，但只有返回指定页数且每页包含有效 HTML 时才算成功；生成失败不会使用本地模板伪装为成功。
 
-OhMyPPT 默认使用 `Spark X2 Agent`（`xsparkx2agent`）。独立引擎优先读取 `ppth5/backend/.env`，示例见 `ppth5/backend/.env.example`；模型密钥只保存在服务端环境文件中，不写入浏览器配置、构建产物或 API 响应。原始 H5 的快速创建把该模型识别为服务端托管模型；本机回环地址可在开发模式下使用默认模型，线上浏览器请求必须通过主站登录态校验，智能体后台请求继续使用 HMAC 内部签名。
+OhMyPPT 默认使用 `Spark X2 Flash`（`astron-code-latest`）。独立引擎优先读取 `ppth5/backend/.env`，示例见 `ppth5/backend/.env.example`；模型密钥只保存在服务端环境文件中，不写入浏览器配置、构建产物或 API 响应。原始 H5 的快速创建把该模型识别为服务端托管模型；本机回环地址可在开发模式下使用默认模型，线上浏览器请求必须通过主站登录态校验，智能体后台请求继续使用 HMAC 内部签名。
 
 为避免模型一次返回整份长 HTML 导致读取超时，OhMyPPT 默认按每批 3 页、最多 2 批并行生成，再按原始页码合并并执行页数、HTML 安全与结构校验。失败信息会标明具体页段，系统不会因单批超时而重复执行整份 PPT；批大小与并发数可通过 `OHMYPPT_LLM_BATCH_SIZE`、`OHMYPPT_LLM_MAX_PARALLEL` 调整。
 
@@ -440,9 +443,31 @@ https://lzhan.xyz/api/health
 https://lzhan.xyz/ppt/
 https://lzhan.xyz/api/ppt-h5/health
 https://lzhan.xyz/ppt-api/health
+https://lzhan.xyz/ai-coding
 ```
 
 当前部署结构中，PPT 不需要 Electron、xvfb 或 Node 后端服务，但需要 `feishengwangying-pptapi.service` 在回环地址 `127.0.0.1:8765` 运行 OhMyPPT FastAPI。生产 Nginx 的 `/ppt-api/` 仅作为同源服务入口；生成接口仍要求服务端内部签名，不能绕过嵌小智直接调用。
+
+远程环境的 `/ai-coding` 在主导航栏下方直接嵌入 DeepSeek Harness，共用一个由 `dsh-sandbox` 非 root 用户持有的工作区与会话存储。Harness 仅监听隔离服务器的回环端口，主站通过受限 SSH 隧道和带登录校验的 `/ai-coding-runtime/` 代理访问；未登录请求返回 401。DeepSeek 凭据由沙箱服务器上的 root-only 上游代理注入，不进入浏览器、Harness 工作区、前端构建产物或 Git 文件。为保留远程凭据隔离，浏览器侧 `credentials` 与 `settings` 接口继续保持不可访问；代理只关闭 Harness 内测声明并重写运行时资源/RPC 路径。
+
+AI 编程部署验证不调用模型：
+
+```bash
+systemctl is-active deepseek-harness.service
+systemctl is-active deepseek-harness-tunnel.service
+curl -o /dev/null -w '%{http_code}\n' https://lzhan.xyz/ai-coding-runtime/
+```
+
+最后一条在无登录态下应返回 `401`；登录后访问 `/ai-coding` 应同时看到主导航栏和其下方的 Harness 工作区，且没有内测声明或插件加载错误。输入框左下角的“+”仍是命令菜单入口，代理仅放行经过登录校验的 `commands/list` 与 `commands/execute` RPC；它不是附件按钮。
+
+Harness 官方当前只提供图片上下文输入，平台另行安装 `lzhan-dsh-attachment-upload`，在输入框旁提供独立“附件”按钮。该插件参考 MIT 许可的社区项目 [`lbh1nb/dsh-plugins`](https://github.com/lbh1nb/dsh-plugins) 中 `dsh-attachment-upload` 的客户端插槽接口，并针对共享服务器重新实现上传端：浏览器不能传入或选择服务器绝对路径，所有文件固定写入 `DSH_FILE_UPLOAD_ROOT/.dsh-attachments/`，单文件上限 64 MB，接口同时受主站登录校验和同源 POST 校验保护。ZIP 上传后自动解压到 `.dsh-attachments/extracted/`；安全提取器拒绝绝对路径、父目录穿越、符号链接、加密条目、重复目标、超过 2,000 个条目、单文件超过 128 MiB、总展开量超过 512 MiB和异常压缩比。Harness 只会在输入框中写入服务器侧附件或解压目录路径，不会自动执行压缩包内文件。
+
+社区中也有 [`Mooling0602/dsh-web-file-uploader`](https://github.com/Mooling0602/dsh-web-file-uploader) 和 [`BYYY-eng/deepseek-harness-file-upload-ocr-plugin`](https://github.com/BYYY-eng/deepseek-harness-file-upload-ocr-plugin)；前者提供通用网页上传思路，后者偏向上传后 OCR。当前平台没有直接部署它们，避免把 OCR 或客户端传入的工作区路径混入共享沙箱边界。上传与 ZIP 安全验证命令：
+
+```bash
+cd backend
+python -m pytest tests/test_deepseek_harness_upload.py -q
+```
 
 ## 配置
 
@@ -523,7 +548,7 @@ Set-Location ../admin; pnpm install --frozen-lockfile; pnpm run typecheck; pnpm 
 
 `/personalized-resources/video-generator` adds an on-demand `generated_video` resource alongside the existing video-search tool. Its frontend is adapted from the local `纯AI视频工作流` workbench into the platform shell: creation parameters remain on the left, a clickable Vue Flow execution graph occupies the center, and node facts, segment batches, media previews and persisted logs are shown on the right. Browser-side compositing was not copied; the current platform keeps authenticated SQLite tasks and server-side FFmpeg output. Learning-path preparation creates one `waiting_for_user` entry for every week and only stores the profile-grounded prompt. It never chooses a model or calls a media API. The learner opens the workbench, chooses the engine and resolution, then explicitly calls `POST /api/personalized-resources/generated-videos/{task_id}/start` to start that same persisted task.
 
-Seedance 1.5 remains the default and runs through `COZE_SEEDANCE_15_WORKFLOW_ID`, `COZE_SEEDANCE_15_API_BASE_URL` and the optional dedicated `COZE_SEEDANCE_15_API_TOKEN` (with the existing Coze token chain retained for compatibility). The two opt-in API engines use `VIDEO_VIDEO_API_KEY`: `VIDEO_VIDEO_MODEL_MINI=doubao-seedance-2.0-mini` and `VIDEO_VIDEO_MODEL_FULL=doubao-seedance-2.0`. The workbench accepts `480p`, `720p` and `1080p`; server-side output is normalized respectively to `854x480`, `1280x720` and `1920x1080`. First-frame generation reuses `SEEDREAM_BASE_URL` / `SEEDREAM_API_KEY`, is fixed to `seedream-4-5`, and uses the supported `2K` resolution. Narration defaults to XFYun super-human TTS through `XFYUN_TTS_APP_ID`, `XFYUN_TTS_API_KEY`, `XFYUN_TTS_API_SECRET`, `XFYUN_TTS_URL` and `XFYUN_TTS_VOICE`; credentials remain only in ignored environment files, returned MP3 frames are converted to AAC locally, and upstream business errors fail the material instead of producing an empty track. All paths limit image/TTS/video media operations with a process-wide six-slot gate, retry each material operation up to five times, then use server-side FFmpeg to normalize video, mix TTS, burn subtitles, concatenate MP4 output, and validate H.264/AAC streams with ffprobe. Failures are persisted as `failed` instead of remaining indefinitely `running`. Output is stored under `backend/generated/video/{user_id}/{task_id}` and is only exposed through authenticated, range-capable endpoints:
+Seedance 1.5 remains the default and runs through `COZE_SEEDANCE_15_WORKFLOW_ID`, `COZE_SEEDANCE_15_API_BASE_URL` and the optional dedicated `COZE_SEEDANCE_15_API_TOKEN` (with the existing Coze token chain retained for compatibility). The two opt-in API engines use `VIDEO_VIDEO_API_KEY`: `VIDEO_VIDEO_MODEL_MINI=doubao-seedance-2.0-mini` and `VIDEO_VIDEO_MODEL_FULL=doubao-seedance-2.0`. The workbench accepts `480p`, `720p` and `1080p`; server-side output is normalized respectively to `854x480`, `1280x720` and `1920x1080`. First-frame generation reuses `SEEDREAM_BASE_URL` / `SEEDREAM_API_KEY`, is fixed to Doubao Seedream 4.5 (`seedream-4-5`), and uses the supported `2K` resolution. Narration defaults to XFYun super-human TTS through `XFYUN_TTS_APP_ID`, `XFYUN_TTS_API_KEY`, `XFYUN_TTS_API_SECRET`, `XFYUN_TTS_URL` and `XFYUN_TTS_VOICE`; credentials remain only in ignored environment files, returned MP3 frames are converted to AAC locally, and upstream business errors fail the material instead of producing an empty track. All paths limit image/TTS/video media operations with a process-wide six-slot gate, retry each material operation up to five times, then use server-side FFmpeg to normalize video, mix TTS, burn subtitles, concatenate MP4 output, and validate H.264/AAC streams with ffprobe. Failures are persisted as `failed` instead of remaining indefinitely `running`. Output is stored under `backend/generated/video/{user_id}/{task_id}` and is only exposed through authenticated, range-capable endpoints:
 
 - `POST /api/personalized-resources/agent-task` with `resourceType: "generated_video"`
 - `POST /api/personalized-resources/generated-videos/{task_id}/start`
@@ -665,3 +690,6 @@ Get-FileHash $apk -Algorithm SHA256
 The distributable APK and checksum are written under `mobile/releases/`. Android requires JDK 21 and Android SDK Platform 36; this workstation keeps the command-line SDK in `$env:USERPROFILE\.android-sdk` and Gradle 8.14.3 in `$env:USERPROFILE\.gradle-distributions`.
 
 The current signed mobile release is version `1.0.2` with `versionCode 3`. `scripts/build-signed-apk.ps1` decrypts the external DPAPI-protected credential only into process-scoped environment variables, performs the native web build and Capacitor sync, builds the Android release, verifies it with the newest installed `apksigner`, and writes both the APK and its SHA-256 file to `mobile/releases/`. The signing key never enters the source tree or APK. Android may still show the normal “unknown source” confirmation for manually sideloaded APKs; eliminating that distribution warning requires publishing through an app store or managed-device channel, not merely adding an APK signature.
+### 2026-08-25 静态头像资源修复
+
+学习画像点阵头像使用的底图和 18 个分块 PNG 已纳入 Vite 的静态发布目录，避免线上构建只包含 `manifest.json` 时产生 404。验证命令：`cd frontend && npm run build -- --emptyOutDir=false`；生产环境通过逐文件同步更新资源，不重启后端服务。

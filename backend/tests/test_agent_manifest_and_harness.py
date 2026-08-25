@@ -30,7 +30,7 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
         self.assertEqual(len(DEFAULT_AGENT_MANIFEST.skills), 18)
         self.assertEqual(len(DEFAULT_AGENT_MANIFEST.agents), 22)
         agent_ids = {item["id"] for item in DEFAULT_AGENT_MANIFEST.agents}
-        self.assertIn("kimi-vision-understanding-agent", agent_ids)
+        self.assertIn("qwen-multimodal-evidence-agent", agent_ids)
         self.assertIn("document-text-extraction-agent", agent_ids)
         self.assertIn("spark-text-reasoning-agent", agent_ids)
         self.assertFalse(any(agent_id.startswith("runtime-support-") for agent_id in agent_ids))
@@ -211,7 +211,7 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
             runtime_settings={
                 "LLM_PROTOCOL": "openai",
                 "OPENAI_BASE_URL": "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2",
-                "ANTHROPIC_MODEL": "xsparkx2agent",
+                "ANTHROPIC_MODEL": "astron-code-latest",
             },
         )
         trace = result["orchestration"]
@@ -220,10 +220,10 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
         self.assertEqual(harness_trace["profileReportId"], 42)
         self.assertEqual(harness_trace["skill"]["id"], "learner.background.collect")
         self.assertEqual(harness_trace["skill"]["handlerKey"], "learning_background.collect")
-        self.assertEqual(harness_trace["modelRuntime"]["model"], "xsparkx2agent")
+        self.assertEqual(harness_trace["modelRuntime"]["model"], "astron-code-latest")
         self.assertEqual(
             harness_trace["modelRuntime"]["routing"]["image"]["modelId"],
-            "xopkimik26",
+            "qwen3-vl-plus",
         )
         self.assertEqual(harness_trace["mcp"]["toolCalls"][0]["status"], "complete")
         self.assertEqual(harness_trace["mcp"]["toolCalls"][0]["contract"]["input"], "passed")
@@ -300,7 +300,7 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
                 "LLM_PROTOCOL": "auto",
                 "OPENAI_BASE_URL": "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2",
                 "ANTHROPIC_BASE_URL": "https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic",
-                "ANTHROPIC_MODEL": "xsparkx2agent",
+                "ANTHROPIC_MODEL": "astron-code-latest",
             }
         ):
             result = harness.run(
@@ -315,9 +315,9 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
 
         runtime = result["harness"]["modelRuntime"]
         self.assertEqual(runtime["protocol"], "auto")
-        self.assertEqual(runtime["model"], "xsparkx2agent")
+        self.assertEqual(runtime["model"], "astron-code-latest")
         self.assertEqual(runtime["contextWindow"], 262144)
-        self.assertEqual(runtime["routing"]["image"]["handoffTo"]["modelId"], "xsparkx2agent")
+        self.assertEqual(runtime["routing"]["image"]["handoffTo"]["modelId"], "astron-code-latest")
         self.assertEqual(runtime["baseUrl"], "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2")
         self.assertFalse(runtime["customized"])
 

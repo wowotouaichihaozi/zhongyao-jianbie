@@ -34,7 +34,7 @@ if ROOT_BACKEND_ENV.exists():
 DEFAULT_ANTHROPIC_BASE_URL = "https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic"
 DEFAULT_OPENAI_BASE_URL = "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2"
 DEFAULT_ANTHROPIC_AUTH_TOKEN = ""
-DEFAULT_ANTHROPIC_MODEL = "xsparkx2agent"
+DEFAULT_ANTHROPIC_MODEL = "astron-code-latest"
 
 ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", DEFAULT_ANTHROPIC_BASE_URL).rstrip("/")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", DEFAULT_OPENAI_BASE_URL).rstrip("/")

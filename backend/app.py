@@ -67,6 +67,7 @@ try:
         LEARNING_PATH_RESOURCE_PLAN_VERSION,
         build_learning_profile_context,
         call_llm_json,
+        request_llm_audio_understanding,
         request_llm_image_understanding,
         request_llm_text,
         generate_background_chat,
@@ -165,6 +166,7 @@ except ImportError:  # pragma: no cover - package-style import fallback
         LEARNING_PATH_RESOURCE_PLAN_VERSION,
         build_learning_profile_context,
         call_llm_json,
+        request_llm_audio_understanding,
         request_llm_image_understanding,
         request_llm_text,
         generate_background_chat,
@@ -258,7 +260,8 @@ ADMIN_PASSWORD = get_setting("ADMIN_PASSWORD", setting_default("ADMIN_PASSWORD",
 SYSTEM_MONITOR = SystemMonitor(BASE_DIR)
 AUTH_LOCK_SECONDS = 10 * 60
 VISION_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp", ".gif"}
-VISION_EXTRACTION_CACHE_VERSION = "kimi-vision-evidence-v1"
+AUDIO_INPUT_SUFFIXES = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus"}
+VISION_EXTRACTION_CACHE_VERSION = "qwen3-vl-visual-evidence-v1"
 
 
 class LearningProfileRequiredError(ValueError):
@@ -1709,6 +1712,7 @@ _RESOURCE_AGENT_TITLE_SUFFIX_RE = re.compile(
     r"\s*[·｜|]\s*(?:题库生成|PPT生成|思维导图|视频查找|单片机实验|课程讲义|动画讲解|智能辅导|效果评估)?(?:智能体|agent)\s*$",
     flags=re.IGNORECASE,
 )
+_CORRUPTED_LEARNING_TEXT_RE = re.compile(r"\?{2,}|\ufffd")
 
 
 def normalize_learning_weak_point(value: object) -> str:
@@ -1716,6 +1720,8 @@ def normalize_learning_weak_point(value: object) -> str:
 
     text = " ".join(str(value or "").strip().split())
     if not text:
+        return ""
+    if _CORRUPTED_LEARNING_TEXT_RE.search(text):
         return ""
     text = _RESOURCE_AGENT_TITLE_SUFFIX_RE.sub("", text).strip()
     if _INTERNAL_EVIDENCE_PREFIX_RE.match(text):
@@ -3381,6 +3387,7 @@ def ensure_api_auth():
         return None
     public_paths = {
         "/api/health",
+        "/api/model-capabilities",
         "/api/auth/login",
         "/api/admin-auth/login",
         "/api/admin-auth/refreshToken",
@@ -3429,6 +3436,21 @@ def health():
             "now": now_iso(),
         }
     )
+
+
+@app.get("/api/model-capabilities")
+def public_model_capabilities():
+    """Expose effective model labels without provider URLs or credentials."""
+    routing = resolve_model_routing().get("routing") or {}
+    public_routing = {}
+    for kind in ("text", "image", "audio"):
+        route = routing.get(kind) or {}
+        public_routing[kind] = {
+            key: route.get(key)
+            for key in ("provider", "modelName", "modelId", "input", "output")
+            if route.get(key) not in (None, "")
+        }
+    return jsonify({"code": 0, "data": {"routing": public_routing}})
 
 
 @app.post("/api/auth/email-code")
@@ -4029,6 +4051,9 @@ def _extract_text_from_raw(raw: bytes, filename: str) -> str:
     if filename.endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp", ".gif")):
         return _extract_image_text(raw, filename)
 
+    if Path(filename).suffix.lower() in AUDIO_INPUT_SUFFIXES:
+        return _extract_audio_text(raw, filename)
+
     return ""
 
 
@@ -4054,6 +4079,10 @@ def _extract_cache_path(raw: bytes, filename: str) -> Path:
         model = get_setting("VISION_LLM_MODEL", DEFAULT_VISION_MODEL_ID) or DEFAULT_VISION_MODEL_ID
         cache_scope = f"{VISION_EXTRACTION_CACHE_VERSION}:{model}:{suffix}\0".encode("utf-8")
         digest = hashlib.sha256(cache_scope + raw).hexdigest()
+    elif suffix in AUDIO_INPUT_SUFFIXES:
+        model = get_setting("AUDIO_LLM_MODEL", "qwen3-omni-flash") or "qwen3-omni-flash"
+        cache_scope = f"qwen-audio-evidence-v1:{model}:{suffix}\0".encode("utf-8")
+        digest = hashlib.sha256(cache_scope + raw).hexdigest()
     else:
         digest = hashlib.sha256(raw).hexdigest()
     return EXTRACT_CACHE_DIR / f"{digest}{suffix}.txt"
@@ -4067,6 +4096,8 @@ def _file_kind_label(filename: str) -> str:
         return "DOC"
     if suffix in {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}:
         return "图片"
+    if suffix in AUDIO_INPUT_SUFFIXES:
+        return "音频"
     if suffix == ".pdf":
         return "PDF"
     if suffix in {".txt", ".md"}:
@@ -4080,6 +4111,8 @@ MULTIMODAL_KIND_BY_SUFFIX = {
     ".jpg": "image", ".jpeg": "image", ".png": "image", ".webp": "image",
     ".gif": "image", ".bmp": "image", ".tif": "image", ".tiff": "image",
     ".mp4": "video", ".webm": "video", ".mov": "video", ".m4v": "video", ".avi": "video",
+    ".wav": "audio", ".mp3": "audio", ".m4a": "audio", ".aac": "audio",
+    ".flac": "audio", ".ogg": "audio", ".opus": "audio",
     ".pdf": "document", ".doc": "document", ".docx": "document",
     ".ppt": "document", ".pptx": "document", ".txt": "document", ".md": "document",
 }
@@ -4129,13 +4162,16 @@ def _multimodal_context_text(rows: list[dict]) -> str:
     remaining = 9000
     for index, row in enumerate(rows, start=1):
         kind = str(row.get("media_kind") or "file")
-        kind_label = {"image": "图片", "video": "视频", "document": "文档"}.get(kind, "文件")
+        kind_label = {"image": "图片", "audio": "音频", "video": "视频", "document": "文档"}.get(kind, "文件")
         name = str(row.get("original_name") or "未命名附件")
         extracted = re.sub(r"\s+", " ", str(row.get("extracted_text") or "")).strip()
         prefix = f"{index}. {kind_label}《{name}》"
         if extracted and remaining > 0:
             excerpt = extracted[: min(3000, remaining)]
-            evidence_label = "Kimi 视觉理解证据" if kind == "image" else "文件文字提取结果"
+            evidence_label = {
+                "image": "通义千问视觉理解证据",
+                "audio": "通义千问音频理解证据",
+            }.get(kind, "文件文字提取结果")
             lines.append(f"{prefix}；{evidence_label}：{excerpt}")
             remaining -= len(excerpt)
         else:
@@ -4528,6 +4564,20 @@ def _extract_image_text(raw: bytes, filename: str) -> str:
             "result_requires_verification]\n"
             f"{ocr_text}"
         )
+    return ""
+
+
+def _extract_audio_text(raw: bytes, filename: str) -> str:
+    model = get_setting("AUDIO_LLM_MODEL", "qwen3-omni-flash") or "qwen3-omni-flash"
+    try:
+        evidence = request_llm_audio_understanding(
+            raw,
+            filename=Path(filename or "uploaded-audio.wav").name,
+        ).strip()
+        if evidence:
+            return f"[audio-preprocessor model={model}]\n{evidence}"
+    except Exception as exc:
+        app.logger.warning("audio preprocessing failed model=%s error=%s", model, public_llm_error(exc))
     return ""
 
 
@@ -11110,7 +11160,7 @@ def validate_xiaozhi_runtime_settings(payload: dict) -> dict:
     enabled = bool(payload.get("enabled"))
     protocol = str(payload.get("protocol") or "openai").strip().lower()
     if protocol not in {"openai", "anthropic"}:
-        raise ValueError("调用协议只能是 OpenAI Compatible 或 Anthropic Compatible")
+        raise ValueError("调用协议只能是讯飞 OpenAI 兼容接口或讯飞 Anthropic 兼容接口")
     base_url = str(payload.get("baseUrl") or payload.get("base_url") or "").strip().rstrip("/")
     model = str(payload.get("model") or DEFAULT_TEXT_MODEL_ID).strip()
     if not re.fullmatch(r"[A-Za-z0-9._:/-]{1,100}", model):
@@ -14039,8 +14089,8 @@ def xiaozhi_runtime_settings_get():
         "data": {
             "settings": xiaozhi_runtime_settings_for_user(int(user["id"])),
             "protocols": [
-                {"value": "openai", "label": "OpenAI Compatible"},
-                {"value": "anthropic", "label": "Anthropic Compatible"},
+                {"value": "openai", "label": "讯飞 OpenAI 兼容接口"},
+                {"value": "anthropic", "label": "讯飞 Anthropic 兼容接口"},
             ],
             "allowedHosts": [
                 item.strip()

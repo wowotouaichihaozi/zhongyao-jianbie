@@ -47,7 +47,7 @@ class ScoringEvidenceSuiteTests(unittest.TestCase):
             "orchestration": {"rootAgent": "xiaozhi-companion-agent", "runId": "run-test"},
             "harness": {
                 "skill": {"id": "learning.tutor.answer", "mcpTool": "learning.tutor.answer"},
-                "modelRuntime": {"model": "xsparkx2agent"},
+                "modelRuntime": {"model": "astron-code-latest"},
             },
         }
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tempdir:
@@ -82,7 +82,7 @@ class ScoringEvidenceSuiteTests(unittest.TestCase):
         result = {
             "tutor": tutor,
             "orchestration": {"rootAgent": "xiaozhi-companion-agent", "runId": "run-real"},
-            "harness": {"skill": {"id": "learning.tutor.answer", "mcpTool": "learning.tutor.answer"}, "modelRuntime": {"model": "xsparkx2agent"}},
+            "harness": {"skill": {"id": "learning.tutor.answer", "mcpTool": "learning.tutor.answer"}, "modelRuntime": {"model": "astron-code-latest"}},
         }
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tempdir:
             output_dir = Path(tempdir)

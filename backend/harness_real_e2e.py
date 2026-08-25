@@ -567,7 +567,7 @@ def main() -> int:
 
     status_payload = request_json(session, "GET", f"{args.base_url.rstrip('/')}/api/xiaozhi/status")
     architecture = nested(status_payload, "data", "architecture") or {}
-    configured_model = str(nested(status_payload, "data", "modelRuntime", "model") or "xsparkx2agent")
+    configured_model = str(nested(status_payload, "data", "modelRuntime", "model") or "astron-code-latest")
     architecture_summary = {
         "rootAgent": architecture.get("rootAgent"),
         "architecture": architecture.get("architecture"),

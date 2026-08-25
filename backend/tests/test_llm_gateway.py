@@ -59,6 +59,20 @@ def test_llm_gateway_requires_authentication(llm_client):
     assert client.post("/api-mimo/anthropic/v1/messages", json={"messages": []}).status_code == 401
 
 
+def test_public_model_capabilities_exposes_routes_without_connection_details(llm_client):
+    client, _headers = llm_client
+    response = client.get("/api/model-capabilities")
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["routing"]["image"]["modelId"] == "qwen3-vl-plus"
+    assert payload["routing"]["audio"]["modelId"] == "qwen3-omni-flash"
+    serialized = json.dumps(payload).lower()
+    assert "baseurl" not in serialized
+    assert "key" not in serialized
+    assert "token" not in serialized
+
+
 def test_llm_runtime_exposes_current_user_model_without_credentials(llm_client):
     client, headers = llm_client
     response = client.get("/api/llm/runtime", headers=headers)
@@ -70,7 +84,7 @@ def test_llm_runtime_exposes_current_user_model_without_credentials(llm_client):
     assert runtime["customized"] is True
     assert runtime["source"] == "user"
     assert runtime["contextWindow"] == 262_144
-    assert runtime["routing"]["image"]["modelId"] == "xopkimik26"
+    assert runtime["routing"]["image"]["modelId"] == "qwen3-vl-plus"
     assert runtime["routing"]["image"]["handoffTo"]["modelId"] == "spark-x2-agent"
     assert "key" not in str(runtime).lower()
     assert "token" not in str(runtime).lower()

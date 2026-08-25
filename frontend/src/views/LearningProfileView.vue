@@ -350,16 +350,20 @@
                     />
                     <figcaption v-if="reportPortraitState === 'loading'" class="profile-portrait-status" role="status">
                       <span class="profile-portrait-spinner" aria-hidden="true"></span>
-                      <small>{{ reportPortraitLoadingLabel }}</small>
+                      <small v-if="reportPortraitLoadingLabel">{{ reportPortraitLoadingLabel }}</small>
                     </figcaption>
                     <figcaption v-else-if="reportPortraitState === 'missing'" class="profile-portrait-status" role="status">
                       <small>当前为默认头像</small>
                       <button type="button" title="生成报告专属头像" @click.stop="retryReportPortrait"><Sparkles :size="13" />生成</button>
                     </figcaption>
-                    <figcaption v-else-if="reportPortraitState === 'failed'" class="profile-portrait-status profile-portrait-status-error" role="alert" :title="reportPortraitError">
-                      <small>专属头像生成失败</small>
-                      <button type="button" title="重试生成报告专属头像" aria-label="重试生成报告专属头像" @click.stop="retryReportPortrait"><RefreshCcw :size="14" /></button>
-                    </figcaption>
+                    <button
+                      v-else-if="reportPortraitState === 'failed'"
+                      type="button"
+                      class="profile-portrait-retry"
+                      title="重试生成报告专属头像"
+                      aria-label="重试生成报告专属头像"
+                      @click.stop="retryReportPortrait"
+                    ><RefreshCcw :size="14" /></button>
                   </figure>
                   <p>{{ currentReport.aiAnalysis?.summary || '已结合学习目标、知识基础、学习偏好和薄弱知识点生成当前学习画像。' }}</p>
                 </div>
@@ -700,7 +704,7 @@
               v-for="report in historyReports"
               :key="report.id"
               :class="['history-item', { active: report.isActive }]"
-              @click="viewHistoryReport(report)"
+              @click="openHistoryChat(report)"
             >
               <div class="history-item-time">
                 <span class="history-time-icon">
@@ -853,6 +857,8 @@ const chatInitializing = ref(false)
 const chatHistory = ref([]) // ?????????
 const profileSessions = ref([])
 const activeProfileSessionId = ref(null)
+const activeChatReport = ref(null)
+const legacyChatFallbackSessionId = ref(null)
 const CHAT_CONNECTING_TEXT = '正在连接学习背景智能体，请稍候...'
 const CHAT_REPLY_PENDING_TEXT = '正在整理你的学习背景信息...'
 const LLM_CHAT_TIMEOUT_MS = 90000
@@ -1006,8 +1012,8 @@ function formatProfileValue(value) {
 }
 
 const chatStudentProfile = computed(() => (
-  profileData.value.chatStudentProfile && typeof profileData.value.chatStudentProfile === 'object'
-    ? normalizeStudentProfileDimensions(profileData.value.chatStudentProfile)
+  (activeChatReport.value?.chatStudentProfile || profileData.value.chatStudentProfile) && typeof (activeChatReport.value?.chatStudentProfile || profileData.value.chatStudentProfile) === 'object'
+    ? normalizeStudentProfileDimensions(activeChatReport.value?.chatStudentProfile || profileData.value.chatStudentProfile)
     : {}
 ))
 
@@ -1059,6 +1065,14 @@ async function loadHistoryReports() {
     const data = await getLearningProfiles()
     historyReports.value = Array.isArray(data.profiles) ? data.profiles : []
     historyReports.value.forEach(seedReportPortraitState)
+    if (activeProfileSessionId.value) {
+      const activeSession = profileSessions.value.find(
+        (session) => Number(session.id) === Number(activeProfileSessionId.value),
+      )
+      activeChatReport.value = historyReports.value.find(
+        (report) => Number(report.id) === Number(activeSession?.reportId),
+      ) || null
+    }
     const activeProfile = historyReports.value.find(report => report.isActive) || null
     if (activeProfile && isGeneratedProfileReport(activeProfile)) {
       const currentId = Number(profileData.value?.id || 0)
@@ -1086,6 +1100,22 @@ function viewHistoryReport(report) {
   seedReportPortraitState(report)
   viewingHistory.value = report
   activeMenu.value = 'report'
+}
+
+async function openHistoryChat(report) {
+  if (!report?.id || profileActionBusy.value) return
+  const session = profileSessions.value.find((item) => Number(item.reportId) === Number(report.id))
+  if (!session) {
+    showToast('该画像暂无关联对话记录')
+    return
+  }
+  activeProfileSessionId.value = session.id
+  activeChatReport.value = report
+  viewingHistory.value = null
+  activeMenu.value = 'assess'
+  await loadSelectedProfileSession()
+  await nextTick()
+  scrollChatToBottom({ retry: true })
 }
 
 async function activateProfileVersion(report) {
@@ -1287,9 +1317,11 @@ function portraitStrength(group) {
 }
 
 const FACE_ASSET_BASE = '/learning-face-cropped-split'
+// Bust stale browser caches after replacing a previously incomplete static asset set.
+const FACE_ASSET_VERSION = '20260825'
 const FACE_CANVAS_FALLBACK = { width: 832, height: 1078 }
 const profileFaceManifest = ref(null)
-const profileFaceBaseSrc = `${FACE_ASSET_BASE}/face-cropped-dots-transparent.png`
+const profileFaceBaseSrc = `${FACE_ASSET_BASE}/face-cropped-dots-transparent.png?v=${FACE_ASSET_VERSION}`
 
 function hideMissingProfileFaceAsset(event) {
   event.currentTarget.hidden = true
@@ -1331,7 +1363,7 @@ const faceDimensionPrimaryBlocks = {
 
 async function loadProfileFaceManifest() {
   try {
-    const response = await fetch(`${FACE_ASSET_BASE}/manifest.json`)
+    const response = await fetch(`${FACE_ASSET_BASE}/manifest.json?v=${FACE_ASSET_VERSION}`, { cache: 'no-store' })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const manifest = await response.json()
     if (!manifest?.crop?.width || !manifest?.crop?.height || !Array.isArray(manifest.blocks)) {
@@ -1367,7 +1399,7 @@ const profileFaceSegments = computed(() => {
       : 'drop-shadow(0 0 4px rgba(32, 36, 36, 0.08))'
     return {
       id: block.id,
-      src: `${FACE_ASSET_BASE}/${block.file}`,
+      src: `${FACE_ASSET_BASE}/${block.file}?v=${FACE_ASSET_VERSION}`,
       active,
       style: {
         left: `${(Number(block.x) || 0) / width * 100}%`,
@@ -1658,14 +1690,9 @@ const reportPortraitState = computed(() => {
     ? storedState
     : normalizedReportPortraitState()
 })
-const reportPortraitError = computed(() => (
-  reportPortraitStates[portraitStateKey()]?.error
-    || currentReport.value?.portrait?.error
-    || '画像人像生成失败，请重试'
-))
 const reportPortraitLoadingLabel = computed(() => (
   currentReport.value?.portrait?.status === 'generating'
-    ? 'AI 正在生成并保存'
+    ? ''
     : '正在读取已保存头像'
 ))
 
@@ -2825,10 +2852,44 @@ async function ensureInitialChatQuestion() {
   await scrollChatToBottom()
 }
 
-function applyProfileSession(session) {
+function getPersistedChatMessages() {
+  const persisted = Array.isArray(profileData.value?.chatMessages) ? profileData.value.chatMessages : []
+  return persisted
+    .filter(item => item && (item.role === 'user' || item.role === 'bot' || item.role === 'assistant'))
+    .map(item => ({
+      id: item.id || createChatMessageId(item.role === 'assistant' ? 'bot' : item.role),
+      role: item.role === 'assistant' ? 'bot' : item.role,
+      text: String(item.text || item.content || ''),
+      time: item.time || '',
+      timestamp: item.timestamp || null,
+      source: item.source || 'legacy-local-cache',
+      attachments: Array.isArray(item.attachments) ? item.attachments : [],
+    }))
+    .filter(item => item.text.trim())
+}
+
+function mergeProfileSessionMessages(serverMessages, fallbackMessages) {
+  const merged = [...serverMessages]
+  const known = new Set(serverMessages.map(item => `${item.role}\u0000${item.text.trim()}`))
+  fallbackMessages.forEach((item) => {
+    const key = `${item.role}\u0000${item.text.trim()}`
+    if (!known.has(key)) {
+      merged.push(item)
+      known.add(key)
+    }
+  })
+  return merged.sort((left, right) => Number(left.timestamp || 0) - Number(right.timestamp || 0))
+}
+
+function applyProfileSession(session, { allowLegacyFallback = false } = {}) {
   if (!session) return
   activeProfileSessionId.value = session.id
-  chatMsgs.value = buildProfileSessionChatMessages(session.messages)
+  activeChatReport.value = historyReports.value.find((report) => Number(report.id) === Number(session.reportId)) || null
+  const serverMessages = buildProfileSessionChatMessages(session.messages)
+  const legacyMessages = allowLegacyFallback ? getPersistedChatMessages() : []
+  if (!serverMessages.length && legacyMessages.length) legacyChatFallbackSessionId.value = session.id
+  const fallbackMessages = legacyChatFallbackSessionId.value === session.id ? legacyMessages : []
+  chatMsgs.value = mergeProfileSessionMessages(serverMessages, fallbackMessages)
   chatHistory.value = chatMsgs.value.map((message) => ({
     role: message.role === 'bot' ? 'assistant' : 'user', content: message.text,
   }))
@@ -2843,7 +2904,7 @@ function applyProfileSession(session) {
 async function loadSelectedProfileSession() {
   if (!activeProfileSessionId.value) return
   try {
-    applyProfileSession(await getLearningProfileSession(activeProfileSessionId.value))
+    applyProfileSession(await getLearningProfileSession(activeProfileSessionId.value), { allowLegacyFallback: true })
   } catch (error) {
     addLog(error, 'error', '加载学习画像会话')
     showToast('学习画像会话加载失败')
@@ -2856,7 +2917,7 @@ async function initializeProfileSessions() {
   if (!sessions.length) {
     const session = await createLearningProfileSession()
     profileSessions.value = [session]
-    applyProfileSession(session)
+    applyProfileSession(session, { allowLegacyFallback: true })
     return
   }
   activeProfileSessionId.value = sessions[0].id
@@ -2868,6 +2929,7 @@ async function startNewProfileSession() {
   try {
     const session = await createLearningProfileSession({ title: `学习画像 ${profileSessions.value.length + 1}` })
     profileSessions.value = [session, ...profileSessions.value]
+    legacyChatFallbackSessionId.value = null
     applyProfileSession(session)
     showToast('已创建新的独立学习画像对话')
   } catch (error) {
@@ -9493,13 +9555,10 @@ onBeforeUnmount(() => {
   color: #246443;
 }
 
-.profile-portrait-status-error {
-  border: 1px solid #ead7d1;
-  background: rgba(255, 248, 245, 0.94);
-  color: #875246;
-}
-
-.profile-portrait-status-error button {
+.profile-portrait-retry {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
   display: grid;
   width: 22px;
   height: 22px;
@@ -9512,7 +9571,7 @@ onBeforeUnmount(() => {
   place-items: center;
 }
 
-.profile-portrait-status-error button:hover {
+.profile-portrait-retry:hover {
   border-color: #b88576;
   color: #6e4035;
 }
@@ -10761,12 +10820,6 @@ onBeforeUnmount(() => {
 #app .lp-page.lp-page.profile-report-mode .profile-portrait-spinner {
   border-color: #cce6d8 !important;
   border-top-color: #58a97f !important;
-}
-
-#app .lp-page.lp-page.profile-report-mode .profile-portrait-status-error {
-  border-color: #ead7d1 !important;
-  background: #fff8f5 !important;
-  color: #875246 !important;
 }
 
 @media (max-width: 480px) {

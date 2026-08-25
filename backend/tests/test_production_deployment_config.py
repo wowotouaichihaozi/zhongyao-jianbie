@@ -81,3 +81,11 @@ def test_production_package_contains_mobile_build():
 
     assert '"mobile/dist/index.html"' in package_builder
     assert 'iter_tree("mobile/dist", include_frontend_dist)' in package_builder
+
+
+def test_ai_coding_proxy_forwards_command_menu_rpc_only_through_auth():
+    nginx_config = read_project_file("deploy/nginx/ai-coding-runtime.conf")
+
+    assert "commands/(list|execute)" in nginx_config
+    assert "auth_request /_ai_coding_auth;" in nginx_config
+    assert "location /api/" not in nginx_config

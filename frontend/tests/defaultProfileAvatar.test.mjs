@@ -13,5 +13,7 @@ test('default portrait is lightweight and used until the report portrait is read
   assert.match(source, /reportPortraitUrl \|\| DEFAULT_PROFILE_PORTRAIT_URL/)
   assert.match(source, /reportPortraitState === 'ready'/)
   assert.match(source, /当前为默认头像/)
-  assert.match(source, /专属头像生成失败/)
+  assert.match(source, /aria-label="重试生成报告专属头像"/)
+  assert.doesNotMatch(source, /AI 正在生成并保存/)
+  assert.doesNotMatch(source, />专属头像生成失败</)
 })

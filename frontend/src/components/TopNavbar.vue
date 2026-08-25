@@ -11,7 +11,8 @@
         :to="item.to"
         :class="{ active: item.active?.() }"
       >
-        <component :is="item.icon" :size="18" :stroke-width="2" />
+        <img v-if="item.logo" class="nav-item-logo" :src="item.logo" alt="" aria-hidden="true" />
+        <component v-else :is="item.icon" :size="18" :stroke-width="2" />
         <span>{{ item.label }}</span>
       </RouterLink>
     </nav>
@@ -23,7 +24,8 @@
         :to="item.to"
         :class="{ active: item.active?.() }"
       >
-        <component :is="item.icon" :size="21" :stroke-width="2.2" />
+        <img v-if="item.logo" class="nav-item-logo" :src="item.logo" alt="" aria-hidden="true" />
+        <component v-else :is="item.icon" :size="21" :stroke-width="2.2" />
         <span>{{ item.label }}</span>
       </RouterLink>
     </nav>
@@ -76,6 +78,7 @@ const navItems = [
   { to: '/agent-digital-twin', label: '数字孪生', icon: Orbit, active: () => route.path.startsWith('/agent-digital-twin') },
   { to: '/effect-assessment', label: '效果评估', icon: Gauge, active: () => route.path.startsWith('/effect-assessment') },
   { to: '/digital-human-interview', label: 'AI面试', icon: ChartNoAxesCombined, active: () => route.path.startsWith('/digital-human-interview') },
+  { to: '/ai-coding', label: 'AI 编程', logo: '/deepseek-harness.svg', active: () => route.path.startsWith('/ai-coding') },
 ]
 
 const mobileNavItems = [
@@ -226,6 +229,11 @@ async function logout() {
   color: #0f8f8a;
 }
 
+.nav-links a:nth-child(8) svg,
+.mobile-bottom-nav a:nth-child(8) svg {
+  color: #2563eb;
+}
+
 .nav-links a.active::after {
   content: "";
   position: absolute;
@@ -245,6 +253,13 @@ async function logout() {
   justify-self: end;
   gap: 18px;
   padding-right: 28px;
+}
+
+.nav-item-logo {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  object-fit: contain;
 }
 
 .mobile-bottom-nav {

@@ -64,8 +64,8 @@
         <label>
           <span>调用协议</span>
           <select v-model="runtimeSettings.protocol" :disabled="!runtimeSettings.enabled">
-            <option value="openai">OpenAI Compatible</option>
-            <option value="anthropic">Anthropic Compatible</option>
+            <option value="openai">讯飞 OpenAI 兼容接口</option>
+            <option value="anthropic">讯飞 Anthropic 兼容接口</option>
           </select>
         </label>
 
@@ -85,7 +85,7 @@
             v-model.trim="runtimeSettings.model"
             type="text"
             :disabled="!runtimeSettings.enabled"
-            placeholder="xsparkx2agent"
+            placeholder="astron-code-latest"
           />
         </label>
 
@@ -357,7 +357,7 @@ const runtimeSettings = reactive({
   enabled: false,
   protocol: 'openai',
   baseUrl: 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2',
-  model: 'xsparkx2agent',
+  model: 'astron-code-latest',
 })
 const messageListRef = ref(null)
 const viewport = reactive({ width: window.innerWidth, height: window.innerHeight })
@@ -641,7 +641,7 @@ async function openRuntimeSettings() {
     runtimeSettings.enabled = Boolean(settings.enabled)
     runtimeSettings.protocol = settings.protocol || 'openai'
     runtimeSettings.baseUrl = settings.baseUrl || 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2'
-    runtimeSettings.model = settings.model || 'xsparkx2agent'
+    runtimeSettings.model = settings.model || 'astron-code-latest'
   } catch (error) {
     runtimeSettingsState.value = 'error'
     runtimeSettingsMessage.value = error?.response?.data?.msg || error?.message || '运行配置加载失败'

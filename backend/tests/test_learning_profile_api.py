@@ -2031,6 +2031,14 @@ class LearningProfileApiTests(unittest.TestCase):
         self.assertEqual(merged["recommendations"], ["完成专项练习"])
         self.assertEqual(merged["adjustments"], ["优先巩固 GPIO"])
 
+    def test_corrupted_knowledge_points_are_excluded_from_learning_evidence(self) -> None:
+        self.assertEqual(app_module.normalize_learning_weak_point("Linux???"), "")
+        self.assertEqual(app_module.normalize_learning_weak_point("MCU����"), "")
+        self.assertEqual(
+            app_module.normalize_learning_weak_point("GPIO 中断配置"),
+            "GPIO 中断配置",
+        )
+
     def test_effect_assessment_adjustment_is_applied_through_harness_once(self) -> None:
         stage_id = "week-effect-adjustment"
         experiment_id = "effect-adjustment-weak-gpio"

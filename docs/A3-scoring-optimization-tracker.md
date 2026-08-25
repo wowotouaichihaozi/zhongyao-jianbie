@@ -1,6 +1,6 @@
 # A3 Scoring Optimization Tracker
 
-Last updated: 2026-08-14
+Last updated: 2026-08-25
 
 This file is the source of truth for the current scoring review and frontend refinement work. Update it before and after every implementation batch.
 
@@ -65,6 +65,10 @@ The nominal 30-point technical-indicator subsection has child rows totaling 31 p
 
 ## Planned implementation phases
 
+### Learning-profile conversation recovery
+
+- [~] Preserve legacy browser chat records when an empty server session is returned during startup; keep the fallback scoped to that initialized session and never carry it into a new session.
+
 ### Phase 1 - Highest-impact deep-page polish
 
 - [x] Select generated-resource history and detail as the first route group.
@@ -126,6 +130,12 @@ Acceptance criteria for this batch:
 - [x] Replace oversized always-on animation media and defer below-the-fold landing media without removing source assets.
 - [~] Run focused deployment tests, a non-clean frontend build, bundle-size comparison, and user-led desktop/mobile checks before phased production deployment.
 
+### Static learning-profile face assets
+
+- [x] Restore the learning-profile face base image and segmented PNG assets to the Vite static source directory; the deployed build previously contained only `manifest.json`, causing browser-visible 404s for the face layers.
+
+Verification: `npm run build -- --emptyOutDir=false`; the built `frontend/dist/learning-face-cropped-split/` contains 20 files. The same directory was copied to production without restarting application services; `manifest.json`, the base image, both nested `segments/...` URLs and legacy root-level segment URLs return HTTP 200 from `https://lzhan.xyz`. The missing `/icon.png` was also restored from the existing platform logo asset. The deployed profile chunk now appends `?v=20260825` and fetches the manifest with `cache: no-store` to bypass stale browser/Nginx cache entries.
+
 Acceptance criteria for this batch:
 
 - `/`, `/api/health`, `/ppt-api/health`, and `/api/item/{a1,b7,c4}` remain available after unrelated services stop.
@@ -134,9 +144,9 @@ Acceptance criteria for this batch:
 - The floating assistant no longer requires a 10 MB GIF download, and below-the-fold landing images do not block initial rendering.
 - Production changes are deployed in small verified batches with an immediate configuration rollback path.
 
-### Seedream 4.5 image-generation migration
+### Doubao Seedream 4.5 image-generation migration
 
-- [x] Verify the APIMart Seedream 4.5 submission, authentication, parameter, and task-polling contract against the provider documentation.
+- [x] Verify the Doubao Seedream 4.5 submission, authentication, parameter, and task-polling contract through the APIMart service channel.
 - [x] Route learning-profile portraits, learning-video first frames, and PPT illustration generation through `seedream-4-5`.
 - [x] Add mocked contract tests for the model ID, 2K minimum resolution, Bearer authentication, asynchronous polling, result parsing, and failure handling.
 - [x] Update environment examples and root README claims without storing credentials in Git.
@@ -159,6 +169,48 @@ Acceptance criteria for this batch:
 - [x] Add `SCORING_MATRIX.md` with the official score structure, current verifiable evidence, reproduction entry points, and explicit unresolved risks without claiming a self-score.
 - [ ] Run the five tutoring calls against the final review account and archive the redacted evidence package; unit tests prove the pipeline contract but are not presented as real model evidence.
 
+### Domestic model labeling and Bailian vision migration
+
+- [x] Replace the unavailable Kimi vision route with Alibaba Bailian Qwen3-VL-Plus and route uploaded audio through Qwen3-Omni-Flash before the Spark handoff.
+- [x] Reconcile the landing-page model cards with the actual domestic runtime: Spark X2 Flash, Qwen3-VL-Plus, Qwen3-Omni-Flash, Doubao Seedream 4.5, Seedance, and Xunfei speech/avatar services.
+- [x] Update the Agent Manifest, runtime routing evidence, README, and focused tests without exposing provider credentials.
+- [x] Verify real text, visual, and audio model requests, the full backend suite, and non-clean frontend/PPT builds locally.
+- [x] Route digital-interview camera frames through Qwen3-VL-Plus evidence extraction before Spark scoring, and disable the legacy MiMo text fallback.
+- [ ] Deploy this model-routing batch to production only after the user resumes deployment; production remains on the restored pre-change configuration.
+
+Acceptance criteria for this batch:
+
+- Image uploads are sent to the configured Bailian OpenAI-compatible endpoint with `qwen3-vl-plus`; audio uploads use the Bailian native multimodal endpoint with `qwen3-omni-flash`; both are then handed to Spark as grounded evidence text.
+- Vision credentials are independent from the Spark text-model credential and remain only in ignored local/server environment files.
+- User-visible model labels describe the models that actually execute each capability; no Kimi or GPT Image label remains in the active product surface.
+- A failed vision call remains an explicit marked fallback and cannot masquerade as successful model evidence.
+
+### Shared AI coding workspace
+
+- [x] Deploy DeepSeek Harness as a non-root shared workspace on the isolated sandbox host.
+- [x] Add the authenticated `/ai-coding` navigation route with visible connection, failure, and retry states.
+- [x] Proxy the Harness runtime through the `lzhan.xyz` origin without exposing provider credentials or the sandbox port.
+- [x] Verify service status, unauthenticated rejection, and authenticated static accessibility without invoking the model.
+- [x] Restore the authenticated Harness command-menu RPC path without exposing the main application's remaining `/api` routes.
+- [x] Add authenticated shared-workspace attachments and bounded ZIP extraction without accepting a browser-provided server path.
+
+Acceptance criteria for this batch:
+
+- All website users intentionally share one Harness workspace and session store; the wrapper embeds Harness directly below the main navigation without duplicating a title/status row.
+- The DeepSeek API credential remains server-only and is never included in tracked files, frontend assets, API responses, or logs.
+- Harness runs under a dedicated non-root account and accepts traffic only through the authenticated main-site proxy.
+- Loading and connection failures never leave a blank page, and the user can retry without reloading the full application.
+
+### Learner-facing demo copy cleanup
+
+- [x] Remove presentation-oriented prefixes from seeded conversation memories and replace the visible demo-source label with neutral product language.
+- [x] Re-seed the production conversation-growth examples and verify that the TinyUSB memory retains the learning request without presentation wording.
+
+### Learning-evidence encoding guard
+
+- [x] Reject corrupted knowledge-point labels before they can enter effect-assessment heatmaps or dynamic learning-path adjustments.
+- [x] Repair the two affected production tasks and their resource metadata without regenerating the learner's existing path.
+
 ## Completed changes
 
 | Date | Phase | Change | Verification | Commit |
@@ -167,13 +219,19 @@ Acceptance criteria for this batch:
 | 2026-08-14 | Phase 1 | Restored task-backed resource deep links, exposed profile/orchestration/quality/source evidence, isolated generated content, added honest history states, and separated per-resource learning feedback with closed-loop next actions. | Frontend non-clean build; resource detail unit tests 5/5; synthetic Playwright contract and visual review at 1440x900 and 390x844; backend 79 tests and 25 subtests; `git diff --check`. | This Phase 1 commit |
 | 2026-08-14 | Repository integrity | Narrowed the admin runtime-log ignore rule and restored the router-referenced server-monitor page to source control. | Isolated frozen-lockfile install; admin typecheck; admin production build with `--emptyOutDir=false`; runtime `admin/logs/` remains ignored. | Admin integrity commit |
 | 2026-08-15 | Production performance batches 1-3 | Stopped unrelated application services, restored desktop SPA deployment, fixed static caching, split learner views into route-level chunks, and replaced oversized initial media with WebP plus original fallbacks. | Retained live endpoints all 200; server-local homepage 17 ms and application endpoints 2-6 ms; available host memory about 1.0 GiB; deployment tests 6/6; media tests 2/2; clean non-destructive build reduced entry JS from 1.45 MB to 236.5 KB (94.4 KB transferred with gzip), entry CSS from 868 KB to 197 KB, five landing images from 10.7 MB to 0.55 MB, and the floating animation from 10.6 MB to 193 KB. | `616269e`, `f0adc6e`, `4ff47ea`; deployed and HTTP-verified |
-| 2026-08-15 | Seedream 4.5 migration | Fixed all tracked image-generation paths to APIMart `seedream-4-5`, migrated legacy PPT provider selections at runtime, and stored credentials only in ignored local/server environment files. | Backend focused tests 33/33; PPT typecheck; Seedream adapter tests 3/3; APIMart credential check HTTP 200; production backend active and public health HTTP 200. Full backend suite: 285 passed and 1 unrelated dirty-worktree learning-path test failed. | `eeffc64` plus PPT follow-up commit; backend deployed |
+| 2026-08-15 | Doubao Seedream 4.5 migration | Fixed all tracked image-generation paths to Doubao `seedream-4-5` through the APIMart service channel, migrated legacy PPT provider selections at runtime, and stored credentials only in ignored local/server environment files. | Backend focused tests 33/33; PPT typecheck; Seedream adapter tests 3/3; APIMart credential check HTTP 200; production backend active and public health HTTP 200. Full backend suite: 285 passed and 1 unrelated dirty-worktree learning-path test failed. | `eeffc64` plus PPT follow-up commit; backend deployed |
 | 2026-08-15 | Default profile portrait | Generated a clean non-identifying Seedream 4.5 learner illustration, compressed it to a 640px WebP, and kept loading/missing/failure labels plus retry actions visible until a report-specific portrait is ready. | Default-avatar contract test 1/1; non-clean frontend build; generated source and compressed WebP visually inspected. | This default-avatar commit |
 | 2026-08-15 | Phase 3 scoring evidence pipeline | Extended the real Harness run from one to five distinct intelligent-tutoring cases, linked summary generation directly to redacted E2E task artifacts, and documented a repository-relative reproduction flow. | Python compile checks; `tests.test_harness_real_e2e` and `tests.test_scoring_evidence_suite`, 13/13 passed without model calls. Formal real-model evidence remains pending. | This Phase 3 evidence commit |
 | 2026-08-15 | Phase 2 auth and exam recovery | Preserved protected deep links across login and runtime 401 redirects; normalized exam payloads, blocked empty-exam timing/history/evidence writes, used wall-clock timing, and added deliberate exit plus mobile layout. | Frontend contract tests 8/8; Playwright deep-link and exam fixtures passed; non-clean production build passed. | `3f1d48f` |
+| 2026-08-16 | Domestic text and multimodal routing | Routed uploaded images and digital-interview frames through Qwen3-VL-Plus, audio evidence through Qwen3-Omni-Flash, and final reasoning through Spark X2 Flash; disabled the legacy MiMo interview fallback and aligned public runtime metadata, landing/PPT labels, Manifest, README, and legacy PPT migration. Production deployment is paused by user request. | Real local text/image/audio calls succeeded; backend `296 passed, 49 subtests passed`; interview/multimodal/routing follow-up tests 15/15; main frontend non-clean build; PPT typecheck and non-clean build; `git diff --check`; tracked-diff credential scan clean. | Local changes, not committed or deployed |
 | 2026-08-15 | Phase 2 learning-path integrity | Delayed embedded-assistant path persistence until Harness review, rejected degraded stage baselines, separated load/generation errors from empty profile state, and blocked resource dispatch from degraded paths in both metadata and the backend executor. | Learning-profile/path API 61/61 plus 7 subtests; Harness/MCP 32/32 plus 42 subtests; non-clean frontend build passed. Desktop/mobile visual review remains pending. | This learning-path integrity commit |
 | 2026-08-15 | Deep-page wrappers | Fitted the 1920x1080 digital-twin scene into the available viewport and added return, preflight, unavailable and retry states to the OhMyPPT wrapper. | Wrapper source contracts 2/2; non-clean production build passed; route chunks remain 2.11 KB and 2.81 KB before gzip. Desktop/mobile visual review remains pending. | This wrapper-page commit |
 | 2026-08-15 | A3 scoring matrix | Added a judge-facing 110-point evidence index that separates implemented facts, repeatable checks, missing real-model cases, missing documents, and unverified presentation assets. | Referenced files and routes checked; Manifest JSON parsed as 22 agents and 18 Skills; `git diff --check` passed. | This scoring-matrix commit |
+| 2026-08-17 | Shared AI coding workspace | Deployed DeepSeek Harness under a non-root sandbox account, added the authenticated navbar route and direct iframe embedding, kept provider credentials behind a root-only upstream proxy, and suppressed the remote-only internal-testing notice without opening settings or credential APIs. | Isolated non-clean frontend build; Nginx config check; Harness and SSH tunnel active; unauthenticated runtime/RPC HTTP 401; authenticated desktop 1699x828 and mobile 390x844 browser checks with no plugin/RPC errors and no model call. | Local changes, deployed |
+| 2026-08-17 | AI coding command menu | Forwarded only the authenticated `commands/list` and `commands/execute` RPC endpoints so the input “+” menu can load and run Harness commands without taking over the main site's general `/api` namespace. | Focused deployment-config test; Nginx config check; authenticated browser click and console verification without a model call. | Local changes, deployed |
+| 2026-08-17 | AI coding attachments | Added an independent Harness attachment button for arbitrary files, fixed all uploads to the shared workspace, and automatically extracts ZIP archives through bounded traversal/symlink/zip-bomb checks. Documented the MIT community-plugin provenance while retaining a hardened server implementation. | Focused upload/extractor tests 12/12; Node/Python syntax checks; empty upload HTTP 400; authenticated browser verified attachment and command controls with no model call. | Local changes, deployed |
+| 2026-08-17 | Learner-facing copy cleanup | Removed presentation-oriented prefixes from six seeded conversation memories and renamed their visible source to `示例对话`; retained the original TinyUSB learning intent. | Python compile; non-clean frontend build; production re-seed returned 6/6 completed extractions; database legacy-phrase count 0; live HTML and versioned route assets verified. | Local changes, deployed |
+| 2026-08-17 | Learning-evidence encoding guard | Excluded corrupted knowledge-point labels from assessment evidence and repaired the two affected first-week tasks as `嵌入式 Linux 驱动专项巩固` and `MCU 外设配置专项巩固`, including routes, caches, task payloads, and orchestration records. | Focused backend regression 1/1; production SQLite backups created; exact legacy strings and encoded routes count 0; backend health HTTP 200; authenticated browser verified tasks 09-11 and generation states. | Local changes, deployed |
 
 ## Remaining work
 

@@ -119,31 +119,31 @@
           <article style="--reveal-delay: 0ms; --model-accent: #087c60; --model-soft: #e7f5f0">
             <div class="auth-model-card-head">
               <span class="auth-model-icon"><BrainCircuit :size="22" /></span>
-              <small class="auth-model-tag core">讯飞核心 · 主控</small>
+              <small class="auth-model-tag core">国产模型 · 文本主控</small>
             </div>
-            <h3>讯飞星火 Spark X2 Agent</h3>
-            <code>xsparkx2agent</code>
-            <p>驱动 Supervisor、学习规划、资源编排、问答与评估等 Harness 推理链路。</p>
+            <h3>{{ publicModelRuntime.text.modelName }}</h3>
+            <code>{{ publicModelRuntime.text.modelId }}</code>
+            <p>接收多模态证据，驱动 Supervisor、学习规划、资源编排、问答与评估等 Harness 推理链路。</p>
           </article>
 
           <article style="--reveal-delay: 70ms; --model-accent: #2563eb; --model-soft: #eaf1ff">
             <div class="auth-model-card-head">
               <span class="auth-model-icon"><Eye :size="22" /></span>
-              <small class="auth-model-tag domestic">国产模型 · 视觉</small>
+              <small class="auth-model-tag domestic">国产模型 · 视觉/音频</small>
             </div>
-            <h3>Kimi K2.6</h3>
-            <code>xopkimik26</code>
-            <p>解析图片和视觉证据，再把结构化结果交回 Spark X2 Agent 继续编排。</p>
+            <h3>阿里百炼 · 通义千问多模态</h3>
+            <code>qwen3-vl-plus · qwen3-omni-flash</code>
+            <p>分别解析图片与音频证据，再把可核验文本交回 Spark X2 Flash 继续编排。</p>
           </article>
 
           <article style="--reveal-delay: 140ms; --model-accent: #7c3aed; --model-soft: #f2ebff">
             <div class="auth-model-card-head">
               <span class="auth-model-icon"><ImageIcon :size="22" /></span>
-              <small class="auth-model-tag adapter">可插拔适配器 · 生图</small>
+              <small class="auth-model-tag domestic">国产模型 · 生图</small>
             </div>
-            <h3>Image2 兼容图像模型</h3>
-            <code>gpt-image-2 / gpt-image-2-ext</code>
-            <p>学习画像插画与 AI 视频首帧复用同一类生成接口；模型 ID 由服务端配置，可替换为兼容图像模型。</p>
+            <h3>豆包 Seedream 4.5 图像模型</h3>
+            <code>seedream-4-5</code>
+            <p>为学习画像、AI 视频首帧和 PPT 配图生成个性化视觉素材。</p>
           </article>
 
           <article style="--reveal-delay: 210ms; --model-accent: #c2415d; --model-soft: #fbecef">
@@ -159,7 +159,7 @@
           <article style="--reveal-delay: 280ms; --model-accent: #a15c08; --model-soft: #fff3df">
             <div class="auth-model-card-head">
               <span class="auth-model-icon"><AudioLines :size="22" /></span>
-              <small class="auth-model-tag adapter">讯飞 SDK + 音频适配器</small>
+              <small class="auth-model-tag domestic">国产服务 · 讯飞语音/数字人</small>
             </div>
             <h3>视频旁白与讯飞数字人 TTS</h3>
             <code>讯飞超拟人语音合成 · x4_yezi</code>
@@ -584,6 +584,9 @@ const captchaQuestion = ref('')
 const pendingRoute = ref(safeInternalRedirect(route.query.redirect))
 const emailCodeSending = ref(false)
 const emailCodeCountdown = ref(0)
+const publicModelRuntime = reactive({
+  text: { modelName: '国产文本推理模型', modelId: '服务端运行时路由' },
+})
 let emailCodeTimer = null
 let landingScrollFrame = null
 let revealObserver = null
@@ -692,8 +695,24 @@ onMounted(() => {
   window.addEventListener('scroll', updateLandingScrollState, { passive: true })
   updateLandingScrollState()
   requestAnimationFrame(setupLandingReveals)
+  loadPublicModelRuntime()
   if (pendingRoute.value) openAuth('login')
 })
+
+async function loadPublicModelRuntime() {
+  try {
+    const response = await fetch('/api/model-capabilities', { headers: { Accept: 'application/json' } })
+    if (!response.ok) return
+    const payload = await response.json()
+    const textRoute = payload?.data?.routing?.text
+    if (textRoute?.modelId) {
+      publicModelRuntime.text.modelId = textRoute.modelId
+      publicModelRuntime.text.modelName = textRoute.modelName || textRoute.modelId
+    }
+  } catch {
+    // Keep the neutral domestic-model fallback when runtime metadata is unavailable.
+  }
+}
 
 function getAdminBaseUrl() {
   if (import.meta.env.DEV) {

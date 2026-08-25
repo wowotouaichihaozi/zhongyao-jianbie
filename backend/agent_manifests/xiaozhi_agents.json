@@ -118,10 +118,10 @@
                        "description":  "Platform agent private-knowledge-agent"
                    },
                    {
-                       "id":  "kimi-vision-understanding-agent",
-                       "name":  "kimi-vision-understanding-agent",
+                       "id":  "qwen-multimodal-evidence-agent",
+                       "name":  "qwen-multimodal-evidence-agent",
                        "role":  "runtime",
-                       "description":  "Platform agent kimi-vision-understanding-agent"
+                       "description":  "Alibaba Bailian Qwen visual and audio evidence agent"
                    },
                    {
                        "id":  "document-text-extraction-agent",

@@ -35,9 +35,9 @@ let db: PPTDatabase | null = null
 
 const DEFAULT_MODEL_CONFIG = {
   id: 'spark-x2-agent-default',
-  name: 'Spark X2 Agent',
+  name: 'Spark X2 Flash',
   provider: 'anthropic',
-  model: process.env.ANTHROPIC_MODEL || 'xsparkx2agent',
+  model: process.env.ANTHROPIC_MODEL || 'astron-code-latest',
   apiKey: process.env.ANTHROPIC_AUTH_TOKEN || '',
   baseUrl: process.env.ANTHROPIC_BASE_URL || 'https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic',
   maxTokens: 8192,

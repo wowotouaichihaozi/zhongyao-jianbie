@@ -29,6 +29,7 @@ const SmartTutorView = () => import('../views/SmartTutorView.vue')
 const KnowledgeBaseView = () => import('../views/KnowledgeBaseView.vue')
 const KnowledgeNetworkView = () => import('../views/KnowledgeNetworkView.vue')
 const AgentDigitalTwinView = () => import('../views/AgentDigitalTwinView.vue')
+const AiCodingView = () => import('../views/AiCodingView.vue')
 
 const CODEX_PREVIEW_AUTH_KEY = 'codexPreviewAuth'
 
@@ -195,6 +196,12 @@ const routes = [
     path: '/agent-digital-twin',
     name: 'agent-digital-twin',
     component: AgentDigitalTwinView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/ai-coding',
+    name: 'ai-coding',
+    component: AiCodingView,
     meta: { requiresAuth: true },
   },
   {

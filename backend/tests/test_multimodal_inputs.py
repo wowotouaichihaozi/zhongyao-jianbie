@@ -104,7 +104,7 @@ class MultimodalInputApiTests(unittest.TestCase):
         self.assertEqual(foreign_attachments, [])
         self.assertEqual(foreign_rows, [])
 
-    def test_image_is_understood_by_kimi_then_handed_to_spark_as_text(self) -> None:
+    def test_image_is_understood_by_qwen_then_handed_to_spark_as_text(self) -> None:
         image_buffer = io.BytesIO()
         Image.new("RGB", (48, 32), color=(245, 245, 245)).save(image_buffer, format="PNG")
         visual_evidence = "可见文字：GPIO；图中包含开发板和 LED 连接关系。"
@@ -124,18 +124,49 @@ class MultimodalInputApiTests(unittest.TestCase):
         attachment = response.get_json()["data"]["attachments"][0]
         self.assertEqual(attachment["kind"], "image")
         self.assertTrue(attachment["hasExtractedText"])
-        self.assertEqual(attachment["processingRoute"]["modelId"], "xopkimik26")
+        self.assertEqual(attachment["processingRoute"]["modelId"], "qwen3-vl-plus")
         self.assertEqual(
             attachment["processingRoute"]["handoffTo"]["modelId"],
-            "xsparkx2agent",
+            "astron-code-latest",
         )
         vision_call.assert_called_once()
         self.assertEqual(vision_call.call_args.kwargs["filename"], "gpio-board.png")
 
         _, rows = app_module._resolve_multimodal_inputs(801, [attachment])
         prompt = app_module._message_with_multimodal_context("分析图片", rows)
-        self.assertIn("Kimi 视觉理解证据", prompt)
+        self.assertIn("通义千问视觉理解证据", prompt)
         self.assertIn(visual_evidence, prompt)
+
+    def test_audio_is_understood_by_qwen_then_handed_to_spark_as_text(self) -> None:
+        audio_evidence = "转写：配置 GPIO 中断并观察按键消抖；00:04 后内容听不清。"
+
+        with patch.object(
+            app_module,
+            "request_llm_audio_understanding",
+            return_value=audio_evidence,
+        ) as audio_call:
+            response = self.upload(
+                b"RIFF-test-learning-audio",
+                "gpio-experiment.wav",
+                context="learning-profile",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        attachment = response.get_json()["data"]["attachments"][0]
+        self.assertEqual(attachment["kind"], "audio")
+        self.assertTrue(attachment["hasExtractedText"])
+        self.assertEqual(attachment["processingRoute"]["modelId"], "qwen3-omni-flash")
+        self.assertEqual(
+            attachment["processingRoute"]["handoffTo"]["modelId"],
+            "astron-code-latest",
+        )
+        audio_call.assert_called_once()
+        self.assertEqual(audio_call.call_args.kwargs["filename"], "gpio-experiment.wav")
+
+        _, rows = app_module._resolve_multimodal_inputs(801, [attachment])
+        prompt = app_module._message_with_multimodal_context("分析音频", rows)
+        self.assertIn("通义千问音频理解证据", prompt)
+        self.assertIn(audio_evidence, prompt)
 
     def test_video_is_persisted_and_supports_range_requests(self) -> None:
         video_bytes = b"\x00\x00\x00\x18ftypmp42multimodal-video-evidence"

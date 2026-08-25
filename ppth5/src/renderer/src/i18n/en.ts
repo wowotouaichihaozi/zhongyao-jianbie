@@ -334,7 +334,7 @@ export const en = {
     advancedTab: 'Advanced',
     modelAccess: 'Base model configuration',
     imageModelAccess: 'Image models',
-    modelHelpTitle: 'Recommended cloud models',
+    modelHelpTitle: 'Platform domestic model',
     addModel: 'Add model',
     addImageModel: 'Add image model',
     editModel: 'Edit model',
@@ -374,9 +374,9 @@ export const en = {
     imageModelConfigHintSiliconflow:
       'Connect SiliconFlow image models and choose a model name for the style and speed you need. Example: {"model":"Tongyi-MAI/Z-Image-Turbo","apiKey":"..."}',
     imageModelConfigHintOpenAICompatible:
-      'All PPT visuals use APIMart Seedream 4.5. The API key is encrypted in local settings. Example: {"baseUrl":"https://api.apimart.ai/v1","apiKey":"...","model":"seedream-4-5","resolution":"2K"}',
+      'All PPT visuals use Doubao Seedream 4.5 through the APIMart service channel. The API key is encrypted in local settings. Example: {"baseUrl":"https://api.apimart.ai/v1","apiKey":"...","model":"seedream-4-5","resolution":"2K"}',
     imageModelConfigHintGemini:
-      'Connect Gemini image generation for illustrations, backgrounds, and visual concepts based on slide content. Uses Google by default, with baseUrl available for a team service endpoint. Example: {"model":"gemini-3.1-flash-image","apiKey":"..."}',
+      'Legacy image settings are migrated to Doubao Seedream 4.5. Example: {"model":"seedream-4-5","apiKey":"...","resolution":"2K"}',
     imageProviderOfficialDocs: 'Official docs',
     baseUrlHint: 'Enter a service URL compatible with the selected provider protocol.',
     baseUrlHintGoogle: 'Leave empty for official Google API. Fill only if using a proxy.',
@@ -404,14 +404,12 @@ export const en = {
       'Uses the current provider preset, model, api_key, and base_url for a real connectivity check. Local Ollama can use any value.',
     imageVerifyHint:
       'Image verification only checks basic fields. The real endpoint is verified on first generation to avoid unnecessary cost.',
-    modelPlaceholder: 'Example: deepseek-v4-flash',
-    imageModelPlaceholder:
-      'Example: Jimeng 3.0 / Jimeng 4.0 / Agnes AI / SiliconFlow / OpenAI compatible / Gemini',
+    modelPlaceholder: 'Example: astron-code-latest',
+    imageModelPlaceholder: 'Doubao Seedream 4.5 (seedream-4-5)',
     imageModelNamePlaceholder: 'Model alias, anything you like',
-    baseUrlPlaceholder: 'Example: https://api.deepseek.com',
+    baseUrlPlaceholder: 'Example: https://maas-coding-api.cn-huabei-1.xf-yun.com/v2',
     imageBaseUrlPlaceholder: 'Leave empty for built-in defaults, or enter a compatible service URL',
-    imageBaseUrlHint:
-      'Jimeng 3.0, Jimeng 4.0, Agnes AI, SiliconFlow, OpenAI-compatible image APIs, and Gemini are available.',
+    imageBaseUrlHint: 'Image generation is fixed to Doubao Seedream 4.5 and configured by the platform.',
     defaultImageSize: 'Default size',
     defaultImageQuality: 'Default quality',
     defaultImageCount: 'Default count',
@@ -447,8 +445,7 @@ export const en = {
     proxySection: 'Network Proxy',
     proxyLabel: 'Proxy address',
     proxyPlaceholder: 'e.g. http://127.0.0.1:7890',
-    proxyHint:
-      'Supports HTTP and SOCKS5 proxies for accessing services like Gemini. Leave empty to disable.',
+    proxyHint: 'Supports HTTP and SOCKS5 proxies. Leave empty when platform services are directly reachable.',
     proxySavedDescription: 'Proxy settings saved. Takes effect immediately.'
   },
   styles: {

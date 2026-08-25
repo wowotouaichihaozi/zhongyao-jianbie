@@ -64,9 +64,9 @@ def _runtime_settings() -> dict[str, str]:
         "model": str(
             get_setting(
                 "ANTHROPIC_MODEL",
-                setting_default("ANTHROPIC_MODEL", "xsparkx2agent"),
+                setting_default("ANTHROPIC_MODEL", "astron-code-latest"),
             )
-            or "xsparkx2agent"
+            or "astron-code-latest"
         ).strip(),
     }
 
@@ -86,7 +86,7 @@ def _signed_headers(session_id: str, runtime: dict[str, str]) -> dict[str, str]:
     timestamp = str(int(time.time()))
     protocol = runtime.get("protocol") or "auto"
     base_url = runtime.get("baseUrl") or ""
-    model = runtime.get("model") or "xsparkx2agent"
+    model = runtime.get("model") or "astron-code-latest"
     canonical = "\n".join([timestamp, session_id, protocol, base_url, model])
     signature = hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
     return {

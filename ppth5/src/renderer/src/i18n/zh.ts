@@ -317,7 +317,7 @@ export const zh = {
     advancedTab: '高级',
     modelAccess: '基础模型配置',
     imageModelAccess: '生图模型',
-    modelHelpTitle: '推荐的云上模型',
+    modelHelpTitle: '平台统一国产模型',
     addModel: '添加模型',
     addImageModel: '添加生图模型',
     editModel: '编辑模型',
@@ -357,16 +357,16 @@ export const zh = {
     imageModelConfigHintSiliconflow:
       '连接硅基流动的图像模型服务，可按模型名称选择不同风格与速度的生成能力。示例：{"model":"Tongyi-MAI/Z-Image-Turbo","apiKey":"..."}',
     imageModelConfigHintOpenAICompatible:
-      '所有 PPT 配图统一通过 APIMart Seedream 4.5 生成，密钥会加密保存在本机配置中。示例：{"baseUrl":"https://api.apimart.ai/v1","apiKey":"...","model":"seedream-4-5","resolution":"2K"}',
+      '所有 PPT 配图统一使用豆包 Seedream 4.5，通过 APIMart 服务通道接入，密钥会加密保存在本机配置中。示例：{"baseUrl":"https://api.apimart.ai/v1","apiKey":"...","model":"seedream-4-5","resolution":"2K"}',
     imageModelConfigHintGemini:
-      '连接 Gemini 图像生成能力，用于根据页面内容创建插画、背景和视觉概念图。默认使用 Google 服务，也可填写 baseUrl 接入团队服务地址。示例：{"model":"gemini-3.1-flash-image","apiKey":"..."}',
+      '旧生图配置会自动迁移到豆包 Seedream 4.5。示例：{"model":"seedream-4-5","apiKey":"...","resolution":"2K"}',
     imageProviderOfficialDocs: '官方文档',
     baseUrlHint: '请填写兼容 provider 协议的服务地址。',
     baseUrlHintGoogle: '使用 Google 官方 API 无需填写，使用代理时填写代理地址。',
     maxTokensHint: '模型最大输出 token 数，默认 4096。一般无需修改，可按模型支持的上限调整。',
     disableTemperature: '关闭temperature',
     disableTemperatureHint:
-      '建议不要关闭! 仅当模型(比如：kimi2.6)明确不支持 temperature 参数时使用，关闭后可能影响生成效果。',
+      '建议保持开启；仅当当前讯飞模型接口明确不支持 temperature 参数时关闭。',
     timeoutSection: '模型超时设置（秒）',
     timeoutPlanning: '大纲规划',
     timeoutDesign: '设计契约',
@@ -385,12 +385,12 @@ export const zh = {
     verifyHint:
       '会使用当前 provider 预设下的 model / api_key / base_url 做一次真实连通性校验。（本地ollama随便填写值）',
     imageVerifyHint: '生图验证只检查基础配置，真实接口会在首次文生图时验证，避免产生不必要费用。',
-    modelPlaceholder: '例如：deepseek-v4-flash',
-    imageModelPlaceholder: '例如：即梦3.0 / 即梦4.0 / Agnes AI / 硅基流动 / OpenAI 兼容 / Gemini',
+    modelPlaceholder: '例如：astron-code-latest',
+    imageModelPlaceholder: '豆包 Seedream 4.5（seedream-4-5）',
     imageModelNamePlaceholder: '模型别名，随意写',
-    baseUrlPlaceholder: '例如：https://api.deepseek.com',
+    baseUrlPlaceholder: '例如：https://maas-coding-api.cn-huabei-1.xf-yun.com/v2',
     imageBaseUrlPlaceholder: '留空使用内置默认地址，或填写兼容服务地址',
-    imageBaseUrlHint: '目前开放即梦3.0、即梦4.0、Agnes AI、硅基流动、OpenAI 兼容协议和 Gemini。',
+    imageBaseUrlHint: '平台生图统一使用豆包 Seedream 4.5，服务地址由平台配置。',
     defaultImageSize: '默认尺寸',
     defaultImageQuality: '默认质量',
     defaultImageCount: '默认张数',
@@ -425,7 +425,7 @@ export const zh = {
     proxySection: '网络代理',
     proxyLabel: '代理地址',
     proxyPlaceholder: '例如：http://127.0.0.1:7890',
-    proxyHint: '支持 HTTP 和 SOCKS5 代理，用于访问 Gemini 等需要代理的服务。留空则不使用代理。',
+    proxyHint: '支持 HTTP 和 SOCKS5 代理。平台云服务可直接访问时请留空。',
     proxySavedDescription: '代理设置已写入本地，立即生效。'
   },
   styles: {

@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover
     from .course_knowledge import grounded_prompt_block
 
 
-DEFAULT_MODEL = "xsparkx2agent"
+DEFAULT_MODEL = "astron-code-latest"
 DEFAULT_API_URL = "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2/chat/completions"
 TOKEN_PLAN_API_URL = DEFAULT_API_URL
 

@@ -152,6 +152,59 @@ def test_analyze_frame_rejects_provider_oversized_base64_before_model_call():
     assert response.get_json()["errorCode"] == "IMAGE_TOO_LARGE"
 
 
+def test_analyze_frame_routes_image_to_qwen_then_evidence_to_spark(monkeypatch):
+    raw = b"small-interview-frame"
+    encoded = base64.b64encode(raw).decode("ascii")
+    captured = {}
+
+    def fake_vision(image_bytes, **kwargs):
+        captured["vision_raw"] = image_bytes
+        captured["vision_kwargs"] = kwargs
+        return "画面清晰，光线均匀，人物位于画面中央；无法确认持续稳定性。"
+
+    def fake_spark(messages, **kwargs):
+        captured["spark_messages"] = messages
+        captured["spark_kwargs"] = kwargs
+        return (
+            '{"analysis":"画面清晰，主体位置稳定。","suggestions":["保持当前光线"],'
+            '"confidence":"medium","presentationScore":78,'
+            '"confidenceSignal":"neutral_positive","scoreDelta":1}'
+        )
+
+    monkeypatch.setattr(mimo_interview_client, "request_llm_image_understanding", fake_vision)
+    monkeypatch.setattr(mimo_interview_client, "call_mimo_anthropic_text", fake_spark)
+
+    result = mimo_interview_client.analyze_interview_frame(
+        f"data:image/jpeg;base64,{encoded}",
+        session_context={"round": 1},
+    )
+
+    assert captured["vision_raw"] == raw
+    assert captured["vision_kwargs"]["filename"] == "interview-frame.jpg"
+    spark_content = captured["spark_messages"][0]["content"]
+    assert "Qwen3-VL-Plus 视觉证据" in spark_content
+    assert "画面清晰，光线均匀" in spark_content
+    assert "base64" not in spark_content
+    assert result["presentationScore"] == 78
+    assert result["scoreDelta"] == 1
+
+
+def test_interview_text_does_not_fall_back_to_legacy_mimo_endpoint(monkeypatch):
+    monkeypatch.setattr(mimo_interview_client, "_is_anthropic_configured", lambda: False)
+
+    def unexpected_request(*_args, **_kwargs):
+        raise AssertionError("legacy MiMo endpoint must not be called")
+
+    monkeypatch.setattr(mimo_interview_client.requests, "post", unexpected_request)
+
+    try:
+        mimo_interview_client.call_mimo_chat([{"role": "user", "content": "测试"}])
+    except mimo_interview_client.MimoInterviewConfigError as exc:
+        assert "Spark X2 Flash" in str(exc)
+    else:
+        raise AssertionError("missing Spark configuration must fail explicitly")
+
+
 def test_interview_logging_tolerates_closed_stdout(monkeypatch):
     def unavailable_stdout(*_args, **_kwargs):
         raise OSError(22, "Invalid argument")

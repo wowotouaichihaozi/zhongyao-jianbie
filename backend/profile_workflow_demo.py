@@ -329,7 +329,7 @@ def node_load_context(state: WorkflowState) -> WorkflowState:
         "messages": state["messages"],
         "current_profile": state.get("profile", {}),
         "configured_model_id": get_setting("ANTHROPIC_MODEL", setting_default("ANTHROPIC_MODEL")),
-        "note": "文本智能体默认使用 Spark X2 Agent（modelId: xsparkx2agent）。",
+        "note": "文本智能体默认使用 Spark X2 Flash（modelId: astron-code-latest）。",
     })
     state["latest_user_input"] = next(
         (item["content"] for item in reversed(state["messages"]) if item.get("role") == "user"),

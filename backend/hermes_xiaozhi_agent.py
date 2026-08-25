@@ -32,7 +32,7 @@ HERMES_XIAOZHI_AGENT_ID = "xiaozhi-companion-agent"
 HERMES_XIAOZHI_AGENT_NAME = "XiaoZhi Companion Agent"
 HERMES_RUNTIME = "hermes-agent"
 HERMES_SOURCE = "hermes_agent"
-DEFAULT_MODEL = "xsparkx2agent"
+DEFAULT_MODEL = "astron-code-latest"
 
 ALLOWED_INTENTS = {"chat", "generate_resource", "update_profile", "profile_management"}
 ALLOWED_PROFILE_ACTIONS = {"list", "activate", "refresh", "reset"}

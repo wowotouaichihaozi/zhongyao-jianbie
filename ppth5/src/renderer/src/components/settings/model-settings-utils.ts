@@ -2,7 +2,7 @@ import type { ImageModelConfig, ImageModelProvider, ModelConfig } from '../../li
 import type { ImageModelForm, ModelForm } from './types'
 
 export const IMAGE_PROVIDER_OPTIONS: Array<{ value: ImageModelProvider; label: string }> = [
-  { value: 'seedream', label: 'Seedream 4.5' }
+  { value: 'seedream', label: '豆包 Seedream 4.5' }
 ]
 
 export const readJsonObject = (value: string): Record<string, unknown> | null => {
