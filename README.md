@@ -462,6 +462,8 @@ https://lzhan.xyz/ai-coding
 
 当前部署结构中，PPT 不需要 Electron、xvfb 或 Node 后端服务，但需要 `feishengwangying-pptapi.service` 在回环地址 `127.0.0.1:8765` 运行 OhMyPPT FastAPI。生产 Nginx 的 `/ppt-api/` 仅作为同源服务入口；生成接口仍要求服务端内部签名，不能绕过岐小智直接调用。
 
+OhMyPPT 使用与主后端一致的 DeepSeek OpenAI 兼容配置。`deepseek-v4-flash-vision-exp` 的每批 completion 预算默认使用已完成真实 1 页与 5 页验证的 `32768`；`OHMYPPT_LLM_MAX_TOKENS` 和主后端兼容链路的 `PPT_H5_MAX_TOKENS` 均允许按需提高到接口接受的 `131072`。实测 131072 会让五页生成超过五分钟仍不结束，因此不作为生产默认值。`GET /ppt-api/health` 返回 `maxCompletionTokens`，部署后应同时核对模型、协议和输出预算。聚焦验证命令为 `python -m pytest ppth5/backend/tests/test_batch_generation.py backend/tests/test_model_runtime_hardening.py backend/tests/test_ohmyppt_parser.py backend/tests/test_ohmyppt_client.py -q`。
+
 远程环境的 `/ai-coding` 在主导航栏下方直接嵌入 DeepSeek Harness，共用一个由 `dsh-sandbox` 非 root 用户持有的工作区与会话存储。Harness 仅监听隔离服务器的回环端口，主站通过受限 SSH 隧道和带登录校验的 `/ai-coding-runtime/` 代理访问；未登录请求返回 401。DeepSeek 凭据由沙箱服务器上的 root-only 上游代理注入，不进入浏览器、Harness 工作区、前端构建产物或 Git 文件。为保留远程凭据隔离，浏览器侧 `credentials` 与 `settings` 接口继续保持不可访问；代理只关闭 Harness 内测声明并重写运行时资源/RPC 路径。
 
 历史 AI 编程工作区当前不在学习者界面开放；保留部署验证记录用于旧环境兼容：

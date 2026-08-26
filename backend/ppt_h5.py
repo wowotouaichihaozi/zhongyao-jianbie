@@ -209,8 +209,7 @@ COURSE KNOWLEDGE EXCERPTS:
 
 Generate exactly {req["pageCount"]} slides."""
 
-    max_tokens = _setting_int("PPT_H5_MAX_TOKENS", 8192, 2048, 32000)
-    max_tokens = max(max_tokens, min(32000, int(req["pageCount"]) * 2600 + 4096))
+    max_tokens = _setting_int("PPT_H5_MAX_TOKENS", 32768, 2048, 131072)
     payload = {
         "model": model,
         "max_tokens": max_tokens,

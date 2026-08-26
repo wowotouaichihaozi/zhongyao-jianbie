@@ -52,10 +52,18 @@ ALLOWED_RUNTIME_HOSTS = {
     item.strip().lower()
     for item in os.getenv(
         "AGENT_RUNTIME_ALLOWED_HOSTS",
-        "maas-coding-api.cn-huabei-1.xf-yun.com,localhost,127.0.0.1",
+        "maas-coding-api.cn-huabei-1.xf-yun.com,api.deepseek.com,deepseek.com,localhost,127.0.0.1",
     ).split(",")
     if item.strip()
 }
+
+
+def _completion_token_budget() -> int:
+    try:
+        configured = int(os.getenv("OHMYPPT_LLM_MAX_TOKENS", "32768"))
+    except (TypeError, ValueError):
+        configured = 32768
+    return max(2800, min(131072, configured))
 
 app = FastAPI(title="Oh My PPT H5 Backend", version="0.3.0")
 app.add_middleware(
@@ -102,6 +110,7 @@ def health(response: Response) -> dict[str, Any]:
         "protocol": LLM_PROTOCOL,
         "model": ANTHROPIC_MODEL,
         "hasToken": bool(ANTHROPIC_AUTH_TOKEN),
+        "maxCompletionTokens": _completion_token_budget(),
     }
 
 
@@ -416,10 +425,10 @@ async def _generate_batch(
     model: str,
     request_timeout: int,
     attempts: int,
+    max_tokens: int,
     semaphore: asyncio.Semaphore,
 ) -> tuple[int, list[dict[str, Any]]]:
     prompt = _batch_prompt(req, start_page, page_count)
-    max_tokens = max(2800, min(9000, page_count * 2200 + 1200))
     payload: dict[str, Any] = {
         "model": model,
         "max_tokens": max_tokens,
@@ -496,6 +505,7 @@ async def call_llm(req: GenerateRequest, runtime: dict[str, str]) -> list[dict[s
         max_parallel = max(1, min(3, int(os.getenv("OHMYPPT_LLM_MAX_PARALLEL", "2"))))
     except (TypeError, ValueError):
         max_parallel = 2
+    max_tokens = _completion_token_budget()
 
     batches = [
         (start_page, min(batch_size, req.pageCount - start_page + 1))
@@ -514,6 +524,7 @@ async def call_llm(req: GenerateRequest, runtime: dict[str, str]) -> list[dict[s
                 model=model,
                 request_timeout=request_timeout,
                 attempts=attempts,
+                max_tokens=max_tokens,
                 semaphore=semaphore,
             )
             for start_page, page_count in batches

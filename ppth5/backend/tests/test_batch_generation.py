@@ -47,12 +47,14 @@ class BatchGenerationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_five_slides_are_generated_as_three_plus_two_and_merged_in_order(self) -> None:
         ranges: list[tuple[int, int]] = []
+        completion_budgets: list[int] = []
 
         def fake_call(_url: str, _headers: dict, payload: dict, _timeout: int) -> dict:
             prompt = payload["messages"][0]["content"]
             match = re.search(r"Generate slides (\d+)-(\d+) of", prompt)
             self.assertIsNotNone(match)
             ranges.append(tuple(int(value) for value in match.groups()))
+            completion_budgets.append(payload["max_tokens"])
             return _response_for_prompt(payload)
 
         with (
@@ -64,13 +66,25 @@ class BatchGenerationTests(unittest.IsolatedAsyncioTestCase):
                     "OHMYPPT_LLM_BATCH_SIZE": "3",
                     "OHMYPPT_LLM_MAX_PARALLEL": "2",
                     "OHMYPPT_LLM_RETRIES": "1",
+                    "OHMYPPT_LLM_MAX_TOKENS": "32768",
                 },
             ),
         ):
             pages = await main.call_llm(self.request, self.runtime)
 
         self.assertEqual(sorted(ranges), [(1, 3), (4, 5)])
+        self.assertEqual(completion_budgets, [32768, 32768])
         self.assertEqual([page["title"] for page in pages], [f"Page {index}" for index in range(1, 6)])
+
+    def test_completion_budget_defaults_to_verified_deepseek_limit_and_clamps_overrides(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(main._completion_token_budget(), 32768)
+        with patch.dict(os.environ, {"OHMYPPT_LLM_MAX_TOKENS": "131072"}):
+            self.assertEqual(main._completion_token_budget(), 131072)
+        with patch.dict(os.environ, {"OHMYPPT_LLM_MAX_TOKENS": "262144"}):
+            self.assertEqual(main._completion_token_budget(), 131072)
+        with patch.dict(os.environ, {"OHMYPPT_LLM_MAX_TOKENS": "invalid"}):
+            self.assertEqual(main._completion_token_budget(), 32768)
 
     async def test_failed_batch_reports_its_page_range(self) -> None:
         def fake_call(_url: str, _headers: dict, payload: dict, _timeout: int) -> dict:

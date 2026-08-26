@@ -57,8 +57,8 @@ def test_generate_uses_signed_internal_headers_and_validates_pages(monkeypatch):
     )
     captured = {}
 
-    def fake_post(url, *, headers, json, timeout):
-        captured.update({"url": url, "headers": headers, "json": json, "timeout": timeout})
+    def fake_post(url, *, headers, json, timeout, proxies):
+        captured.update({"url": url, "headers": headers, "json": json, "timeout": timeout, "proxies": proxies})
         return FakeResponse(
             {
                 "sessionId": "ppt-test",
@@ -87,6 +87,7 @@ def test_generate_uses_signed_internal_headers_and_validates_pages(monkeypatch):
     assert captured["url"] == "http://127.0.0.1:8765/api/generate"
     assert captured["headers"]["X-OhMyPPT-Protocol"] == "openai"
     assert captured["headers"]["X-OhMyPPT-Model"] == "spark-x2-agent"
+    assert captured["proxies"] == {"http": "", "https": ""}
     assert len(captured["headers"]["X-OhMyPPT-Signature"]) == 64
     assert "internal-secret" not in str(captured)
     assert "model-secret" not in str(captured)

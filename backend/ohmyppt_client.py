@@ -24,6 +24,9 @@ class OhMyPptError(RuntimeError):
     """Raised when the isolated OhMyPPT service cannot produce a valid deck."""
 
 
+LOOPBACK_PROXIES = {"http": "", "https": ""}
+
+
 def _emit(on_stage: StageCallback | None, stage: str, message: str, progress: int, **extra: Any) -> None:
     if not callable(on_stage):
         return
@@ -117,7 +120,11 @@ def _safe_error_detail(response: requests.Response) -> str:
 def ohmyppt_health(*, timeout: int = 4) -> dict[str, Any]:
     base_url = _api_base()
     try:
-        response = requests.get(f"{base_url}/health", timeout=max(1, min(timeout, 10)))
+        response = requests.get(
+            f"{base_url}/health",
+            timeout=max(1, min(timeout, 10)),
+            proxies=LOOPBACK_PROXIES,
+        )
         if response.status_code < 200 or response.status_code >= 300:
             return {
                 "ok": False,
@@ -141,6 +148,7 @@ def ohmyppt_health(*, timeout: int = 4) -> dict[str, Any]:
         "model": str(payload.get("model") or ""),
         "protocol": str(payload.get("protocol") or ""),
         "hasToken": bool(payload.get("hasToken")),
+        "maxCompletionTokens": int(payload.get("maxCompletionTokens") or 0),
     }
 
 
@@ -229,6 +237,7 @@ def generate_with_ohmyppt(
             headers=_signed_headers(session_id, runtime),
             json=request_payload,
             timeout=_request_timeout(),
+            proxies=LOOPBACK_PROXIES,
         )
     except requests.Timeout as exc:
         raise OhMyPptError("OhMyPPT 生成超时，请稍后重试") from exc

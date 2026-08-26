@@ -185,6 +185,24 @@ Acceptance criteria for this batch:
 - [ ] Make digital-human learning interviews honor `LLM_PROTOCOL=openai` instead of incorrectly forcing the DeepSeek credential through `/v1/messages`.
 - [ ] Align runtime defaults, public model labels, README, focused tests, and live API evidence with DeepSeek text/vision routing.
 
+### DeepSeek PPT generation output budget
+
+- [x] Remove the standalone OhMyPPT 9000-token batch ceiling, use the verified 32768-token production default, and allow both PPT generation paths to be configured up to the 131072-token ceiling accepted by `deepseek-v4-flash-vision-exp`.
+- [x] Add request-payload regression coverage and verify one-page plus representative multi-page PPT generation against the real DeepSeek endpoint.
+- [x] Deploy the verified PPT backend, then confirm the public health and generation flow before committing this batch.
+- [x] Bypass inherited HTTP proxy settings for the main backend's loopback OhMyPPT health and generation requests; otherwise the running local services can both be healthy while the main API reports an upstream HTTP 502.
+
+Acceptance criteria for this batch:
+
+- Every standalone OhMyPPT batch sends the configured high completion budget instead of deriving and capping it at 9000 tokens.
+- The Flask fallback PPT generator uses the same documented default and never takes a completion budget from untrusted request input.
+- A real multi-page request returns the requested number of parseable HTML slides without local-template substitution.
+- Credentials remain only in ignored environment files and are absent from source, tests, logs, staged changes, and user-facing output.
+
+Local evidence on 2026-08-26: DeepSeek accepted intentionally short requests carrying `max_tokens=32768`, `65536`, and `131072`; the real one-page OhMyPPT generation returned 1/1 parseable page, and the real five-page generation at 32768 returned 5/5 ordered pages across the 3+2 batch split. All five pages contained scoped style markup and non-empty HTML (2686-4407 characters). A 131072 five-page request remained unfinished after five minutes and was stopped, so 131072 is retained as an explicit configurable ceiling rather than the default. Focused tests passed: standalone batch generation 3/3, Flask PPT/parser/client/runtime hardening 11/11, and DeepSeek interview/routing 10/10; Python compilation passed.
+
+Production evidence on 2026-08-26: backed up and deployed the three Flask PPT integration files plus the standalone OhMyPPT backend file, preserved both production `.env` files and the existing database, and restarted only `feishengwangying-backend` and `feishengwangying-pptapi`. Both services remained active. Public `/ppt-api/health` and `/api/ppt-h5/health` returned HTTP 200 with `deepseek-v4-flash-vision-exp`, OpenAI protocol, and `maxCompletionTokens=32768`. An authenticated production request to `/api/ppt-h5/generate` returned 1/1 grounded page with 11532 characters of HTML and orchestration status `complete`.
+
 Acceptance criteria for this batch:
 
 - Image uploads are sent to the configured Bailian OpenAI-compatible endpoint with `qwen3-vl-plus`; audio uploads use the Bailian native multimodal endpoint with `qwen3-omni-flash`; both are then handed to Spark as grounded evidence text.
