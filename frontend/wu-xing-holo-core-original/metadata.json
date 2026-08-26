@@ -1,0 +1,6 @@
+{
+  "name": "Wu Xing Holo-Core",
+  "description": "An interactive, sci-fi holographic knowledge base for Traditional Chinese Medicine (Five Elements).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

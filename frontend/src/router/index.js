@@ -26,7 +26,7 @@ const EffectAssessmentView = () => import('../views/EffectAssessmentView.vue')
 const LearningDocumentView = () => import('../views/LearningDocumentView.vue')
 const SmartTutorView = () => import('../views/SmartTutorView.vue')
 const KnowledgeBaseView = () => import('../views/KnowledgeBaseView.vue')
-const KnowledgeNetworkView = () => import('../views/KnowledgeNetworkView.vue')
+const KnowledgeNetworkView = () => import('../views/KnowledgeNetworkOriginalEmbedView.vue')
 const AgentDigitalTwinView = () => import('../views/AgentDigitalTwinView.vue')
 
 const CODEX_PREVIEW_AUTH_KEY = 'codexPreviewAuth'

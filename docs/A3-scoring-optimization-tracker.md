@@ -1,6 +1,6 @@
 # A3 Scoring Optimization Tracker
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 
 This file is the source of truth for the current scoring review and frontend refinement work. Update it before and after every implementation batch.
 
@@ -11,6 +11,9 @@ This file is the source of truth for the current scoring review and frontend ref
 - `[x]` Complete and verified
 - `[!]` Blocked or needs a product decision
 
+## 2026-08-26 三维中医药知识网络替换
+
+- [x] 按用户最新要求，将 `/knowledge-network` 改为直接呈现 `wu-xing-holo-core (1).zip` 的原始 React/Vite 页面，不对 ZIP 中的源码作任何行级修改，也不再做 Vue/Three.js 重写。附件原始 `src/data.ts` 保持不变；ZIP 外部新增构建期数据适配层，将原页面原样使用的 `nodes`、`edges` 接口指向用户提供的 `中医药知识库_1600节点_知识讲解_实质内容版.json`。按用户后续要求，外层现在保留与数字孪生页一致的主站导航：桌面为顶部 72px 导航，手机为不遮挡画布的底部导航。验证：原页面构建及主前端非清理构建通过；`5089` 桌面 1440x900、移动 390x844 以及当前项目 Flask `3001` 桌面实际路由均显示主导航、无横向溢出、画布可拖拽、无控制台或请求错误；截图位于 `frontend/test-output/visual-audit/knowledge-network-navbar-*-clean.png`。ZIP 源文件未修改。
 ## Safety and scope
 
 - [x] Active repository identified as `94015785源码/嵌智学航源码` inside the current workspace.

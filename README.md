@@ -75,7 +75,21 @@ code6.14/
 
 ## 知识网络展示
 
-`/knowledge-network` 是与学习画像、学习路径和个性化资源并列的独立二维知识网络功能页，顶部主导航可直接进入；旧地址 `/personalized-resources/knowledge-network` 仅保留兼容重定向。图谱前端直接参考并改编 GPL-3.0 开源项目 [nashsu/llm_wiki](https://github.com/nashsu/llm_wiki) 的 Graph View：Sigma.js 3 使用 WebGL 绘制节点、边和标签，Graphology 保存图结构，ForceAtlas2 通过独立 Web Worker 完成布局。当前作品索引会形成 12,000 余个真实文档节点；接口只返回文档元数据及关系，不会把全部 chunk 正文一次发送到浏览器，引用片段继续按节点展开。
+`/knowledge-network` 在主站导航栏下方嵌入用户提供的 `wu-xing-holo-core (1).zip` 原始 React/Vite 页面；旧地址 `/personalized-resources/knowledge-network` 保留兼容重定向。原始附件逐文件复制在 `frontend/wu-xing-holo-core-original/`，不修改其中任一文件的代码、样式、入口或依赖声明。知识网络沿用与数字孪生页相同的可用视口规则：桌面保留顶部主导航，手机保留底部主导航，画布不被导航遮挡，可从主导航直接返回其他主页面。
+
+用户提供的 `中医药知识库_1600节点_知识讲解_实质内容版.json` 原样保存在 `frontend/src/data/tcm-knowledge-network.v1.2-substantive.json`。原 ZIP SHA-256 为 `9176A840EE386BF6B970C7156B3A2C3F2A4BADAFDB424503B5DF8CAA47F7C555`，知识库 JSON SHA-256 为 `D4FE839D525254EDC9AA4F588BD5A0873F550E06ACF8F66E5E4AC9B93F8EF922`。ZIP 内的 `src/data.ts` 保持原样；附件目录外的 `frontend/wu-xing-holo-core-runner/knowledgeDataAdapter.ts` 在构建期将该 JSON 树转换为原页面已使用的 `nodes`、`edges` 接口，因此运行页面使用 1601 个节点、1600 条父子边和所提供的实质知识说明，而不改写附件源码。数据仅用于学习知识浏览，不作为临床诊疗依据。
+
+首次配置或更新知识库后，先构建原页面静态产物，再构建主前端：
+
+```powershell
+cd frontend\wu-xing-holo-core-runner
+node node_modules\vite\bin\vite.js build --config vite.config.mjs
+
+cd ..
+npm.cmd run build -- --emptyOutDir=false
+```
+
+随后运行 `start-frontend-backend.bat`，统一入口默认位于 `http://127.0.0.1:3000/knowledge-network`。
 
 ## 智能体数字孪生展示
 
