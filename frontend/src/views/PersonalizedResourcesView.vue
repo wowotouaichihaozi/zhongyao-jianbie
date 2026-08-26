@@ -100,7 +100,7 @@
       <div v-if="resourcesLoading && !resources.length" class="history-loading" role="status" aria-live="polite">
         <LoaderCircle :size="28" class="spin" aria-hidden="true" />
         <strong>正在同步真实资源记录</strong>
-        <span>正在读取嵌小智任务与已生成视频，请稍候。</span>
+        <span>正在读取岐小智任务与已生成视频，请稍候。</span>
       </div>
       <div v-else-if="resourcesError && !resources.length" class="history-error" role="alert">
         <TriangleAlert :size="30" aria-hidden="true" />
@@ -204,7 +204,6 @@ import {
   ArrowRight,
   BookOpenCheck,
   Clapperboard,
-  Cpu,
   LoaderCircle,
   Presentation,
   RefreshCw,
@@ -265,13 +264,6 @@ const resourceTools = [
     icon: markRaw(Search),
     tone: 'tool-teal',
   },
-  {
-    title: '单片机模拟器',
-    description: '进入独立实验台，完成 Arduino 与 8051 单片机仿真实验。',
-    to: '/personalized-resources/mcu-simulator',
-    icon: markRaw(Cpu),
-    tone: 'tool-orange',
-  },
 ]
 
 const categories = [
@@ -281,7 +273,6 @@ const categories = [
   { key: 'video', label: '视频' },
   { key: 'generated_video', label: 'AI 视频生成' },
   { key: 'quiz', label: '练习题' },
-  { key: 'simulator', label: '模拟器实验' },
 ]
 
 const requestedCategory = String(route.query.category || '')
@@ -296,7 +287,7 @@ const profileError = ref('')
 const resourcesLoading = ref(true)
 const resourcesError = ref('')
 const resourcesWarning = ref('')
-const hiddenResourceTypes = new Set(['document', 'animation', 'code'])
+const hiddenResourceTypes = new Set(['document', 'animation', 'code', 'simulator', 'mcu'])
 
 onMounted(async () => {
   loadEvaluations()
@@ -343,7 +334,7 @@ async function loadResources() {
     } catch {}
 
     const failedSources = []
-    if (historyResult.status === 'rejected') failedSources.push('嵌小智任务历史')
+    if (historyResult.status === 'rejected') failedSources.push('岐小智任务历史')
     if (videoResult.status === 'rejected') failedSources.push('AI 视频历史')
     const seen = new Set()
     const mergedResources = sortResourceHistory(
@@ -410,206 +401,153 @@ function initDefaultResources() {
   const defaults = [
     {
       id: Date.now(),
-      title: 'STM32基础知识思维导图',
-      description: '涵盖STM32架构、GPIO、定时器等核心知识点',
+      title: '中医基础理论思维导图',
+      description: '涵盖阴阳五行、藏象、气血津液与经络等核心知识点',
       type: 'mindmap',
       matchScore: 85,
       content: `mindmap
-  root((STM32))
-    架构
-      Cortex-M3
-      寄存器
-      时钟系统
-    GPIO
-      输入模式
-      输出模式
-      复用功能
-    定时器
-      基本定时器
-      通用定时器
-      高级定时器
-    通信
-      USART
-      SPI
-      I2C`,
+  root((中医基础理论))
+    整体观念
+      人体自身整体
+      人与自然统一
+    阴阳五行
+      阴阳制约互根
+      五行生克制化
+    藏象
+      五脏六腑
+      形体官窍
+    气血津液
+      生成运行
+      相互关系
+    经络
+      经脉络脉
+      运行气血`,
       createdAt: new Date().toISOString(),
     },
     {
       id: Date.now() + 1,
-      title: '嵌入式C语言编程基础',
-      description: '适合初学者的C语言PPT课件，包含指针、数组、结构体',
+      title: '四诊与八纲辨证基础',
+      description: '适合初学者的中医诊断学 PPT 课件',
       type: 'ppt',
       matchScore: 78,
-      content: `# 嵌入式C语言编程基础
+      content: `# 四诊与八纲辨证基础
 
-## 第一页：C语言概述
-- C语言是嵌入式开发的首选语言
-- 特点：效率高、可移植性强、贴近硬件
+## 第一页：四诊合参
+- 望、闻、问、切相互补充
+- 不以单一症状直接下结论
 
-## 第二页：数据类型
-- int, char, float, double
-- 指针类型
-- 结构体
+## 第二页：望诊与舌诊
+- 神色形态
+- 舌质与舌苔
 
-## 第三页：指针基础
-- 指针是C语言的核心概念
-- 指针与数组的关系
-- 指针运算
+## 第三页：问诊与脉诊
+- 主诉、寒热、饮食、睡眠与二便
+- 脉位、脉数、脉形与脉势
 
-## 第四页：结构体
-- 结构体定义与使用
-- 结构体指针
-- 内存对齐
+## 第四页：八纲辨证
+- 表里、寒热、虚实、阴阳
 
-## 第五页：总结
-- 掌握C语言是嵌入式开发的基础
-- 多练习，多实践`,
+## 第五页：医案练习
+- 提取四诊信息
+- 推导证候、病机与治法`,
       createdAt: new Date().toISOString(),
     },
     {
       id: Date.now() + 2,
-      title: 'STM32 GPIO操作视频教程',
-      description: '通过LED闪烁项目学习GPIO配置与操作',
+      title: '舌诊与脉诊视频学习单',
+      description: '通过典型案例学习舌象、脉象和四诊合参',
       type: 'video',
       matchScore: 90,
-      content: `# STM32 GPIO操作视频教程
+      content: `# 舌诊与脉诊视频学习单
 
 ## 课程大纲
 
-### 第1节：GPIO概念介绍
-- 什么是GPIO
-- GPIO的工作模式
-- 输入/输出配置
+### 第1节：舌诊观察
+- 舌质与舌苔
+- 舌色、舌形与津液
 
-### 第2节：开发环境搭建
-- 安装Keil MDK
-- 配置STM32CubeMX
-- 新建工程
+### 第2节：脉诊基础
+- 脉位、脉数、脉形与脉势
+- 常见脉象对比
 
-### 第3节：LED闪烁代码
+### 第3节：四诊信息记录
 \`\`\`c
-// 初始化GPIO
-void LED_Init(void) {
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    __HAL_RCC_GPIOC_CLK_ENABLE();
-    GPIO_InitStruct.Pin = GPIO_PIN_13;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-}
+按望、闻、问、切分类整理医案信息，标出支持和不支持候选证候的依据。
 \`\`\`
 
-### 第4节：编译下载运行
-- 编译项目
-- 下载到开发板
-- 观察LED闪烁效果
+### 第4节：辨证练习
+- 对比相近证候
+- 写出病机与治法思路
 
-### 第5节：练习与总结
-- 修改闪烁频率
-- 添加多个LED控制`,
+### 第5节：核验与总结
+- 使用教材或知识库核对结论
+- 记录需要继续查证的知识点`,
       createdAt: new Date().toISOString(),
     },
     {
       id: Date.now() + 3,
-      title: 'STM32 UART串口通信示例',
-      description: '完整的串口收发代码，带详细注释',
-      type: 'code',
+      title: '脾胃病医案辨析示例',
+      description: '按四诊、证候、病机、治法组织医案分析',
+      type: 'document',
       matchScore: 82,
-      content: `# STM32 UART串口通信示例
+      content: `# 脾胃病医案辨析示例
 
-## uart_example.c
+## 四诊信息
 
 \`\`\`c
-#include "stm32f1xx_hal.h"
-#include <string.h>
-
-UART_HandleTypeDef huart1;
-
-// UART初始化
-void UART1_Init(void) {
-    huart1.Instance = USART1;
-    huart1.Init.BaudRate = 115200;
-    huart1.Init.WordLength = UART_WORDLENGTH_8B;
-    huart1.Init.StopBits = UART_STOPBITS_1;
-    huart1.Init.Parity = UART_PARITY_NONE;
-    huart1.Init.Mode = UART_MODE_TX_RX;
-    HAL_UART_Init(&huart1);
-}
-
-// 发送字符串
-void UART_SendString(char *str) {
-    HAL_UART_Transmit(&huart1, (uint8_t *)str, strlen(str), 1000);
-}
-
-// 接收数据
-uint8_t rxBuffer[1];
-void UART_Receive(void) {
-    HAL_UART_Receive_IT(&huart1, rxBuffer, 1);
-}
-
-// 主函数
-int main(void) {
-    HAL_Init();
-    SystemClock_Config();
-    UART1_Init();
-    UART_SendString("Hello STM32!\\r\\n");
-
-    while (1) {
-        UART_Receive();
-        HAL_Delay(100);
-    }
-}
+按主诉、兼症、舌象和脉象分类记录，不遗漏否定信息。
 \`\`\`
 
 ## 关键点说明
-1. 波特率设置为115200
-2. 使用中断方式接收数据
-3. 发送使用阻塞方式`,
+1. 先列候选证候，再逐项核对支持与不支持证据
+2. 病机和治法的推导不得跳过关键依据
+3. 方药内容须核对权威教材，并提示禁忌与安全边界`,
       createdAt: new Date().toISOString(),
     },
     {
       id: Date.now() + 4,
-      title: 'GPIO配置练习题',
-      description: '检验GPIO配置知识掌握程度',
+      title: '中药与方剂基础练习题',
+      description: '检验性味归经、功效主治和方剂配伍掌握程度',
       type: 'quiz',
       matchScore: 88,
-      content: `# GPIO配置练习题
+      content: `# 中药与方剂基础练习题
 
-## 题目1：GPIO模式选择
-**问题：** 在STM32中，如果要读取一个按键的状态，GPIO应该配置为哪种模式？
+## 题目1：中药知识框架
+**问题：** 学习一味中药时，应从哪些维度建立知识卡片？
 
-A. 推挽输出
-B. 开漏输出
-C. 上拉输入
-D. 模拟输入
+A. 只记药名
+B. 只记功效
+C. 性味、归经、功效、主治、配伍与禁忌
+D. 只记药物图片
 
-**答案：** C. 上拉输入
-**解析：** 按键通常需要读取高/低电平，使用上拉输入模式，按键未按下时为高电平，按下时为低电平。
-
----
-
-## 题目2：GPIO速度配置
-**问题：** LED闪烁项目中，GPIO的输出速度应该设置为？
-
-A. 低速
-B. 中速
-C. 高速
-D. 以上都可以
-
-**答案：** A. 低速
-**解析：** LED控制不需要高速翻转，低速即可满足需求，还能降低功耗。
+**答案：** C
+**解析：** 应建立完整知识框架并注明可靠来源。
 
 ---
 
-## 题目3：复用功能
-**问题：** STM32的UART1_TX引脚通常对应哪个引脚？
+## 题目2：方剂配伍
+**问题：** 君臣佐使主要用于说明什么？
 
-A. PA9
-B. PA10
-C. PB6
-D. PB7
+A. 药物颜色
+B. 方中药物的主次与协同制约关系
+C. 药物产地
+D. 煎药器具
 
-**答案：** A. PA9
-**解析：** STM32F103系列中，USART1_TX默认复用在PA9引脚。`,
+**答案：** B
+**解析：** 应结合具体方剂理解主治核心、协同加强、兼治制约与引经调和。
+
+---
+
+## 题目3：安全边界
+**问题：** 为什么不能只凭单个症状直接推荐方药？
+
+A. 症状没有意义
+B. 中医强调四诊合参和辨证论治，方药还涉及禁忌与个体差异
+C. 所有方剂都一样
+D. 不需要学习方剂
+
+**答案：** B
+**解析：** 学习讨论不能替代现实诊断和个体化处方建议。`,
       createdAt: new Date().toISOString(),
     },
   ]
@@ -634,7 +572,6 @@ function getTypeName(type) {
     animation: '动画微课',
     code: '代码示例',
     quiz: '练习题',
-    simulator: '模拟器实验',
   }
   return names[type] || type
 }

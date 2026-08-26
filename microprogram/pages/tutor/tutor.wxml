@@ -2,10 +2,10 @@
   <view class="page-head">
     <text class="eyebrow">KNOWLEDGE-GROUNDED TUTOR</text>
     <view class="page-title">智能辅导</view>
-    <view class="page-subtitle">围绕嵌入式课程提问，辅导智能体会结合当前画像与可用知识来源组织回答。</view>
+    <view class="page-subtitle">围绕中医基础、经典、方药与辨证提问，岐小智会结合当前画像与可用知识来源组织回答。</view>
   </view>
   <view class="ask-card card">
-    <textarea class="field-textarea" data-field="question" value="{{question}}" bindinput="input" maxlength="800" placeholder="例如：为什么 STM32 定时器的预分频系数需要减 1？"></textarea>
+    <textarea class="field-textarea" data-field="question" value="{{question}}" bindinput="input" maxlength="800" placeholder="例如：如何理解八纲辨证中的表里关系？"></textarea>
     <button class="primary ask" bindtap="ask" loading="{{loading}}" disabled="{{loading || !question}}">开始辅导</button>
   </view>
   <view class="running" wx:if="{{loading}}">

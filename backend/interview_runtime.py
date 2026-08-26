@@ -50,22 +50,22 @@ except Exception:  # pragma: no cover - package-style import fallback
         def get_interview_profile(position_key: Optional[str] = None, position_label: Optional[str] = None) -> Dict[str, Any]:
             return {
                 "positionKey": DEFAULT_POSITION_KEY,
-                "label": position_label or "STM32 开发工程师",
+                "label": position_label or "藏象与气血津液专项",
                 "coreSkills": [
-                    "project_experience",
-                    "c_language",
-                    "gpio",
-                    "interrupt",
-                    "uart",
-                    "debugging",
-                    "result_quantification",
+                    "theory_framework",
+                    "four_diagnostics",
+                    "syndrome_differentiation",
+                    "materia_medica",
+                    "formula_reasoning",
+                    "case_analysis",
+                    "safety_evidence",
                 ],
                 "basicQuestions": [
-                    "没关系，我们从基础开始。你能简单解释一下 GPIO 是什么吗？",
-                    "那我们再换一个更基础的问题。你知道数字信号中的高电平和低电平是什么意思吗？",
+                    "没关系，我们从基础开始。你能简单说明阴阳学说的基本含义吗？",
+                    "那我们换一个更基础的问题。望、闻、问、切四诊分别关注哪些信息？",
                 ],
-                "projectQuestionTemplate": "请先介绍一个与你应聘岗位最相关的项目，重点说明你的职责、技术难点和结果。",
-                "scoringHints": "重点看岗位基础、项目经历和问题分析能力。",
+                "projectQuestionTemplate": "请介绍一则你学习过的中医医案，重点说明四诊信息、辨证依据、病机和治法思路。",
+                "scoringHints": "重点看中医基础、辨证思路、知识依据和安全边界。",
             }
 
         def detect_profile_skills(text: str, profile: Dict[str, Any]) -> List[str]:
@@ -88,17 +88,14 @@ EFFECTIVE_SCORE_THRESHOLD = 40
 HIGH_SCORE_THRESHOLD = 80
 EXCELLENT_SCORE_THRESHOLD = 85
 SKILL_PROBE_QUESTIONS = {
-    "c_language": "在 STM32 程序中，如果中断和主循环共享一个变量，为什么通常要使用 volatile？",
-    "gpio": "如果 GPIO 控制的 LED 没有反应，你会按什么顺序检查时钟、模式和硬件接线？",
-    "interrupt": "配置 EXTI 外部中断后一直不触发，你会检查哪些寄存器配置和 NVIC 设置？",
-    "uart": "UART 收发出现乱码或丢包时，你会优先检查哪些参数和程序逻辑？",
-    "timer_pwm": "如果 PWM 输出频率不正确，你会如何检查定时器时钟、预分频和重装值？",
-    "adc": "使用 ADC 采集传感器数据时，你会如何处理采样误差并验证结果？",
-    "sensor": "传感器采集值异常时，你会如何区分接线、时序、驱动和数据换算问题？",
-    "debugging": "请说一个外设没有响应时的排查顺序，以及你会保留哪些调试证据。",
-    "project_experience": "请选一个你实际负责的模块，说明它的输入、处理流程和输出结果。",
-    "result_validation": "你会用什么现象、日志或测量数据证明功能已经稳定通过？",
-    "result_quantification": "你会用哪些可量化指标说明项目最终达到了预期结果？",
+    "theory_framework": "请说明阴阳、藏象或气血津液中的一个概念，并举例说明它与病机分析的关系。",
+    "four_diagnostics": "面对一则医案，你会从望、闻、问、切四诊中分别提取哪些关键信息？",
+    "syndrome_differentiation": "请用八纲辨证梳理一个常见证候，并说明判断依据。",
+    "materia_medica": "学习一味中药时，你会怎样组织性味、归经、功效、主治和禁忌信息？",
+    "formula_reasoning": "请选一首熟悉的方剂，说明其治法、组成和君臣佐使关系。",
+    "case_analysis": "请结合一则医案，说明从四诊信息到证候、病机和治法的推导过程。",
+    "safety_evidence": "讨论方药时，你会怎样核对知识出处并说明禁忌和安全边界？",
+    "learning_reflection": "完成一次医案练习后，你会如何定位薄弱点并安排复盘？",
 }
 CORE_SKILLS = set(get_interview_profile(DEFAULT_POSITION_KEY).get("coreSkills") or [])
 DIFFICULTY_LABELS = {
@@ -180,7 +177,7 @@ def _default_project_question(position: str, topic: str, profile: Dict[str, Any]
     template = _clean_text(profile.get("projectQuestionTemplate"))
     if template:
         return template
-    return f"请介绍一个与你应聘的{position}岗位最相关的项目，重点说明你的职责、关键问题和结果。"
+    return f"请介绍一次与{position}最相关的课程练习或医案分析，重点说明你的判断依据、完成过程和复盘结果。"
 
 
 def _safe_fallback_reason(exc: Any) -> str:
@@ -317,10 +314,9 @@ def _detect_covered_skills(text: str, profile: Optional[Dict[str, Any]] = None) 
 def _has_answer_evidence_for_project_followup(answer: str) -> bool:
     content = normalize_answer_text(answer)
     markers = [
-        "项目", "实验", "课程设计", "负责", "做过", "实现", "配置", "调试", "排查", "采集", "上传", "结果",
-        "led", "gpio", "io口", "按键", "串口", "uart", "usart", "中断", "定时器", "pwm", "adc", "传感器",
-        "外设", "寄存器", "hal", "标准库", "代码", "烧录", "示波器", "上位机",
-        "stm32", "单片机", "环境监测", "终端",
+        "课程", "练习", "医案", "分析", "复盘", "依据", "结果", "阴阳", "五行", "藏象",
+        "气血", "津液", "经络", "四诊", "望诊", "闻诊", "问诊", "切诊", "舌诊", "脉诊",
+        "八纲", "辨证", "证候", "病机", "治法", "中药", "方剂", "君臣佐使", "配伍", "禁忌",
     ]
     return any(normalize_answer_text(marker) in content for marker in markers)
 
@@ -328,8 +324,8 @@ def _has_answer_evidence_for_project_followup(answer: str) -> bool:
 def _basic_specific_followup(profile: Dict[str, Any], fallback: str) -> str:
     question = _basic_question(profile, 0, fallback)
     return (
-        "你提到和当前方向有关，但还没有具体细节。请你具体说一个接触过的实验，"
-        f"比如 LED 点亮、按键检测或串口通信。也可以先回答这个基础问题：{question}"
+        "你提到和当前方向有关，但还没有具体细节。请具体说一个学过的概念、方药或医案，"
+        f"并说明你的理解依据。也可以先回答这个基础问题：{question}"
     )
 
 
@@ -375,8 +371,8 @@ def _distinct_question_for_session(session: Dict[str, Any], preferred: str) -> s
 
     candidates.extend(
         [
-            "如果现在让你现场排查一个 STM32 外设没有响应的问题，你会先检查哪三项？",
-            "请从 GPIO、中断和 UART 中任选一个，说明初始化步骤以及如何验证配置正确。",
+            "请从四诊信息、证候判断和病机分析中任选一项，说明你的推理步骤。",
+            "请选一味中药或一首方剂，说明功效、适用证候和需要注意的安全边界。",
         ]
     )
     for candidate in candidates:
@@ -384,7 +380,7 @@ def _distinct_question_for_session(session: Dict[str, Any], preferred: str) -> s
             return candidate
 
     round_no = len(session.get("answers") or []) + 1
-    return f"我们换到第 {round_no} 个能力点。请说明你会如何验证一个外设功能已经正确且稳定。"
+    return f"我们换到第 {round_no} 个能力点。请说明你会如何核对一条中医知识的依据，并把它用于医案分析。"
 
 
 def _normalize_skills(value: Any, profile: Optional[Dict[str, Any]] = None) -> List[str]:
@@ -466,9 +462,9 @@ def _video_summary_for_session(session: Dict[str, Any]) -> str:
         return "本次未获得有效视频分析结果，评分未加入视频表现因素。"
     delta = _video_delta_from_frames(session)
     latest = analyses[-1]
-    observation = _clean_text(latest.get("analysis"), "候选人的面试画面状态较为稳定。")
+    observation = _clean_text(latest.get("analysis"), "学习者的访谈画面状态较为稳定。")
     if delta > 0:
-        trend = f"整体表现对面试表达形成轻微加分，视频辅助加分 {delta} 分。"
+        trend = f"整体表现对访谈表达形成轻微加分，视频辅助加分 {delta} 分。"
     elif delta < 0:
         trend = f"画面状态对表达观感有轻微扣分，视频辅助扣分 {abs(delta)} 分。"
     else:
@@ -649,7 +645,7 @@ def _fallback_question_for_answer_type(
         "dont_know": _basic_question(profile, 1, default_question),
         "irrelevant_answer": _basic_question(profile, 0, default_question),
         "negative_answer": _basic_question(profile, 0, default_question),
-        "refuse_answer": f"这个问题需要继续确认一下岗位基础。{_basic_question(profile, 0, default_question)}",
+        "refuse_answer": f"这个问题需要继续确认一下学习基础。{_basic_question(profile, 0, default_question)}",
         "end_request": _basic_question(profile, 0, default_question),
         "nonsense_answer": _basic_question(profile, 0, default_question),
         "too_short": _basic_question(profile, 0, default_question),
@@ -667,7 +663,7 @@ def _rescue_question_for_session(session: Dict[str, Any], answer_type: str, defa
     if answer_type in {"strong_answer", "normal_answer", "weak_answer", "vague_answer"}:
         return _fallback_question_for_answer_type(answer_type, default_question, profile, user_answer=last_answer)
     if answer_type == "refuse_answer":
-        return f"面试需要继续确认基础能力，我们先换一个更基础的问题。{_basic_question(profile, 0, default_question)}"
+        return f"学习访谈需要继续确认基础能力，我们先换一个更基础的问题。{_basic_question(profile, 0, default_question)}"
     if answer_type == "end_request":
         return f"可以理解，我们再用一个很基础的问题快速确认一下。{_basic_question(profile, 0, default_question)}"
     if low_count <= 1:
@@ -762,50 +758,50 @@ def _auto_end_decision(session: Dict[str, Any]) -> tuple[str, str]:
         or session.get("consecutiveRefuseCount", 0) >= 2
         or session.get("refuseCount", 0) >= 2
     ):
-        return "auto_user_unwilling", "候选人多次表达结束意愿，系统已自动结束面试。"
+        return "auto_user_unwilling", "学习者多次表达结束意愿，系统已自动结束学习访谈。"
     if session.get("consecutiveLowScoreCount", 0) >= 3:
-        return "auto_low_performance", "候选人连续多次无法回答岗位基础问题，系统已自动结束面试。"
+        return "auto_low_performance", "学习者连续多次无法回答当前方向的基础问题，系统已自动结束学习访谈。"
     if session.get("totalLowScoreCount", session.get("lowScoreCount", 0)) >= 4:
-        return "auto_low_performance", "候选人累计多次低质量回答，系统已自动结束面试。"
+        return "auto_low_performance", "学习者累计多次低质量回答，系统已自动结束学习访谈。"
     if session.get("consecutiveDontKnowCount", 0) >= 2 and current_round >= min_rounds:
-        return "auto_low_performance", "候选人连续多次明确表示不知道或不会，系统已自动结束面试。"
+        return "auto_low_performance", "学习者连续多次明确表示不知道或不会，系统已自动结束学习访谈。"
     if session.get("consecutiveNonsenseCount", 0) >= 2 and current_round >= min_rounds:
-        return "auto_low_performance", "候选人连续多次给出过短或无意义回答，系统已自动结束面试。"
+        return "auto_low_performance", "学习者连续多次给出过短或无意义回答，系统已自动结束学习访谈。"
     if session.get("nonsenseCount", 0) >= 3:
-        return "auto_low_performance", "候选人多次给出无意义回答，系统已自动结束面试。"
+        return "auto_low_performance", "学习者多次给出无意义回答，系统已自动结束学习访谈。"
     if (
         current_round >= min_rounds
         and session.get("effectiveAnswerCount", 0) <= 0
         and session.get("totalLowScoreCount", session.get("lowScoreCount", 0)) >= min_rounds
     ):
-        return "auto_role_mismatch", "候选人回答内容长期偏离岗位要求，系统判断岗位匹配度不足，已自动结束面试。"
+        return "auto_role_mismatch", "学习者回答内容长期偏离当前学习方向，系统已自动结束学习访谈。"
     if (
         current_round >= min_rounds
         and session.get("veryLowScoreCount", 0) >= 2
         and session.get("irrelevantCount", 0) >= 1
     ):
-        return "auto_role_mismatch", "候选人多次跑题或不配合，且未能回答基础补救问题，系统已自动结束面试。"
+        return "auto_role_mismatch", "学习者多次跑题或未能回答基础补救问题，系统已自动结束学习访谈。"
     if current_round >= max_rounds:
-        return "auto_max_rounds", "已达到本次面试最大问答轮次，系统自动生成总结。"
+        return "auto_max_rounds", "已达到本次学习访谈最大问答轮次，系统自动生成总结。"
     if elapsed_minutes >= max_duration and current_round >= min_rounds:
-        return "auto_time_limit", "本次面试已达到时间上限，系统自动生成总结。"
+        return "auto_time_limit", "本次学习访谈已达到时间上限，系统自动生成总结。"
     if (
         current_round >= min_rounds
         and len(set(session.get("coveredSkills") or [])) >= required_coverage_count
         and average_score >= 60
     ):
-        return "auto_coverage_complete", "本次面试已覆盖主要岗位能力点，系统自动生成面试评价。"
+        return "auto_coverage_complete", "本次学习访谈已覆盖主要学习能力点，系统自动生成学习评价。"
     if (
         current_round >= min_rounds
         and session.get("consecutiveHighScoreCount", 0) >= 3
         and average_score >= HIGH_SCORE_THRESHOLD
         and session.get("effectiveAnswerCount", 0) >= 3
     ):
-        return "auto_high_confidence_pass", "候选人在连续多轮回答中表现稳定，已获得足够评价依据，系统自动结束面试。"
+        return "auto_high_confidence_pass", "学习者在连续多轮回答中表现稳定，已获得足够评价依据，系统自动结束学习访谈。"
     if current_round >= 6 and _score_converged(session):
-        return "auto_score_converged", "候选人近期回答表现较稳定，评分结果已基本收敛，系统自动结束面试。"
+        return "auto_score_converged", "学习者近期回答表现较稳定，评分结果已基本收敛，系统自动结束学习访谈。"
     if session.get("mimoFailureCount", 0) >= 3:
-        return "auto_service_fallback", "AI 面试服务暂时不可用，系统已根据已有回答生成阶段性评价。"
+        return "auto_service_fallback", "AI 学习访谈服务暂时不可用，系统已根据已有回答生成阶段性评价。"
     return "", ""
 
 
@@ -856,22 +852,22 @@ def _final_score_from_session(
 
 def _fallback_summary_for_session(session: Dict[str, Any], score: int, end_reason: str) -> str:
     profile = _profile_for_session(session)
-    position = _clean_text(session.get("position"), profile.get("label", "当前岗位"))
-    core_skills = "、".join(profile.get("coreSkills") or []) or "岗位基础能力"
+    position = _clean_text(session.get("position"), profile.get("label", "当前学习方向"))
+    core_skills = "、".join(profile.get("coreSkills") or []) or "中医学习基础能力"
     if score <= 10:
         return (
-            f"{end_reason or '本次面试已结束。'}"
-            "候选人未能提供有效的岗位相关技术回答，且多次表示不知道、不会或偏离面试主题。"
-            f"当前表现与{position}岗位要求明显不匹配，建议先补齐{core_skills}等基础能力。"
+            f"{end_reason or '本次学习访谈已结束。'}"
+            "学习者未能提供有效的中医知识回答，且多次表示不知道、不会或偏离访谈主题。"
+            f"当前表现与{position}的学习要求存在差距，建议先补齐{core_skills}等基础能力。"
         )
     if score <= 30:
         return (
-            f"{end_reason or '本次面试已结束。'}"
-            f"候选人的{position}岗位基础和项目表达仍比较薄弱，需要系统复习岗位核心能力，并准备一个可复盘的小项目或案例。"
+            f"{end_reason or '本次学习访谈已结束。'}"
+            f"学习者在{position}方面的基础和医案表达仍比较薄弱，需要系统复习核心知识，并准备一则可复盘的医案或课程练习。"
         )
     return (
-        f"{end_reason or '本次面试已结束。'}"
-        f"候选人有一定表达，但围绕{position}的关键细节、问题定位过程和结果量化仍需加强。"
+        f"{end_reason or '本次学习访谈已结束。'}"
+        f"学习者有一定表达，但围绕{position}的概念依据、辨证过程和复盘总结仍需加强。"
     )
 
 
@@ -883,7 +879,7 @@ def _build_no_answer_summary_response(
     end_reason: str = "",
     end_type: str = "manual_end_no_answer",
 ) -> Dict[str, Any]:
-    reason = end_reason or "候选人尚未提交任何回答，面试未形成有效评价。"
+    reason = end_reason or "学习者尚未提交任何回答，学习访谈未形成有效评价。"
     return {
         "sessionId": session_id,
         "status": "ended",
@@ -899,10 +895,10 @@ def _build_no_answer_summary_response(
         "videoAnalysisEnabled": bool(session_snapshot.get("videoAnalysisEnabled")),
         "videoScoreDelta": 0,
         "videoSummary": _video_summary_for_session(session_snapshot),
-        "summary": "本次面试尚未完成，候选人没有提交任何有效回答，因此无法生成正式面试评分。建议重新开始面试并至少完成 3 轮问答。",
+        "summary": "本次学习访谈尚未完成，学习者没有提交任何有效回答，因此无法生成正式学习评价。建议重新开始访谈并至少完成 3 轮问答。",
         "advantages": [],
         "weaknesses": [],
-        "suggestions": ["请重新开始面试，并至少完成 3 轮有效问答。"],
+        "suggestions": ["请重新开始学习访谈，并至少完成 3 轮有效问答。"],
         "totalAnswerCount": _total_answer_count(session_snapshot),
         "effectiveAnswerCount": session_snapshot.get("effectiveAnswerCount", 0),
         "answerScores": list(session_snapshot.get("answerScores") or []),
@@ -1007,8 +1003,8 @@ def _build_summary_response(
 
 def _build_questions(position: str, topic: str, difficulty: str, profile: Optional[Dict[str, Any]] = None) -> List[str]:
     profile = profile or get_interview_profile(DEFAULT_POSITION_KEY)
-    focus = topic or "岗位基础、项目经验和问题分析能力"
-    role = position or _clean_text(profile.get("label"), "当前岗位")
+    focus = topic or "中医基础、医案分析和辨证思维"
+    role = position or _clean_text(profile.get("label"), "当前学习方向")
     level = difficulty or "中等"
     return [
         _default_project_question(role, focus, profile),
@@ -1054,8 +1050,8 @@ def _score_session(session: Dict[str, Any]) -> int:
 
 def _suggestions_for_score(score: int, session: Optional[Dict[str, Any]] = None) -> List[str]:
     profile = _profile_for_session(session or {}) if session else get_interview_profile(DEFAULT_POSITION_KEY)
-    position = _clean_text((session or {}).get("position"), profile.get("label", "当前岗位"))
-    core_skills = "、".join((profile.get("coreSkills") or [])[:4]) or "岗位基础能力"
+    position = _clean_text((session or {}).get("position"), profile.get("label", "当前学习方向"))
+    core_skills = "、".join((profile.get("coreSkills") or [])[:4]) or "中医学习基础能力"
     if score >= 85:
         return [
             "继续保持项目表达中的结构化描述，突出指标、约束和结果。",
@@ -1068,8 +1064,8 @@ def _suggestions_for_score(score: int, session: Optional[Dict[str, Any]] = None)
             "为每个项目准备可量化结果，例如延迟、稳定性、资源占用或通过率。",
         ]
     return [
-        f"先准备一个完整{position}案例复盘，覆盖背景、职责、行动、结果和反思。",
-        f"强化{core_skills}等岗位基础知识的口头表达。",
+        f"先准备一个完整的{position}医案或课程练习复盘，覆盖依据、分析、结论和反思。",
+        f"强化{core_skills}等基础知识的口头表达。",
         "回答追问时先给结论，再补充依据和排查步骤。",
     ]
 
@@ -1082,10 +1078,10 @@ def start_interview_session(user_id: int, payload: Dict[str, Any]) -> Dict[str, 
     profile = get_interview_profile(position_key, position)
     position_key = _clean_text(profile.get("positionKey"), position_key)
     category_key = _clean_text(category_key, profile.get("categoryKey", "mcu_development"))
-    category = _clean_text(category, profile.get("category", "单片机与 MCU 开发"))
-    position = _clean_text(position, profile.get("label", "STM32 开发工程师"))
+    category = _clean_text(category, profile.get("category", "中医基础理论"))
+    position = _clean_text(position, profile.get("label", "藏象与气血津液专项"))
     direction_key = _clean_text(payload.get("directionKey") or payload.get("direction_key"))
-    direction = _clean_text(payload.get("direction") or payload.get("topic"), "GPIO / 中断 / UART")
+    direction = _clean_text(payload.get("direction") or payload.get("topic"), "藏象与气血津液")
     topic = direction
     difficulty = difficulty_value(payload.get("difficulty") or payload.get("difficultyKey") or payload.get("difficulty_key"))
     difficulty_display = difficulty_label(difficulty, payload.get("difficultyLabel") or payload.get("difficulty_label"))
@@ -1239,9 +1235,9 @@ def handle_interview_message(user_id: int, payload: Dict[str, Any]) -> Dict[str,
     with _SESSION_LOCK:
         session = _SESSIONS.get(session_id)
         if not session or session.get("user_id") != user_id:
-            return {"code": 404, "msg": "面试会话不存在或已过期"}
+            return {"code": 404, "msg": "学习访谈会话不存在或已过期"}
         if session.get("status") == "ended":
-            return {"code": 409, "msg": "面试已结束"}
+            return {"code": 409, "msg": "学习访谈已结束"}
 
         answer_eval = _score_answer(answer, _profile_for_session(session))
         answer_type = answer_eval["answerType"]
@@ -1339,7 +1335,7 @@ def handle_interview_message(user_id: int, payload: Dict[str, Any]) -> Dict[str,
                 if session and session.get("user_id") == user_id and session.get("status") != "ended":
                     session["mimoFailureCount"] = session.get("mimoFailureCount", 0) + 1
                     if session["mimoFailureCount"] >= 3:
-                        service_reason = "AI 面试服务暂时不可用，系统已根据已有回答生成阶段性评价。"
+                        service_reason = "AI 学习访谈服务暂时不可用，系统已根据已有回答生成阶段性评价。"
                         session["status"] = "ended"
                         session["autoEnded"] = True
                         session["endType"] = "auto_service_fallback"
@@ -1434,15 +1430,15 @@ def handle_interview_message(user_id: int, payload: Dict[str, Any]) -> Dict[str,
 def get_interview_video_context(user_id: int, payload: Dict[str, Any]) -> tuple[bool, Dict[str, Any], Dict[str, Any]]:
     session_id = _clean_text(payload.get("sessionId"))
     if not session_id:
-        return False, {"success": False, "errorCode": "CAMERA_NOT_ENABLED", "error": "缺少面试会话，无法分析关键帧"}, {}
+        return False, {"success": False, "errorCode": "CAMERA_NOT_ENABLED", "error": "缺少学习访谈会话，无法分析关键帧"}, {}
     with _SESSION_LOCK:
         session = _SESSIONS.get(session_id)
         if not session or session.get("user_id") != user_id:
-            return False, {"success": False, "errorCode": "SESSION_NOT_FOUND", "error": "面试会话不存在或已过期"}, {}
+            return False, {"success": False, "errorCode": "SESSION_NOT_FOUND", "error": "学习访谈会话不存在或已过期"}, {}
         if session.get("status") == "ended":
-            return False, {"success": False, "errorCode": "CAMERA_NOT_ENABLED", "error": "面试已结束，无法继续分析关键帧"}, {}
+            return False, {"success": False, "errorCode": "CAMERA_NOT_ENABLED", "error": "学习访谈已结束，无法继续分析关键帧"}, {}
         if not session.get("videoAnalysisEnabled"):
-            return False, {"success": False, "errorCode": "CAMERA_NOT_ENABLED", "error": "本轮面试未启用摄像头分析"}, {}
+            return False, {"success": False, "errorCode": "CAMERA_NOT_ENABLED", "error": "本轮学习访谈未启用摄像头分析"}, {}
         try:
             round_no = int(payload.get("round") or session.get("currentRound") or 1)
         except (TypeError, ValueError):
@@ -1475,14 +1471,14 @@ def end_interview_session(user_id: int, payload: Dict[str, Any]) -> Dict[str, An
     with _SESSION_LOCK:
         session = _SESSIONS.get(session_id)
         if not session or session.get("user_id") != user_id:
-            return {"code": 404, "msg": "面试会话不存在或已过期"}
+            return {"code": 404, "msg": "学习访谈会话不存在或已过期"}
         session["status"] = "ended"
         if _total_answer_count(session) <= 0:
             session["endType"] = "manual_end_no_answer"
-            session["endReason"] = "候选人尚未提交任何回答，面试未形成有效评价。"
+            session["endReason"] = "学习者尚未提交任何回答，学习访谈未形成有效评价。"
         else:
             session["endType"] = "manual_end"
-            session["endReason"] = "用户主动结束面试。"
+            session["endReason"] = "用户主动结束学习访谈。"
         session["updated_at"] = _now_iso()
         session_snapshot = _copy_session(session)
 
@@ -1490,6 +1486,6 @@ def end_interview_session(user_id: int, payload: Dict[str, Any]) -> Dict[str, An
         session_id,
         session_snapshot,
         auto_ended=False,
-        end_reason=session_snapshot.get("endReason", "用户主动结束面试。"),
+        end_reason=session_snapshot.get("endReason", "用户主动结束学习访谈。"),
         end_type=session_snapshot.get("endType", "manual_end"),
     )

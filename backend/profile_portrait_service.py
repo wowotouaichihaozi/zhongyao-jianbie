@@ -210,15 +210,15 @@ def _download_image(image_url: str, api_key: str) -> bytes:
 def portrait_prompt(profile: dict[str, Any]) -> str:
     analysis = profile.get("aiAnalysis") if isinstance(profile.get("aiAnalysis"), dict) else {}
     return (
-        "Create one square 3D stylized illustration avatar for a Chinese embedded systems learner. "
+        "Create one square 3D stylized illustration avatar for a Chinese traditional medicine learner. "
         "This is a non-identifying fictional learning persona, not a photorealistic person. "
         "Friendly university student bust portrait, intelligent expression, subtle glasses, short dark hair, "
-        "mint green hoodie with a tiny abstract microcontroller badge, soft off-white studio background, "
+        "deep green and warm ivory student clothing with a subtle botanical pattern, soft off-white studio background, "
         "clean rounded-square composition, premium educational dashboard visual, no text, no logo, no watermark. "
-        f"Learning direction: {_profile_text(profile, '专业/课程背景') or 'embedded systems'}. "
-        f"Learning style: {analysis.get('learningStyle') or _profile_text(profile, '学习风格/认知偏好') or 'hands-on practice'}. "
-        f"Goals: {_profile_text(profile, '学习目标') or 'embedded project practice'}. "
-        f"Focus areas: {_profile_text(profile, '薄弱知识点') or 'STM32 and debugging'}."
+        f"Learning direction: {_profile_text(profile, '专业/课程背景') or 'traditional Chinese medicine'}. "
+        f"Learning style: {analysis.get('learningStyle') or _profile_text(profile, '学习风格/认知偏好') or 'case-based study'}. "
+        f"Goals: {_profile_text(profile, '学习目标') or 'TCM theory and case analysis'}. "
+        f"Focus areas: {_profile_text(profile, '薄弱知识点') or 'syndrome differentiation and formula reasoning'}."
     )
 
 

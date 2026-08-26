@@ -4,7 +4,7 @@
       <div class="task-heading">
         <span class="brand-mark"><Presentation :size="20" aria-hidden="true" /></span>
         <div>
-          <span class="eyebrow">OhMyPPT · 嵌小智协同任务</span>
+          <span class="eyebrow">OhMyPPT · 岐小智协同任务</span>
           <h1>{{ topic }}</h1>
         </div>
       </div>
@@ -171,7 +171,7 @@
           <h3>Harness 审核</h3>
           <div class="review-row">
             <span>Root Agent</span>
-            <strong>{{ latestRun.rootAgent || '嵌小智' }}</strong>
+            <strong>{{ latestRun.rootAgent || '岐小智' }}</strong>
           </div>
           <div class="review-row">
             <span>Skill / MCP</span>
@@ -426,7 +426,7 @@ async function retryGeneration() {
       topic: topic.value,
       userMessage: String(task.value?.prompt || route.query.prompt || `生成一份关于“${topic.value}”的学习 PPT。`),
       pageCount: Math.max(1, Math.min(20, Number(route.query.pageCount || pptPayload.value?.pages?.length || 6))),
-      styleName: '嵌智学航浅绿平台风',
+      styleName: '岐黄智境浅绿平台风',
       styleDescription: '白底浅绿、干净明亮、模块化教育科技风。',
     })
     const nextTask = response?.data?.task || response?.task

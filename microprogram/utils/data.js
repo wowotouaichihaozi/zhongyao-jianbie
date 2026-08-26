@@ -33,7 +33,10 @@ function weeks(payload) {
     title: item.title || `第 ${index + 1} 周学习任务`,
     description: item.description || item.summary || '',
     state: normalizeState(item.status || item.state),
-    tasks: Array.isArray(item.tasks) ? item.tasks : (Array.isArray(item.nodes) ? item.nodes : []),
+    tasks: (Array.isArray(item.tasks) ? item.tasks : (Array.isArray(item.nodes) ? item.nodes : [])).filter(task => {
+      const type = String(task && (task.resourceType || task.type) || '').toLowerCase()
+      return type !== 'mcu' && type !== 'simulator'
+    }),
   })).sort((a, b) => a.order - b.order)
 }
 

@@ -259,7 +259,7 @@
               </div>
               <div v-if="!qualityCriteria.length"><dt>评价明细</dt><dd>未返回</dd></div>
             </dl>
-            <p v-if="verificationRequired" class="verification-warning"><TriangleAlert :size="17" />部分内容缺少直接依据，请结合芯片手册或课程资料核验。</p>
+            <p v-if="verificationRequired" class="verification-warning"><TriangleAlert :size="17" />部分内容缺少直接依据，请结合经典医籍、教材或课程资料核验。</p>
           </section>
 
           <section class="evidence-panel sources-panel">

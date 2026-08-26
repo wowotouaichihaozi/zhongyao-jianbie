@@ -1,4 +1,4 @@
-﻿import json
+import json
 import operator
 import re
 from pathlib import Path
@@ -506,79 +506,79 @@ def _safe_grounded_question(question_id: str, question_type: str, sequence: int)
             "id": question_id,
             "type": normalized_type,
             "difficulty": "基础",
-            "knowledge_point": "STM32F103 架构",
-            "stem": "STM32F103 采用 ARM Cortex-M3 内核，最高系统主频可达 72MHz。",
+            "knowledge_point": "八纲辨证",
+            "stem": "八纲辨证以表里、寒热、虚实、阴阳作为基本辨证纲领。",
             "options": [],
             "answer": "正确",
-            "analysis": "课程知识库的 STM32F103 架构章节明确给出 Cortex-M3 内核和最高 72MHz 主频。[KB1]",
-            "mistake_alert": "不要把 STM32F1 与采用 Cortex-M4 的 STM32F4 混淆。",
+            "analysis": "课程资料将表里、寒热、虚实、阴阳列为八纲辨证的基本纲领。[KB1]",
+            "mistake_alert": "辨证时不能只凭单个症状，需要结合四诊信息综合判断。",
         }
     if normalized_type == "多选题":
         return {
             "id": question_id,
             "type": normalized_type,
             "difficulty": "基础",
-            "knowledge_point": "嵌入式调试工具",
-            "stem": "调试 STM32 GPIO 运行异常时，哪些工具或方法可以提供可观察证据？",
-            "options": ["A. ST-Link 断点与单步", "B. LED 状态指示", "C. 逻辑分析仪或示波器", "D. 不记录现象直接修改代码"],
-            "answer": "A、B、C",
-            "analysis": "课程知识库列出了 ST-Link、LED 指示、逻辑分析仪和示波器等调试手段。[KB1]",
-            "mistake_alert": "调试应先保留现象和证据，再缩小问题范围。",
+            "knowledge_point": "四诊合参",
+            "stem": "分析一则中医医案时，哪些信息属于四诊证据？",
+            "options": ["A. 面色与舌象", "B. 声音与气味", "C. 主诉与病史", "D. 脉象与按诊"],
+            "answer": "A、B、C、D",
+            "analysis": "望、闻、问、切四诊信息共同构成辨证依据，应综合分析。[KB1]",
+            "mistake_alert": "不要只依据舌象或单个主症直接确定证型。",
         }
     if normalized_type == "填空题":
         return {
             "id": question_id,
             "type": normalized_type,
             "difficulty": "基础",
-            "knowledge_point": "STM32F103 时钟",
-            "stem": "STM32F103 的最高系统主频为 ____ MHz。",
+            "knowledge_point": "方剂配伍",
+            "stem": "方剂中针对主病或主证起主要治疗作用的药物称为 ____ 药。",
             "options": [],
-            "answer": "72",
-            "analysis": "课程知识库的 STM32F103 时钟系统部分给出系统时钟最高 72MHz。[KB1]",
-            "mistake_alert": "不要把 APB1 的最高 36MHz 与系统主频混淆。",
+            "answer": "君",
+            "analysis": "君药针对主病或主证发挥主要治疗作用，是方剂配伍结构的核心。[KB1]",
+            "mistake_alert": "臣药可协助君药或兼治重要兼证，不要与君药作用混淆。",
         }
     if normalized_type in {"简答题", "综合题"}:
         return {
             "id": question_id,
             "type": normalized_type,
             "difficulty": "提升",
-            "knowledge_point": "GPIO 调试流程",
-            "stem": "GPIO 实验没有出现预期电平变化时，请给出一套由硬件到软件的排查顺序。",
+            "knowledge_point": "医案辨析流程",
+            "stem": "请给出一套从四诊信息到治法方药的基础医案辨析顺序。",
             "options": [],
-            "answer": "依次检查电源与接线、时钟和复位、程序是否正确下载、引脚配置、运行状态与测量证据。",
-            "analysis": "该顺序来自课程知识库的最小系统与常见问题调试方法，先验证基础条件，再检查配置和运行现象。[KB1]",
-            "mistake_alert": "不要在没有测量证据时同时修改多处配置。",
+            "answer": "依次整理主症与兼症、舌象脉象，判断病位病性与核心病机，确定证型和治法，再分析代表方及其配伍。",
+            "analysis": "医案辨析需要保持四诊证据、病机、证型、治法和方药之间的逻辑一致。[KB1]",
+            "mistake_alert": "不要先套用方剂再反推证型。",
         }
     single_variants = [
         (
-            "GPIO 实验没有输出时，最合理的第一步是什么？",
-            ["A. 检查电源、时钟、复位和程序下载", "B. 立即更换所有外设", "C. 删除调试信息", "D. 跳过现象记录"],
+            "进行八纲辨证时，最合理的第一步是什么？",
+            ["A. 完整整理四诊信息", "B. 立即确定方剂", "C. 只看一个症状", "D. 跳过舌脉信息"],
             "A",
-            "课程知识库建议程序不运行时先检查电源、时钟、复位和下载状态。[KB1]",
+            "八纲判断应建立在完整四诊信息基础上，再分析表里、寒热与虚实。[KB1]",
         ),
         (
-            "下列哪种工具适合观察 GPIO 数字电平随时间的变化？",
-            ["A. 逻辑分析仪", "B. 文本编辑器", "C. 版本控制日志", "D. 压缩软件"],
+            "下列哪项最能反映舌诊信息？",
+            ["A. 舌质与舌苔", "B. 年龄", "C. 身高", "D. 学习时长"],
             "A",
-            "逻辑分析仪可分析数字信号并进行协议解码，适合观察 GPIO 时序。[KB1]",
+            "舌诊主要观察舌质、舌苔及舌态等变化。[KB1]",
         ),
         (
-            "STM32F103 使用的处理器内核是：",
-            ["A. Cortex-M0", "B. Cortex-M3", "C. Cortex-M4", "D. Cortex-M7"],
+            "八纲中的“病位纲领”是：",
+            ["A. 表里", "B. 寒热", "C. 虚实", "D. 阴阳"],
             "B",
-            "课程知识库明确说明 STM32F103 属于 STM32F1 系列并采用 Cortex-M3 内核。[KB1]",
+            "表里用于辨别病位的浅深和病变所在。[KB1]",
         ),
         (
-            "完成 GPIO 调试后，哪项记录最有利于后续复盘？",
-            ["A. 问题现象、复现步骤、修正方法和验证结果", "B. 只记录最终代码", "C. 只记录日期", "D. 不保留记录"],
+            "完成医案辨析后，哪项记录最有利于后续复盘？",
+            ["A. 四诊证据、证型、病机、治法、方药和修正理由", "B. 只记录方名", "C. 只记录日期", "D. 不保留依据"],
             "A",
-            "课程知识库的调试文档部分要求记录问题描述、复现步骤、解决方法和调试过程。[KB1]",
+            "完整记录辨证证据链和修正理由有助于发现思维偏差并迁移到相似医案。[KB1]",
         ),
         (
-            "STM32CubeMX 在 GPIO 学习流程中的主要作用是：",
-            ["A. 图形化配置引脚并生成初始化代码", "B. 替代示波器测量", "C. 自动焊接电路", "D. 替代所有调试器"],
+            "君臣佐使在方剂学习中的主要作用是：",
+            ["A. 分析药物在方中的主次与协同关系", "B. 替代辨证", "C. 只统计药味数量", "D. 忽略配伍禁忌"],
             "A",
-            "课程知识库说明 STM32CubeMX 用于图形化配置引脚、时钟和外设，并生成初始化代码。[KB1]",
+            "君臣佐使结构用于解释方中药物的主次、协同和制约关系。[KB1]",
         ),
     ]
     stem, options, answer, analysis = single_variants[variant]
@@ -586,12 +586,12 @@ def _safe_grounded_question(question_id: str, question_type: str, sequence: int)
         "id": question_id,
         "type": normalized_type or "单选题",
         "difficulty": "基础" if variant < 3 else "提升",
-        "knowledge_point": "GPIO 配置与调试",
+        "knowledge_point": "中医基础辨析",
         "stem": stem,
         "options": options,
         "answer": answer,
         "analysis": analysis,
-        "mistake_alert": "依据可观察证据逐步排查，不要凭猜测同时修改多项配置。",
+        "mistake_alert": "依据四诊证据逐步辨析，不要凭单个症状直接套用证型或方剂。",
     }
 
 
@@ -912,24 +912,24 @@ def _fallback_knowledge_points(payload: dict[str, Any]) -> list[str]:
         for key in ["target_topic", "learning_objectives", "resource_plan_result", "constraints"]
     )
     candidates = [
-        "GPIO 输入输出",
-        "STM32 外设时钟配置",
-        "UART 串口通信",
-        "中断优先级与 NVIC",
-        "定时器 PWM",
-        "寄存器与 HAL 初始化",
-        "单片机仿真实验",
-        "调试与故障排查",
+        "阴阳五行与整体观念",
+        "藏象与气血津液",
+        "四诊信息归纳",
+        "八纲辨证",
+        "中药性味归经",
+        "方剂组成与配伍",
+        "典型医案辨析",
+        "证候鉴别与错因复盘",
     ]
     selected = [item for item in candidates if any(part.lower() in text.lower() for part in re.split(r"\s+|与|和", item) if part)]
     if not selected:
         topic = re.sub(r"\s+", " ", str(payload.get("target_topic") or "课程核心知识点")).strip()
-        selected = [topic[:28] or "课程核心知识点", "基础概念理解", "实验操作与调试"]
+        selected = [topic[:28] or "课程核心知识点", "基础概念理解", "医案辨析与复盘"]
     return selected[:6]
 
 
 def _make_fallback_question(payload: dict[str, Any], question_type: str, sequence: int) -> dict[str, Any]:
-    course = str(payload.get("course_name") or "嵌入式系统").strip()
+    course = str(payload.get("course_name") or "中医系统").strip()
     topic = re.sub(r"\s+", " ", str(payload.get("target_topic") or "课程复习").strip())
     topic_short = topic[:36] or "课程复习"
     points = _fallback_knowledge_points(payload)
@@ -941,61 +941,61 @@ def _make_fallback_question(payload: dict[str, Any], question_type: str, sequenc
         "difficulty": difficulty,
         "knowledge_point": point,
         "options": [],
-        "mistake_alert": f"注意把 {point} 与具体实验现象对应起来，不要只背结论。",
+        "mistake_alert": f"注意把 {point} 与四诊证据和医案情境对应起来，不要只背结论。",
     }
     if question_type == "单选题":
         base.update({
             "stem": f"在{course}的“{topic_short}”学习中，关于{point}的说法最合理的是哪一项？",
             "options": [
-                f"A. 先确认{point}相关配置，再观察实验现象",
-                "B. 可以跳过初始化步骤直接运行外设",
-                "C. 出现异常时只需要重复下载程序",
-                "D. 所有外设都不需要考虑时钟或引脚复用",
+                f"A. 先确认{point}相关概念，再结合四诊或医案证据分析",
+                "B. 可以跳过辨证直接套用方剂",
+                "C. 出现疑问时只需要重复背诵结论",
+                "D. 所有证候都不需要考虑病位与病性",
             ],
             "answer": "A",
-            "analysis": f"{point}通常需要结合初始化配置、运行现象和调试记录一起判断。先确认关键配置，再定位现象，能减少盲目试错。",
+            "analysis": f"{point}需要结合基础理论、四诊证据和医案情境理解。先确认关键概念，再分析证候，能减少机械套用。",
         })
     elif question_type == "多选题":
         base.update({
-            "stem": f"围绕{point}进行实验或复习时，哪些做法有助于完成“{topic_short}”任务？",
+            "stem": f"围绕{point}进行医案或复习时，哪些做法有助于完成“{topic_short}”任务？",
             "options": [
-                "A. 核对初始化参数和引脚/外设映射",
-                "B. 记录现象、假设和验证步骤",
-                "C. 忽略报错信息，直接更换无关代码",
-                "D. 将概念题、代码题和仿真实验串起来复盘",
+                "A. 核对教材定义和经典依据",
+                "B. 记录四诊信息、辨证假设和验证依据",
+                "C. 忽略证候差异，直接套用固定结论",
+                "D. 将概念题、方药辨析和医案练习串起来复盘",
             ],
             "answer": "A、B、D",
-            "analysis": "配置核对、过程记录和跨资源复盘能形成稳定的学习闭环。忽略报错会让定位过程失去依据。",
+            "analysis": "依据核对、辨证过程记录和跨资源复盘能形成稳定的学习闭环。忽略证候差异会让结论失去依据。",
         })
     elif question_type == "判断题":
         base.update({
-            "stem": f"判断：学习{point}时，只要题目答案正确，就可以不做对应的仿真实验或调试记录。",
+            "stem": f"判断：学习{point}时，只要题目答案正确，就可以不做对应的医案辨析或依据记录。",
             "answer": "错误",
-            "analysis": f"{point}既要理解概念，也要通过实验验证。仿真和调试记录能帮助发现配置遗漏和理解偏差。",
+            "analysis": f"{point}既要理解概念，也要通过医案辨析验证。证据链和错因记录能帮助发现理解偏差。",
         })
     elif question_type == "填空题":
         base.update({
-            "stem": f"在排查{point}相关问题时，建议按“配置检查 -> 现象记录 -> ______ -> 复盘总结”的顺序进行。",
-            "answer": "对照资料或实验逐步验证",
-            "analysis": "逐步验证能把问题限定在更小范围，避免只凭感觉修改代码。",
+            "stem": f"在分析{point}相关医案时，建议按“四诊整理 -> 病机判断 -> ______ -> 复盘总结”的顺序进行。",
+            "answer": "确定证型、治法与方药并核对依据",
+            "analysis": "逐步辨析能保持证据、病机、证型和方药之间的一致性。",
         })
     elif question_type == "简答题":
         base.update({
-            "stem": f"简述在“{topic_short}”任务中学习{point}时，应如何结合课件、思维导图、题单和实验资源。",
-            "answer": "先用课件把核心概念过一遍，再用思维导图梳理关系；随后通过题单检查薄弱点，最后进入实验或仿真验证配置和现象。",
-            "analysis": "这一路径从理解、结构化、检测到实践，能把知识点从记忆推进到可操作能力。",
+            "stem": f"简述在“{topic_short}”任务中学习{point}时，应如何结合课件、思维导图、题单和医案资源。",
+            "answer": "先用课件理解核心概念，再用思维导图梳理关系；随后通过题单检查薄弱点，最后用典型医案验证辨证思路。",
+            "analysis": "这一路径从理解、结构化、检测到医案应用，能把知识点从记忆推进到辨证能力。",
         })
     elif question_type == "计算题":
         base.update({
-            "stem": f"某同学计划用 2 次课完成{point}复习，每次 45 分钟，其中课件学习占 30%，题单训练占 40%，实验验证占 30%。请计算题单训练总时长。",
+            "stem": f"某同学计划用 2 次课完成{point}复习，每次 45 分钟，其中课件学习占 30%，题单训练占 40%，医案练习占 30%。请计算题单训练总时长。",
             "answer": "36 分钟",
             "analysis": "总时长为 2 x 45 = 90 分钟，题单训练占 40%，所以 90 x 40% = 36 分钟。",
         })
     else:
         base.update({
-            "stem": f"综合应用：为“{topic_short}”设计一个围绕{point}的学习闭环任务，要求包含资源使用顺序、检查点和实验验证方式。",
-            "answer": "可按 PPT 概念学习、思维导图梳理、题单自测、单片机仿真实验、错题复盘的顺序设计；检查点包括关键配置是否能解释、题单正确率、实验现象是否符合预期。",
-            "analysis": "综合应用题强调把多个资源组合成可执行计划，并用实验现象和错题复盘验证学习效果。",
+            "stem": f"综合应用：为“{topic_short}”设计一个围绕{point}的学习闭环任务，要求包含资源使用顺序、检查点和医案验证方式。",
+            "answer": "可按 PPT 概念学习、思维导图梳理、题单自测、典型医案辨析、错因复盘的顺序设计；检查点包括核心概念能否解释、题单正确率、辨证证据链是否完整。",
+            "analysis": "综合应用题强调把多个资源组合成可执行计划，并用医案证据链和错因复盘验证学习效果。",
         })
     return base
 
@@ -1790,7 +1790,7 @@ def _ground_question_payload(payload: dict[str, Any], on_stage=None) -> tuple[di
             str(payload.get("course_name") or ""),
             str(payload.get("target_topic") or ""),
             str(payload.get("learning_objectives") or ""),
-            "嵌入式系统 单片机 课程题库",
+            "中医基础理论 四诊辨证 中药方剂 医案课程题库",
         ]
     )
     knowledge_context, knowledge_sources = grounded_prompt_block(query, top_k=7, max_context_chars=12000)

@@ -212,7 +212,7 @@ def normalize_tutor_output(raw: object, payload: dict[str, Any], *, source: str)
     references = _knowledge_references(payload)
     uncertainties = _string_list(raw.get("uncertainties"), limit=6)
     if not references and not uncertainties:
-        uncertainties.append("当前知识库没有命中可直接引用的资料，具体芯片参数和寄存器位定义需查阅对应芯片手册。")
+        uncertainties.append("当前知识库没有命中可直接引用的资料，中医定义、经典原文和方药信息需查阅权威教材或原始文献。")
 
     result = {
         "schemaVersion": TUTOR_SCHEMA_VERSION,
@@ -336,13 +336,13 @@ def _grounded_fallback(payload: dict[str, Any], previous: object, errors: list[s
     question = _text(payload.get("question") or payload.get("message") or payload.get("topic"), "当前学习问题")
     answer = (
         f"围绕“{question}”，先把问题拆成条件、机制、配置和可观察现象四部分。"
-        + (f"课程知识库命中的要点是：{excerpt}" if excerpt else "当前知识库没有命中足够正文，具体参数需查阅课程资料或芯片手册后再确认。")
+        + (f"课程知识库命中的要点是：{excerpt}" if excerpt else "当前知识库没有命中足够正文，相关结论需查阅课程资料、权威教材或原始文献后再确认。")
     )
     raw = {
         "answer": answer,
         "explanation": {
-            "concept": excerpt or "在没有充分知识依据时，不直接猜测硬件参数；应先确认器件、手册版本和关键配置。",
-            "steps": ["列出已知条件", "检索课程资料或芯片手册", "用最小实验验证结论"],
+            "concept": excerpt or "在没有充分知识依据时，不直接猜测中医结论；应先确认教材版本、原始文献和适用语境。",
+            "steps": ["列出已知的四诊与知识条件", "检索课程资料、权威教材或经典原文", "用概念对比或医案推理验证结论"],
         },
         "uncertainties": [
             "模型结构化输出连续两次未通过校验，当前回答采用知识库约束兜底。",
@@ -372,8 +372,8 @@ def generate_learning_tutor(payload: dict[str, Any]) -> dict[str, Any]:
         "uncertainties": ["string"],
     }
     system = """
-你是嵌小智调度的嵌入式课程智能辅导子智能体。
-必须依据学习画像与提供的课程知识片段答疑，禁止编造芯片参数、寄存器位或实验现象。
+你是嵌小智调度的中医课程智能辅导子智能体。
+必须依据学习画像与提供的课程知识片段答疑，禁止编造经典原文、方药功效、剂量、禁忌或医案事实。
 采用苏格拉底式追问、费曼复述、三级提示和可验收练习；先引导思考，再揭示答案。
 输出必须是单个 JSON 对象，不要 Markdown 代码围栏，不要输出 Schema 以外的解释文字。
 """

@@ -181,7 +181,7 @@
 
       <div v-if="!loading && !pathLoadError && !generationError && (!hasActiveLearningProfile || !sortedNodes.length)" class="empty-path-state" role="status">
         <strong>{{ hasActiveLearningProfile ? '尚未生成学习路径' : '当前没有学习画像' }}</strong>
-        <span>{{ hasActiveLearningProfile ? '嵌小智会按你的目标、薄弱点和资源偏好生成周学习计划。' : '请先完成学习画像后再生成个性化周任务。' }}</span>
+        <span>{{ hasActiveLearningProfile ? '岐小智会按你的目标、薄弱点和资源偏好生成周学习计划。' : '请先完成学习画像后再生成个性化周任务。' }}</span>
         <button type="button" @click="handlePersonalizationAction">
           {{ hasActiveLearningProfile ? '生成学习路径' : '完成学习画像' }}
         </button>
@@ -299,104 +299,104 @@ const staticWeekOneStageIds = new Set([firstVisibleStageId])
 const staticWeekOneNodes = [
   {
     id: '01',
-    cacheKey: 'week1-stm32-video',
+    cacheKey: 'week1-tcm-foundation-video',
     resourceType: 'video',
     label: '01',
-    title: 'STM32 基础视频',
+    title: '中医基础理论视频',
     statusText: '可进入',
-    description: '调用视频查找工具，直接检索 STM32 基础入门、开发环境和 GPIO 实操相关视频。',
+    description: '调用视频查找工具，检索阴阳五行、藏象学说与气血津液相关入门课程。',
     state: 'current',
     x: 112,
     y: 420,
     popX: 190,
     popY: 250,
     actionText: '查找视频',
-    actionRoute: '/personalized-resources/video-search?keyword=STM32%E5%9F%BA%E7%A1%80%E8%A7%86%E9%A2%91&topic=STM32%E5%9F%BA%E7%A1%80',
+    actionRoute: '/personalized-resources/video-search?keyword=%E4%B8%AD%E5%8C%BB%E5%9F%BA%E7%A1%80%E7%90%86%E8%AE%BA&topic=%E9%98%B4%E9%98%B3%E4%BA%94%E8%A1%8C%E4%B8%8E%E8%97%8F%E8%B1%A1',
     order: 1,
   },
   {
     id: '02',
-    cacheKey: 'week1-stm32-ppt',
+    cacheKey: 'week1-tcm-pattern-ppt',
     resourceType: 'ppt',
     label: '02',
-    title: 'STM32 PPT',
+    title: '八纲辨证 PPT',
     statusText: '可进入',
-    description: '进入 PPT 生成页面，主题预填为 STM32 基础课件，用于快速生成本周概念课件。',
+    description: '进入 PPT 生成页面，围绕表里、寒热、虚实、阴阳梳理八纲辨证框架。',
     state: 'available',
     x: 402,
     y: 292,
     popX: 402,
     popY: 122,
     actionText: '生成 PPT',
-    actionRoute: '/personalized-resources/ppt?topic=STM32%E5%9F%BA%E7%A1%80%E8%AF%BE%E4%BB%B6&prompt=生成一份面向嵌入式初学者的STM32基础PPT，包含开发环境、GPIO、寄存器与HAL库入门。&pageCount=6&autostart=1',
+    actionRoute: '/personalized-resources/ppt?topic=%E5%85%AB%E7%BA%B2%E8%BE%A8%E8%AF%81&prompt=%E7%94%9F%E6%88%90%E4%B8%80%E4%BB%BD%E9%9D%A2%E5%90%91%E4%B8%AD%E5%8C%BB%E5%88%9D%E5%AD%A6%E8%80%85%E7%9A%84%E5%85%AB%E7%BA%B2%E8%BE%A8%E8%AF%81PPT%EF%BC%8C%E5%8C%85%E5%90%AB%E8%A1%A8%E9%87%8C%E3%80%81%E5%AF%92%E7%83%AD%E3%80%81%E8%99%9A%E5%AE%9E%E4%B8%8E%E9%98%B4%E9%98%B3%E3%80%82&pageCount=6&autostart=1',
     order: 2,
   },
   {
     id: '03',
-    cacheKey: 'week1-stm32-mind-map',
+    cacheKey: 'week1-tcm-formula-mind-map',
     resourceType: 'mindmap',
     label: '03',
-    title: 'STM32 思维导图',
+    title: '方剂配伍思维导图',
     statusText: '可进入',
-    description: '进入思维导图工具，围绕 STM32 基础、GPIO、时钟、中断和开发流程整理知识结构。',
+    description: '进入思维导图工具，围绕君臣佐使、治法与代表方整理方剂配伍结构。',
     state: 'available',
     x: 646,
     y: 316,
     popX: 646,
     popY: 146,
     actionText: '生成导图',
-    actionRoute: '/personalized-resources/mind-map?topic=STM32%E5%9F%BA%E7%A1%80%E6%80%9D%E7%BB%B4%E5%AF%BC%E5%9B%BE&keyword=STM32%E5%9F%BA%E7%A1%80&autostart=1',
+    actionRoute: '/personalized-resources/mind-map?topic=%E6%96%B9%E5%89%82%E9%85%8D%E4%BC%8D%E6%80%9D%E7%BB%B4%E5%AF%BC%E5%9B%BE&keyword=%E5%90%9B%E8%87%A3%E4%BD%90%E4%BD%BF&autostart=1',
     order: 3,
   },
   {
     id: '04',
-    cacheKey: 'week1-stm32-question-bank',
+    cacheKey: 'week1-tcm-herb-question-bank',
     resourceType: 'question-bank',
     label: '04',
     title: '题库练习小测',
     statusText: '可进入',
-    description: '进入题库生成页面，预填 STM32 基础主题，生成一组用于自测的巩固练习。',
+    description: '进入题库生成页面，预填中药性味归经主题，生成一组用于自测的巩固练习。',
     state: 'available',
     x: 942,
     y: 369,
     popX: 942,
     popY: 198,
     actionText: '开始小测',
-    actionRoute: '/personalized-resources/question-bank?module=generate&course=STM32&chapter=STM32%E5%9F%BA%E7%A1%80&count=10&autostart=1',
+    actionRoute: '/personalized-resources/question-bank?module=generate&course=%E4%B8%AD%E8%8D%AF%E5%AD%A6&chapter=%E6%80%A7%E5%91%B3%E5%BD%92%E7%BB%8F&count=10&autostart=1',
     order: 4,
   },
   {
     id: '05',
-    cacheKey: 'week1-stm32-mcu-lab',
-    resourceType: 'mcu',
+    cacheKey: 'week1-tcm-case-document',
+    resourceType: 'document',
     label: '05',
-    title: '单片机实验',
+    title: '医案辨析讲义',
     statusText: '可进入',
-    description: '进入单片机模拟器，先用 8051 跑马灯预设实验完成基础 I/O 观察，再迁移理解 STM32 GPIO。',
+    description: '生成一份包含四诊信息、证候判断、治法与方药思路的基础医案辨析讲义。',
     state: 'available',
     x: 1188,
     y: 284,
     popX: 1188,
     popY: 114,
-    actionText: '进入实验',
-    actionRoute: '/personalized-resources/mcu-simulator/8051/8051-led-ready',
+    actionText: '生成讲义',
+    actionRoute: '/personalized-resources/document?topic=%E5%9F%BA%E7%A1%80%E5%8C%BB%E6%A1%88%E8%BE%A8%E6%9E%90&autostart=1',
     order: 5,
   },
   {
     id: '06',
-    cacheKey: 'week1-stm32-review',
+    cacheKey: 'week1-tcm-review',
     resourceType: 'review',
     label: '06',
     title: '阶段复盘',
     statusText: '可进入',
-    description: '复盘前面五个节点的学习结果：视频笔记、PPT、导图、小测错题和实验现象，整理下一步问题。',
+    description: '复盘前面五个节点的学习结果：视频笔记、PPT、导图、小测错题和医案讲义，整理下一步问题。',
     state: 'available',
     x: 1398,
     y: 185,
     popX: 1260,
     popY: 112,
     actionText: '整理复盘',
-    actionRoute: '/personalized-resources?review=stm32-week-1',
+    actionRoute: '/personalized-resources?review=tcm-week-1',
     order: 6,
   },
 ]
@@ -489,7 +489,7 @@ const generationConsoleState = computed(() => (
 ))
 const generationConsoleTitle = computed(() => {
   if (generationError.value) return '学习路径生成失败'
-  if (generationIsRunning.value) return latestGenerationEvent.value?.message || '嵌小智正在生成学习路径'
+  if (generationIsRunning.value) return latestGenerationEvent.value?.message || '岐小智正在生成学习路径'
   return '学习路径生成完成'
 })
 const generationConsoleSubtitle = computed(() => {
@@ -499,12 +499,12 @@ const generationConsoleSubtitle = computed(() => {
     const total = Number(backgroundPathGeneration.value.totalWeeks || 6)
     return `后台规划任务 · 已保存 ${completed} / ${total} 周`
   }
-  const agent = event.agentName || event.agentId || event.agent || '嵌小智'
+  const agent = event.agentName || event.agentId || event.agent || '岐小智'
   return `${agent} · ${formatGenerationStage(event.stage)}`
 })
 const generationAgent = computed(() => {
   const event = [...generationTrace.value].reverse().find((item) => item?.agentName || item?.agentId || item?.agent) || {}
-  const name = event.agentName || event.agent || event.agentId || '嵌小智'
+  const name = event.agentName || event.agent || event.agentId || '岐小智'
   const id = event.agentId && event.agentId !== name ? ` (${event.agentId})` : ''
   return `${name}${id}`
 })
@@ -538,6 +538,11 @@ const sortedNodes = computed(() => {
   cacheVersion.value
   const nodes = Array.isArray(stageConfig.value?.nodes) ? stageConfig.value.nodes : []
   return nodes
+    .filter((node) => {
+      const type = String(node?.resourceType || '').toLowerCase()
+      const routePath = String(node?.actionRoute || '').toLowerCase()
+      return !['mcu', 'simulator'].includes(type) && !routePath.includes('mcu-simulator')
+    })
     .map((node, index) => {
       const cacheKey = String(node.cacheKey || '').trim()
       const cache = getNodeCache(cacheKey)

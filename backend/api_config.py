@@ -88,15 +88,15 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     "AVATAR_LEGACY_HEIGHT": "720",
 
     # ── Anthropic / Mimo AI Configuration ───────────────────────────────────
-    "ANTHROPIC_BASE_URL": "https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic",
+    "ANTHROPIC_BASE_URL": "https://api.deepseek.com",
     "ANTHROPIC_AUTH_TOKEN": "",
-    "ANTHROPIC_MODEL": "astron-code-latest",
-    "OPENAI_BASE_URL": "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2",
+    "ANTHROPIC_MODEL": "deepseek-v4-flash-vision-exp",
+    "OPENAI_BASE_URL": "https://api.deepseek.com",
     "LLM_PROTOCOL": "openai",
     "LLM_CONTEXT_WINDOW": "262144",
-    "VISION_LLM_BASE_URL": "https://ws-x1ct668i71l6tj3i.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+    "VISION_LLM_BASE_URL": "https://api.deepseek.com",
     "VISION_LLM_API_KEY": "",
-    "VISION_LLM_MODEL": "qwen3-vl-plus",
+    "VISION_LLM_MODEL": "deepseek-v4-flash-vision-exp",
     "VISION_LLM_CONTEXT_WINDOW": "131072",
     "VISION_LLM_TIMEOUT": "120",
     "VISION_LLM_MAX_TOKENS": "1800",
@@ -106,7 +106,7 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     "AUDIO_LLM_CONTEXT_WINDOW": "32768",
     "AUDIO_LLM_TIMEOUT": "120",
     "AUDIO_LLM_MAX_TOKENS": "1800",
-    "AGENT_RUNTIME_ALLOWED_HOSTS": "maas-coding-api.cn-huabei-1.xf-yun.com,localhost,127.0.0.1",
+    "AGENT_RUNTIME_ALLOWED_HOSTS": "maas-coding-api.cn-huabei-1.xf-yun.com,api.deepseek.com,deepseek.com,localhost,127.0.0.1",
     "PPT_H5_LLM_TIMEOUT": "10",
     "PPT_H5_LLM_RETRIES": "3",
     "OHMYPPT_API_URL": "http://127.0.0.1:8765/api",
@@ -119,7 +119,7 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     "HERMES_AGENT_AUTH_TOKEN": "",
     "HERMES_AGENT_MODEL": "",
     "HERMES_XIAOZHI_AGENT_ID": "xiaozhi-companion-agent",
-    "HERMES_XIAOZHI_AGENT_NAME": "嵌小智陪伴式助手",
+    "HERMES_XIAOZHI_AGENT_NAME": "岐小智陪伴式助手",
 
     # ── Interview Timeout Configuration ─────────────────────────────────────
     "MIMO_INTERVIEW_TIMEOUT": "60",

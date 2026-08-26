@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="app-shell">
     <main class="qg-page" :class="{ 'exam-mode': activeModule === 'exam' && examStarted, 'resource-tool-standalone': isResourceToolPage }">
       <button v-if="isResourceToolPage" type="button" class="resource-return-button" @click="goBackToResources">
@@ -251,7 +251,7 @@
             <div v-if="loadingXiaoZhiQuestionTask" class="qg-xiaozhi-task-loading" role="status" aria-live="polite">
               <span class="qg-xiaozhi-task-spinner" aria-hidden="true"></span>
               <div>
-                <strong>正在打开嵌小智生成的题单</strong>
+                <strong>正在打开岐小智生成的题单</strong>
                 <span>{{ streamMessage || '正在读取后台任务与题目，请稍候...' }}</span>
               </div>
             </div>
@@ -263,7 +263,7 @@
                     <span>生成侧重点</span>
                     <div class="qg-tag-list">
                       <button v-for="wp in selectedWeakPoints" :key="wp" type="button" @click="removeWeakTag(wp)">{{ wp }} ×</button>
-                      <input v-model="newWeakTag" placeholder="输入后回车添加，如 GPIO" @keydown.enter.prevent="addWeakTag" />
+                      <input v-model="newWeakTag" placeholder="输入后回车添加，如 八纲辨证" @keydown.enter.prevent="addWeakTag" />
                       <button type="button" class="qg-mini-add" @click="addWeakTag">添加</button>
                     </div>
                   </div>
@@ -1555,7 +1555,7 @@ function applyRoutePrefill() {
   })
   if ((course || chapter) && !pastedText.value.trim() && !uploadedFiles.value.length) {
     const topic = [course, chapter].filter(Boolean).join(' ')
-    pastedText.value = `请围绕 ${topic} 生成嵌入式学习小测，重点覆盖基础概念、GPIO 配置流程、常见易错点和简单实践理解。`
+    pastedText.value = `请围绕 ${topic} 生成中医学习小测，重点覆盖基础概念、辨证思路、常见易错点和医案应用。`
   }
   if (Number.isFinite(count) && count > 0) {
     targetQuestionCount.value = Math.min(50, Math.max(1, Math.round(count)))
@@ -1587,7 +1587,7 @@ function restoreLearningNodeQuestionSheet() {
   setNodeCache(cacheKey, {
     status: 'complete',
     resourceType: 'question-bank',
-    title: sheet.title || 'STM32 题库练习小测',
+    title: sheet.title || '中医基础题库练习小测',
     sheetId: sheet.id,
     questionCount: sheet.question_count || sheet.question_bank?.questions?.length || 0,
     route: `${route.path}?module=history&cacheKey=${encodeURIComponent(cacheKey)}`,
@@ -1612,7 +1612,7 @@ function markLearningNodeQuestionComplete(sheet, bank) {
   if (!cacheKey) return
   markNodeCacheComplete(cacheKey, {
     resourceType: 'question-bank',
-    title: sheet?.title || bank?.title || 'STM32 题库练习小测',
+    title: sheet?.title || bank?.title || '中医基础题库练习小测',
     sheetId: sheet?.id || '',
     questionCount: sheet?.question_count || bank?.questions?.length || 0,
     route: `${route.path}?module=history&cacheKey=${encodeURIComponent(cacheKey)}`,
@@ -2112,7 +2112,7 @@ async function applyXiaoZhiQuestionTask(task) {
     activeModule.value = 'generate'
     activeTab.value = 'generate'
     generating.value = true
-    streamMessage.value = task.status === 'queued' ? '嵌小智题库任务已排队...' : '嵌小智正在生成题库...'
+    streamMessage.value = task.status === 'queued' ? '岐小智题库任务已排队...' : '岐小智正在生成题库...'
     return
   }
 
@@ -2302,7 +2302,7 @@ function applyGenerationStatus(status) {
     if (cacheKey) {
       markNodeCacheError(cacheKey, {
         resourceType: 'question-bank',
-        title: [courseName.value, chapterName.value].filter(Boolean).join(' ') || 'STM32 题库练习小测',
+        title: [courseName.value, chapterName.value].filter(Boolean).join(' ') || '中医基础题库练习小测',
         error: errorMsg.value,
       })
     }
@@ -2324,7 +2324,7 @@ function quickPracticeFromProfile() {
   // If no learning material provided, synthesize context from weak points so backend doesn't reject
   if (!pastedText.value.trim() && !uploadedFiles.value.length && selectedWeakPoints.value.length) {
     const wpText = selectedWeakPoints.value.join('、')
-    pastedText.value = '快速练习模式：请针对以下嵌入式薄弱知识点生成练习题。知识点包括：' + wpText + '。每道题需包含知识点标签和解析，贴近实际嵌入式开发场景。'
+    pastedText.value = '快速练习模式：请针对以下中医薄弱知识点生成练习题。知识点包括：' + wpText + '。每道题需包含知识点标签和解析，贴近中医辨证与医案学习场景。'
   }
   generate()
 }
@@ -2417,7 +2417,7 @@ async function generate() {
     if (cacheKey) {
       markNodeCacheStarted(cacheKey, {
         resourceType: 'question-bank',
-        title: [courseName.value, chapterName.value].filter(Boolean).join(' ') || 'STM32 题库练习小测',
+        title: [courseName.value, chapterName.value].filter(Boolean).join(' ') || '中医基础题库练习小测',
         taskId: status.taskId || status.payload?.taskId || '',
         route: route.fullPath,
       })
@@ -2439,7 +2439,7 @@ async function generate() {
     if (cacheKey) {
       markNodeCacheError(cacheKey, {
         resourceType: 'question-bank',
-        title: [courseName.value, chapterName.value].filter(Boolean).join(' ') || 'STM32 题库练习小测',
+        title: [courseName.value, chapterName.value].filter(Boolean).join(' ') || '中医基础题库练习小测',
         error: errorMsg.value,
       })
     }

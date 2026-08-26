@@ -4,7 +4,6 @@ The workflow produces resources from real local state where possible:
 - course handouts are generated from private knowledge-base excerpts,
 - videos are discovered through web search,
 - quiz resources are retrieved from generated question sheets,
-- simulator resources point to existing MCU simulator experiments,
 - mindmaps and PPT HTML are generated deterministically from the learning profile.
 """
 
@@ -37,36 +36,26 @@ class ResourceContext:
     knowledge: dict[str, Any]
 
 
-DEFAULT_TOPICS = ["GPIO", "定时器", "串口通信", "中断系统", "C语言指针"]
+DEFAULT_TOPICS = ["中医基础理论", "四诊", "八纲辨证", "中药学", "方剂学"]
 VIDEO_DETAIL_CACHE_TTL_SECONDS = 6 * 60 * 60
 VIDEO_DETAIL_FAILURE_TTL_SECONDS = 60
 _VIDEO_DETAIL_CACHE: dict[str, tuple[float, dict[str, str]]] = {}
 
 VIDEO_PLATFORM_TERMS = {
-    "STM32": ("stm32", "stm 32"),
-    "MSPM0": ("mspm0", "msp m0"),
-    "Arduino": ("arduino",),
-    "8051": ("8051", "51单片机", "51 单片机"),
-    "ESP32": ("esp32", "esp 32"),
-    "RP2040": ("rp2040", "raspberry pi pico"),
+    "中国大学MOOC": ("中国大学mooc", "慕课"),
+    "国家智慧教育平台": ("国家智慧教育平台", "智慧教育"),
+    "B站": ("哔哩哔哩", "b站", "bilibili"),
 }
 
 VIDEO_CONCEPT_TERMS = {
-    "GPIO": ("gpio", "通用输入输出"),
-    "时钟": ("时钟", "rcc"),
-    "中断": ("中断", "exti", "nvic"),
-    "定时器": ("定时器", "timer"),
-    "PWM": ("pwm", "脉宽调制"),
-    "串口": ("串口", "uart", "usart"),
-    "ADC": ("adc", "模数转换"),
-    "DAC": ("dac", "数模转换"),
-    "DMA": ("dma",),
-    "I2C": ("i2c", "iic"),
-    "SPI": ("spi",),
-    "调试": ("调试", "排错", "debug"),
-    "寄存器": ("寄存器", "register"),
-    "按键": ("按键", "button", "key"),
-    "LED": ("led",),
+    "中医基础理论": ("中医基础", "阴阳", "五行", "藏象", "气血津液", "经络"),
+    "中医诊断学": ("中医诊断", "四诊", "舌诊", "脉诊", "八纲", "辨证"),
+    "中药学": ("中药", "性味", "归经", "功效", "炮制"),
+    "方剂学": ("方剂", "方药", "君臣佐使", "配伍"),
+    "中医医案": ("医案", "病机", "治法", "辨证论治"),
+    "中医经典": ("黄帝内经", "伤寒论", "金匮要略", "经典条文"),
+    "针灸推拿": ("针灸", "经络", "腧穴", "推拿"),
+    "中医养生": ("养生", "体质", "四时", "情志", "食疗"),
 }
 
 SIMULATOR_EXPERIMENTS = [
@@ -121,7 +110,7 @@ def generate_resource_workflow(
         [
             str(requested.get("topic") or ""),
             *topics,
-            "嵌入式系统 单片机 课程知识",
+            "中医药 课程知识 医案 辨证论治",
         ]
     )
     context.knowledge = retrieve_course_knowledge(knowledge_query, top_k=6)
@@ -131,13 +120,13 @@ def generate_resource_workflow(
         "ppt": build_ppt_resource,
         "video": build_video_resource,
         "question-bank": build_quiz_resource,
-        "mcu": build_simulator_resource,
     }
     requested_type = str(requested.get("resourceType") or requested.get("type") or "").strip().lower()
     requested_type = {
         "quiz": "question-bank",
         "question_bank": "question-bank",
-        "simulator": "mcu",
+        "simulator": "document",
+        "mcu": "document",
         "mind-map": "mindmap",
         "handout": "document",
     }.get(requested_type, requested_type)
@@ -148,7 +137,7 @@ def generate_resource_workflow(
         "source": "workflow-real-data",
         "planner": {
             "targetWeakPoints": topics[:5],
-            "strategy": "先用知识库讲义建立可追溯基础，再用导图和 HTML PPT 组织重点，视频来自在线检索，题库用于验证，最后进入单片机模拟器实验。",
+            "strategy": "先用知识库讲义建立可追溯基础，再用导图和 HTML PPT 组织重点，配合视频学习与题库验证，最后通过医案分析完成复盘。",
             "nodes": [
                 "profile_topic_extractor",
                 *[
@@ -161,7 +150,6 @@ def generate_resource_workflow(
             "references": {
                 "pptStyle": "lewislulu/html-ppt-skill: static HTML/CSS slide deck style",
                 "questionSheets": len(context.question_sheets),
-                "mcuExperiments": len(context.mcu_experiments),
                 "knowledgeBase": context.knowledge.get("stats") or {},
             },
         },
@@ -174,7 +162,7 @@ def generate_resource_workflow(
 def knowledge_source_markdown(context: ResourceContext) -> str:
     citations = context.knowledge.get("citations") or []
     if not citations:
-        return "\n\n> 课程知识库未检索到直接相关片段，具体硬件参数请结合芯片手册核验。"
+        return "\n\n> 课程知识库未检索到直接相关片段，相关定义、方药信息与经典原文请结合权威教材或原始文献核验。"
     lines = ["", "## 课程知识库来源"]
     for citation in citations[:6]:
         locator = f"第 {citation.get('page')} 页" if citation.get("page") else f"第 {citation.get('section') or 1} 节"
@@ -308,16 +296,16 @@ def evaluate_ppt_resource(
 
 def build_document_resource(topics: list[str], context: ResourceContext) -> dict[str, Any]:
     """Generate a persistent-ready Markdown handout from retrieved course evidence."""
-    topic = topics[0] if topics else "嵌入式系统"
+    topic = topics[0] if topics else "中医系统"
     citations = context.knowledge.get("citations") or []
     hits = context.knowledge.get("hits") or context.knowledge.get("chunks") or []
     lines = [
         f"# {topic}个性化学习讲义",
         "",
         "## 学习目标",
-        f"- 建立{topic}的输入、处理和输出模型",
-        "- 识别常见配置错误并给出诊断顺序",
-        "- 完成一次可复盘的实验或代码验证",
+        f"- 建立{topic}的核心概念、辨证依据与应用关系",
+        "- 识别相近概念、证候或方药之间的易混点",
+        "- 完成一次可复盘的知识解释或医案辨析",
         "",
     ]
     section_count = 0
@@ -338,10 +326,10 @@ def build_document_resource(topics: list[str], context: ResourceContext) -> dict
             ]
         )
     framework_sections = [
-        ("核心概念与工作流程", f"用流程图或伪代码描述{topic}的关键步骤，并为具体硬件参数保留数据手册核验项。"),
-        ("常见错误与诊断顺序", "按现象、配置、代码、硬件连接和测量证据的顺序定位问题。"),
-        ("最小实验与验收条件", "先定义输入、预期输出、异常分支和记录格式，再执行实验。"),
-        ("复盘与迁移", "用自己的话复述核心机制，并说明它如何迁移到另一个外设或项目。"),
+        ("核心概念与知识关系", f"用结构图描述{topic}的关键概念，并标注教材、经典或知识库依据。"),
+        ("常见易错点与鉴别顺序", "按信息提取、概念辨析、证候判断、病机推导和依据核验的顺序定位问题。"),
+        ("医案练习与完成标准", "先整理四诊信息，再写出证候、病机、治法、方药思路与安全提示。"),
+        ("复盘与迁移", "用自己的话复述核心知识，并说明它如何用于另一则医案或相近知识点。"),
     ]
     while section_count < 4:
         title, body = framework_sections[section_count]
@@ -351,7 +339,7 @@ def build_document_resource(topics: list[str], context: ResourceContext) -> dict
         [
             "## 巩固任务",
             f"1. 用费曼复述解释{topic}的核心机制，提交 150-300 字复述。",
-            f"2. 完成一个{topic}最小实验，提交代码、配置、运行现象和错误修正记录。",
+            f"2. 完成一则与{topic}相关的医案或知识辨析，提交推理过程、依据和错误修正记录。",
             "",
         ]
     )
@@ -406,13 +394,16 @@ def extract_topics(context: ResourceContext, requested_topic: str = "") -> list[
 
     text = " ".join([requested_topic, *pieces]).lower()
     topic_map = [
-        ("GPIO", ["gpio", "io", "输入", "输出", "led", "按键"]),
-        ("定时器", ["定时器", "timer", "pwm", "延时"]),
-        ("串口通信", ["串口", "uart", "usart", "通信"]),
-        ("中断系统", ["中断", "interrupt", "外部中断"]),
-        ("C语言指针", ["指针", "数组", "结构体", "c语言", "c 语言"]),
-        ("8051 汇编", ["8051", "51", "汇编", "p1", "ram"]),
-        ("STM32 外设配置", ["stm32", "cube", "hal", "寄存器"]),
+        ("阴阳五行", ["阴阳", "五行"]),
+        ("藏象与气血津液", ["藏象", "脏腑", "气血", "津液"]),
+        ("经络学说", ["经络", "经脉"]),
+        ("四诊", ["四诊", "望诊", "闻诊", "问诊", "切诊", "舌诊", "脉诊"]),
+        ("八纲辨证", ["八纲", "表里", "寒热", "虚实", "阴阳辨证"]),
+        ("中药性味归经", ["中药", "性味", "归经", "功效", "炮制"]),
+        ("方剂配伍", ["方剂", "方药", "配伍", "君臣佐使"]),
+        ("医案辨析", ["医案", "证候", "病机", "治法", "辨证论治"]),
+        ("中医经典", ["黄帝内经", "伤寒论", "金匮要略", "经典"]),
+        ("针灸推拿", ["针灸", "腧穴", "推拿"]),
     ]
     topics: list[str] = []
     if requested_topic:
@@ -454,19 +445,19 @@ def build_video_search_query(topics: list[str], context: ResourceContext) -> str
     ]
     concepts = [*primary_concepts, *secondary_concepts]
     if not concepts:
-        concepts = [str(topics[0]).strip()[:24]] if topics else ["嵌入式系统"]
+        concepts = [str(topics[0]).strip()[:24]] if topics else ["中医系统"]
 
     terms = [*(platforms[:1] or []), *concepts[:2], "教程"]
     return " ".join(dict.fromkeys(term for term in terms if term))
 
 
 def build_mindmap_resource(topics: list[str], context: ResourceContext) -> dict[str, Any]:
-    root = topics[0] if topics else "嵌入式学习"
+    root = topics[0] if topics else "中医学习"
     citations = context.knowledge.get("citations") or []
     hits = context.knowledge.get("hits") or context.knowledge.get("chunks") or []
     lines = [f"# {root}专项学习导图", ""]
     branch_topics = list(dict.fromkeys(str(item).strip() for item in topics[:4] if str(item).strip()))
-    for fallback_topic in ["核心机制", "配置流程", "错误诊断", "实践验证"]:
+    for fallback_topic in ["核心概念", "辨证依据", "易错鉴别", "医案应用"]:
         if len(branch_topics) >= 4:
             break
         if fallback_topic not in branch_topics:
@@ -483,18 +474,18 @@ def build_mindmap_resource(topics: list[str], context: ResourceContext) -> dict[
         evidence = (
             f"{excerpt}{f' [{citation_id}]' if citation_id else ''}"
             if excerpt
-            else "先核对课程资料与芯片手册，未被资料支持的硬件参数标记为需核验。"
+            else "先核对课程资料、权威教材或经典原文，未被来源支持的结论标记为需核验。"
         )
         lines.extend(
             [
                 f"## {topic}",
                 "### 核心依据",
                 f"- {evidence}",
-                "### 配置与观察",
-                f"- 写出{topic}的输入、处理、输出，并标记关键配置入口。",
-                f"- 通过寄存器值、日志、波形或运行现象验证{topic}是否按预期工作。",
+                "### 理解与应用",
+                f"- 写出{topic}的定义、关联概念与辨证应用，并标记知识来源。",
+                f"- 通过概念对比、经典条文或医案推理验证对{topic}的理解。",
                 "### 易错点",
-                "- 区分未初始化、参数不匹配、调用顺序错误和硬件连接异常。",
+                "- 区分信息遗漏、概念混淆、证候误判、病机推导跳步和方药依据不足。",
                 "",
             ]
         )
@@ -505,7 +496,7 @@ def build_mindmap_resource(topics: list[str], context: ResourceContext) -> dict[
             "### 建模",
             "- 先用导图明确概念关系和前置条件。",
             "### 验证",
-            "- 再用题单检查理解，用实验记录配置、代码、现象和修正过程。",
+            "- 再用题单检查理解，用医案记录四诊、辨证、病机、治法和修正过程。",
             "### 复盘",
             "- 根据错题与实验异常更新薄弱点，并调整下一周学习路径。",
         ]
@@ -543,7 +534,7 @@ def build_mindmap_resource(topics: list[str], context: ResourceContext) -> dict[
 
 
 def build_ppt_resource(topics: list[str], context: ResourceContext) -> dict[str, Any]:
-    title = f"{topics[0]}专项突破课件" if topics else "嵌入式专项突破课件"
+    title = f"{topics[0]}专项突破课件" if topics else "中医专项突破课件"
     citations = context.knowledge.get("citations") or []
     slide_count = 1 + len(topics[:5])
     cards = "\n".join(
@@ -551,9 +542,9 @@ def build_ppt_resource(topics: list[str], context: ResourceContext) -> dict[str,
   <p class="eyebrow">Module {index + 1}</p>
   <h2>{html.escape(topic)}</h2>
   <ul>
-    <li>建立{html.escape(topic)}的输入、处理、输出模型</li>
-    <li>拆解常见配置步骤和易错点</li>
-    <li>匹配题库练习和仿真实验进行验证</li>
+    <li>建立{html.escape(topic)}的核心概念与知识关系</li>
+    <li>拆解辨证依据、易错点和鉴别思路</li>
+    <li>匹配题库练习和医案分析进行验证</li>
   </ul>
 </section>"""
         for index, topic in enumerate(topics[:5])
@@ -644,7 +635,7 @@ def build_video_resource(topics: list[str], context: ResourceContext) -> dict[st
     )
     return resource(
         "video",
-        f"{topics[0] if topics else '嵌入式'}在线视频教程检索",
+        f"{topics[0] if topics else '中医'}在线视频教程检索",
         f"从B站检索到 {len(video_results)} 个相关视频教程，可直接在线播放。",
         "\n".join(lines) + knowledge_source_markdown(context),
         88,
@@ -744,7 +735,7 @@ def build_simulator_resource(topics: list[str], context: ResourceContext) -> dic
     )
     return resource(
         "simulator",
-        f"{topics[0] if topics else '嵌入式'}仿真实验推荐",
+        f"{topics[0] if topics else '中医'}仿真实验推荐",
         "根据薄弱点推荐当前系统里真实存在的单片机模拟器实验。",
         "\n".join(lines) + knowledge_source_markdown(context),
         84,
@@ -1187,4 +1178,4 @@ def clean_html(value: str) -> str:
 
 def safe_mermaid_label(value: str) -> str:
     value = re.sub(r"[(){}\[\]:;]", " ", str(value))
-    return re.sub(r"\s+", " ", value).strip()[:32] or "嵌入式"
+    return re.sub(r"\s+", " ", value).strip()[:32] or "中医"

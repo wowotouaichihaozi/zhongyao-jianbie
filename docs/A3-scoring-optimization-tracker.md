@@ -178,6 +178,13 @@ Acceptance criteria for this batch:
 - [x] Route digital-interview camera frames through Qwen3-VL-Plus evidence extraction before Spark scoring, and disable the legacy MiMo text fallback.
 - [ ] Deploy this model-routing batch to production only after the user resumes deployment; production remains on the restored pre-change configuration.
 
+### DeepSeek official text and vision routing
+
+- [x] Confirm the configured credential can access the official `https://api.deepseek.com/models` endpoint and that `deepseek-v4-flash-vision-exp` is available to the account.
+- [x] Confirm one real text request and one real image-understanding request through the official OpenAI-compatible `/chat/completions` endpoint without exposing credentials.
+- [ ] Make digital-human learning interviews honor `LLM_PROTOCOL=openai` instead of incorrectly forcing the DeepSeek credential through `/v1/messages`.
+- [ ] Align runtime defaults, public model labels, README, focused tests, and live API evidence with DeepSeek text/vision routing.
+
 Acceptance criteria for this batch:
 
 - Image uploads are sent to the configured Bailian OpenAI-compatible endpoint with `qwen3-vl-plus`; audio uploads use the Bailian native multimodal endpoint with `qwen3-omni-flash`; both are then handed to Spark as grounded evidence text.
@@ -211,7 +218,31 @@ Acceptance criteria for this batch:
 - [x] Reject corrupted knowledge-point labels before they can enter effect-assessment heatmaps or dynamic learning-path adjustments.
 - [x] Repair the two affected production tasks and their resource metadata without regenerating the learner's existing path.
 
+### 岐黄智境中医领域文案全量迁移（已完成）
+
+- [x] 将学习画像、个性化路径、资源生成、数字人访谈、测评与反馈中的活动提示词统一迁移为中医学习语境。
+- [x] 同步 Web、移动端和微信小程序的默认示例、空状态与引导文案，保留现有功能入口和交互流程。
+- [x] 数字人面试统一使用中医基础、四诊、辨证、中药、方剂、医案、知识依据与安全边界能力维度，同时保留历史接口 ID 兼容旧会话。
+- [x] 更新画像开场与数字人生命周期回归测试；后端聚焦测试 7/7、前端画像对话测试 3/3、Web 与移动端非清理构建通过。
+- [x] 收尾清理活动页面残留的“岗位/面试”和嵌入式 PPT 默认文案；数字人模块统一为“学习访谈”，后端提示与评价同步使用学习者语境。
+
+本阶段只替换活动业务文案与默认内容。已下线的 MCU 模拟器源码、旧测试夹具和历史兼容字段继续保留，但不会由新导航、学习路径或资源工作流触达；内置旧知识库数据迁移不在本次换皮范围内。
+
+收尾验证：Python 编译通过；数字人生命周期与画像开场后端测试 7/7、前端画像对话测试 3/3 通过；Web、移动端非清理构建通过；小程序配置与品牌素材检查通过。浏览器在 `http://localhost:5088/digital-human-interview` 验证了“学习访谈”导航、课程领域、学习方向、访谈主题、学习层级及中医选项，页面无控制台错误。浏览器响应式视口覆盖本轮未生效，未新增手机宽度截图证据；移动端沿用本批次此前的实际页面验证与本轮构建结果。
+
 ## Completed changes
+
+### 岐黄智境中医主题换皮（已完成）
+
+- [x] Web、移动端和微信小程序品牌统一为“岐黄智境”，总控助手统一为“岐小智”，更新 Logo、登录主视觉、主题色和中医学习示例文案。
+- [x] 从主导航、前端路由、个性化资源入口和学习路径展示中下线 AI 编程与单片机模拟实验；保留旧实现与历史数据兼容。
+- [x] 将默认首周展示内容换为中医基础、八纲辨证、方剂配伍、中药性味归经和医案辨析。
+- [x] 主前端与移动端使用非清理模式构建通过；小程序配置 JSON 与新增静态资源路径检查通过。
+- [x] 内置课程知识库替换为中医文档：`rag文档` 新增中医基础、四诊八纲、性味归经、方剂君臣佐使、医案辨证与中医 QA 问答，并重建 `course_knowledge_index.json`。
+- [x] 总控/文本/视觉模型统一接入 DeepSeek 官方地址 `https://api.deepseek.com`（`deepseek-v4-flash-vision-exp`），并将 `api.deepseek.com` 加入运行时安全白名单。
+- [ ] 后端剩余的历史嵌入式领域提示词与旧 MCU 兼容字段暂未全量改为中医语境，属于下一阶段提示词领域化；对已下线的 MCU 兼容与旧会话仍作保留。
+
+本批次按挑战杯项目定位完成展示层换皮，不沿用软件杯 A3 的资源数量与 MCU 实验约束；原有画像、路径、生成、审核、反馈和评估业务链路保持不变。
 
 | Date | Phase | Change | Verification | Commit |
 | --- | --- | --- | --- | --- |

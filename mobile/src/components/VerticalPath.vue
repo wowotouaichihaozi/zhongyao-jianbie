@@ -24,7 +24,7 @@ function setCurrentRef(el,node){if(node.state==='current')currentRef.value=el}
 function toggle(node){expandedId.value=expandedId.value===node.id?'':node.id;emit('update:modelValue',expandedId.value)}
 function label(node,index){return node.resourceType==='week'?`第 ${node.order||index+1} 周`:`任务 ${String(index+1).padStart(2,'0')}`}
 function stateLabel(s){return {done:'已完成',current:'进行中',available:'待开始',locked:'未解锁'}[s]||s}
-function resourceName(v){return {week:'周学习计划',question_bank:'练习题库',ppt:'PPT 课件',document:'学习文档',mindmap:'思维导图',video:'讲解视频',generated_video:'AI 视频',animation:'教学动画',mcu:'硬件实验'}[v]||'学习任务'}
+function resourceName(v){return {week:'周学习计划',question_bank:'练习题库',ppt:'PPT 课件',document:'学习文档',mindmap:'思维导图',video:'讲解视频',generated_video:'AI 视频',animation:'教学动画'}[v]||'学习任务'}
 function progress(n){return n.state==='done'?100:n.state==='current'?60:0}
 onMounted(selectDefault)
 </script>

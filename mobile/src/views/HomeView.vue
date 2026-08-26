@@ -1,6 +1,6 @@
 <template>
   <AppShell>
-    <header class="page-head"><span class="eyebrow"><Sparkles :size="15" />PERSONAL LEARNING</span><h1>{{ greeting }}，{{ displayName }}</h1><p>{{ profile ? `当前使用 ${profile.profileName || '学习画像'} v${profile.version || 1}` : '先完成画像采集，让路径和资源真正匹配你。' }}</p></header>
+    <header class="page-head"><span class="eyebrow"><Sparkles :size="15" />岐黄智境 · 中医个性化学习</span><h1>{{ greeting }}，{{ displayName }}</h1><p>{{ profile ? `当前使用 ${profile.profileName || '学习画像'} v${profile.version || 1}` : '先完成画像采集，让经典、方药与辨证路径真正匹配你。' }}</p></header>
     <AsyncState :loading="loading" :error="error" @retry="load">
       <section v-if="!profile" class="profile-callout">
         <div><span><ScanFace :size="22" /></span><strong>建立你的十维学习画像</strong><p>通过多轮对话收集目标、基础、偏好和时间投入。</p></div>
@@ -23,7 +23,7 @@
         <div v-else class="state-block compact"><strong>暂无生成任务</strong><RouterLink class="secondary-btn" to="/resources/new">生成学习资源</RouterLink></div>
       </section>
 
-      <section class="section-block quick-section"><div class="section-head"><div><h2>快捷学习</h2><p>从当前画像和路径继续</p></div></div><div class="quick-grid"><RouterLink to="/tutor"><Bot :size="22" /><span><b>AI 辅导</b><small>讲解当前疑问</small></span></RouterLink><RouterLink to="/resources/new"><WandSparkles :size="22" /><span><b>生成资源</b><small>七种个性化资源</small></span></RouterLink><RouterLink to="/profile"><ScanFace :size="22" /><span><b>更新画像</b><small>让推荐随学习变化</small></span></RouterLink><RouterLink to="/path"><Map :size="22" /><span><b>路径地图</b><small>查看纵向周计划</small></span></RouterLink></div></section>
+      <section class="section-block quick-section"><div class="section-head"><div><h2>快捷学习</h2><p>从当前画像和中医学习路径继续</p></div></div><div class="quick-grid"><RouterLink to="/tutor"><Bot :size="22" /><span><b>岐小智辅导</b><small>讲解当前疑问</small></span></RouterLink><RouterLink to="/resources/new"><WandSparkles :size="22" /><span><b>生成资源</b><small>多类个性化资源</small></span></RouterLink><RouterLink to="/profile"><ScanFace :size="22" /><span><b>更新画像</b><small>让推荐随学习变化</small></span></RouterLink><RouterLink to="/path"><Map :size="22" /><span><b>路径地图</b><small>查看中医周计划</small></span></RouterLink></div></section>
     </AsyncState>
   </AppShell>
 </template>

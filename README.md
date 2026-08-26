@@ -1,4 +1,18 @@
-# 嵌智学航
+# 岐黄智境
+
+岐黄智境是面向中医学习场景的个性化学习多智能体平台。本阶段完成 Web、移动端网页/Capacitor 与微信小程序的统一主题换肤：使用本草绿、朱砂红视觉体系，统一“岐黄智境 / 岐小智”品牌与中医学习示例，并从主动导航、资源入口和学习路径展示中下线 AI 编程与单片机模拟器。旧实现与历史任务数据暂时保留，仅用于兼容，后续知识库和生成链路将在独立阶段继续领域化。
+
+换皮验证命令：
+
+```powershell
+cd frontend
+npm run build -- --emptyOutDir=false
+
+cd ..\mobile
+npm run build -- --emptyOutDir=false
+```
+
+微信小程序位于 `microprogram/`，使用微信开发者工具导入并预览登录、首页、资源、路径和辅导页。
 
 ## 竞赛提交包构建与启动
 
@@ -14,9 +28,9 @@ powershell -ExecutionPolicy Bypass -File scripts\build-portable-package.ps1 -Out
 
 评委也可以直接访问远程体验环境：<https://lzhan.xyz>。远程环境用于快速查看完整交互效果；正式评分或验证本地部署行为时，请以解压后的 `94015785作品.zip` 为准。
 
-嵌智学航是面向高校嵌入式与单片机课程的个性化学习多智能体平台。系统以“嵌小智”为唯一总控入口，通过 Agent Harness、Skill Manifest 与 MCP JSON-RPC 调度学习画像、学习路径、六类资源、学习验证、智能辅导、效果评估和数字人面试，形成“采集分析 -> 资源生成 -> 学习验证 -> 反馈调整”的完整闭环。
+平台保留原有 Agent Harness、Skill Manifest 与 MCP JSON-RPC 技术底座，通过“岐小智”总控调度学习画像、学习路径、个性化资源、学习验证、智能辅导、效果评估和数字人面试，形成“采集分析 -> 资源生成 -> 学习验证 -> 反馈调整”的完整闭环。
 
-当前 Manifest 1.6.1 只登记 22 个有对应实现的 Harness 角色：1 个嵌小智 Supervisor、18 个专业角色和 3 个多模态运行时处理角色；不把上下文步骤、审核步骤或无实现的占位名称重复计作智能体。Manifest 同时声明 18 个可调用 Skill、18 个 Handler 映射、18 个 MCP Tool、1 个 MCP Server、1 个 MCP Resource 和 1 个 MCP Prompt。所有业务 Skill 都由嵌小智 Supervisor 通过 Agent Harness 调度，并保留 `runId`、结构化 Handoff、共享黑板、质量审核、安全审核、当前画像 ID 与模型运行信息。`generated-video-agent` 有实际后台任务执行器、路由和 Handler，但采用用户确认后的延迟执行链，没有单独注册为第 19 个 Skill，因此只计角色、不增加 Skill 数。
+当前 Manifest 1.6.1 只登记 22 个有对应实现的 Harness 角色：1 个岐小智 Supervisor、18 个专业角色和 3 个多模态运行时处理角色；不把上下文步骤、审核步骤或无实现的占位名称重复计作智能体。Manifest 同时声明 18 个可调用 Skill、18 个 Handler 映射、18 个 MCP Tool、1 个 MCP Server、1 个 MCP Resource 和 1 个 MCP Prompt。所有业务 Skill 都由岐小智 Supervisor 通过 Agent Harness 调度，并保留 `runId`、结构化 Handoff、共享黑板、质量审核、安全审核、当前画像 ID 与模型运行信息。`generated-video-agent` 有实际后台任务执行器、路由和 Handler，但采用用户确认后的延迟执行链，没有单独注册为第 19 个 Skill，因此只计角色、不增加 Skill 数。
 
 ## 目录结构
 
@@ -37,13 +51,13 @@ code6.14/
 
 ## 主要功能
 
-- 嵌小智总控与扩展：22 个已实现 Harness 角色和 18 个可调用 Skill 由 `backend/agent_manifests/xiaozhi_agents.json` 统一声明。角色数严格按 Manifest 中有实际职责的条目统计，执行步骤和占位名称不计入智能体数量。Handler Registry 在启动时校验重复 ID、缺失处理器、非法权限和 MCP 映射。新增可调用业务能力通过 Manifest、Handler 与 MCP 接入，不修改 Supervisor 主流程。
+- 岐小智总控与扩展：22 个已实现 Harness 角色和 18 个可调用 Skill 由 `backend/agent_manifests/xiaozhi_agents.json` 统一声明。角色数严格按 Manifest 中有实际职责的条目统计，执行步骤和占位名称不计入智能体数量。Handler Registry 在启动时校验重复 ID、缺失处理器、非法权限和 MCP 映射。新增可调用业务能力通过 Manifest、Handler 与 MCP 接入，不修改 Supervisor 主流程。
 - 学习画像：首次补齐十个画像维度时创建报告；后续重新评估、会话补全和证据更新都会合并到当前画像并原位保存，保持画像 ID、名称、版本和历史位置不变，只有明确选择另一份历史画像时才切换当前画像。
 - 学习画像会话恢复：部署切换或会话接口暂时返回空消息时，页面会保留当前账号已有的本地对话草稿，并只将其绑定到本次初始化的旧会话；新建会话不会继承旧记录。验证命令：`cd frontend && node --test tests/learningProfileChat.test.mjs`。
 - 历史画像与会话一一对应：历史记录是进入画像会话的唯一入口，点击画像条目会直接打开其关联聊天并恢复该画像的消息与画像上下文；聊天页不再提供跨画像下拉切换，报告操作按钮仍保持独立行为。验证命令：`cd frontend && node --test tests/learningProfileChat.test.mjs`。
-- 多模态对话输入：嵌小智悬浮窗和学习画像对话均支持图片、视频、PDF、Word、PPT 与文本附件。附件先经过登录用户隔离、格式/数量/大小校验并持久化；图片与文档尝试提取文字，视频保留为可追溯学习证据，随后以不可覆盖系统指令的受控上下文交给总控或学习画像智能体。嵌小智输入区固定在悬浮窗底部，并兼容中文输入法组合输入；请求失败时保留原始文本和附件，允许直接重试。
-- 嵌小智双视图：`陪伴式助手` 只承载对话，不再显示全局“资源任务”或“最近任务”列表。仅当用户在该轮对话中明确要求生成任务、且后端确实在该条回复的 `cards` 中返回任务时，回复下方才出现对应完整任务页面的缩放预览气泡；气泡持续展示排队、生成、完成或失败状态，点击会在新标签页沿原任务路由打开题库、PPT、导图、视频等完整页面，普通聊天不会出现任务预览。`Agent Harness` 只展示嵌小智总控与专项智能体的连接拓扑、当前动作、运行状态及 Skill/MCP 能力计数，不渲染资源 iframe、任务窗口或后台任务日志。前端验证命令为 `cd frontend && npm run build`，浏览器验收需覆盖普通消息无任务气泡、显式生成回复的内联预览、新标签页跳转、拓扑内部滚动及桌面/移动视口边界。
-- 学习画像详细执行信息：`POST /api/learning-profile/analyze-stream` 使用队列式 SSE 实时推送嵌小智总控、学习上下文、Skill Registry、MCP Tool、JSON 契约、质量审核、内容安全、保存报告和后台人像排队事件。画像报告生成页展示当前智能体、模型、`runId`、执行进度、累计耗时、审核得分以及每条事件的结构化详情；只展示计数与审核元数据，不输出 API Key、原始 Prompt 或完整画像隐私内容。
+- 多模态对话输入：岐小智悬浮窗和学习画像对话均支持图片、视频、PDF、Word、PPT 与文本附件。附件先经过登录用户隔离、格式/数量/大小校验并持久化；图片与文档尝试提取文字，视频保留为可追溯学习证据，随后以不可覆盖系统指令的受控上下文交给总控或学习画像智能体。岐小智输入区固定在悬浮窗底部，并兼容中文输入法组合输入；请求失败时保留原始文本和附件，允许直接重试。
+- 岐小智双视图：`陪伴式助手` 只承载对话，不再显示全局“资源任务”或“最近任务”列表。仅当用户在该轮对话中明确要求生成任务、且后端确实在该条回复的 `cards` 中返回任务时，回复下方才出现对应完整任务页面的缩放预览气泡；气泡持续展示排队、生成、完成或失败状态，点击会在新标签页沿原任务路由打开题库、PPT、导图、视频等完整页面，普通聊天不会出现任务预览。`Agent Harness` 只展示岐小智总控与专项智能体的连接拓扑、当前动作、运行状态及 Skill/MCP 能力计数，不渲染资源 iframe、任务窗口或后台任务日志。前端验证命令为 `cd frontend && npm run build`，浏览器验收需覆盖普通消息无任务气泡、显式生成回复的内联预览、新标签页跳转、拓扑内部滚动及桌面/移动视口边界。
+- 学习画像详细执行信息：`POST /api/learning-profile/analyze-stream` 使用队列式 SSE 实时推送岐小智总控、学习上下文、Skill Registry、MCP Tool、JSON 契约、质量审核、内容安全、保存报告和后台人像排队事件。画像报告生成页展示当前智能体、模型、`runId`、执行进度、累计耗时、审核得分以及每条事件的结构化详情；只展示计数与审核元数据，不输出 API Key、原始 Prompt 或完整画像隐私内容。
 - 画像人像与报告仪表盘：学习画像、画像报告和历史记录始终使用同一套三级侧栏；侧栏下方的 `#learning-profile-digital-human-stage` 真实挂载讯飞数字人组件，在画像对话页同步播报智能体回复，切换到报告或历史页时释放会话。数字人连接失败只显示降级状态，文字对话、历史消息和输入框继续可用，不挂载本地形象或静态兜底人物。报告主体包含六项摘要、十维能力条、六维雷达、证据矩阵、AI 结论和推荐方案；后端使用豆包 Seedream 4.5（通过 APIMart 服务通道接入）基于学习方向、目标、风格与薄弱点生成非真人化学习者插画，并把图片二进制按报告 ID 保存到 SQLite 的 `learning_profile_portraits` 表。报告头像读取、生成、缺失或失败期间先展示内置的非真人默认学习者头像及真实状态提示；数据库中的报告专属头像变为 `ready` 后立即替换默认图。报告保存后会立即排队生成，接口不再同步等待生图；前端轮询数据库状态并在 `ready` 后通过认证接口读取 BLOB，失败或超时会退出加载态并提供重试。服务从 `backend/.env` 读取 `SEEDREAM_BASE_URL` 与 `SEEDREAM_API_KEY`，模型固定为 `seedream-4-5`、最低使用服务支持的 `2K` 分辨率；提交后通过 `/v1/tasks/{task_id}` 轮询结果，轮询时限与间隔分别由 `IMAGE2_POLL_TIMEOUT_SECONDS`、`IMAGE2_POLL_INTERVAL_SECONDS` 控制。
 - 效果评估：`/effect-assessment` 汇总聊天、题单与考试、MCU 实验、资源调用和学习路径完成记录，展示前后能力雷达、薄弱点与可验证的进步；可在该页自动更新当前画像，不新增画像条目。
 - 学习路径：学习画像保存完成后，后端立即创建可追踪且幂等的 `learning_path` 后台任务，无需用户先进入学习路径页面；路径根据该画像的目标、薄弱点和偏好生成，并由资源路由智能体逐任务选择子智能体、补齐参数和后台预生成结果。
@@ -53,10 +67,10 @@ code6.14/
 - PPT 生成：`/personalized-resources/ppt` 全屏嵌入精简版 OhMyPPT（仅首页与会话，默认包豪斯风格），普通访问进入快速创建，学习路径携带主题、要求和页数时直接进入可恢复的生成会话；原有 Harness 后台任务与 `/ppt-generator/generating/:sessionId` 继续兼容。
 - 思维导图：静态 H5 工具集成在 `/mind-map`。
 - 视频查找：B 站学习视频检索集成在 `/video-search`，后端提供必要代理、主题筛选和封面字段；该能力是视频检索，不宣称生成视频成片。
-- 单片机模拟器：内置 Arduino Uno 与 AT89S52 两套板卡、21 个实验预设和 17 类可选元件；支持五步实验指南、完整引脚能力检查、多端子接线联动、代码编辑、虚拟编译烧录、运行记录保存，以及结合当前画像和历史实验的推荐接口。
+- 历史兼容模块（当前界面不开放）：单片机模拟器实现与既有实验记录暂时保留，主动导航、资源入口与学习路径展示均已下线。
 - 个性化资源：基于画像、实验和路径生成学习资源。资源历史页会合并持久化任务与旧版本地记录，并明确区分加载中、部分来源失败、全部失败和真实空记录；资源详情页通过 URL 中的任务/资源身份调用 `GET /api/xiaozhi/tasks/:taskId` 恢复内容，旧版本地缓存只作为带来源标记的兼容回退。详情页展示任务来源、画像依据、规划策略、专项智能体、Harness 运行与 Handoff、Skill/MCP、质量审核、验证状态和知识引用；未返回的证据明确标为“未返回”，不会伪造分数或智能体。Markdown 先转义再有限渲染，Mermaid 使用严格安全模式，模型生成的 HTML PPT 只在禁用脚本且带 CSP 的沙箱 iframe 中预览。
 - 资源学习反馈闭环：资源详情可记录“完成学习”“需要巩固”或“暂时受阻”，反馈按当前用户、任务 ID 与资源缓存键组合隔离，避免同一生成任务中的多个资源互相覆盖。已有学习路径节点会同步完成状态；没有对应节点时不会创建伪路径缓存。提交后可继续查看效果评估、返回学习路径，或在需要巩固时转入智能导师。
-- 智能辅导：`/smart-tutor` 展示嵌小智通过 `learning.tutor.answer` Skill 生成的苏格拉底追问、费曼复述任务、三级提示、带解析练习、Mermaid 学习流程、学习卡、知识引用和 Harness 执行轨迹；同一页面支持悬浮窗嵌入预览与新页面完整打开。
+- 智能辅导：`/smart-tutor` 展示岐小智通过 `learning.tutor.answer` Skill 生成的苏格拉底追问、费曼复述任务、三级提示、带解析练习、Mermaid 学习流程、学习卡、知识引用和 Harness 执行轨迹；同一页面支持悬浮窗嵌入预览与新页面完整打开。
 - 数字人面试：集成讯飞数字人 SDK、题目生成、追问和可选关键帧分析。数字人连接、销毁和播报是独立的限时 best-effort 支线，面试 API 返回首题、下一题或总结后会立即解锁文字输入、发送、结束与重新开始；数字人或摄像头失败不会覆盖面试状态，也不会阻断完整文字面试。`/api/avatar/config`、`/api/avatar/diagnostics` 与备用会话接口均要求登录，防止匿名请求消耗数字人额度。
 
 ## 知识网络展示
@@ -81,7 +95,7 @@ code6.14/
 
 该页的数据口径来自当前课程索引、当前用户私有知识、真实 Harness 运行和反哺候选。`GET /api/knowledge-network/overview?view=atlas&limit=15000` 返回文档级图谱，默认调用仍保留聚合视图。搜索框在浏览器内对当前全部节点执行轻量相似度排序，依次考虑名称精确匹配、前缀、包含、来源、知识域、分词命中与字符二元组相似度，返回前 10 个结果；点击或键盘回车会直接定位原图谱节点，不另造搜索节点或删减图谱。Vue 适配实现位于 `frontend/src/components/KnowledgeSigmaGraph.vue`，布局 Worker 位于 `frontend/src/workers/knowledge-graph-layout.worker.js`，上游 GPL-3.0 许可证保存在 `frontend/public/vendor/llm-wiki/LICENSE`。它是“LLM Wiki 启发的可审计知识演化网络”，不宣称实现自动递归重写知识库的完整 LLM Wiki 引擎，也不包含 3D 或数字孪生能力。
 
-知识网络顶部保留“关系网络”和“AI 知识库自生长”两个固定模式。“关系网络”只展示本地课程索引和当前用户私有知识，不再混入智能体运行、审核候选等展示节点；正式 `course_knowledge_index.json` 是文档关系的唯一课程索引来源，`course_knowledge_index_catalog.json` 是由该索引生成的文档级只读投影，使低内存部署无需反序列化全部切片文本即可展示同等数量的真实文档节点。便携源码包未携带体积较大的原始 `rag文档` 时，课程知识加载器会只读已打包索引，禁止用空语料覆盖正式索引。“AI 知识库自生长”用于用户隔离的长期对话记忆：嵌小智总控与学习画像每完成一轮对话，后端都会先保存原始用户消息，再在智能体回复后补全核心摘要、主题和目标/偏好/薄弱点等学习信号。最近完成的记忆通过 `longTermMemories` 合并到下一轮智能体上下文，并进入平台学习证据；聊天内容不会被当作已经核验的课程事实，也不会直接写入可信 RAG 文档。
+知识网络顶部保留“关系网络”和“AI 知识库自生长”两个固定模式。“关系网络”只展示本地课程索引和当前用户私有知识，不再混入智能体运行、审核候选等展示节点；正式 `course_knowledge_index.json` 是文档关系的唯一课程索引来源，`course_knowledge_index_catalog.json` 是由该索引生成的文档级只读投影，使低内存部署无需反序列化全部切片文本即可展示同等数量的真实文档节点。便携源码包未携带体积较大的原始 `rag文档` 时，课程知识加载器会只读已打包索引，禁止用空语料覆盖正式索引。“AI 知识库自生长”用于用户隔离的长期对话记忆：岐小智总控与学习画像每完成一轮对话，后端都会先保存原始用户消息，再在智能体回复后补全核心摘要、主题和目标/偏好/薄弱点等学习信号。最近完成的记忆通过 `longTermMemories` 合并到下一轮智能体上下文，并进入平台学习证据；聊天内容不会被当作已经核验的课程事实，也不会直接写入可信 RAG 文档。
 
 对话记忆保存在 `knowledge_growth_memories`，每条记录保留来源入口、来源消息、原始问答、提取器版本和时间，按用户鉴权隔离。`scripts/seed-conversation-growth-demo.py` 可为本地 `admin123` 幂等写入六轮示例对话，同时清理旧版候选/审核示例数据。相关接口均要求登录：
 
@@ -143,7 +157,7 @@ start-frontend-backend.bat
 ```
 
 该脚本会先执行 `frontend/npm run build`，再启动或复用 `3000` 后端。`frontend/npm run dev` 的 `5088` 仅保留给前端开发调试，不是用户访问入口。
-### 单片机实验台
+### 历史兼容：单片机实验台（当前界面不开放）
 
 入口：`/personalized-resources/mcu-simulator`。实验台目录与接线合同统一由
 `backend/mcu_catalog.py` 提供，前端不再维护一份容易漂移的硬编码副本。
@@ -212,7 +226,7 @@ cd backend && python -m unittest tests.test_multimodal_inputs -v
 
 ## PPT H5 集成说明
 
-PPT 功能使用 OhMyPPT 的独立 FastAPI 生成引擎。用户工作台和智能体后台任务共用同一生成引擎，后台任务继续保留嵌小智总控、画像绑定和 Harness 审核链：
+PPT 功能使用 OhMyPPT 的独立 FastAPI 生成引擎。用户工作台和智能体后台任务共用同一生成引擎，后台任务继续保留岐小智总控、画像绑定和 Harness 审核链：
 
 ```text
 主前端 /personalized-resources/ppt
@@ -221,14 +235,14 @@ PPT 功能使用 OhMyPPT 的独立 FastAPI 生成引擎。用户工作台和智�
         ↓ 主题参数存在时创建稳定会话并直接进入生成页
 OhMyPPT FastAPI 127.0.0.1:8765
 
-嵌小智 / 学习路径后台任务
+岐小智 / 学习路径后台任务
         ↓ Flask /api/ppt-h5/generate-background
 Supervisor / Skill / MCP / Handoff / 质量与安全审核
         ↓ OhMyPPT FastAPI
 /ppt-generator/generating/:sessionId?xzTask=:taskId
 ```
 
-智能体统一入口 `POST /api/personalized-resources/agent-task` 在 `resourceType=ppt` 时会接收 `topic`、`prompt/userMessage`、`pageCount/pages`、`styleName`、`styleDescription`、`cacheKey` 等参数，创建稳定的 OhMyPPT `sessionId`，并立即在任务结果中返回 `ppt.sessionId`、`ppt.pageCount`、`ppt.route` 和 `/ppt-generator/generating/:sessionId?...&xzTask=:taskId`。因此嵌小智、学习路径任务卡或后续 MCP Tool 只需要传参即可启动后台生成，用户打开窗口后看到的是持续更新的生成状态，不需要再次填写主题或页数。
+智能体统一入口 `POST /api/personalized-resources/agent-task` 在 `resourceType=ppt` 时会接收 `topic`、`prompt/userMessage`、`pageCount/pages`、`styleName`、`styleDescription`、`cacheKey` 等参数，创建稳定的 OhMyPPT `sessionId`，并立即在任务结果中返回 `ppt.sessionId`、`ppt.pageCount`、`ppt.route` 和 `/ppt-generator/generating/:sessionId?...&xzTask=:taskId`。因此岐小智、学习路径任务卡或后续 MCP Tool 只需要传参即可启动后台生成，用户打开窗口后看到的是持续更新的生成状态，不需要再次填写主题或页数。
 
 浏览器不会直接携带模型 API Key 调用 OhMyPPT。Flask 与 FastAPI 之间使用带时间戳的 HMAC 内部签名传递当前用户选择的协议、模型地址和模型名；FastAPI 同时校验地址白名单、页数、HTML 结构和外部资源。解析层兼容严格 JSON、标准分隔格式以及中英文 Markdown 字段，但只有返回指定页数且每页包含有效 HTML 时才算成功；生成失败不会使用本地模板伪装为成功。
 
@@ -312,17 +326,17 @@ python -m py_compile app.py ppt_h5.py
 
 流式接口实时返回 Supervisor、画像上下文、知识库检索、Skill Registry、MCP Tool、输出契约、质量审核、内容安全和结果保存事件。周次地图右下角提供可折叠的详细输出窗口，展示当前智能体、执行阶段、尝试次数、审核状态、`runId` 和时间线；失败时保留结构化错误码及重试入口，不再把后端异常隐藏成无限“生成中”。Skill 输出契约允许 `partial` 渐进路径先返回 1 个阶段，质量审核仍要求非 `partial` 完整路径至少包含 3 个阶段，并继续拒绝降级或带错误的产物。
 
-嵌小智生成的完整路径或临时补出的阶段路径先作为候选结果存在，只有 Harness 结构、质量与安全审核全部通过后才写入当前画像的路径配置；审核拒绝不会覆盖此前已接受的路径。历史规则降级路径会标记为 `personalizationStatus=degraded`，页面显示重新生成入口，后端同时拒绝其周资源准备请求，避免未经模型审核的路径继续消耗资源生成额度。配置加载失败和生成失败分别显示，不会伪装成“没有画像”或成功路径。
+岐小智生成的完整路径或临时补出的阶段路径先作为候选结果存在，只有 Harness 结构、质量与安全审核全部通过后才写入当前画像的路径配置；审核拒绝不会覆盖此前已接受的路径。历史规则降级路径会标记为 `personalizationStatus=degraded`，页面显示重新生成入口，后端同时拒绝其周资源准备请求，避免未经模型审核的路径继续消耗资源生成额度。配置加载失败和生成失败分别显示，不会伪装成“没有画像”或成功路径。
 
 自动生成使用数据库事务和活动任务检查避免多标签页、多进程或重复画像完成请求并发规划；学习证据版本只由聊天、答题、实验和资源使用等真实学习行为计算，路径生成写入本身不会再次触发路径重建。
 
-每份学习画像都有独立的学习路径。路径以 `(user_id, profile_report_id)` 为复合主键持久化到 SQLite 的 `learning_path_profile_configs`，`user_learning_path_configs` 仅保留为当前画像兼容镜像；画像完成后的后台任务、页面兼容生成和嵌小智主动生成都会写入指定画像记录。历史页可新建互不覆盖的画像、查看每份画像的路径状态并直接打开对应路径。切换到从未生成路径的旧画像时也会自动排队，而不再要求先进入路径页面；已有完整路径会直接恢复，不会被清空、改写或触发重复模型调用。部署初始化会把旧用户路径按其 `profileReportId` 自动迁移到新表。
+每份学习画像都有独立的学习路径。路径以 `(user_id, profile_report_id)` 为复合主键持久化到 SQLite 的 `learning_path_profile_configs`，`user_learning_path_configs` 仅保留为当前画像兼容镜像；画像完成后的后台任务、页面兼容生成和岐小智主动生成都会写入指定画像记录。历史页可新建互不覆盖的画像、查看每份画像的路径状态并直接打开对应路径。切换到从未生成路径的旧画像时也会自动排队，而不再要求先进入路径页面；已有完整路径会直接恢复，不会被清空、改写或触发重复模型调用。部署初始化会把旧用户路径按其 `profileReportId` 自动迁移到新表。
 
 每周完整任务集固定覆盖题库生成、PPT生成、思维导图、视频查找、单片机模拟器和 AI 视频讲解六类资源智能体，每类至少出现一次；视频查找仍是检索能力，AI 视频讲解使用独立的 `generated_video` 类型。学习路径智能体在生成周任务时一次性产出结构化 `resourceType`、`resourceParams`、`resourcePrompt` 和 `resourceSelectionReason`，保存前执行整周六类覆盖收口；资源派发阶段直接复用这些参数，不再为每个节点重复调用一次资源路由模型。路径只为 AI 视频创建 `waiting_for_user` 的待确认任务，入口携带画像相关主题与提示词；用户打开工作台、选择模型并确认前不会调用任何视频模型或消耗视频生成额度。资源计划版本 `profile-routed-resources-v19-weekly-six-resource-coverage` 会让 `v18` 历史完整周重新编排，避免任何一类资源缺失或单一资源过度集中。
 
 完整学习路径保存后，后端把所有已启用周次投入周资源准备线程池。每一周使用快速派发模式：先在一次短事务中为全部节点创建持久化任务记录和带 `xzTask` 的页面入口，再把题库、PPT、导图、视频查找和单片机实验等普通资源全部提交共享后台执行器；接口不会等待资源生成完成。普通资源默认最多 10 路并行，可通过 `RESOURCE_AGENT_MAX_WORKERS` 在 1-12 之间调整。不同周写回时通过用户级短锁重读最新配置并只合并当前周，避免并发覆盖任务 ID 或进度。`generated_video` 是唯一例外：入口立即可点击，但状态为 `waiting_for_user`，用户进入三栏视频工作台后编辑提示词、时长、风格、音色、清晰度和模型，并手动确认后才启动原任务。
 
-周详情页调用 `POST /api/learning-path/stages/:stageId/prepare-resources` 并传入 `{ "parallelDispatch": true, "advance": false }`。响应返回后，无论任务是 `queued`、`running`、`complete`、`waiting` 还是 `failed`，只要任务记录已建立，卡片都保留可打开入口；前端每 2 秒通过 `GET /api/learning-path/stages/:stageId/resource-tasks` 更新状态，并用“资源生成中 / 资源已生成 / 待用户确认 / 生成失败”区分。重复进入或重复派发会复用现有任务 ID，不会再次消耗模型调用。各资源生成任务自身仍经过嵌小智 Harness 的结构化输出、知识依据、质量审核与安全审核；单任务失败按原上限重试，不阻塞其他任务。任务卡片按序号使用不同强调色，悬浮只改变阴影，不改变位置或尺寸。周资源和路径生成并发上限还可通过 `LEARNING_PATH_WEEK_PREPARATION_MAX_WORKERS` 与 `LEARNING_PATH_GENERATION_MAX_WORKERS` 调整。
+周详情页调用 `POST /api/learning-path/stages/:stageId/prepare-resources` 并传入 `{ "parallelDispatch": true, "advance": false }`。响应返回后，无论任务是 `queued`、`running`、`complete`、`waiting` 还是 `failed`，只要任务记录已建立，卡片都保留可打开入口；前端每 2 秒通过 `GET /api/learning-path/stages/:stageId/resource-tasks` 更新状态，并用“资源生成中 / 资源已生成 / 待用户确认 / 生成失败”区分。重复进入或重复派发会复用现有任务 ID，不会再次消耗模型调用。各资源生成任务自身仍经过岐小智 Harness 的结构化输出、知识依据、质量审核与安全审核；单任务失败按原上限重试，不阻塞其他任务。任务卡片按序号使用不同强调色，悬浮只改变阴影，不改变位置或尺寸。周资源和路径生成并发上限还可通过 `LEARNING_PATH_WEEK_PREPARATION_MAX_WORKERS` 与 `LEARNING_PATH_GENERATION_MAX_WORKERS` 调整。
 
 节点的 `taskId`、缓存键和结果路由会写回 SQLite。缓存键包含资源编排版本；升级资源语义规则时只解除旧节点缓存引用，历史任务记录仍保留，但错误的旧路由不会重新挂回当前周。重复进入、刷新或在同一版本编排完成后继续调用接口都会复用原任务，不会重复消耗模型请求；`GET /api/learning-path/stages/:stageId/resource-tasks` 用于轮询生成状态。带 `xzTask` 的思维导图页直接读取后台 `selectedResource.content`，通过隔离 iframe 接入 Mind Map Wizard 的 SVG 布局与交互引擎，支持滚轮缩放、拖拽、适应屏幕、全屏和 SVG 下载；页面不会再次调用模型。新任务使用 `# / ## / ###` Markdown 导图契约，至少包含 4 个有具体含义的主分支，并在节点中保留课程知识库引用；数据库中的旧 Mermaid `mindmap` 内容会由前端兼容转换后继续显示。
 
@@ -446,11 +460,11 @@ https://lzhan.xyz/ppt-api/health
 https://lzhan.xyz/ai-coding
 ```
 
-当前部署结构中，PPT 不需要 Electron、xvfb 或 Node 后端服务，但需要 `feishengwangying-pptapi.service` 在回环地址 `127.0.0.1:8765` 运行 OhMyPPT FastAPI。生产 Nginx 的 `/ppt-api/` 仅作为同源服务入口；生成接口仍要求服务端内部签名，不能绕过嵌小智直接调用。
+当前部署结构中，PPT 不需要 Electron、xvfb 或 Node 后端服务，但需要 `feishengwangying-pptapi.service` 在回环地址 `127.0.0.1:8765` 运行 OhMyPPT FastAPI。生产 Nginx 的 `/ppt-api/` 仅作为同源服务入口；生成接口仍要求服务端内部签名，不能绕过岐小智直接调用。
 
 远程环境的 `/ai-coding` 在主导航栏下方直接嵌入 DeepSeek Harness，共用一个由 `dsh-sandbox` 非 root 用户持有的工作区与会话存储。Harness 仅监听隔离服务器的回环端口，主站通过受限 SSH 隧道和带登录校验的 `/ai-coding-runtime/` 代理访问；未登录请求返回 401。DeepSeek 凭据由沙箱服务器上的 root-only 上游代理注入，不进入浏览器、Harness 工作区、前端构建产物或 Git 文件。为保留远程凭据隔离，浏览器侧 `credentials` 与 `settings` 接口继续保持不可访问；代理只关闭 Harness 内测声明并重写运行时资源/RPC 路径。
 
-AI 编程部署验证不调用模型：
+历史 AI 编程工作区当前不在学习者界面开放；保留部署验证记录用于旧环境兼容：
 
 ```bash
 systemctl is-active deepseek-harness.service
@@ -498,7 +512,7 @@ backend/api_config.py
 - PPT 生成功能：参考 OnMyPPT / Oh My PPT，Apache License 2.0。
 - 思维导图功能：参考 Mind Map Wizard，CC BY-NC 4.0，仅允许非商业使用，商业化需单独授权。
 
-思维导图嵌入引擎位于 `img/mind-map-wizard/embedded/`。其中 `renderer.js`、`interaction.js` 和 `mind-map-elements.css` 来自 Mind Map Wizard，项目新增 `bridge.js`、嵌入页及 Vue 通信组件，以接收嵌小智后台生成的 Markdown，而未接入原项目的模型密钥、账号、分析统计或付费逻辑。
+思维导图嵌入引擎位于 `img/mind-map-wizard/embedded/`。其中 `renderer.js`、`interaction.js` 和 `mind-map-elements.css` 来自 Mind Map Wizard，项目新增 `bridge.js`、嵌入页及 Vue 通信组件，以接收岐小智后台生成的 Markdown，而未接入原项目的模型密钥、账号、分析统计或付费逻辑。
 
 比赛展示时可以替换项目 Logo、名称和界面风格，但需在项目说明、答辩材料或 README 中保留来源、许可证和二次开发说明。详细内容见：
 

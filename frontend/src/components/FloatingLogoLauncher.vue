@@ -5,10 +5,9 @@
     :style="floatStyle"
     @pointerdown="handlePointerDown"
   >
-    <button class="xiaozhi-orb" type="button" aria-label="打开嵌小智" @click.prevent>
+    <button class="xiaozhi-orb" type="button" aria-label="打开岐小智" @click.prevent>
       <picture>
-        <source srcset="/logogif-128.webp" type="image/webp" />
-        <img class="xiaozhi-orb-logo" src="/logogif.gif" alt="嵌小智" draggable="false" decoding="async" />
+        <img class="xiaozhi-orb-logo" src="/qihuang-zhijing-mark-512.png" alt="岐小智" draggable="false" decoding="async" />
       </picture>
       <span class="orb-pulse" aria-hidden="true"></span>
       <span v-if="runningTaskCount" class="task-dot">{{ runningTaskCount }}</span>
@@ -18,20 +17,20 @@
       <header class="window-head">
         <div class="title-block">
           <span class="eyebrow">Learning Companion</span>
-          <strong>嵌小智</strong>
-          <p>陪你一起成长的嵌入式学习伙伴</p>
+          <strong>岐小智</strong>
+          <p>陪你研读经典、辨析方药的中医学习伙伴</p>
         </div>
         <div class="window-head-actions">
           <button type="button" class="icon-btn" aria-label="智能体运行设置" title="智能体运行设置" @click.stop="openRuntimeSettings">
             <Settings :size="18" />
           </button>
-          <button type="button" class="icon-btn" aria-label="关闭嵌小智" @click.stop="isOpen = false">
+          <button type="button" class="icon-btn" aria-label="关闭岐小智" @click.stop="isOpen = false">
             <X :size="18" />
           </button>
         </div>
       </header>
 
-      <div class="mode-tabs" role="tablist" aria-label="嵌小智功能">
+      <div class="mode-tabs" role="tablist" aria-label="岐小智功能">
         <button type="button" :class="{ active: activeTab === 'chat' }" @click="activeTab = 'chat'">
           <MessageCircle :size="16" />
           陪伴式助手
@@ -114,8 +113,8 @@
           <div class="message-list">
           <div v-if="messages.length === 0" class="empty-chat">
             <Sparkles :size="22" />
-            <strong>你好，我是嵌小智</strong>
-            <p>我会记录你的学习画像、答题和实验状态。你也可以直接让我生成 PPT、思维导图、视频或题库。</p>
+            <strong>你好，我是岐小智</strong>
+            <p>我会记录你的学习画像、答题和研读状态。你也可以直接让我生成 PPT、思维导图、视频或题库。</p>
           </div>
 
           <template v-for="(message, index) in messages" :key="`${message.createdAt || index}-${index}`">
@@ -181,7 +180,7 @@
           <article v-if="isSending" class="message assistant pending">
             <div class="bubble">
               <LoaderCircle :size="16" class="spin" />
-              <p>嵌小智正在分析你的学习上下文...</p>
+              <p>岐小智正在分析你的学习上下文...</p>
             </div>
           </article>
           </div>
@@ -201,7 +200,7 @@
           <textarea
             v-model="draft"
             rows="2"
-            placeholder="告诉嵌小智你的学习情况，或说：生成数据结构课程的 PPT..."
+            placeholder="告诉岐小智你的学习情况，或说：生成八纲辨证课程的 PPT..."
             @keydown="handleComposerKeydown"
           ></textarea>
           <p v-if="sendError" class="composer-error" role="alert">
@@ -228,7 +227,7 @@
         <div class="status-toolbar">
           <div>
             <strong>智能体连接状态</strong>
-            <p>嵌小智总控与专项智能体实时编排拓扑</p>
+            <p>岐小智总控与专项智能体实时编排拓扑</p>
           </div>
           <button type="button" class="refresh-btn icon-only" title="刷新智能体状态" aria-label="刷新智能体状态" @click="loadStatus">
             <RefreshCw :size="16" />
@@ -242,7 +241,7 @@
           <span><strong>{{ harnessStatus.mcpGateway?.servers?.length || 0 }}</strong> MCP Servers</span>
         </div>
 
-        <section class="agent-topology" aria-label="嵌小智智能体连接流程图">
+        <section class="agent-topology" aria-label="岐小智智能体连接流程图">
           <div class="topology-activity">
             <Activity :size="15" />
             <span>{{ harnessActivityText }}</span>
@@ -402,8 +401,8 @@ const resourceLabels = {
   animation: '动画微课',
   profile_update: '学习画像',
   profile_management: '画像管理',
-  mcu: '单片机实验',
-  interview: 'AI 面试',
+  mcu: '课程讲义',
+  interview: '学习访谈',
   smart_tutor: '智能辅导',
   effect_assessment: '效果评估',
   learning_feedback: '学习反馈',
@@ -411,7 +410,7 @@ const resourceLabels = {
 }
 
 const companionTaskTypes = new Set(
-  Object.keys(resourceLabels).filter(type => !['profile_management', 'learning_feedback'].includes(type)),
+  Object.keys(resourceLabels).filter(type => !['profile_management', 'learning_feedback', 'mcu'].includes(type)),
 )
 
 const agentNameAliases = {
@@ -476,17 +475,20 @@ const runningTaskCount = computed(() => tasks.value.filter(task => ['queued', 'r
 const canSendMessage = computed(() => !isSending.value && Boolean(draft.value.trim() || pendingAttachments.value.length))
 const masterAgent = computed(() => agents.value.find(agent => agent.role === 'supervisor') || {
   id: 'xiaozhi-companion-agent',
-  name: '嵌小智总控智能体',
+  name: '岐小智总控智能体',
   status: 'idle',
   detail: '正在连接 Agent Harness',
 })
-const specialistAgents = computed(() => agents.value.filter(agent => agent.id !== masterAgent.value.id))
+const specialistAgents = computed(() => agents.value.filter(agent => {
+  const identity = `${agent.id || ''} ${agent.type || ''}`.toLowerCase()
+  return agent.id !== masterAgent.value.id && !identity.includes('mcu') && !identity.includes('simulator')
+}))
 const harnessActivityText = computed(() => {
   const activeAgent = agents.value.find(agent => ['running', 'queued'].includes(agent.status))
   if (activeAgent) return `${agentDisplayName(activeAgent)}：${activeAgent.detail || statusText(activeAgent.status)}`
   const failedAgent = agents.value.find(agent => agent.status === 'failed')
   if (failedAgent) return `${agentDisplayName(failedAgent)}需要处理：${failedAgent.detail || '执行失败'}`
-  return '所有智能体已连接，等待嵌小智总控调度'
+  return '所有智能体已连接，等待岐小智总控调度'
 })
 
 watch(isOpen, async (open) => {
@@ -614,7 +616,7 @@ async function loadHistory() {
     tasks.value = response?.data?.tasks || []
     await scrollToBottom()
   } catch (error) {
-    addLog(error?.message || '嵌小智历史加载失败', 'warn', '嵌小智')
+    addLog(error?.message || '岐小智历史加载失败', 'warn', '岐小智')
   }
 }
 
@@ -628,7 +630,7 @@ async function loadStatus() {
       stopStatusPolling()
     }
   } catch (error) {
-    addLog(error?.message || '嵌小智状态加载失败', 'warn', '嵌小智')
+    addLog(error?.message || '岐小智状态加载失败', 'warn', '岐小智')
   }
 }
 
@@ -824,7 +826,7 @@ function fallbackTaskRoute(task) {
     return `/personalized-resources/animation?topic=${encodeURIComponent(topic)}&xzTask=${taskId}`
   }
   if (type === 'mcu') {
-    return `/personalized-resources/mcu-simulator?xzTask=${taskId}`
+    return '/personalized-resources'
   }
   if (type === 'interview') {
     return `/digital-human-interview?xzTask=${taskId}`
@@ -887,7 +889,7 @@ async function sendMessage() {
     if (runningTaskCount.value) startStatusPolling()
     await scrollToBottom()
   } catch (error) {
-    const errorMessage = error?.response?.data?.msg || error?.message || '嵌小智暂时连接失败，请稍后再试。'
+    const errorMessage = error?.response?.data?.msg || error?.message || '岐小智暂时连接失败，请稍后再试。'
     sendError.value = errorMessage
     if (!draft.value.trim()) draft.value = content
     if (queuedFiles.length) pendingAttachments.value = queuedFiles
@@ -897,7 +899,7 @@ async function sendMessage() {
       cards: [],
       createdAt: new Date().toISOString(),
     })
-    addLog(error?.message || '嵌小智对话失败', 'error', '嵌小智')
+    addLog(error?.message || '岐小智对话失败', 'error', '岐小智')
   } finally {
     isSending.value = false
   }
@@ -922,7 +924,7 @@ function queueAssistantAttachments(event) {
   const next = pendingAttachments.value.slice()
   for (const file of selected) {
     if (file.size > 50 * 1024 * 1024) {
-      addLog(`${file.name} 超过 50 MB，未加入附件`, 'warn', '嵌小智多模态输入')
+      addLog(`${file.name} 超过 50 MB，未加入附件`, 'warn', '岐小智多模态输入')
       continue
     }
     const duplicate = next.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)
@@ -930,7 +932,7 @@ function queueAssistantAttachments(event) {
   }
   pendingAttachments.value = next
   if (selected.length && next.length >= 4) {
-    addLog('每次最多添加 4 个多模态附件', 'warn', '嵌小智多模态输入')
+    addLog('每次最多添加 4 个多模态附件', 'warn', '岐小智多模态输入')
   }
 }
 
@@ -948,7 +950,7 @@ async function scrollToBottom() {
 function toggleVoiceInput() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
   if (!SpeechRecognition) {
-    addLog('当前浏览器不支持 Web Speech API，可继续使用文字输入。', 'warn', '嵌小智语音')
+    addLog('当前浏览器不支持 Web Speech API，可继续使用文字输入。', 'warn', '岐小智语音')
     return
   }
   if (isListening.value && recognition) {
@@ -976,7 +978,7 @@ function toggleVoiceInput() {
     draft.value = `${draft.value.replace(interimText, '')}${finalText || interimText}`.trim()
   }
   recognition.onerror = (event) => {
-    addLog(`语音输入失败：${event.error || 'unknown'}`, 'warn', '嵌小智语音')
+    addLog(`语音输入失败：${event.error || 'unknown'}`, 'warn', '岐小智语音')
   }
   recognition.onend = () => {
     isListening.value = false
@@ -1048,14 +1050,14 @@ function agentIcon(agent) {
 
 function agentDisplayName(agent) {
   if (!agent) return '智能体'
-  if (agent.role === 'supervisor') return agent.name || '嵌小智总控智能体'
+  if (agent.role === 'supervisor') return agent.name || '岐小智总控智能体'
   if (agent.type && resourceLabels[agent.type]) return `${resourceLabels[agent.type]}智能体`
   return agentNameAliases[agent.id] || agent.name || agent.id || '智能体'
 }
 
 function agentDetail(agent) {
   const detail = String(agent?.detail || '').trim()
-  if (!detail) return '等待嵌小智总控调度'
+  if (!detail) return '等待岐小智总控调度'
   if (/^Platform task\b/i.test(detail)) {
     return `${resourceLabels[agent?.type] || '平台能力'}已就绪`
   }

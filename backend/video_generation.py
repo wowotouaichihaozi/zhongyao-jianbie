@@ -769,7 +769,7 @@ def _build_plan(
         if engine == DEFAULT_VIDEO_ENGINE
         else "每段 duration 必须在 5 到 15 秒之间，可按内容动态分配。"
     )
-    prompt = f'''请为高校嵌入式课程生成一份 16:9 AI 讲解视频脚本。主题：{topic}
+    prompt = f'''请为高校中医课程生成一份 16:9 AI 讲解视频脚本。主题：{topic}
 目标时长：约{duration}秒，总时长应控制在目标前后 {TARGET_DURATION_TOLERANCE} 秒内。视频模型：{engine_label}。{segment_rule}画面风格：{style}。
 学习画像：{profile_summary}
 知识来源：{source_summary}

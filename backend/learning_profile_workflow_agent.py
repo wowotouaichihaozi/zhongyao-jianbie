@@ -255,14 +255,19 @@ def extract_by_rules(messages: List[Dict[str, str]]) -> Dict[str, Any]:
     grade = re.search(r"(大一|大二|大三|大四|研一|研二|研三|研究生|本科|专科)", text)
     major = re.search(r"([\u4e00-\u9fa5A-Za-z0-9]{2,18}(?:专业|学院|方向))", text)
     courses: List[str] = []
-    if re.search(r"嵌入式|embedded", text, re.I):
-        courses.append("嵌入式")
-    if re.search(r"stm32", text, re.I):
-        courses.append("STM32")
-    if "单片机" in text:
-        courses.append("单片机")
-    if re.search(r"linux\s*驱动|Linux驱动", text, re.I):
-        courses.append("Linux 驱动")
+    if re.search(r"中医|tcm", text, re.I):
+        courses.append("中医")
+    course_patterns = [
+        ("中医基础理论", r"中医基础|阴阳|五行|藏象|气血津液|经络"),
+        ("中医诊断学", r"中医诊断|四诊|望诊|闻诊|问诊|切诊|舌诊|脉诊|八纲|辨证"),
+        ("中药学", r"中药学|中药|性味归经"),
+        ("方剂学", r"方剂学|方剂|君臣佐使|配伍"),
+        ("针灸推拿学", r"针灸|腧穴|推拿"),
+        ("中医临床医案", r"中医内科|医案|临床"),
+    ]
+    for course, pattern in course_patterns:
+        if re.search(pattern, text, re.I):
+            courses.append(course)
     if grade or major or courses:
         value = "；".join([part for part in [
             grade.group(0) if grade else "",
@@ -273,66 +278,66 @@ def extract_by_rules(messages: List[Dict[str, str]]) -> Dict[str, Any]:
         evidence.append({"dimension": "专业/课程背景", "text": value, "confidence": 0.9, "source": "rule"})
 
     goals: List[str] = []
-    if "智能车" in text:
-        goals.append("完成智能车项目训练")
+    if re.search(r"执业医师|考研|升学", text):
+        goals.append("夯实中医基础并准备专业考试")
     if re.search(r"竞赛|比赛|参赛", text) and not goals:
-        goals.append("参加嵌入式相关竞赛")
-    if "课程设计" in text:
-        goals.append("完成课程设计")
+        goals.append("参加中医药相关竞赛")
+    if re.search(r"课程设计|课程作业|医案作业", text):
+        goals.append("完成中医课程与医案学习任务")
     if "就业" in text or "找工作" in text:
-        goals.append("提升就业项目能力")
+        goals.append("提升中医临床思维与岗位能力")
     goal_match = re.search(r"(?:学习目标是|目标是|为了|想要|准备|希望|打算)([^。！？!?；;，,]{2,40})", latest)
     if goal_match:
         goal_text = goal_match.group(1).strip(" ，,。")
         if goal_text:
             goals.append(goal_text)
-    if re.search(r"目标|想|希望|打算|准备|课程设计|项目|竞赛|比赛|就业|找工作", text) and not goals:
-        goals.append("提升嵌入式项目实践能力")
+    if re.search(r"目标|想|希望|打算|准备|课程|医案|竞赛|比赛|就业|找工作", text) and not goals:
+        goals.append("提升中医辨证与医案实践能力")
     if goals:
         goals = list(dict.fromkeys(goals))
         append_profile_value(profile, "学习目标", goals)
         evidence.append({"dimension": "学习目标", "text": "；".join(goals), "confidence": 0.95, "source": "rule"})
 
-    if re.search(r"刚学|最近在学|正在学|学习.*stm32|stm32|单片机", text, re.I):
-        append_profile_value(profile, "当前知识基础", "已接触嵌入式基础和 STM32 相关内容")
-        append_profile_value(profile, "学习进度", "处于 STM32 基础外设与实操训练阶段")
+    if re.search(r"刚学|最近在学|正在学|中医基础|中医诊断|中药|方剂|针灸|医案|辨证", text, re.I):
+        append_profile_value(profile, "当前知识基础", "已接触中医基础理论与基础辨证内容")
+        append_profile_value(profile, "学习进度", "处于中医基础知识与医案辨析训练阶段")
         evidence.append({"dimension": "当前知识基础", "text": profile["当前知识基础"], "confidence": 0.78, "source": "rule"})
         evidence.append({"dimension": "学习进度", "text": profile["学习进度"], "confidence": 0.78, "source": "rule"})
 
     weak_points: List[str] = []
     weak_patterns = [
-        ("GPIO", r"gpio"),
-        ("串口通信", r"串口|uart|usart"),
-        ("定时器/PWM", r"定时器|pwm"),
-        ("中断调试", r"中断"),
-        ("编码器采集", r"编码器"),
-        ("开发板调试", r"开发板|调试"),
-        ("传感器应用", r"传感器"),
+        ("阴阳五行", r"阴阳|五行"),
+        ("藏象与气血津液", r"藏象|气血|津液|经络"),
+        ("四诊信息归纳", r"四诊|望诊|闻诊|问诊|切诊|舌诊|脉诊"),
+        ("八纲辨证", r"八纲|表里|寒热|虚实"),
+        ("中药性味归经", r"中药|性味|归经|功效"),
+        ("方剂配伍", r"方剂|君臣佐使|配伍"),
+        ("医案辨析", r"医案|病机|治法|辨证"),
     ]
     for label, pattern in weak_patterns:
         if re.search(pattern, text, re.I) and re.search(r"不会|不熟|不太熟|卡|困难|薄弱|问题|攻克|实操|调试|排查", text):
             weak_points.append(label)
         else:
             for turn in turns:
-                if re.search(r"哪一块|卡住|薄弱|实际动手|GPIO|串口|定时器|中断|调试", turn["assistant"], re.I) and re.fullmatch(pattern, turn["user"], re.I):
+                if re.search(r"哪一块|卡住|薄弱|辨证|四诊|中药|方剂|医案", turn["assistant"], re.I) and re.fullmatch(pattern, turn["user"], re.I):
                     weak_points.append(label)
                     break
-    if re.search(r"实操.*不会|不会.*实操|动手.*不会|实践.*卡|调试.*不熟|错误排查|排查.*不熟", text):
-        weak_points.append("嵌入式实操迁移")
+    if re.search(r"辨证.*不会|不会.*辨证|医案.*不会|医案.*卡|方剂.*不熟|中药.*易混|病机.*不清", text):
+        weak_points.append("中医理论到医案迁移")
     if weak_points:
         weak_points = list(dict.fromkeys(weak_points))
         append_profile_value(profile, "薄弱知识点", weak_points)
         evidence.append({"dimension": "薄弱知识点", "text": "；".join(weak_points), "confidence": 0.86, "source": "rule"})
 
-    if re.search(r"容易|经常|总是|常常|卡|不熟|薄弱|错误|排查", text) and re.search(r"配置|接线|寄存器|时序|代码|调试|编译|排查", text):
+    if re.search(r"容易|经常|总是|常常|卡|不熟|薄弱|错误|混淆", text) and re.search(r"辨证|病机|舌|脉|中药|方剂|配伍|医案", text):
         error_types = []
-        if "配置" in text or "寄存器" in text:
-            error_types.append("外设配置理解偏差")
-        if "接线" in text or "时序" in text:
-            error_types.append("硬件连接与时序问题")
-        if "调试" in text or "编译" in text or "排查" in text:
-            error_types.append("代码调试与定位问题")
-        append_profile_value(profile, "易错点类型", error_types or ["实操调试错误"])
+        if re.search(r"四诊|舌|脉", text):
+            error_types.append("四诊信息提取不完整")
+        if re.search(r"辨证|病机", text):
+            error_types.append("证候鉴别与病机判断偏差")
+        if re.search(r"中药|方剂|配伍", text):
+            error_types.append("方药功效与配伍混淆")
+        append_profile_value(profile, "易错点类型", error_types or ["理论到医案迁移困难"])
         evidence.append({"dimension": "易错点类型", "text": "；".join(profile["易错点类型"]), "confidence": 0.74, "source": "rule"})
     else:
         error_types = []
@@ -700,7 +705,7 @@ def node_llm_agent_decide(state: WorkflowState) -> WorkflowState:
     missing = [dimension for dimension in PROFILE_DIMENSIONS if not is_filled((state.get("profile") or {}).get(dimension))]
     system = "你是嵌智学航的学习画像对话智能体。必须只返回一个 JSON 对象，不要 Markdown。"
     prompt = f"""
-你需要基于嵌入式学习对话完成两件事：
+你需要基于中医学习对话完成两件事：
 1. 理解用户最新回复，抽取本轮可以作为学习画像证据的信息。
 2. 生成给用户看的自然回复，并只追问一个下一步最需要补齐的维度。
 
@@ -739,7 +744,7 @@ def node_llm_agent_decide(state: WorkflowState) -> WorkflowState:
 1. 如果用户的短回复是在回答上一句助手问题，必须结合上一句问题理解，不要因为回答很短就忽略。
 2. evidence 只记录用户明确表达或能从上一问一答直接推出的信息；不要编造用户没有说过的目标。
 3. next_dimension 必须从当前缺失维度中选择，并尽量遵守建议采集顺序；已经有值的维度不要再追问。
-4. reply 必须自然、简短、面向嵌入式学习；如果本轮补齐了一个维度，先简短确认，再问 next_dimension。
+4. reply 必须自然、简短、面向中医学习；如果本轮补齐了一个维度，先简短确认，再问 next_dimension。
 5. 如果最新用户输入只是“你好/开始/在吗”这类寒暄，evidence 返回空数组，但 reply 必须继续追问专业/课程背景，不能只回复“你好”“我们开始”。
 6. 如果所有维度都完整，next_dimension 为空字符串，reply 给出简短总结。
 7. 只输出 JSON 对象。
@@ -808,20 +813,20 @@ def node_choose_next_dimension(state: WorkflowState) -> WorkflowState:
 
 def fallback_question(next_dimension: str, profile: Dict[str, Any], latest: str) -> str:
     if not latest or is_greeting_only(latest):
-        return "你现在主要在学嵌入式的哪一部分，比如 STM32、单片机、Linux 驱动还是开发板项目？"
+        return "你现在主要在学中医的哪一部分，比如中医基础理论、中医诊断学、中药学、方剂学，还是医案辨析？"
     questions = {
-        "专业/课程背景": "你现在是几年级、什么专业，正在学哪门嵌入式相关课程？",
-        "学习目标": "你学习嵌入式最想达成什么目标，比如课程设计、竞赛、项目实训还是就业准备？",
-        "当前知识基础": "你现在对 C 语言、单片机基础和 STM32 外设，大概掌握到什么程度？",
-        "学习进度": "你目前学到哪一块了，比如 GPIO、串口、定时器、中断，还是已经开始做综合项目？",
-        "薄弱知识点": "为了更精准推荐练习，你在实际动手时，GPIO、串口、定时器、中断或调试，哪一块最常卡住？",
-        "易错点类型": "你做实验时更容易错在配置参数、硬件接线、代码逻辑，还是调试定位？",
-        "学习风格/认知偏好": "你更适合先看原理图解、跟着案例一步步做，还是直接做项目再回头补概念？",
-        "资源形式偏好": "你更希望我推荐哪类资源：PPT课件、视频讲解、代码例程、实验步骤还是练习题？",
-        "可投入时间": "你每周大概能投入多少时间做嵌入式实验和复盘？",
-        "难度接受程度": "接下来的任务难度你希望循序渐进，还是可以直接挑战竞赛项目级任务？",
+        "专业/课程背景": "你现在是几年级、什么专业，正在学习哪门中医课程？",
+        "学习目标": "你学习中医最想达成什么目标，比如夯实课程基础、准备考试、参加竞赛还是提升医案辨析能力？",
+        "当前知识基础": "你对阴阳五行、藏象、气血津液和经络等基础内容，大概掌握到什么程度？",
+        "学习进度": "你目前学到哪一块了，比如四诊、八纲辨证、中药、方剂，还是已经开始分析综合医案？",
+        "薄弱知识点": "为了更精准推荐练习，四诊信息归纳、辨证分型、中药功效、方剂配伍或医案分析，哪一块最常卡住？",
+        "易错点类型": "你更容易错在四诊信息提取、证候鉴别、病机判断，还是方药配伍？",
+        "学习风格/认知偏好": "你更适合先理解理论框架、结合图表记忆，还是通过典型医案边练边学？",
+        "资源形式偏好": "你更希望我推荐哪类资源：PPT课件、视频讲解、医案解析、方药对比表还是练习题？",
+        "可投入时间": "你每周大概能投入多少时间学习中医并复盘医案？",
+        "难度接受程度": "接下来的任务难度你希望循序渐进，还是可以直接挑战综合医案辨析？",
     }
-    return questions.get(next_dimension) or "你可以再补充一个嵌入式学习上的具体困难吗？"
+    return questions.get(next_dimension) or "你可以再补充一个中医学习上的具体困难吗？"
 
 
 def node_finalize_reply(state: WorkflowState) -> WorkflowState:
@@ -834,7 +839,7 @@ def node_finalize_reply(state: WorkflowState) -> WorkflowState:
     if not next_dimension:
         raw_reply = (state.get("classifier_result") or {}).get("reply") or ""
         reply = shorten_reply(raw_reply, "")
-        state["final_reply"] = reply or "你的嵌入式学习画像已经基本补齐，我会根据这些信息为你推荐更合适的学习路径和资源。"
+        state["final_reply"] = reply or "你的中医学习画像已经基本补齐，我会根据这些信息为你推荐更合适的学习路径和资源。"
         _log(state, "finalize_reply", {"reply": state.get("final_reply")})
         return state
     fallback = fallback_question(next_dimension, state.get("profile") or {}, latest)
@@ -998,7 +1003,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--user", default="我是大二，学习嵌入式STM32，目标是参加智能车竞赛，PWM和编码器不太熟，每周能练6小时。")
+    parser.add_argument("--user", default="我是中医学专业大二学生，正在学中医诊断学，八纲辨证和方剂配伍不太熟，每周能学习 6 小时。")
     parser.add_argument("--user-id", default="demo-user")
     args = parser.parse_args()
     result = run_learning_profile_workflow([{"role": "user", "content": args.user}], user_id=args.user_id, verbose=True)

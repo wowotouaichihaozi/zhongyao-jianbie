@@ -16,7 +16,7 @@
 
     <section v-if="isRunning" class="progress-band" role="status">
       <div>
-        <strong>{{ result.message || '嵌小智正在编排智能辅导任务' }}</strong>
+        <strong>{{ result.message || '岐小智正在编排智能辅导任务' }}</strong>
         <span>{{ result.currentStage || 'supervisor_dispatch' }}</span>
       </div>
       <div class="progress-track"><i :style="{ width: `${taskProgress}%` }"></i></div>
@@ -41,13 +41,13 @@
       <form class="follow-up-band" @submit.prevent="submitFollowUp">
         <div>
           <MessagesSquare :size="18" />
-          <span><strong>继续辅导</strong><small>{{ tutor.followUp || '嵌小智会结合本轮回答继续追问。' }}</small></span>
+          <span><strong>继续辅导</strong><small>{{ tutor.followUp || '岐小智会结合本轮回答继续追问。' }}</small></span>
         </div>
         <textarea v-model.trim="followUpDraft" rows="2" placeholder="输入回答或追问" :disabled="followUpSending"></textarea>
         <button type="button" :disabled="followUpSending || !followUpDraft" @click="submitFollowUp">
           <LoaderCircle v-if="followUpSending" :size="17" class="spin" />
           <Send v-else :size="17" />
-          {{ followUpSending ? '正在交给嵌小智' : '提交' }}
+          {{ followUpSending ? '正在交给岐小智' : '提交' }}
         </button>
         <p v-if="followUpError">{{ followUpError }}</p>
       </form>
@@ -159,7 +159,7 @@
           <section class="support-section harness-section">
             <header><Network :size="18" /><h2>总控执行轨迹</h2></header>
             <dl>
-              <div><dt>Root Agent</dt><dd>{{ orchestration.rootAgentName || orchestration.rootAgent || '嵌小智' }}</dd></div>
+              <div><dt>Root Agent</dt><dd>{{ orchestration.rootAgentName || orchestration.rootAgent || '岐小智' }}</dd></div>
               <div><dt>Skill</dt><dd>{{ harness.skill?.id || 'learning.tutor.answer' }}</dd></div>
               <div><dt>MCP Tool</dt><dd>{{ harness.mcp?.toolCalls?.[0]?.tool || 'learning.tutor.answer' }}</dd></div>
               <div><dt>Run ID</dt><dd>{{ orchestration.runId || harness.runId || '--' }}</dd></div>
@@ -269,7 +269,7 @@ async function submitFollowUp() {
     const cards = response?.data?.cards || []
     const nextTask = cards.find(item => String(item?.type || item?.taskType || '') === 'smart_tutor')
     if (!nextTask?.taskId) {
-      throw new Error(response?.data?.reply || '嵌小智没有创建下一轮辅导任务')
+      throw new Error(response?.data?.reply || '岐小智没有创建下一轮辅导任务')
     }
     followUpDraft.value = ''
     await router.push({

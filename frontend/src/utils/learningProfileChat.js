@@ -1,4 +1,4 @@
-export const INITIAL_CHAT_OPENING = '你好，我是你的数字人 AI 讲师，会陪你梳理嵌入式学习画像，并根据你的回答逐步点亮右侧人脸画像。先从一个简单问题开始：你现在主要在学嵌入式的哪一部分，比如单片机、STM32、Linux 驱动、传感器应用，还是开发板项目实训？'
+export const INITIAL_CHAT_OPENING = '你好，我是你的数字人 AI 讲师，会陪你梳理中医学习画像，并根据你的回答逐步点亮右侧人脸画像。先从一个简单问题开始：你现在主要在学中医的哪一部分，比如中医基础理论、中医诊断学、中药学、方剂学，还是医案辨析？'
 
 function messageTimestamp(createdAt, fallback) {
   const timestamp = createdAt ? new Date(createdAt).getTime() : Number.NaN

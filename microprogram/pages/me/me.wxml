@@ -5,7 +5,7 @@
     <view class="page-subtitle">查看学习画像、服务端任务与效果评估。</view>
   </view>
   <view class="user-card card">
-    <image src="/assets/logo.png" mode="aspectFit"></image>
+    <image src="/assets/qihuang-zhijing-mark.png" mode="aspectFit"></image>
     <view><text class="user-name">{{user.displayName || user.username || '学习者'}}</text><text class="muted">{{user.email || user.username || '已登录'}}</text></view>
     <text class="verified">已认证</text>
   </view>

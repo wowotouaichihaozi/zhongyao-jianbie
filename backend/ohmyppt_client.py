@@ -185,7 +185,7 @@ def generate_with_ohmyppt(
     on_stage: StageCallback | None = None,
 ) -> dict[str, Any]:
     session_id = str(payload.get("sessionId") or "").strip()
-    topic = str(payload.get("topic") or "嵌入式学习课件").strip() or "嵌入式学习课件"
+    topic = str(payload.get("topic") or "中医学习课件").strip() or "中医学习课件"
     if not session_id or len(session_id) > 160:
         raise OhMyPptError("PPT 会话编号无效")
     try:

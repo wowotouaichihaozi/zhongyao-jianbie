@@ -22,7 +22,7 @@
     <section class="generation-band">
       <div class="field topic-field">
         <label for="document-topic">主题</label>
-        <input id="document-topic" v-model.trim="topic" placeholder="例如：STM32 GPIO 与外部中断" />
+        <input id="document-topic" v-model.trim="topic" placeholder="例如：八纲辨证与四诊合参" />
       </div>
       <div class="field requirement-field">
         <label for="document-requirements">侧重点</label>
@@ -146,7 +146,7 @@ import { getLearningDocument, getLearningDocuments, getXiaoZhiTask, startPersona
 
 const route = useRoute()
 const router = useRouter()
-const topic = ref(String(route.query.topic || 'STM32 GPIO 与外部中断'))
+const topic = ref(String(route.query.topic || '八纲辨证与四诊合参'))
 const requirements = ref(String(route.query.requirements || '结合当前薄弱点，包含知识依据、常见错误和可验收实践任务'))
 const history = ref([])
 const activeRecord = ref(null)
@@ -173,7 +173,7 @@ const feedbackTask = computed(() => {
 const taskMessage = computed(() => {
   if (taskStatus.value === 'failed') return error.value || '课程讲义生成失败'
   if (taskStatus.value === 'complete') return taskResult.value?.message || '课程讲义已生成并保存'
-  return taskResult.value?.message || '嵌小智正在调度课程讲义生成智能体'
+  return taskResult.value?.message || '岐小智正在调度课程讲义生成智能体'
 })
 const qualityCriteria = computed(() => {
   const criteria = activeQuality.value?.criteria || {}

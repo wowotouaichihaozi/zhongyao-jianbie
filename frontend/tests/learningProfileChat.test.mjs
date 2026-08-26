@@ -8,14 +8,14 @@ import {
 
 test('keeps the opening before the first persisted conversation turn', () => {
   const messages = buildProfileSessionChatMessages([
-    { id: 1, role: 'user', content: '我在学习 STM32', createdAt: '2026-07-16T14:12:00Z' },
-    { id: 2, role: 'assistant', content: '你目前更关注哪类外设？', createdAt: '2026-07-16T14:12:05Z' },
+    { id: 1, role: 'user', content: '我在学习中医诊断学', createdAt: '2026-07-16T14:12:00Z' },
+    { id: 2, role: 'assistant', content: '你目前更关注四诊还是八纲辨证？', createdAt: '2026-07-16T14:12:05Z' },
   ], { now: 100 })
 
   assert.deepEqual(messages.map(message => message.text), [
     INITIAL_CHAT_OPENING,
-    '我在学习 STM32',
-    '你目前更关注哪类外设？',
+    '我在学习中医诊断学',
+    '你目前更关注四诊还是八纲辨证？',
   ])
   assert.equal(messages[0].source, 'system')
 })

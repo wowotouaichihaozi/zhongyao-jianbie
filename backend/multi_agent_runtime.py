@@ -379,7 +379,7 @@ def node_retrieve_knowledge(state: MultiAgentState) -> MultiAgentState:
         state.get("topic") or "",
         state["task_type"],
         *learner_context.get("weakPoints", [])[:6],
-        "嵌入式系统 单片机 高校课程",
+        "中医药 高校课程 四诊 辨证 方药 医案",
     ]
     query = " ".join(str(item) for item in query_parts if str(item).strip())
     try:

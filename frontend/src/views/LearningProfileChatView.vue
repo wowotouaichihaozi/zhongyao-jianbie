@@ -37,7 +37,7 @@
         <div ref="messageListRef" class="message-list" aria-live="polite">
           <div class="message bot">
             <span class="avatar">AI</span>
-            <p>请描述你的嵌入式学习背景，比如专业方向、接触过的平台、当前目标和最想提升的能力。</p>
+            <p>请描述你的中医学习背景，比如专业方向、已学课程、当前目标和最想提升的能力。</p>
           </div>
           <div v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
             <span class="avatar">{{ message.role === 'user' ? '你' : 'AI' }}</span>
@@ -57,7 +57,7 @@
             name="chatInput"
             autocomplete="off"
             rows="3"
-            placeholder="例如：我是物联网专业大二学生，学过 C 语言和 STM32，但串口调试还不熟..."
+            placeholder="例如：我是中医学专业大二学生，学过中医基础理论，但八纲辨证和脉诊还不熟..."
             :disabled="chatLoading"
           ></textarea>
           <button class="send-btn" type="submit" :disabled="chatLoading || !chatInput.trim()">发送</button>

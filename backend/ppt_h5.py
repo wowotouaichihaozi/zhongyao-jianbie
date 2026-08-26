@@ -54,7 +54,7 @@ def generate_ppt_h5(payload: dict[str, Any], on_stage: StageCallback | None = No
     page_count = _clamp_int(payload.get("pageCount"), 5, 1, 20)
     _emit_stage(on_stage, "prepare", "正在整理主题、页数和平台风格要求", 10, pageCount=page_count, topic=topic)
     knowledge_context, knowledge_sources = grounded_prompt_block(
-        f"{topic} {user_message} 嵌入式系统 单片机课程",
+        f"{topic} {user_message} 中医药课程 四诊 辨证 方药 医案",
         top_k=6,
         max_context_chars=10000,
     )

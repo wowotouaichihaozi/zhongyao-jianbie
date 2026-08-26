@@ -536,12 +536,12 @@ def ensure_codex_preview_user(conn: sqlite3.Connection) -> sqlite3.Row:
 
 
 DEFAULT_LEARNING_PATH_WEEKS = [
-    ("week-1-embedded-foundation", "第一周", "嵌入式基础与开发环境", "完成目标拆解、概念建模、示例跟做和第一次实操验证", "current", "cpu", "green", 150),
-    ("week-2-gpio-practice", "第二周", "GPIO 输入输出实操", "围绕 GPIO 建立配置思路并完成可运行实验", "locked", "book-open", "green", 180),
-    ("week-3-uart-debug", "第三周", "串口通信与调试链路", "跑通串口收发、日志输出和调试定位流程", "locked", "clipboard-check", "green", 210),
-    ("week-4-timer-interrupt", "第四周", "定时器 PWM 与中断响应", "完成定时器、PWM、中断的案例跟做和专项测评", "locked", "target", "green", 240),
-    ("week-5-sensor-project", "第五周", "传感器采集与项目案例", "把传感器采集、数据处理和小项目联调结合起来", "locked", "layers", "green", 270),
-    ("week-6-integrated-training", "第六周", "综合项目实训与复盘", "完成综合任务、整理证据并更新下一轮学习重点", "locked", "rocket", "green", 320),
+    ("week-1-embedded-foundation", "第一周", "中医基础理论与整体观念", "理解阴阳五行、藏象与气血津液的核心关系", "current", "cpu", "green", 150),
+    ("week-2-gpio-practice", "第二周", "四诊信息归纳", "围绕望闻问切整理关键症状、舌象与脉象", "locked", "book-open", "green", 180),
+    ("week-3-uart-debug", "第三周", "八纲辨证与证候鉴别", "建立表里、寒热、虚实、阴阳的辨证框架", "locked", "clipboard-check", "green", 210),
+    ("week-4-timer-interrupt", "第四周", "中药性味归经", "掌握常用中药功效、归经与用药注意事项", "locked", "target", "green", 240),
+    ("week-5-sensor-project", "第五周", "方剂组成与配伍", "结合君臣佐使分析常用方剂组成与功效", "locked", "layers", "green", 270),
+    ("week-6-integrated-training", "第六周", "综合医案辨析与复盘", "完成医案辨证、治法方药推演并复盘证据链", "locked", "rocket", "green", 320),
 ]
 
 LEGACY_LEARNING_PATH_STAGE_IDS = {
@@ -566,17 +566,17 @@ DEFAULT_STAGE_NODE_COORDS = [
 DEFAULT_STAGE_NODE_BLUEPRINTS = [
     ("目标拆解", "查找学习视频", "/personalized-resources/video-search", "通过导学视频明确本周主题、学习目标和验收标准。"),
     ("概念建模", "生成导图", "/personalized-resources/mind-map", "围绕本周主题整理知识结构图，标出关键概念、前置知识和易错点。"),
-    ("示例跟做", "生成学习课件", "/personalized-resources/ppt", "通过示例课件跟做一个最小可运行案例，理解配置流程、关键代码和运行现象。"),
-    ("实操验证", "进入实验", "/personalized-resources/mcu-simulator", "在开发板或模拟器完成一个小实验，记录代码、接线和现象。"),
-    ("专项测评", "生成练习题单", "/personalized-resources/question-bank", "完成针对性题目或代码改错题，检查本周知识是否真正掌握。"),
-    ("复盘迭代", "生成复盘导图", "/personalized-resources/mind-map", "通过复盘导图整理错因、实验证据和下一周要继续追踪的问题。"),
+    ("案例跟学", "生成学习课件", "/personalized-resources/ppt", "通过典型医案理解四诊信息、病机、治法和方药之间的关系。"),
+    ("医案辨析", "生成医案讲义", "/personalized-resources/document", "完成一个基础医案辨析，记录证候依据、鉴别要点和治法方药。"),
+    ("专项测评", "生成练习题单", "/personalized-resources/question-bank", "完成针对性题目或医案辨析题，检查本周知识是否真正掌握。"),
+    ("复盘迭代", "生成复盘导图", "/personalized-resources/mind-map", "通过复盘导图整理错因、医案证据和下一周要继续追踪的问题。"),
 ]
 
 DEFAULT_STAGE_NODE_RESOURCE_TYPES = {
     "目标拆解": ["video"],
     "概念建模": ["mindmap", "document"],
-    "示例跟做": ["ppt"],
-    "实操验证": ["mcu"],
+    "案例跟学": ["ppt"],
+    "医案辨析": ["document"],
     "专项测评": ["question-bank"],
     "复盘迭代": ["mindmap", "document"],
 }
@@ -635,8 +635,8 @@ LEARNING_PATH_CONFIG_WRITE_LOCKS_GUARD = threading.Lock()
 LEARNING_PATH_TASK_RESOURCE_ALIASES = {
     "question_bank": "question-bank",
     "quiz": "question-bank",
-    "simulator": "mcu",
-    "code": "mcu",
+    "simulator": "document",
+    "code": "document",
     "mind-map": "mindmap",
     "handout": "document",
     "learning-document": "document",
@@ -651,7 +651,7 @@ LEARNING_PATH_TASK_RESOURCE_ACTIONS = {
     "ppt": "生成学习课件",
     "mindmap": "生成思维导图",
     "question-bank": "生成练习题单",
-    "mcu": "进入单片机实验",
+    "mcu": "查看历史实践记录",
 }
 LEARNING_PATH_RESOURCE_ROUTE_TYPES = {
     "/personalized-resources/video-generator": "generated_video",
@@ -685,7 +685,7 @@ def _canonical_learning_path_task_resource(raw_node: dict, node_index: int) -> s
         ]
     ).lower()
     semantic_rules = [
-        ("mcu", ["实验", "实操", "调试", "运行", "开发板", "模拟器", "迁移"]),
+        ("document", ["医案", "辨证", "病机", "方药", "经典", "病例"]),
         ("question-bank", ["测评", "题", "错因", "诊断", "考试"]),
         ("animation", ["动画", "动态过程", "时序流程", "状态迁移", "信号流", "可视化"]),
         ("document", ["讲义", "文档", "手册", "笔记", "总结"]),
@@ -762,7 +762,7 @@ def _learning_path_task_resource_route(
         path = "/personalized-resources/question-bank"
         params = {
             "module": "generate",
-            "course": resource_params.get("course") or resource_params.get("courseName") or "嵌入式系统",
+            "course": resource_params.get("course") or resource_params.get("courseName") or "中医系统",
             "chapter": resource_params.get("chapter") or resource_params.get("targetTopic") or topic,
             "count": resource_params.get("count") or resource_params.get("questionCount") or 10,
             "autostart": "1",
@@ -843,7 +843,7 @@ def _ensure_learning_path_task_resource_coverage(nodes: list[dict], topic: str, 
     return normalized_nodes
 
 def build_default_stage_nodes(week_label: str, week_title: str = "") -> list[dict]:
-    topic = week_title or "嵌入式学习任务"
+    topic = week_title or "中医学习任务"
     nodes = []
     for index, (title, action_text, action_route, description) in enumerate(DEFAULT_STAGE_NODE_BLUEPRINTS, start=1):
         coords = DEFAULT_STAGE_NODE_COORDS[index - 1]
@@ -885,16 +885,16 @@ def build_week_one_embedded_nodes() -> list[dict]:
             "resourceType": "video",
             "resourceTypes": ["video"],
             "label": "01",
-            "title": "STM32 基础视频",
+            "title": "中医基础理论视频",
             "statusText": "可进入",
-            "description": "调用视频查找工具，直接检索 STM32 基础入门、开发环境和 GPIO 实操相关视频。",
+            "description": "调用视频查找工具，检索阴阳五行、藏象与气血津液等中医基础理论视频。",
             "state": "current",
             "x": 112,
             "y": 420,
             "popX": 190,
             "popY": 250,
             "actionText": "查找视频",
-            "actionRoute": "/personalized-resources/video-search?keyword=STM32%E5%9F%BA%E7%A1%80%E8%A7%86%E9%A2%91&topic=STM32%E5%9F%BA%E7%A1%80",
+            "actionRoute": "/personalized-resources/video-search?keyword=中医基础理论视频&topic=中医基础理论",
             "order": 1,
         },
         {
@@ -903,16 +903,16 @@ def build_week_one_embedded_nodes() -> list[dict]:
             "resourceType": "ppt",
             "resourceTypes": ["ppt"],
             "label": "02",
-            "title": "STM32 PPT",
+            "title": "中医基础理论 PPT",
             "statusText": "可进入",
-            "description": "进入 PPT 生成页面，主题预填为 STM32 基础课件，用于快速生成本周概念课件。",
+            "description": "进入 PPT 生成页面，主题预填为中医基础理论课件，用于生成本周概念课件。",
             "state": "available",
             "x": 402,
             "y": 292,
             "popX": 402,
             "popY": 122,
             "actionText": "生成 PPT",
-            "actionRoute": "/personalized-resources/ppt?topic=STM32%E5%9F%BA%E7%A1%80%E8%AF%BE%E4%BB%B6&prompt=%E7%94%9F%E6%88%90%E4%B8%80%E4%BB%BD%E9%9D%A2%E5%90%91%E5%B5%8C%E5%85%A5%E5%BC%8F%E5%88%9D%E5%AD%A6%E8%80%85%E7%9A%84STM32%E5%9F%BA%E7%A1%80PPT%EF%BC%8C%E5%8C%85%E5%90%AB%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83%E3%80%81GPIO%E3%80%81%E5%AF%84%E5%AD%98%E5%99%A8%E4%B8%8EHAL%E5%BA%93%E5%85%A5%E9%97%A8%E3%80%82&pageCount=6&autostart=1",
+            "actionRoute": "/personalized-resources/ppt?topic=中医基础理论课件&prompt=生成一份面向中医初学者的基础理论PPT，包含阴阳五行、藏象、气血津液与经络入门。&pageCount=6&autostart=1",
             "order": 2,
         },
         {
@@ -921,16 +921,16 @@ def build_week_one_embedded_nodes() -> list[dict]:
             "resourceType": "mindmap",
             "resourceTypes": ["mindmap"],
             "label": "03",
-            "title": "STM32 思维导图",
+            "title": "中医基础理论思维导图",
             "statusText": "可进入",
-            "description": "进入思维导图工具，围绕 STM32 基础、GPIO、时钟、中断和开发流程整理知识结构。",
+            "description": "进入思维导图工具，围绕阴阳五行、藏象、气血津液和经络整理知识结构。",
             "state": "available",
             "x": 646,
             "y": 316,
             "popX": 646,
             "popY": 146,
             "actionText": "生成导图",
-            "actionRoute": "/personalized-resources/mind-map?topic=STM32%E5%9F%BA%E7%A1%80%E6%80%9D%E7%BB%B4%E5%AF%BC%E5%9B%BE&keyword=STM32%E5%9F%BA%E7%A1%80&autostart=1",
+            "actionRoute": "/personalized-resources/mind-map?topic=中医基础理论思维导图&keyword=阴阳五行藏象&autostart=1",
             "order": 3,
         },
         {
@@ -941,32 +941,32 @@ def build_week_one_embedded_nodes() -> list[dict]:
             "label": "04",
             "title": "题库练习小测",
             "statusText": "可进入",
-            "description": "进入题库生成页面，预填 STM32 基础主题，生成一组用于自测的巩固练习。",
+            "description": "进入题库生成页面，预填中医基础理论主题，生成一组用于自测的巩固练习。",
             "state": "available",
             "x": 942,
             "y": 369,
             "popX": 942,
             "popY": 198,
             "actionText": "开始小测",
-            "actionRoute": "/personalized-resources/question-bank?module=generate&course=STM32&chapter=STM32%E5%9F%BA%E7%A1%80&count=10&autostart=1",
+            "actionRoute": "/personalized-resources/question-bank?module=generate&course=中医基础理论&chapter=阴阳五行与藏象&count=10&autostart=1",
             "order": 4,
         },
         {
             "id": "05",
             "cacheKey": "week1-stm32-mcu-lab",
-            "resourceType": "mcu",
-            "resourceTypes": ["simulator", "code"],
+            "resourceType": "document",
+            "resourceTypes": ["document"],
             "label": "05",
-            "title": "单片机实验",
+            "title": "基础医案辨析",
             "statusText": "可进入",
-            "description": "进入单片机模拟器，先用 8051 跑马灯预设实验完成基础 I/O 观察，再迁移理解 STM32 GPIO。",
+            "description": "生成基础医案讲义，围绕四诊信息、八纲证型、治法和代表方完成辨析。",
             "state": "available",
             "x": 1188,
             "y": 284,
             "popX": 1188,
             "popY": 114,
-            "actionText": "进入实验",
-            "actionRoute": "/personalized-resources/mcu-simulator/8051/8051-led-ready",
+            "actionText": "生成医案讲义",
+            "actionRoute": "/personalized-resources/document?topic=基础医案辨析&autostart=1",
             "order": 5,
         },
         {
@@ -977,14 +977,14 @@ def build_week_one_embedded_nodes() -> list[dict]:
             "label": "06",
             "title": "阶段复盘",
             "statusText": "可进入",
-            "description": "复盘前面五个节点的学习结果：视频笔记、PPT、导图、小测错题和实验现象，整理下一步问题。",
+            "description": "复盘前面五个节点的学习结果：视频笔记、PPT、导图、小测错题和医案辨析，整理下一步问题。",
             "state": "available",
             "x": 1398,
             "y": 185,
             "popX": 1260,
             "popY": 112,
             "actionText": "整理复盘",
-            "actionRoute": "/personalized-resources?review=stm32-week-1",
+            "actionRoute": "/personalized-resources?review=tcm-week-1",
             "order": 6,
         },
     ]
@@ -1162,7 +1162,7 @@ def normalize_learning_path_config(raw_config: object) -> dict:
                 )
             generated_route = _learning_path_task_resource_route(
                 resource_type,
-                week.get("title") or week.get("weekLabel") or "嵌入式学习任务",
+                week.get("title") or week.get("weekLabel") or "中医学习任务",
                 week["id"],
                 node_id,
                 cache_key,
@@ -1196,7 +1196,7 @@ def normalize_learning_path_config(raw_config: object) -> dict:
             )
         nodes = _ensure_learning_path_task_resource_coverage(
             nodes or _json_copy(default_stage["nodes"]),
-            week.get("title") or week.get("weekLabel") or "嵌入式学习任务",
+            week.get("title") or week.get("weekLabel") or "中医学习任务",
             week["id"],
         )
         stages[week["id"]] = {
@@ -1709,7 +1709,7 @@ _INTERNAL_EVIDENCE_PREFIX_RE = re.compile(
     flags=re.IGNORECASE,
 )
 _RESOURCE_AGENT_TITLE_SUFFIX_RE = re.compile(
-    r"\s*[·｜|]\s*(?:题库生成|PPT生成|思维导图|视频查找|单片机实验|课程讲义|动画讲解|智能辅导|效果评估)?(?:智能体|agent)\s*$",
+    r"\s*[·｜|]\s*(?:题库生成|PPT生成|思维导图|视频查找|历史实践|课程讲义|动画讲解|智能辅导|效果评估)?(?:智能体|agent)\s*$",
     flags=re.IGNORECASE,
 )
 _CORRUPTED_LEARNING_TEXT_RE = re.compile(r"\?{2,}|\ufffd")
@@ -2088,7 +2088,7 @@ RESOURCE_VISIT_ROUTES = (
     ("/personalized-resources/question-bank", "question-bank", "题库"),
     ("/personalized-resources/mind-map", "mindmap", "思维导图"),
     ("/personalized-resources/video-search", "video", "学习视频"),
-    ("/personalized-resources/mcu-simulator", "mcu", "MCU 实验"),
+    ("/personalized-resources/mcu-simulator", "mcu", "历史实践记录"),
     ("/personalized-resources/knowledge-base", "knowledge-base", "私有知识库"),
     ("/personalized-resources/document", "document", "课程讲义"),
     ("/personalized-resources/animation", "animation", "动画讲解"),
@@ -2574,7 +2574,7 @@ def _effect_path_adjustment_plan(profile: dict, evidence: dict, heatmap: list[di
                 "resourceType": resource_type,
                 "resourceParams": {
                     "topic": f"{point_name}专项巩固与再验证",
-                    "course": "嵌入式系统",
+                    "course": "中医系统",
                     "chapter": point_name,
                     "count": 8,
                     "autostart": 1,
@@ -3708,14 +3708,14 @@ def _admin_agent_rows(conn: sqlite3.Connection) -> list[dict]:
 
 def _admin_region_demo(total_users: int, total_tasks: int) -> list[dict]:
     provinces = [
-        ("北京", 96, "嵌入式基础活跃度高", "GPIO、中断"),
-        ("上海", 88, "课件与题库生成较多", "串口通信"),
-        ("江苏", 82, "项目实践提交稳定", "定时器"),
-        ("浙江", 76, "视频检索使用频繁", "PWM"),
-        ("广东", 92, "AI面试参与度高", "RTOS"),
-        ("四川", 68, "学习路径完成率提升中", "C语言指针"),
-        ("湖北", 63, "单片机模拟实验较多", "ADC采样"),
-        ("陕西", 58, "资料生成需求增加", "外设驱动"),
+        ("北京", 96, "中医基础活跃度高", "阴阳、藏象"),
+        ("上海", 88, "课件与题库生成较多", "四诊合参"),
+        ("江苏", 82, "医案学习提交稳定", "八纲辨证"),
+        ("浙江", 76, "视频检索使用频繁", "中药、方剂"),
+        ("广东", 92, "学习访谈参与度高", "舌脉辨析"),
+        ("四川", 68, "学习路径完成率提升中", "气血津液"),
+        ("湖北", 63, "医案辨析练习较多", "脏腑辨证"),
+        ("陕西", 58, "资料生成需求增加", "经络腧穴"),
     ]
     base_users = max(total_users, 8)
     base_tasks = max(total_tasks, 16)
@@ -6899,7 +6899,7 @@ def learning_profile_questionnaire_save():
     if not user:
         return jsonify({"code": 401, "msg": "未登录"}), 401
     payload = request.get_json(silent=True) or {}
-    title = str(payload.get("title") or "嵌入式大学生学习画像量表问卷")
+    title = str(payload.get("title") or "中医大学生学习画像量表问卷")
     section_statuses = payload.get("sectionStatuses") or {}
     missing_message = str(payload.get("missingMessage") or "暂时缺失该部分的数据")
     created_at = now_iso()
@@ -8886,7 +8886,7 @@ def _resource_agent_topic(topic: object, params: dict | None = None) -> str:
         text = str(candidate or "").strip()
         if text:
             return text[:80]
-    return "嵌入式学习资源"
+    return "中医学习资源"
 
 
 def _resource_agent_route(task_type: str, topic: str, params: dict | None = None) -> str:
@@ -8909,7 +8909,7 @@ def _resource_agent_route(task_type: str, topic: str, params: dict | None = None
         return f"{route}{separator}{urlencode(cleaned, doseq=True)}"
 
     if task_type == "question_bank":
-        course = str(params.get("course") or params.get("courseName") or "嵌入式系统").strip()
+        course = str(params.get("course") or params.get("courseName") or "中医系统").strip()
         chapter = str(params.get("chapter") or params.get("chapterName") or params.get("targetTopic") or topic).strip()
         count = params.get("count") or params.get("questionCount") or params.get("question_count") or 8
         return query(
@@ -9817,7 +9817,7 @@ def _apply_learning_path_node_resource_plan(
             "actionText": LEARNING_PATH_TASK_RESOURCE_ACTIONS[resource_type],
             "actionRoute": _learning_path_task_resource_route(
                 resource_type,
-                stage.get("focus") or stage.get("title") or "嵌入式学习任务",
+                stage.get("focus") or stage.get("title") or "中医学习任务",
                 stage_id,
                 node_id,
                 cache_key,
@@ -10210,7 +10210,7 @@ def _enforce_parallel_learning_path_resource_coverage(
         planned_tasks,
         planned_nodes,
         profile_context=build_learning_profile_context(profile),
-        topic=str(stage.get("focus") or stage.get("goal") or stage.get("title") or "嵌入式学习任务"),
+        topic=str(stage.get("focus") or stage.get("goal") or stage.get("title") or "中医学习任务"),
         existing_resource_types=existing_resource_types,
     )
     covered_by_id = {
@@ -10295,7 +10295,7 @@ def _materialize_learning_path_resource_node(
         task = xiaozhi_create_resource_agent_task(
             user_id,
             str(node.get("resourceType") or ""),
-            str(params.get("topic") or stage.get("focus") or stage.get("title") or node.get("title") or "嵌入式学习任务"),
+            str(params.get("topic") or stage.get("focus") or stage.get("title") or node.get("title") or "中医学习任务"),
             params,
             title=f"{stage.get('weekLabel') or '本周'} · {node.get('title') or '学习任务'}",
             prompt=str(node.get("resourcePrompt") or node.get("description") or node.get("title") or "生成学习资源"),
@@ -10385,7 +10385,7 @@ def _parallel_dispatch_learning_path_resource_nodes(
         params = _json_copy(candidate.get("resourceParams")) if isinstance(candidate.get("resourceParams"), dict) else {}
         params.setdefault(
             "topic",
-            str(candidate.get("title") or stage.get("focus") or stage.get("title") or "嵌入式学习任务"),
+            str(candidate.get("title") or stage.get("focus") or stage.get("title") or "中医学习任务"),
         )
         direct_tasks.append(
             {
@@ -10430,7 +10430,7 @@ def _parallel_dispatch_learning_path_resource_nodes(
         direct_tasks,
         candidates,
         profile_context=build_learning_profile_context(profile),
-        topic=str(stage.get("focus") or stage.get("goal") or stage.get("title") or "嵌入式学习任务"),
+        topic=str(stage.get("focus") or stage.get("goal") or stage.get("title") or "中医学习任务"),
         existing_resource_types=existing_resource_types,
     )
     covered_by_id = {
@@ -11829,7 +11829,7 @@ def xiaozhi_generate_question_bank_managed(
     on_delta=None,
     on_stage=None,
 ) -> dict:
-    topic = str(qg_payload.get("target_topic") or qg_payload.get("course_name") or "嵌入式题库").strip()
+    topic = str(qg_payload.get("target_topic") or qg_payload.get("course_name") or "中医题库").strip()
 
     def specialist(managed_payload: dict, progress) -> dict:
         def stage_bridge(event: dict):
@@ -11871,7 +11871,7 @@ def xiaozhi_generate_ppt_managed(
     task_id: str = "",
     on_event=None,
 ) -> dict:
-    topic = str(payload.get("topic") or "嵌入式学习课件").strip()
+    topic = str(payload.get("topic") or "中医学习课件").strip()
 
     def specialist(managed_payload: dict, progress) -> dict:
         generated = generate_ppt_h5(managed_payload, on_stage=progress)
@@ -11902,7 +11902,7 @@ def xiaozhi_smart_tutor_result(payload: dict) -> dict:
 def xiaozhi_effect_assessment_result(payload: dict) -> dict:
     system = """
 你是嵌小智调度的学习效果评估子智能体。
-根据答题、考试、单片机实验、面试和资源使用证据做诊断，禁止凭空编造数据。
+根据答题、考试、医案练习、面试和资源使用证据做诊断，禁止凭空编造数据。
 只输出 JSON，字段为 scores、summary、strengths、weaknesses、recommendations、adjustments、evidenceUsed。
 """
     prompt = f"""
@@ -12159,7 +12159,7 @@ def xiaozhi_fallback_intent(message: str) -> dict:
     if any(word in text for word in ["学习路径", "学习计划", "路线", "路径规划", "阶段计划"]):
         return {"intent": "generate_resource", "resourceType": "learning_path", "topic": message, "reply": "我会调用学习路径智能体，为你生成一条可执行的学习路线。"}
     if any(word in text for word in ["面试", "模拟面试", "ai面试", "数字人面试"]):
-        return {"intent": "generate_resource", "resourceType": "interview", "topic": message, "reply": "我会启动 AI 面试智能体，并生成进入面试页面的卡片。"}
+        return {"intent": "generate_resource", "resourceType": "interview", "topic": message, "reply": "我会启动数字人学习访谈，并生成进入访谈页面的卡片。"}
     if any(word in text for word in ["效果评估", "学习效果", "掌握情况", "评估一下", "学习诊断"]):
         return {"intent": "generate_resource", "resourceType": "effect_assessment", "topic": message, "reply": "我会汇总答题、实验和学习记录，生成学习效果评估与路径调整建议。"}
     if any(word in text for word in ["辅导", "答疑", "不会", "讲解一下", "怎么理解", "为什么"]):
@@ -12179,7 +12179,7 @@ def xiaozhi_fallback_intent(message: str) -> dict:
     if any(word in text for word in ["题库", "练习题", "出题", "试卷", "考试"]):
         return {"intent": "generate_resource", "resourceType": "question_bank", "topic": message, "reply": "我会为你准备题库生成入口，并保留后台任务状态。"}
     if any(word in text for word in ["单片机实验", "单片机模拟器", "模拟器", "仿真", "mcu", "实验资源"]):
-        return {"intent": "generate_resource", "resourceType": "mcu", "topic": message, "reply": "我会调用单片机实验智能体，为你匹配可直接启动的仿真实验。"}
+        return {"intent": "generate_resource", "resourceType": "document", "topic": message, "reply": "旧实验模块已下线，我会改为生成中医医案辨析讲义。"}
     if any(word in text for word in ["画像", "重新评估", "更新评估", "更新报告"]):
         return {"intent": "update_profile", "resourceType": "profile_update", "topic": message, "reply": "我会调用学习画像智能体，在后台汇总现有对话和学习证据。"}
     return {"intent": "chat", "resourceType": "none", "topic": "", "reply": "我在。你可以告诉我最近学到哪一步，或者直接让我生成讲义、题库、PPT、思维导图和视频资源。"}
@@ -12465,7 +12465,7 @@ def xiaozhi_profile_text(context: dict) -> str:
         "examResults": context.get("examResults") or [],
     }
     text = json.dumps(snapshot, ensure_ascii=False)
-    return text[:5000] if text.strip("{} ") else "通用嵌入式学习者，正在补全学习画像。"
+    return text[:5000] if text.strip("{} ") else "通用中医学习者，正在补全学习画像。"
 
 
 def xiaozhi_profile_with_evidence(context: dict) -> dict:
@@ -12517,7 +12517,7 @@ def xiaozhi_active_profile_with_evidence(context: dict) -> dict:
 
 def xiaozhi_build_question_payload(context: dict, topic: str) -> dict:
     profile_text = xiaozhi_profile_text(context)
-    target_topic = (topic or "").strip(" ，。,.、") or "嵌入式系统综合练习"
+    target_topic = (topic or "").strip(" ，。,.、") or "中医系统综合练习"
     source_parts = [
         f"用户通过嵌小智请求生成题库，主题：{target_topic}",
         f"学习画像上下文：{profile_text}",
@@ -12528,7 +12528,7 @@ def xiaozhi_build_question_payload(context: dict, topic: str) -> dict:
         source_parts.append(f"近期考试：正确 {item.get('correctCount')} / {item.get('questionCount')}")
     return {
         "student_profile": profile_text,
-        "course_name": "嵌入式系统",
+        "course_name": "中医系统",
         "target_topic": target_topic,
         "learning_objectives": f"围绕 {target_topic} 生成可用于自测和复习的结构化题库。",
         "resource_plan_result": "\n".join(source_parts),
@@ -12536,7 +12536,7 @@ def xiaozhi_build_question_payload(context: dict, topic: str) -> dict:
         "question_type_counts": {"单选题": 2, "判断题": 2, "填空题": 2, "简答题": 2},
         "question_type_scores": {"单选题": 2, "判断题": 1, "填空题": 2, "简答题": 5},
         "question_count": 8,
-        "constraints": "由 Hermes 总控智能体触发；必须返回完整 JSON，题目贴近嵌入式学习场景。",
+        "constraints": "由 Hermes 总控智能体触发；必须返回完整 JSON，题目贴近中医学习场景。",
         "force_real_agent": True,
     }
 
@@ -13007,7 +13007,7 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
         ppt_result = generate_ppt_h5(
             {
                 "sessionId": session_id,
-                "topic": topic or "嵌入式学习课件",
+                "topic": topic or "中医学习课件",
                 "userMessage": user_message,
                 "pageCount": page_count,
                 "styleName": str(params.get("styleName") or "嵌智学航浅绿平台风"),
@@ -13025,7 +13025,7 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
         ppt_result["qualityEvaluation"] = quality
         route = _resource_agent_route(
             "ppt",
-            topic or "嵌入式学习课件",
+            topic or "中医学习课件",
             {**params, "sessionId": session_id, "pageCount": page_count, "prompt": user_message},
         )
         route_with_task = xiaozhi_route_with_task(route, str(params.get("taskId") or ""))
@@ -13100,15 +13100,15 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
         interview_result = start_interview_session(
             user_id,
             {
-                "topic": topic or "GPIO / 中断 / UART",
-                "direction": topic or "GPIO / 中断 / UART",
+                "topic": topic or "阴阳五行 / 四诊 / 八纲辨证",
+                "direction": topic or "阴阳五行 / 四诊 / 八纲辨证",
                 "difficulty": "medium",
                 "difficultyLabel": "中等",
                 "positionKey": "stm32_developer",
-                "position": "STM32 开发工程师",
+                "position": "中医基础理论学习者",
             },
         )
-        result.update({"message": "AI 面试智能体已启动。", "interview": interview_result})
+        result.update({"message": "数字人学习访谈已启动。", "interview": interview_result})
         return result
 
     if task_type == "smart_tutor":
@@ -13565,7 +13565,7 @@ def xiaozhi_tool_agent_status(tool_type: str, tasks: list[dict], context: dict, 
     if tool_type == "question_bank" and question_status:
         return (question_status.get("status") or "idle", question_status.get("payload", {}).get("message") or "等待生成任务")
     if tool_type == "interview":
-        return "ready", "面试问答、追问、视觉分析与评分接口可用"
+        return "ready", "学习访谈问答、追问、视觉分析与评分接口可用"
     if tool_type == "learning_background":
         return "ready", "可继续采集学习背景并补全画像上下文"
     if tool_type == "learning_path":
@@ -13573,7 +13573,7 @@ def xiaozhi_tool_agent_status(tool_type: str, tasks: list[dict], context: dict, 
     if tool_type == "learning_path_stage":
         return "ready" if context.get("profile") or context.get("questionnaire") else "idle", "基于路径阶段生成目标、资源与检查点"
     if tool_type == "mcu":
-        return "ready", "可推荐单片机实验并读取实验记录"
+        return "unavailable", "旧实验模块已下线，历史记录仅保留兼容读取"
     return "ready", PLATFORM_TOOLS.get(tool_type, {}).get("description") or "Hermes 可调度平台智能体"
 
 
@@ -14096,7 +14096,7 @@ def xiaozhi_runtime_settings_get():
                 item.strip()
                 for item in get_setting(
                     "AGENT_RUNTIME_ALLOWED_HOSTS",
-                    "maas-coding-api.cn-huabei-1.xf-yun.com,localhost,127.0.0.1",
+                    "maas-coding-api.cn-huabei-1.xf-yun.com,api.deepseek.com,deepseek.com,localhost,127.0.0.1",
                 ).split(",")
                 if item.strip()
             ],
@@ -14334,7 +14334,7 @@ def xiaozhi_mcp_jsonrpc():
             value = xiaozhi_recent_orchestration_runs(int(user["id"]), limit=20)
         elif uri == "course://knowledge/catalog":
             value = retrieve_course_knowledge(
-                "嵌入式系统 单片机 课程知识",
+                "中医基础理论 四诊辨证 中药方剂 医案知识",
                 top_k=12,
                 user_id=int(user["id"]),
                 db_path=AUTH_DB_PATH,
@@ -14769,7 +14769,7 @@ def ppt_h5_generate_background_route():
 
     payload = request.get_json(silent=True) or {}
     session_id = str(payload.get("sessionId") or f"ppt_{int(time.time() * 1000)}").strip()
-    topic = str(payload.get("topic") or "嵌入式学习课件").strip() or "嵌入式学习课件"
+    topic = str(payload.get("topic") or "中医学习课件").strip() or "中医学习课件"
     user_message = str(payload.get("userMessage") or "").strip()
     try:
         page_count = max(1, min(20, int(payload.get("pageCount") or 5)))
@@ -15410,7 +15410,7 @@ def interview_session_start():
     user = g.get("current_user")
     result = xiaozhi_run_orchestrated(
         "interview",
-        str(payload.get("topic") or payload.get("direction") or "开始 AI 面试"),
+        str(payload.get("topic") or payload.get("direction") or "开始数字人学习访谈"),
         payload,
         int(user["id"]),
         lambda managed_payload, _progress: start_interview_session(user["id"], managed_payload),
@@ -15425,7 +15425,7 @@ def interview_session_message():
     user = g.get("current_user")
     result = xiaozhi_run_orchestrated(
         "interview",
-        str(payload.get("topic") or payload.get("answer") or "面试追问与评分"),
+        str(payload.get("topic") or payload.get("answer") or "学习访谈追问与评分"),
         payload,
         int(user["id"]),
         lambda managed_payload, _progress: handle_interview_message(user["id"], managed_payload),
@@ -15440,7 +15440,7 @@ def interview_session_end():
     user = g.get("current_user")
     result = xiaozhi_run_orchestrated(
         "interview",
-        str(payload.get("topic") or "结束面试并评估学习效果"),
+        str(payload.get("topic") or "结束学习访谈并评估学习效果"),
         payload,
         int(user["id"]),
         lambda managed_payload, _progress: end_interview_session(user["id"], managed_payload),
@@ -15460,13 +15460,13 @@ def interview_model_test():
     user = g.get("current_user")
     payload = request.get_json(silent=True) or {}
     session_context = {
-        "category": str(payload.get("category") or "单片机与 MCU 开发").strip(),
+        "category": str(payload.get("category") or "中医基础理论").strip(),
         "categoryKey": str(payload.get("categoryKey") or payload.get("category_key") or "mcu_development").strip(),
-        "position": str(payload.get("position") or "STM32 开发工程师").strip(),
+        "position": str(payload.get("position") or "中医基础理论学习者").strip(),
         "positionKey": str(payload.get("positionKey") or payload.get("position_key") or "stm32_developer").strip(),
-        "direction": str(payload.get("direction") or payload.get("topic") or "GPIO / 中断 / UART").strip(),
+        "direction": str(payload.get("direction") or payload.get("topic") or "阴阳五行 / 四诊 / 八纲辨证").strip(),
         "directionKey": str(payload.get("directionKey") or payload.get("direction_key") or "gpio_interrupt_uart").strip(),
-        "topic": str(payload.get("topic") or "GPIO / 中断 / UART").strip(),
+        "topic": str(payload.get("topic") or "阴阳五行 / 四诊 / 八纲辨证").strip(),
         "difficulty": str(payload.get("difficulty") or "medium").strip(),
         "difficultyLabel": str(payload.get("difficultyLabel") or payload.get("difficulty_label") or "").strip(),
         "history": payload.get("history") if isinstance(payload.get("history"), list) else [],
@@ -15601,7 +15601,7 @@ def interview_analyze_frame():
         orchestration_payload["frameBytes"] = len(decoded_image)
         result = xiaozhi_run_orchestrated(
             "interview",
-            str(session_context.get("topic") or "面试关键帧分析"),
+            str(session_context.get("topic") or "学习访谈关键帧分析"),
             orchestration_payload,
             int(user["id"]),
             lambda _managed_payload, _progress: analyze_interview_frame(

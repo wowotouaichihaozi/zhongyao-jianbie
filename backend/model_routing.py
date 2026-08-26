@@ -22,6 +22,7 @@ MODEL_DISPLAY_NAMES = {
     DEFAULT_VISION_MODEL_ID: "Qwen3-VL-Plus",
     DEFAULT_AUDIO_MODEL_ID: "Qwen3-Omni-Flash",
     "deepseek-v4-flash": "DeepSeek V4 Flash",
+    "deepseek-v4-flash-vision-exp": "DeepSeek V4 Flash Vision",
 }
 
 

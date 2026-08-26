@@ -346,7 +346,7 @@
                   >
                     <img
                       :src="reportPortraitUrl || DEFAULT_PROFILE_PORTRAIT_URL"
-                      :alt="reportPortraitState === 'ready' ? '由学习画像智能体生成的学习者人像' : '默认嵌入式学习者头像'"
+                      :alt="reportPortraitState === 'ready' ? '由学习画像智能体生成的学习者人像' : '默认中医学习者头像'"
                     />
                     <figcaption v-if="reportPortraitState === 'loading'" class="profile-portrait-status" role="status">
                       <span class="profile-portrait-spinner" aria-hidden="true"></span>
@@ -1900,7 +1900,7 @@ const reportFocusTags = computed(() => {
   if (isProfileDimensionFilled(weakPoints)) {
     return Array.isArray(weakPoints) ? weakPoints.slice(0, 6) : [String(weakPoints)]
   }
-  return ['嵌入式基础巩固', '实验步骤复盘', '项目任务拆解']
+  return ['中医基础巩固', '辨证思路复盘', '医案任务拆解']
 })
 
 function reportProfileField(key, fallback = '待补充') {
@@ -1914,17 +1914,17 @@ function compactReportText(value, maxLength = 34) {
 }
 
 const reportDirectionLabel = computed(() => {
-  const background = reportProfileField('专业/课程背景', '嵌入式方向')
-  if (/STM32/i.test(background)) return 'STM32 嵌入式学习'
-  if (/Linux/i.test(background)) return 'Linux 嵌入式学习'
+  const background = reportProfileField('专业/课程背景', '中医方向')
+  if (/诊断|四诊|辨证/.test(background)) return '中医诊断学习'
+  if (/中药|方剂/.test(background)) return '中药方剂学习'
   return compactReportText(background, 14)
 })
 
 const reportMainTitle = computed(() => {
-  const direction = /STM32/i.test(reportDirectionLabel.value)
-    ? 'STM32方向'
+  const direction = /诊断/.test(reportDirectionLabel.value)
+    ? '中医诊断方向'
     : reportDirectionLabel.value.replace(/学习/g, '')
-  return `嵌入式系统学习画像（${direction}）`
+  return `中医学习画像（${direction}）`
 })
 
 const reportGrowthSteps = [
@@ -1936,13 +1936,13 @@ const reportGrowthSteps = [
 
 const reportSummaryCards = computed(() => {
   const style = currentReport.value?.aiAnalysis?.learningStyle || '实践导向型'
-  const knowledge = reportProfileField('当前知识基础', '具备嵌入式入门基础')
+  const knowledge = reportProfileField('当前知识基础', '具备中医入门基础')
   const weakPoints = reportFocusTags.value
   const timeBudget = reportProfileField('可投入时间', '每周 6-10 小时')
   const difficulty = reportProfileField('难度接受程度', '适中偏挑战')
   return [
-    { label: '画像总结', title: '偏实践 · 重应用', detail: '系统思维较强 · 工程落地导向', icon: UserRound },
-    { label: '学习风格', title: compactReportText(style, 11), detail: '动手实践为主 · 任务驱动学习', icon: BrainCircuit },
+    { label: '画像总结', title: '重辨证 · 强关联', detail: '整体思维导向 · 注重医案应用', icon: UserRound },
+    { label: '学习风格', title: compactReportText(style, 11), detail: '案例辨析为主 · 任务驱动学习', icon: BrainCircuit },
     { label: '当前知识基础', title: compactReportText(knowledge, 11), detail: compactReportText(knowledge, 24), icon: Cpu },
     { label: '薄弱知识点', title: compactReportText(weakPoints[0] || '待诊断', 10), detail: compactReportText(weakPoints.slice(1, 3).join('、') || '持续结合学习证据更新', 24), icon: TriangleAlert },
     { label: '每周时间预算', title: compactReportText(timeBudget, 11), detail: '按可投入时间动态安排任务密度', icon: Clock4 },
@@ -1951,13 +1951,13 @@ const reportSummaryCards = computed(() => {
 })
 
 const reportAbilityBlueprint = [
-  { label: '动手实践能力', icon: Hand, scoreIndex: 2 },
-  { label: '逻辑与抽象能力', icon: BrainCircuit, scoreIndex: 0 },
-  { label: '工程解决问题能力', icon: Wrench, scoreIndex: 5 },
+  { label: '方药应用能力', icon: Hand, scoreIndex: 2 },
+  { label: '辨证思维能力', icon: BrainCircuit, scoreIndex: 0 },
+  { label: '医案分析能力', icon: Wrench, scoreIndex: 5 },
   { label: '新知识吸收能力', icon: BookOpen, scoreIndex: 4 },
-  { label: '系统设计能力', icon: Boxes, scoreIndex: 3 },
-  { label: '代码规范意识', icon: Code2, scoreIndex: 1 },
-  { label: '调试与排错能力', icon: Bug, scoreIndex: 1 },
+  { label: '整体观念能力', icon: Boxes, scoreIndex: 3 },
+  { label: '四诊信息归纳', icon: Code2, scoreIndex: 1 },
+  { label: '证候鉴别能力', icon: Bug, scoreIndex: 1 },
   { label: '时间管理能力', icon: CalendarClock, scoreIndex: 4 },
   { label: '学习主动性', icon: Flame, scoreIndex: 4 },
   { label: '知识迁移能力', icon: Repeat2, scoreIndex: 5 },
@@ -1976,20 +1976,20 @@ const reportStrengths = computed(() => {
   const strengths = currentReport.value?.aiAnalysis?.strengths
   return Array.isArray(strengths) && strengths.length
     ? strengths.slice(0, 4)
-    : ['动手能力较强，喜欢解决实际问题', '学习主动，愿意尝试新技术', '具备一定工程意识与代码规范']
+    : ['基础概念关联较好，愿意结合医案理解', '学习主动，愿意查阅教材与经典', '具备一定整体观念与辨证意识']
 })
 
 const reportWeaknesses = computed(() => {
   const weaknesses = currentReport.value?.aiAnalysis?.weaknesses
   return Array.isArray(weaknesses) && weaknesses.length
     ? weaknesses.slice(0, 4)
-    : ['中断与时序理解不够深入', '底层机制掌握仍需巩固', '性能优化与调试方法需加强']
+    : ['四诊信息归纳还不够完整', '相似证候鉴别仍需巩固', '方药配伍与医案迁移需加强']
 })
 
 const reportPreferenceRows = computed(() => [
-  { label: '学习目标', value: reportProfileField('学习目标', '掌握嵌入式系统开发，具备独立完成项目的能力'), icon: Target },
-  { label: '资源偏好', value: reportProfileField('资源形式偏好', '实践项目、技术文档、视频教程与图文文章'), icon: Library },
-  { label: '学习风格', value: reportProfileField('学习风格/认知偏好', currentReport.value?.aiAnalysis?.learningStyle || '实践导向、案例驱动'), icon: UserRound },
+  { label: '学习目标', value: reportProfileField('学习目标', '掌握中医基础理论，形成完整的辨证论治思路'), icon: Target },
+  { label: '资源偏好', value: reportProfileField('资源形式偏好', '医案解析、课程讲义、视频教程与方药对比表'), icon: Library },
+  { label: '学习风格', value: reportProfileField('学习风格/认知偏好', currentReport.value?.aiAnalysis?.learningStyle || '辨证导向、案例驱动'), icon: UserRound },
 ])
 
 const reportPlanRows = computed(() => {
@@ -1997,11 +1997,11 @@ const reportPlanRows = computed(() => {
     ? currentReport.value.aiAnalysis.recommendations
     : []
   const fallback = [
-    '以项目驱动为主线，结合原理学习与底层机制剖析，逐步构建完整知识体系。',
+    '以医案为主线，结合基础理论与经典条文，逐步构建完整的辨证知识体系。',
     '重点突破当前薄弱知识点，并通过专项练习形成可验证的掌握证据。',
-    '优先选择实战项目与源码解析，辅以官方文档和手册精读，建立知识闭环。',
-    '每阶段完成一个完整项目，注重代码复用与模块化设计，积累可迁移经验。',
-    '掌握基础应用后，尝试进阶开发与系统实践，向复杂工程能力迈进。',
+    '优先选择典型医案与方药对比，辅以教材和经典医籍精读，建立知识闭环。',
+    '每阶段完成一个完整医案辨析，注重证据链与鉴别要点，积累可迁移经验。',
+    '掌握基础辨证后，尝试复杂证候与多病机医案，逐步提升临床思维。',
   ]
   const titles = ['学习路径建议', '重点突破方向', '资源与方法建议', '实践建议', '进阶建议']
   const icons = [Map, Goal, BookOpen, Code2, Rocket]
@@ -2433,12 +2433,12 @@ const sidebarMenuItems = computed(() => {
 })
 
 const scaleQuestions = [
-  { text: '嵌入式基础知识掌握情况', short: '基础知识' },
-  { text: '编程与调试能力', short: '编程调试' },
-  { text: '实验与动手能力', short: '实验动手' },
-  { text: '项目实践能力', short: '项目实践' },
+  { text: '中医基础知识掌握情况', short: '基础知识' },
+  { text: '辨证与临床思维能力', short: '辨证思维' },
+  { text: '中药与方剂应用能力', short: '方药应用' },
+  { text: '医案实践能力', short: '医案实践' },
   { text: '学习习惯与学习投入', short: '学习投入' },
-  { text: '创新能力与工程意识', short: '创新工程' },
+  { text: '综合应用与人文素养', short: '综合素养' },
 ]
 
 // --- Radar chart ---
@@ -2477,10 +2477,10 @@ const reportRadarScores = computed(() => {
   const difficultyText = String(student['难度接受程度'] || '')
   const lower = (value) => Math.max(1.4, Math.min(4.6, Number(value.toFixed(1))))
   return [
-    lower(base + (/基础|c语言|stm32|单片机/.test(String(student['当前知识基础'] || '')) ? 0.25 : 0)),
-    lower(base - (/代码|调试|配置|寄存器/.test(weakText) ? 0.45 : 0) + 0.1),
-    lower(base - (/实验|接线|外设/.test(weakText) ? 0.25 : 0) + (/实践|项目/.test(goalText) ? 0.2 : 0)),
-    lower(base + (/项目|竞赛|课程设计/.test(goalText) ? 0.35 : 0)),
+    lower(base + (/基础|阴阳|藏象|经络/.test(String(student['当前知识基础'] || '')) ? 0.25 : 0)),
+    lower(base - (/辨证|四诊|舌象|脉象/.test(weakText) ? 0.45 : 0) + 0.1),
+    lower(base - (/中药|方剂|配伍/.test(weakText) ? 0.25 : 0) + (/医案|实践/.test(goalText) ? 0.2 : 0)),
+    lower(base + (/医案|竞赛|课程学习/.test(goalText) ? 0.35 : 0)),
     lower(base + (/\d/.test(timeText) ? 0.35 : 0)),
     lower(base + (/挑战|进阶|竞赛/.test(difficultyText) ? 0.3 : 0)),
   ]

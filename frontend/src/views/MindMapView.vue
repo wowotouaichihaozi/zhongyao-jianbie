@@ -10,7 +10,7 @@
         <div>
           <span class="task-map-kicker">
             <Network :size="16" stroke-width="2.2" aria-hidden="true" />
-            嵌小智思维导图
+            岐小智思维导图
           </span>
           <h1>{{ mapTitle }}</h1>
           <p>{{ mapDescription }}</p>
@@ -66,7 +66,7 @@
       <div class="wizard-hero">
         <span class="wizard-product-mark">
           <Sparkles :size="17" stroke-width="2.2" aria-hidden="true" />
-          Mind Map Wizard · 嵌小智
+          Mind Map Wizard · 岐小智
         </span>
         <h1>把学习主题变成一张清晰的思维导图</h1>
         <p>围绕当前学习画像梳理核心概念、前置知识、易错点和实践关系。</p>
@@ -79,7 +79,7 @@
               v-model.trim="topic"
               rows="2"
               maxlength="100"
-              placeholder="输入学习主题，例如：STM32 GPIO 工作模式"
+              placeholder="输入学习主题，例如：中药性味归经"
               :disabled="creatingTask"
               @keydown.enter.exact.prevent="startGeneration"
             ></textarea>
@@ -181,7 +181,7 @@ let historyPollTimer = null
 let historyRequestInFlight = false
 let autostartConsumed = false
 const suggestedTopics = [
-  'STM32 中断系统',
+  '八纲辨证体系',
   'FreeRTOS 任务调度',
   '串口通信与 DMA',
 ]
@@ -312,7 +312,7 @@ async function loadTask() {
   try {
     const response = await getXiaoZhiTask(taskId.value)
     const nextTask = response?.data?.task
-    if (!nextTask) throw new Error('未找到对应的嵌小智后台任务。')
+    if (!nextTask) throw new Error('未找到对应的岐小智后台任务。')
     task.value = nextTask
     if (['queued', 'running'].includes(nextTask.status)) {
       markTaskCacheStarted(nextTask)

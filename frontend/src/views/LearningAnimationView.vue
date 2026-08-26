@@ -26,7 +26,7 @@
     <section class="generation-band" aria-label="动画生成参数">
       <label>
         <span>主题</span>
-        <input v-model.trim="topic" placeholder="例如：STM32 外部中断响应流程" />
+        <input v-model.trim="topic" placeholder="例如：风寒感冒辨证论治流程" />
       </label>
       <label>
         <span>侧重点</span>
@@ -83,7 +83,7 @@
 
             <div v-else-if="currentScene.visualType === 'experiment'" class="experiment-visual">
               <div class="board-panel">
-                <span>MCU</span><strong>{{ currentScene.primaryLabel }}</strong>
+                <span>岐黄</span><strong>{{ currentScene.primaryLabel }}</strong>
                 <i v-for="pin in 6" :key="pin" :style="{ top: `${14 + pin * 11}%` }"></i>
               </div>
               <div class="wire-line"><b></b></div>
@@ -205,7 +205,7 @@ import { getXiaoZhiHistory, getXiaoZhiTask, startPersonalizedResourceAgentTask }
 
 const route = useRoute()
 const router = useRouter()
-const topic = ref(String(route.query.topic || 'STM32 外部中断响应流程'))
+const topic = ref(String(route.query.topic || '风寒感冒辨证论治流程'))
 const requirements = ref(String(route.query.requirements || '用信号流解释触发、挂起、服务与清除过程'))
 const history = ref([])
 const taskId = ref(String(route.query.xzTask || ''))
@@ -238,7 +238,7 @@ const fullscreenLabel = computed(() => fullscreenActive.value ? '退出全屏' :
 const taskMessage = computed(() => {
   if (taskStatus.value === 'failed') return error.value || '动画生成失败'
   if (taskStatus.value === 'complete') return taskResult.value?.message || '动画微课已生成'
-  return taskResult.value?.message || '嵌小智正在调度动画讲解智能体'
+  return taskResult.value?.message || '岐小智正在调度动画讲解智能体'
 })
 const qualityCriteria = computed(() => {
   const criteria = quality.value?.criteria || {}

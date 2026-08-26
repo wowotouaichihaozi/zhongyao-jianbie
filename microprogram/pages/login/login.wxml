@@ -1,11 +1,11 @@
 <view class="login-page">
-  <image class="background" src="/assets/login-background.webp" mode="aspectFill"></image>
+  <image class="background" src="/assets/tcm-learning-login.webp" mode="aspectFill"></image>
   <view class="shade"></view>
-  <image class="brand" src="/assets/logo.png" mode="widthFix"></image>
+  <view class="brand-lockup"><image class="brand" src="/assets/qihuang-zhijing-mark.png" mode="aspectFit"></image><view><text>岐黄智境</text><text>中医智慧学习平台</text></view></view>
   <form class="glass" bindsubmit="submit">
     <view class="intro">
-      <text class="eyebrow">PERSONAL LEARNING SPACE</text>
-      <text class="title">登录嵌智学航</text>
+      <text class="eyebrow">PERSONAL TCM LEARNING</text>
+      <text class="title">登录岐黄智境</text>
     </view>
     <view class="identity">
       <view class="admin-mark">学</view>

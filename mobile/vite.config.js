@@ -20,11 +20,11 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         disable: isNative,
         registerType: 'prompt',
-        includeAssets: ['app-icon.png', 'logo.png'],
+        includeAssets: ['app-icon.png', 'qihuang-zhijing-mark.png', 'tcm-learning-login.webp'],
         manifest: {
-          name: '嵌智学航',
-          short_name: '嵌智学航',
-          description: '个性化学习与多智能体资源平台',
+          name: '岐黄智境',
+          short_name: '岐黄智境',
+          description: '中医个性化学习与多智能体资源平台',
           lang: 'zh-CN',
           start_url: '/m/',
           scope: '/m/',
@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => {
           background_color: '#f4f7f5',
           theme_color: '#176f4b',
           icons: [
-            { src: '/m/app-icon.png', sizes: '1024x1024', type: 'image/png', purpose: 'any maskable' },
+            { src: '/m/qihuang-zhijing-mark.png', sizes: '384x384', type: 'image/png', purpose: 'any' },
           ],
         },
         workbox: {

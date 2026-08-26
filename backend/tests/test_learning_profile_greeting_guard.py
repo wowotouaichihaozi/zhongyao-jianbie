@@ -22,7 +22,7 @@ class LearningProfileGreetingGuardTests(unittest.TestCase):
 
     def test_greeting_only_does_not_fill_profile_even_if_llm_hallucinates(self) -> None:
         hallucinated = {
-            "reply": "你的嵌入式学习画像已经基本补齐，我会根据这些信息为你推荐更合适的学习路径和资源。",
+            "reply": "你的中医学习画像已经基本补齐，我会根据这些信息为你推荐更合适的学习路径和资源。",
             "evidence": [
                 {"dimension": dimension, "value": "已补齐", "confidence": 0.99}
                 for dimension in workflow_agent.PROFILE_DIMENSIONS
@@ -34,7 +34,7 @@ class LearningProfileGreetingGuardTests(unittest.TestCase):
         with patch.object(workflow_agent, "_request_llm_text", return_value=json.dumps(hallucinated, ensure_ascii=False)):
             result = workflow_agent.run_learning_profile_workflow(
                 [
-                    {"role": "assistant", "content": "你好，我是你的数字人 AI 讲师，会陪你梳理嵌入式学习画像。"},
+                    {"role": "assistant", "content": "你好，我是你的数字人 AI 讲师，会陪你梳理中医学习画像。"},
                     {"role": "user", "content": "你好"},
                 ],
                 user_id="greeting-user",
@@ -46,7 +46,7 @@ class LearningProfileGreetingGuardTests(unittest.TestCase):
         self.assertEqual(result["missingProfileDimensions"], workflow_agent.PROFILE_DIMENSIONS)
         self.assertEqual(result["completeness"], 0)
         self.assertEqual(result["workflow"]["candidateEvidence"], [])
-        self.assertIn("嵌入式", result["reply"])
+        self.assertIn("中医", result["reply"])
         self.assertNotIn("已经基本补齐", result["reply"])
 
 

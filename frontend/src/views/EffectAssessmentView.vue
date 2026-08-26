@@ -255,7 +255,7 @@ const profile = ref(null)
 const evidence = ref({})
 const assessment = ref({})
 
-const labels = computed(() => assessment.value.labels || ['基础知识', '编程调试', '实验实践', '项目能力', '学习投入', '工程意识'])
+const labels = computed(() => assessment.value.labels || ['中医基础知识', '辨证思维', '方药应用', '医案实践', '学习投入', '人文与安全'])
 const previousScores = computed(() => assessment.value.previousRadarScores || [2, 2, 2, 2, 2, 2])
 const currentScores = computed(() => assessment.value.radarScores || previousScores.value)
 const adjustmentPlan = computed(() => assessment.value.pathAdjustmentPlan || {})
@@ -383,8 +383,8 @@ function resourceLabel(value) {
     video: '学习视频',
     quiz: '题库',
     'question-bank': '题库',
-    simulator: 'MCU 实验',
-    mcu: 'MCU 实验',
+    simulator: '课程讲义',
+    mcu: '课程讲义',
     document: '课程讲义',
     animation: '动画讲解',
     'knowledge-base': '私有知识库',

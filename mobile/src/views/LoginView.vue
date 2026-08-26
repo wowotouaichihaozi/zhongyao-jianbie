@@ -1,23 +1,23 @@
 <template>
   <main class="login-page">
     <div class="login-visual" aria-hidden="true">
-      <img :src="`${baseUrl}login-chip-v1.webp`" alt="" />
+      <img :src="`${baseUrl}tcm-learning-login.webp`" alt="" />
     </div>
 
     <div class="login-layout">
       <header class="brand-lockup">
-        <img :src="`${baseUrl}logo.png`" alt="嵌智学航" />
+        <img :src="`${baseUrl}qihuang-zhijing-mark.png`" alt="" />
         <div>
-          <strong>嵌智学航</strong>
-          <span>智能学习导航</span>
+          <strong>岐黄智境</strong>
+          <span>中医智慧学习平台</span>
         </div>
       </header>
 
       <form class="login-form" @submit.prevent="submit">
         <section class="login-intro" aria-labelledby="login-title">
-          <span>PERSONAL LEARNING</span>
-          <h1 id="login-title">继续你的专属学习路径</h1>
-          <p>画像驱动路径，学习证据持续更新。</p>
+          <span>PERSONAL TCM LEARNING</span>
+          <h1 id="login-title">续写你的中医学习脉络</h1>
+          <p>画像驱动路径，让经典、方药与辨证学习彼此贯通。</p>
         </section>
 
         <div class="login-form-head">
@@ -109,7 +109,7 @@ async function submit() {
   min-height: 100dvh;
   overflow-x: hidden;
   overflow-y: auto;
-  background: #0b2526;
+  background: #092b20;
 }
 
 .login-visual {
@@ -117,21 +117,21 @@ async function submit() {
   inset: 0;
   height: 100dvh;
   overflow: hidden;
-  background: #0b2526;
+  background: #092b20;
 }
 
 .login-visual::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(4, 24, 26, .28);
+  background: linear-gradient(90deg, rgba(4, 28, 20, .78), rgba(4, 28, 20, .2));
 }
 
 .login-visual img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 68% center;
+  object-position: 58% center;
 }
 
 .login-layout {
@@ -162,8 +162,8 @@ async function submit() {
 }
 
 .brand-lockup img {
-  width: 42px;
-  height: 34px;
+  width: 46px;
+  height: 46px;
   object-fit: contain;
   filter: drop-shadow(0 2px 5px rgba(24, 55, 41, .12));
 }

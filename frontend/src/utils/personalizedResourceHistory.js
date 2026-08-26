@@ -10,15 +10,15 @@ const TASK_RESOURCE_TYPES = {
 }
 
 const RESOURCE_TITLES = {
-  document: '嵌入式学习讲义',
-  mindmap: '嵌入式学习思维导图',
-  ppt: '嵌入式学习课件',
-  video: '嵌入式视频教程',
+  document: '中医学习讲义',
+  mindmap: '中医学习思维导图',
+  ppt: '中医学习课件',
+  video: '中医视频教程',
   generated_video: 'AI 学习讲解视频',
-  animation: '嵌入式动画微课',
-  code: '嵌入式代码示例',
-  quiz: '嵌入式练习题',
-  simulator: '嵌入式仿真实验',
+  animation: '中医动画微课',
+  code: '中医辨证示例',
+  quiz: '中医练习题',
+  simulator: '中医医案推演',
 }
 
 const RESOURCE_TYPE_NAMES = {

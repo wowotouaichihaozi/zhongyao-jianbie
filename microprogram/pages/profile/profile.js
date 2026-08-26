@@ -8,7 +8,7 @@ Page({
     error: '',
     profiles: [],
     active: null,
-    messages: [{ role: 'assistant', content: '我是数字人 AI 讲师。请先告诉我，你目前学习的专业或课程，以及最想提升的嵌入式能力。' }],
+    messages: [{ role: 'assistant', content: '我是岐小智。请先告诉我，你目前学习的中医课程，以及最想提升的经典、方药或辨证能力。' }],
     input: '',
     completeness: 0,
     missing: [],
@@ -76,7 +76,7 @@ Page({
     try {
       await api.resetProfileChat()
       this.setData({
-        messages: [{ role: 'assistant', content: '我们重新开始。请告诉我你的专业、年级和当前正在学习的嵌入式课程。' }],
+        messages: [{ role: 'assistant', content: '我们重新开始。请告诉我你的专业、年级和当前正在学习的中医课程。' }],
         completeness: 0,
         missing: [],
         missingText: '',

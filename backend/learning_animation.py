@@ -180,7 +180,7 @@ def _normalize_quiz(item: object, index: int) -> dict[str, Any] | None:
 
 
 def _normalize_animation(raw: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
-    topic = _text(payload.get("topic") or payload.get("title") or "嵌入式系统专题", 120)
+    topic = _text(payload.get("topic") or payload.get("title") or "中医系统专题", 120)
     scenes = [
         scene
         for index, item in enumerate(raw.get("scenes") or [], start=1)
@@ -218,11 +218,11 @@ def _normalize_animation(raw: dict[str, Any], payload: dict[str, Any]) -> dict[s
 
     uncertainties = _string_list(raw.get("uncertainties") or raw.get("verificationNotes"), 8, 500)
     if not references and not uncertainties:
-        uncertainties.append("课程知识库未命中直接证据，具体硬件参数与寄存器定义需进一步核验。")
+        uncertainties.append("课程知识库未命中直接证据，中医定义、经典原文与方药信息需进一步核验。")
     return {
         "title": _text(raw.get("title") or f"{topic}动画讲解", 180),
         "subtitle": _text(raw.get("subtitle") or raw.get("summary") or f"用动态过程讲清{topic}", 500),
-        "audience": _text(raw.get("audience") or "高校嵌入式课程学习者", 240),
+        "audience": _text(raw.get("audience") or "高校中医课程学习者", 240),
         "learningObjectives": _string_list(raw.get("learningObjectives") or raw.get("objectives"), 6, 300),
         "scenes": scenes,
         "totalDurationSeconds": sum(scene["durationSeconds"] for scene in scenes),
@@ -235,13 +235,13 @@ def _normalize_animation(raw: dict[str, Any], payload: dict[str, Any]) -> dict[s
 
 
 def _fallback_animation(payload: dict[str, Any], reason: str) -> dict[str, Any]:
-    topic = _text(payload.get("topic") or payload.get("title") or "嵌入式系统专题", 120)
+    topic = _text(payload.get("topic") or payload.get("title") or "中医系统专题", 120)
     hits = [item for item in (payload.get("knowledgeContext") or []) if isinstance(item, dict)]
     references = _known_references(payload)
     scene_templates = [
         ("concept", "先建立概念边界", "对象与作用"),
         ("flow", "再观察完整工作流程", "输入到输出"),
-        ("signal", "追踪关键状态变化", "信号与寄存器"),
+        ("signal", "追踪辨证信息变化", "四诊与证候"),
         ("experiment", "最后完成最小验证", "现象与复盘"),
     ]
     scenes: list[dict[str, Any]] = []
@@ -252,7 +252,7 @@ def _fallback_animation(payload: dict[str, Any], reason: str) -> dict[str, Any]:
         if excerpt:
             narration = f"{excerpt} {'[' + citation + ']' if citation else '（具体事实需进一步核验）'}"
         else:
-            narration = f"围绕{topic}完成“{title}”。当前没有足够直接证据，具体硬件参数需进一步核验。"
+            narration = f"围绕{topic}完成“{title}”。当前没有足够直接证据，相关中医知识需进一步核验。"
         scenes.append(
             {
                 "id": f"scene-{index}",
@@ -273,7 +273,7 @@ def _fallback_animation(payload: dict[str, Any], reason: str) -> dict[str, Any]:
     return {
         "title": f"{topic}动画讲解",
         "subtitle": "基于课程知识库组织的动态微课",
-        "audience": "高校嵌入式课程学习者",
+        "audience": "高校中医课程学习者",
         "learningObjectives": [f"解释{topic}的核心机制", "完成一次可观察、可复盘的最小验证"],
         "scenes": scenes,
         "totalDurationSeconds": sum(scene["durationSeconds"] for scene in scenes),
@@ -287,7 +287,7 @@ def _fallback_animation(payload: dict[str, Any], reason: str) -> dict[str, Any]:
             }
         ],
         "references": references,
-        "uncertainties": [] if references else ["具体硬件参数、寄存器位和时序结论需进一步核验。"],
+        "uncertainties": [] if references else ["中医定义、经典原文、方药功效和禁忌需进一步核验。"],
         "source": "knowledge-template-fallback",
         "fallbackReason": _text(reason, 500),
     }
@@ -344,7 +344,7 @@ def evaluate_learning_animation(animation: dict[str, Any], profile: dict[str, An
 
 
 def generate_learning_animation(payload: dict[str, Any]) -> dict[str, Any]:
-    topic = _text(payload.get("topic") or payload.get("title") or "嵌入式系统专题", 120)
+    topic = _text(payload.get("topic") or payload.get("title") or "中医系统专题", 120)
     profile = payload.get("profile") if isinstance(payload.get("profile"), dict) else {}
     profile_summary = _profile_summary(profile)
     references = _known_references(payload)
@@ -354,11 +354,11 @@ def generate_learning_animation(payload: dict[str, Any]) -> dict[str, Any]:
         for item in knowledge_hits
     )
     system = """
-你是嵌小智总控调用的 H5 动画讲解生成智能体。请为高校嵌入式课程生成可直接播放的结构化动画故事板。
+你是嵌小智总控调用的 H5 动画讲解生成智能体。请为高校中医课程生成可直接播放的结构化动画故事板。
 只输出 JSON，字段必须为 title、subtitle、audience、learningObjectives、scenes、recap、knowledgeChecks、references、uncertainties。
 scenes 为 4-8 项，每项包含 title、durationSeconds、narration、visualType、headline、primaryLabel、secondaryLabel、steps、keyPoints、codeSnippet、signal。
 visualType 只能是 concept、flow、signal、register、code、comparison、experiment。每个场景都必须有讲解词，至少使用三种视觉类型。
-涉及定义、寄存器、参数、接线和时序结论时必须使用给定 [KBn] 来源；references 只能引用输入中存在的 id。没有依据的事实写入 uncertainties，不得编造来源。
+涉及定义、经典原文、证候、方药功效、用量和禁忌时必须使用给定 [KBn] 来源；references 只能引用输入中存在的 id。没有依据的事实写入 uncertainties，不得编造来源。
 """
     prompt = f"""
 动画主题：{topic}

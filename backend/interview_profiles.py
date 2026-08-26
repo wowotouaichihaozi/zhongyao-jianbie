@@ -35,7 +35,7 @@ DEFAULT_WEAK_SIGNALS: Dict[str, List[str]] = {
         "我做运营", "我做销售", "我做设计", "我做剪辑", "我做文案", "我做海报",
         "我打游戏", "我平时玩游戏", "我只会玩", "我只会用电脑", "我只会上网",
         "我只会办公软件", "我只会 word", "我只会 ppt", "我只会剪视频", "我不搞硬件",
-        "我不写代码", "我不做开发", "我没接触单片机", "我没接触嵌入式",
+        "我不写代码", "我不做开发", "我没接触单片机", "我没接触中医",
         "我没接触电路", "我没接触硬件",
     ],
     "negative_answer": [
@@ -116,13 +116,13 @@ FAMILY_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "coreSkills": ["c_language", "peripheral_control", "data_processing", "communication_protocol", "low_power", "debugging", "project_experience"],
         "basicQuestions": [
             "C 语言里指针通常用来解决什么问题？",
-            "位操作在嵌入式开发里常见用途是什么？",
+            "位操作在中医开发里常见用途是什么？",
             "外设初始化通常包括哪些步骤？",
-            "嵌入式系统里为什么要关注低功耗？",
+            "中医系统里为什么要关注低功耗？",
             "如果通信数据偶尔丢失，你会怎么排查？",
         ],
         "strongAnswerSignals": COMMON_STRONG_SIGNALS + ["低功耗", "协议", "状态机", "数据处理", "外设控制", "驱动接口"],
-        "projectQuestionTemplate": "请介绍一个嵌入式软件项目，重点说明 C 语言实现、外设控制、数据处理、通信协议和调试结果。",
+        "projectQuestionTemplate": "请介绍一个中医软件项目，重点说明 C 语言实现、外设控制、数据处理、通信协议和调试结果。",
         "scoringHints": [
             "能解释 C 语言、位操作和外设控制逻辑可给基础到中等分。",
             "能描述数据采集、通信协议和异常处理可给较高分。",
@@ -136,9 +136,9 @@ FAMILY_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "low_power": ["低功耗", "休眠", "唤醒", "功耗", "省电"],
         },
         "followupTemplates": {
-            "weak": "你提到了一些嵌入式相关内容，请具体说一下你实际写过的 C 代码、外设配置或调试步骤。",
+            "weak": "你提到了一些中医相关内容，请具体说一下你实际写过的 C 代码、外设配置或调试步骤。",
             "vague": "请把刚才的回答落到一个实验或项目场景里，说清楚输入、处理逻辑和输出结果。",
-            "normal": "请具体说一下你在这个嵌入式任务里负责的外设控制或数据处理逻辑，以及遇到的问题。",
+            "normal": "请具体说一下你在这个中医任务里负责的外设控制或数据处理逻辑，以及遇到的问题。",
             "strong": "请进一步说明你如何定位异常、验证修复结果，并平衡可靠性和资源占用。",
         },
     },
@@ -155,7 +155,7 @@ FAMILY_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "linux", "驱动", "字符设备", "file_operations", "open", "read", "write", "ioctl", "设备节点",
             "设备树", "dts", "交叉编译", "makefile", "内核", "模块", "insmod", "dmesg", "gpio", "i2c", "spi", "uart", "bsp",
         ],
-        "projectQuestionTemplate": "请介绍一个嵌入式 Linux 或驱动相关经历，重点说明交叉编译、驱动接口、设备树或调试日志。",
+        "projectQuestionTemplate": "请介绍一个中医 Linux 或驱动相关经历，重点说明交叉编译、驱动接口、设备树或调试日志。",
         "scoringHints": [
             "能说明 Linux 基础命令和交叉编译可给基础分。",
             "能描述字符设备接口、设备树和外设驱动流程可给中高分。",
@@ -297,7 +297,7 @@ FAMILY_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "测试", "调试", "复现", "bug", "缺陷", "串口", "接口", "板卡", "烧录", "下载",
             "测试报告", "日志", "客户问题", "定位", "回归", "实验设备", "维护",
         ],
-        "projectQuestionTemplate": "请介绍一次嵌入式、硬件或实验设备测试调试经历，重点说明测试步骤、问题复现、记录和定位结果。",
+        "projectQuestionTemplate": "请介绍一次中医、硬件或实验设备测试调试经历，重点说明测试步骤、问题复现、记录和定位结果。",
         "scoringHints": [
             "能说明功能测试、串口调试和 Bug 记录可给基础到中等分。",
             "能描述板卡测试、烧录下载问题排查可给较高分。",
@@ -359,103 +359,156 @@ FAMILY_TEMPLATES: Dict[str, Dict[str, Any]] = {
 }
 
 
+TCM_TEMPLATE: Dict[str, Any] = {
+    "coreSkills": [
+        "theory_framework",
+        "four_diagnostics",
+        "syndrome_differentiation",
+        "materia_medica",
+        "formula_reasoning",
+        "case_analysis",
+        "safety_evidence",
+        "learning_reflection",
+    ],
+    "basicQuestions": [
+        "请简要说明阴阳学说在理解人体生理和病理变化时的作用。",
+        "望、闻、问、切四诊分别关注哪些信息？",
+        "八纲辨证中的表里、寒热、虚实、阴阳之间有什么关系？",
+        "学习一味中药时，你会从性味、归经、功效和主治中的哪些方面梳理？",
+        "方剂中的君、臣、佐、使分别承担什么作用？",
+        "面对一则医案，你会怎样从四诊信息推导证候、病机和治法？",
+    ],
+    "strongAnswerSignals": [
+        "阴阳", "五行", "藏象", "气血津液", "经络", "病因", "病机", "望诊", "闻诊",
+        "问诊", "切诊", "舌诊", "脉诊", "八纲", "脏腑辨证", "证候", "治法", "中药",
+        "性味", "归经", "功效", "主治", "方剂", "君臣佐使", "配伍", "禁忌", "医案",
+        "四诊合参", "辨证论治", "经典条文", "证据", "安全用药", "复盘",
+    ],
+    "projectQuestionTemplate": "请介绍一则你学习或分析过的中医医案，重点说明四诊信息、证候判断、病机分析、治法思路和复盘结果。",
+    "scoringHints": [
+        "能准确说明中医基础概念和术语关系可给基础分。",
+        "能依据四诊信息完成辨证、病机和治法推导可给中高分。",
+        "能说明方药依据、鉴别思路、证据来源与安全边界可给高分。",
+        "不得把学习讨论表述为现实诊断或个体化处方建议。",
+    ],
+    "skillSignals": {
+        "theory_framework": ["阴阳", "五行", "藏象", "气", "血", "津液", "经络", "整体观"],
+        "four_diagnostics": ["望诊", "闻诊", "问诊", "切诊", "舌象", "舌诊", "脉象", "脉诊", "四诊"],
+        "syndrome_differentiation": ["八纲", "辨证", "证候", "病机", "表里", "寒热", "虚实", "脏腑"],
+        "materia_medica": ["中药", "性味", "归经", "功效", "主治", "炮制", "用量", "禁忌"],
+        "formula_reasoning": ["方剂", "君臣佐使", "配伍", "治法", "加减", "方义", "方证"],
+        "case_analysis": ["医案", "主诉", "症状", "体征", "四诊合参", "鉴别", "辨证论治"],
+        "safety_evidence": ["证据", "出处", "经典", "教材", "指南", "禁忌", "不良反应", "安全"],
+        "learning_reflection": ["复盘", "错题", "总结", "对比", "验证", "学习计划", "薄弱点"],
+    },
+    "followupTemplates": {
+        "weak": "没关系，我们从基础概念开始。请结合当前学习方向，说出一个你最熟悉的中医概念。",
+        "vague": "你刚才的回答还比较概括，请结合一条经典原文、一个方药知识点或一则医案说明依据。",
+        "normal": "请把刚才的判断继续展开，说清楚四诊依据、证候病机和治法之间的关系。",
+        "strong": "请进一步说明可能的鉴别证候、方药取舍依据，以及需要提示的安全边界。",
+    },
+}
+
+
 POSITION_GROUPS = {
     "mcu": {
-        "category": "单片机与 MCU 开发",
+        "category": "中医基础理论",
         "categoryKey": "mcu_development",
         "positions": {
-            "mcu_developer": "单片机开发工程师",
-            "stm32_developer": "STM32 开发工程师",
-            "mcs51_developer": "51 单片机开发工程师",
-            "mcu_experiment_developer": "MCU 实验开发工程师",
-            "mcu_lab_assistant": "单片机课程助教 / 实验助理",
-            "mcu_intern": "单片机实习生",
+            "mcu_developer": "中医基础理论学习者",
+            "stm32_developer": "藏象与气血津液专项",
+            "mcs51_developer": "病因病机专项",
+            "mcu_experiment_developer": "中医体质辨识专项",
+            "mcu_lab_assistant": "中医基础课程助教",
+            "mcu_intern": "中医基础入门学习者",
         },
     },
     "embedded": {
-        "category": "嵌入式软件开发",
+        "category": "中医诊断学",
         "categoryKey": "embedded_software",
         "positions": {
-            "embedded_software_engineer": "嵌入式软件工程师",
-            "embedded_application_engineer": "嵌入式应用工程师",
-            "embedded_c_engineer": "嵌入式 C 开发工程师",
-            "embedded_project_engineer": "嵌入式项目开发工程师",
-            "embedded_assistant_engineer": "嵌入式助理工程师",
-            "embedded_intern": "嵌入式实习生",
+            "embedded_software_engineer": "四诊基础学习者",
+            "embedded_application_engineer": "八纲辨证专项",
+            "embedded_c_engineer": "脏腑辨证专项",
+            "embedded_project_engineer": "舌脉辨析专项",
+            "embedded_assistant_engineer": "中医诊断课程助教",
+            "embedded_intern": "中医诊断入门学习者",
         },
     },
     "linux_driver": {
-        "category": "嵌入式 Linux / 驱动开发",
+        "category": "中药学与方剂学",
         "categoryKey": "embedded_linux_driver",
         "positions": {
-            "embedded_linux_engineer": "嵌入式 Linux 工程师",
-            "linux_driver_engineer": "Linux 驱动工程师",
-            "bsp_engineer": "BSP 工程师",
-            "peripheral_driver_engineer": "外设驱动工程师",
-            "board_support_engineer": "板级支持工程师",
+            "embedded_linux_engineer": "中药学学习者",
+            "linux_driver_engineer": "方剂学学习者",
+            "bsp_engineer": "方药配伍专项",
+            "peripheral_driver_engineer": "安全用药专项",
+            "board_support_engineer": "中药鉴别专项",
         },
     },
     "rtos": {
-        "category": "RTOS 与实时系统",
+        "category": "中医经典",
         "categoryKey": "rtos_realtime",
         "positions": {
-            "rtos_developer": "RTOS 开发工程师",
-            "freertos_application_engineer": "FreeRTOS 应用工程师",
-            "realtime_scheduler_engineer": "实时任务调度开发工程师",
-            "embedded_system_engineer": "嵌入式系统工程师",
+            "rtos_developer": "《黄帝内经》学习者",
+            "freertos_application_engineer": "《伤寒论》学习者",
+            "realtime_scheduler_engineer": "《金匮要略》学习者",
+            "embedded_system_engineer": "中医经典综合学习者",
         },
     },
     "iot": {
-        "category": "物联网与智能硬件",
+        "category": "中医临床医案",
         "categoryKey": "iot_smart_hardware",
         "positions": {
-            "iot_embedded_engineer": "物联网嵌入式工程师",
-            "iot_application_engineer": "IoT 应用开发工程师",
-            "smart_hardware_engineer": "智能硬件开发工程师",
-            "industrial_iot_engineer": "工业物联网工程师",
-            "device_networking_engineer": "设备联网工程师",
+            "iot_embedded_engineer": "中医内科医案学习者",
+            "iot_application_engineer": "中医妇科医案学习者",
+            "smart_hardware_engineer": "中医儿科医案学习者",
+            "industrial_iot_engineer": "综合医案辨析学习者",
+            "device_networking_engineer": "医案整理学习者",
         },
     },
     "hardware": {
-        "category": "硬件与电子设计",
+        "category": "针灸推拿",
         "categoryKey": "hardware_electronics",
         "positions": {
-            "hardware_engineer": "硬件工程师",
-            "electronics_engineer": "电子工程师",
-            "pcb_assistant_engineer": "PCB 助理工程师",
-            "circuit_debug_engineer": "电路调试工程师",
-            "hardware_assistant_engineer": "硬件助理工程师",
-            "electronics_intern": "电子工程实习生",
+            "hardware_engineer": "针灸基础学习者",
+            "electronics_engineer": "经络腧穴专项",
+            "pcb_assistant_engineer": "配穴与治疗专项",
+            "circuit_debug_engineer": "推拿基础学习者",
+            "hardware_assistant_engineer": "针灸课程助教",
+            "electronics_intern": "针灸推拿入门学习者",
         },
     },
     "testing_support": {
-        "category": "测试、调试与技术支持",
+        "category": "中医养生与健康管理",
         "categoryKey": "testing_debug_support",
         "positions": {
-            "embedded_test_engineer": "嵌入式测试工程师",
-            "hardware_test_engineer": "硬件测试工程师",
-            "mcu_debug_engineer": "单片机调试工程师",
-            "technical_support_engineer": "技术支持工程师",
-            "lab_equipment_maintenance_engineer": "实验设备维护工程师",
-            "board_test_engineer": "板卡测试工程师",
+            "embedded_test_engineer": "中医养生学习者",
+            "hardware_test_engineer": "体质调养专项",
+            "mcu_debug_engineer": "四时养生专项",
+            "technical_support_engineer": "健康管理学习者",
+            "lab_equipment_maintenance_engineer": "饮食调养专项",
+            "board_test_engineer": "情志调摄专项",
         },
     },
     "automation": {
-        "category": "自动化与工业控制",
+        "category": "中医药研究与数字化",
         "categoryKey": "automation_industrial_control",
         "positions": {
-            "automation_control_engineer": "自动化控制工程师",
-            "electrical_control_engineer": "电气控制工程师",
-            "robot_control_engineer": "机器人控制工程师",
-            "industrial_control_entry_engineer": "工业控制入门工程师",
-            "sensor_application_engineer": "传感器应用工程师",
+            "automation_control_engineer": "中医文献研究学习者",
+            "electrical_control_engineer": "医案数据研究学习者",
+            "robot_control_engineer": "中医知识工程学习者",
+            "industrial_control_entry_engineer": "中医药循证学习者",
+            "sensor_application_engineer": "中医药健康管理学习者",
         },
     },
 }
 
 
 def _build_profile(template_key: str, position_key: str, label: str, category: str, category_key: str) -> Dict[str, Any]:
-    template = deepcopy(FAMILY_TEMPLATES[template_key])
+    # Keep legacy keys in API payloads for stored-session compatibility, while all
+    # newly served interview content follows the active Chinese-medicine theme.
+    template = deepcopy(TCM_TEMPLATE)
     profile = {
         **template,
         "label": label,
@@ -466,13 +519,8 @@ def _build_profile(template_key: str, position_key: str, label: str, category: s
         "extraWeakSignals": {},
         "roleMismatchSignals": DEFAULT_WEAK_SIGNALS["irrelevant_answer"],
     }
-    if position_key == "stm32_developer":
-        profile["projectQuestionTemplate"] = "请介绍一个你做过的 STM32 或单片机项目，重点说明你的职责、用到的外设、遇到的问题和最终结果。"
-    if position_key == "mcs51_developer":
-        profile["strongAnswerSignals"] = profile["strongAnswerSignals"] + ["51单片机", "8051", "定时器0", "p0口", "p1口"]
-        profile["projectQuestionTemplate"] = "请介绍一个 51 单片机实验或项目，重点说明 GPIO、定时器、串口或外设控制过程。"
     if "intern" in position_key or "assistant" in position_key:
-        profile["projectQuestionTemplate"] = f"请介绍一个与{label}相关的课程实验、实验箱操作或练习项目，重点说明你实际做了哪一步和如何调试。"
+        profile["projectQuestionTemplate"] = f"请介绍一次与{label}相关的课程练习或医案分析，重点说明你的判断依据、完成过程和复盘结果。"
     return profile
 
 
@@ -513,10 +561,10 @@ def profile_to_prompt(profile: Dict[str, Any]) -> str:
     strong_signals = "、".join((profile.get("strongAnswerSignals") or [])[:80])
     scoring_hints = "\n".join(f"- {item}" for item in profile.get("scoringHints") or [])
     return (
-        f"岗位画像：{profile.get('label', '')}\n"
-        f"岗位大类：{profile.get('category', '')}\n"
-        f"核心能力点：{core_skills}\n"
-        f"岗位强相关信号：{strong_signals}\n"
+        f"学习方向：{profile.get('label', '')}\n"
+        f"课程领域：{profile.get('category', '')}\n"
+        f"核心学习能力：{core_skills}\n"
+        f"方向强相关信号：{strong_signals}\n"
         f"基础补救题：\n{basic_questions}\n"
         f"评分提示：\n{scoring_hints}"
     )

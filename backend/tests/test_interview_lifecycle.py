@@ -12,16 +12,16 @@ def test_interview_runtime_completes_question_frame_answer_and_summary(monkeypat
     monkeypatch.setattr(
         interview_runtime,
         "generate_interview_question",
-        lambda _context: {"content": "请说明 GPIO 推挽与开漏输出的区别。"},
+        lambda _context: {"content": "请说明望、闻、问、切四诊分别关注哪些信息。"},
     )
     monkeypatch.setattr(
         interview_runtime,
         "generate_interview_followup",
         lambda _context, _answer, frame_analysis=None: {
-            "content": "请继续说明 EXTI 中断调试步骤。",
+            "content": "请继续说明从四诊信息推导八纲证候的步骤。",
             "answerType": "strong_answer",
             "answerScore": 82,
-            "coveredSkills": ["GPIO", "EXTI"],
+            "coveredSkills": ["four_diagnostics", "syndrome_differentiation"],
             "shouldEnd": False,
         },
     )
@@ -29,11 +29,11 @@ def test_interview_runtime_completes_question_frame_answer_and_summary(monkeypat
         interview_runtime,
         "generate_interview_summary",
         lambda _context: {
-            "content": "回答包含寄存器配置与中断排查依据。",
+            "content": "回答包含四诊信息、八纲辨证与病机推导依据。",
             "score": 80,
-            "advantages": ["排查步骤清晰"],
-            "weaknesses": ["可补充波形验证"],
-            "suggestions": ["补充示波器验证过程"],
+            "advantages": ["辨证步骤清晰"],
+            "weaknesses": ["可补充鉴别证候"],
+            "suggestions": ["补充经典或教材依据"],
         },
     )
 
@@ -41,7 +41,7 @@ def test_interview_runtime_completes_question_frame_answer_and_summary(monkeypat
         901,
         {
             "positionKey": "stm32_developer",
-            "direction": "GPIO / 中断 / UART",
+            "direction": "四诊与八纲辨证",
             "videoAnalysisEnabled": True,
             "minRounds": 2,
             "maxRounds": 3,
@@ -65,7 +65,7 @@ def test_interview_runtime_completes_question_frame_answer_and_summary(monkeypat
         901,
         {
             "sessionId": session_id,
-            "answer": "推挽能主动驱动高低电平，开漏高电平依赖上拉；EXTI 调试会检查映射、边沿、NVIC 和挂起标志。",
+            "answer": "我会先按望闻问切整理四诊信息，再从表里、寒热、虚实判断八纲证候，并结合舌脉推导病机和治法。",
             "frameAnalysis": frame,
         },
     )
@@ -86,8 +86,8 @@ def test_interview_runtime_completes_question_frame_answer_and_summary(monkeypat
 
 def test_interview_followup_deduplicates_repeated_model_question(monkeypatch):
     interview_runtime._SESSIONS.clear()
-    opening_question = "请介绍一个你做过的 STM32 项目，并说明你的职责和结果。"
-    repeated_followup = "请具体说一个你做过的 STM32 传感器采集实验。"
+    opening_question = "请介绍一则你学习过的中医医案，并说明四诊信息和辨证结果。"
+    repeated_followup = "请具体说说这则医案的舌脉信息和病机判断。"
     monkeypatch.setattr(
         interview_runtime,
         "generate_interview_question",
@@ -100,7 +100,7 @@ def test_interview_followup_deduplicates_repeated_model_question(monkeypatch):
             "content": repeated_followup,
             "answerType": "vague_answer",
             "answerScore": 30,
-            "coveredSkills": ["project_experience"],
+            "coveredSkills": ["case_analysis"],
             "shouldEnd": False,
         },
     )
@@ -109,7 +109,7 @@ def test_interview_followup_deduplicates_repeated_model_question(monkeypatch):
         902,
         {
             "positionKey": "stm32_developer",
-            "direction": "GPIO / 中断 / UART",
+            "direction": "综合医案辨析",
             "minRounds": 3,
             "maxRounds": 8,
         },
@@ -117,11 +117,11 @@ def test_interview_followup_deduplicates_repeated_model_question(monkeypatch):
     session_id = started["sessionId"]
     first = interview_runtime.handle_interview_message(
         902,
-        {"sessionId": session_id, "answer": "我用 STM32 开发过一个环境监测终端。"},
+        {"sessionId": session_id, "answer": "我学习过一则脾胃病医案，先整理了患者的主诉和四诊信息。"},
     )
     second = interview_runtime.handle_interview_message(
         902,
-        {"sessionId": session_id, "answer": "我主要负责传感器数据采集。"},
+        {"sessionId": session_id, "answer": "我主要根据舌脉和寒热虚实分析候选证候。"},
     )
 
     assert first["content"] == repeated_followup
@@ -132,9 +132,9 @@ def test_interview_followup_deduplicates_repeated_model_question(monkeypatch):
     assert session["questions"] == [opening_question, repeated_followup, second["content"]]
     assert interview_runtime._session_history(session) == [
         {"role": "interviewer", "content": opening_question},
-        {"role": "candidate", "content": "我用 STM32 开发过一个环境监测终端。"},
+        {"role": "candidate", "content": "我学习过一则脾胃病医案，先整理了患者的主诉和四诊信息。"},
         {"role": "interviewer", "content": repeated_followup},
-        {"role": "candidate", "content": "我主要负责传感器数据采集。"},
+        {"role": "candidate", "content": "我主要根据舌脉和寒热虚实分析候选证候。"},
     ]
     interview_runtime._SESSIONS.clear()
 
@@ -162,9 +162,9 @@ def test_analyze_frame_routes_image_to_qwen_then_evidence_to_spark(monkeypatch):
         captured["vision_kwargs"] = kwargs
         return "画面清晰，光线均匀，人物位于画面中央；无法确认持续稳定性。"
 
-    def fake_spark(messages, **kwargs):
-        captured["spark_messages"] = messages
-        captured["spark_kwargs"] = kwargs
+    def fake_text_model(messages, **kwargs):
+        captured["text_messages"] = messages
+        captured["text_kwargs"] = kwargs
         return (
             '{"analysis":"画面清晰，主体位置稳定。","suggestions":["保持当前光线"],'
             '"confidence":"medium","presentationScore":78,'
@@ -172,7 +172,7 @@ def test_analyze_frame_routes_image_to_qwen_then_evidence_to_spark(monkeypatch):
         )
 
     monkeypatch.setattr(mimo_interview_client, "request_llm_image_understanding", fake_vision)
-    monkeypatch.setattr(mimo_interview_client, "call_mimo_anthropic_text", fake_spark)
+    monkeypatch.setattr(mimo_interview_client, "call_mimo_chat", fake_text_model)
 
     result = mimo_interview_client.analyze_interview_frame(
         f"data:image/jpeg;base64,{encoded}",
@@ -181,15 +181,17 @@ def test_analyze_frame_routes_image_to_qwen_then_evidence_to_spark(monkeypatch):
 
     assert captured["vision_raw"] == raw
     assert captured["vision_kwargs"]["filename"] == "interview-frame.jpg"
-    spark_content = captured["spark_messages"][0]["content"]
-    assert "Qwen3-VL-Plus 视觉证据" in spark_content
-    assert "画面清晰，光线均匀" in spark_content
-    assert "base64" not in spark_content
+    text_content = captured["text_messages"][0]["content"]
+    assert "视觉模型证据" in text_content
+    assert "画面清晰，光线均匀" in text_content
+    assert "base64" not in text_content
     assert result["presentationScore"] == 78
     assert result["scoreDelta"] == 1
 
 
-def test_interview_text_does_not_fall_back_to_legacy_mimo_endpoint(monkeypatch):
+def test_interview_text_requires_configured_server_endpoint(monkeypatch):
+    monkeypatch.setattr(mimo_interview_client, "_get_llm_protocol", lambda: "openai")
+    monkeypatch.setattr(mimo_interview_client, "_is_openai_configured", lambda: False)
     monkeypatch.setattr(mimo_interview_client, "_is_anthropic_configured", lambda: False)
 
     def unexpected_request(*_args, **_kwargs):
@@ -200,9 +202,53 @@ def test_interview_text_does_not_fall_back_to_legacy_mimo_endpoint(monkeypatch):
     try:
         mimo_interview_client.call_mimo_chat([{"role": "user", "content": "测试"}])
     except mimo_interview_client.MimoInterviewConfigError as exc:
-        assert "Spark X2 Flash" in str(exc)
+        assert "openai" in str(exc)
     else:
-        raise AssertionError("missing Spark configuration must fail explicitly")
+        raise AssertionError("missing model configuration must fail explicitly")
+
+
+def test_interview_openai_protocol_uses_deepseek_official_endpoint(monkeypatch):
+    captured = {}
+    settings = {
+        "LLM_PROTOCOL": "openai",
+        "OPENAI_BASE_URL": "https://api.deepseek.com",
+        "ANTHROPIC_BASE_URL": "https://api.deepseek.com",
+        "ANTHROPIC_AUTH_TOKEN": "server-secret",
+        "ANTHROPIC_MODEL": "deepseek-v4-flash-vision-exp",
+    }
+
+    class FakeResponse:
+        ok = True
+        status_code = 200
+        text = ""
+
+        @staticmethod
+        def json():
+            return {"choices": [{"message": {"content": "中医学习问题"}}]}
+
+    def fake_get_setting(name, default=""):
+        return settings.get(name, default)
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return FakeResponse()
+
+    monkeypatch.setattr(mimo_interview_client, "get_setting", fake_get_setting)
+    monkeypatch.setattr(mimo_interview_client.requests, "post", fake_post)
+
+    result = mimo_interview_client.call_mimo_chat(
+        [{"role": "user", "content": "请问一个中医基础问题"}],
+        temperature=0.2,
+        max_tokens=320,
+    )
+
+    assert result == "中医学习问题"
+    assert captured["url"] == "https://api.deepseek.com/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer server-secret"
+    assert "anthropic-version" not in captured["headers"]
+    assert captured["json"]["model"] == "deepseek-v4-flash-vision-exp"
+    assert captured["json"]["max_tokens"] == 320
 
 
 def test_interview_logging_tolerates_closed_stdout(monkeypatch):

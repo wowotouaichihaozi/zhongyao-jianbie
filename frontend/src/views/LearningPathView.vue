@@ -789,7 +789,7 @@ function taskResourceLabel(resourceType, index) {
     ppt: 'PPT生成',
     mindmap: '思维导图',
     'question-bank': '题库生成',
-    mcu: '单片机实验',
+    mcu: '课程讲义',
   }
   return labels[normalizeTaskResourceType(resourceType, index)]
 }

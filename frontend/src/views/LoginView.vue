@@ -18,7 +18,7 @@
 
     <section class="auth-entry-card">
       <div class="auth-entry-brand">
-        <img src="/logo.png" alt="嵌智学航" />
+        <img src="/logo.png" alt="岐黄智境" />
       </div>
 
       <div class="auth-portal-switch" role="tablist" aria-label="登录入口">

@@ -10,7 +10,7 @@
         <div>
           <span class="video-search-kicker">
             <Clapperboard :size="17" stroke-width="2.2" aria-hidden="true" />
-            嵌小智视频查找智能体
+            岐小智视频查找智能体
           </span>
           <h1>学习视频</h1>
           <p>结合当前学习画像、任务主题和联网检索结果筛选课程视频。</p>
@@ -31,7 +31,7 @@
             v-model.trim="topic"
             type="search"
             maxlength="100"
-            placeholder="例如：STM32 GPIO 推挽输出与开漏输出"
+            placeholder="例如：四诊合参与舌脉辨析"
             :disabled="isPending"
           />
           <button type="submit" :disabled="!topic || isPending">
@@ -162,7 +162,7 @@ const taskStatusText = computed(() => {
 })
 const taskMessage = computed(() => String(
   task.value?.result?.message
-  || '嵌小智正在读取学习画像、检索课程视频并校验结果。',
+  || '岐小智正在读取学习画像、检索课程视频并校验结果。',
 ))
 const videos = computed(() => {
   const result = task.value?.result || {}

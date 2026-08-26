@@ -3,8 +3,9 @@
     <div class="auth-scroll-progress" :style="{ transform: `scaleX(${scrollProgress})` }" aria-hidden="true"></div>
 
     <header class="auth-landing-nav">
-      <a class="auth-landing-brand" href="#top" aria-label="嵌智学航首页">
-        <img src="/logo.png" alt="嵌智学航" />
+      <a class="auth-landing-brand" href="#top" aria-label="岐黄智境首页">
+        <img src="/qihuang-zhijing-mark-512.png" alt="" />
+        <span><strong>岐黄智境</strong><small>中医智慧学习平台</small></span>
       </a>
 
       <nav class="auth-landing-links" aria-label="产品能力">
@@ -29,10 +30,10 @@
           Agent Harness 架构 · 22 个已实现角色
         </span>
         <h1>
-          <strong>嵌智学航</strong>
-          <span>让每一步学习都有依据</span>
+          <strong>岐黄智境</strong>
+          <span>让每一步中医学习都有依据</span>
         </h1>
-        <p>从学习画像到周路径、资源、实验与效果评估，让智能体围绕真实学习证据持续编排。</p>
+        <p>从学习画像到周路径、经典研读、方药辨析与效果评估，让智能体围绕真实学习证据持续编排。</p>
 
         <ul class="auth-hero-points" aria-label="平台特点">
           <li><CheckCircle2 :size="16" />画像驱动</li>
@@ -49,24 +50,15 @@
         </div>
       </div>
 
-      <div class="auth-hero-gallery" aria-label="嵌入式学习场景">
+      <div class="auth-hero-gallery" aria-label="中医学习与实践场景">
         <figure class="auth-gallery-main" :style="heroVisualStyle">
-          <picture>
-            <source srcset="/auth-hero-embedded-collage.webp" type="image/webp" />
-            <img src="/auth-hero-embedded-collage.png" alt="示波器、开发板、机器人与数字人组成的嵌入式学习场景" decoding="async" fetchpriority="high" />
-          </picture>
+          <img src="/auth-hero-tcm-learning.webp" alt="学生在中医课堂中学习脉诊、中药标本与知识图谱" decoding="async" fetchpriority="high" />
         </figure>
         <figure class="auth-gallery-crop crop-scope" aria-hidden="true">
-          <picture>
-            <source srcset="/auth-capability-assessment.webp" type="image/webp" />
-            <img src="/auth-capability-assessment.png" alt="" decoding="async" />
-          </picture>
+          <img src="/qihuang-zhijing-mark-512.png" alt="" decoding="async" />
         </figure>
         <figure class="auth-gallery-crop crop-face" aria-hidden="true">
-          <picture>
-            <source srcset="/auth-capability-profile.webp" type="image/webp" />
-            <img src="/auth-capability-profile.png" alt="" decoding="async" />
-          </picture>
+          <img src="/auth-hero-tcm-learning.webp" alt="" decoding="async" />
         </figure>
         <span class="auth-gallery-label label-live"><Activity :size="14" />实时学习证据</span>
         <span class="auth-gallery-label label-profile"><Network :size="14" />动态画像</span>
@@ -77,7 +69,7 @@
       <div><Network :size="23" /><span>动态学习画像</span></div>
       <div><Route :size="23" /><span>个性化周路径</span></div>
       <div><BookOpenCheck :size="23" /><span>多模态资源</span></div>
-      <div><FlaskConical :size="23" /><span>嵌入式实验</span></div>
+      <div><FlaskConical :size="23" /><span>辨证实践</span></div>
       <div><Gauge :size="23" /><span>学习效果评估</span></div>
     </section>
 
@@ -179,7 +171,7 @@
         <div class="auth-section-switch" aria-label="能力类别">
           <span class="active">学习规划</span>
           <span>资源生成</span>
-          <span>实验评估</span>
+          <span>实践评估</span>
         </div>
       </header>
 
@@ -187,50 +179,50 @@
         <article id="profile-capability" class="auth-capability-card" style="--reveal-delay: 0ms">
           <figure class="auth-capability-media media-profile">
             <picture>
-              <source srcset="/auth-capability-profile.webp" type="image/webp" />
-              <img src="/auth-capability-profile.png" alt="点云数字人学习画像" loading="lazy" decoding="async" />
+              <source srcset="/auth-hero-tcm-learning.webp" type="image/webp" />
+              <img src="/auth-hero-tcm-learning.webp" alt="中医学习画像与知识图谱场景" loading="lazy" decoding="async" />
             </picture>
           </figure>
           <div class="auth-capability-copy">
             <span><Network :size="18" />学习画像</span>
             <h3>从对话和学习行为中持续更新</h3>
-            <p>汇总聊天、做题、实验、资源访问和路径完成情况，形成可追溯的十维画像。</p>
+            <p>汇总聊天、做题、经典研读、资源访问和路径完成情况，形成可追溯的十维画像。</p>
           </div>
         </article>
 
         <article class="auth-capability-card" style="--reveal-delay: 90ms">
           <figure class="auth-capability-media media-path">
             <picture>
-              <source srcset="/auth-capability-path.webp" type="image/webp" />
-              <img src="/auth-capability-path.png" alt="嵌入式开发板与学习路径" loading="lazy" decoding="async" />
+              <source srcset="/auth-hero-tcm-learning.webp" type="image/webp" />
+              <img src="/auth-hero-tcm-learning.webp" alt="中医课程学习路径" loading="lazy" decoding="async" />
             </picture>
           </figure>
           <div class="auth-capability-copy">
             <span><Route :size="18" />学习路径</span>
             <h3>把目标拆成每周可执行任务</h3>
-            <p>结合薄弱点、目标和可投入时间，编排周次地图；每周提供可验收任务与六类资源入口。</p>
+            <p>结合薄弱点、目标和可投入时间，编排周次地图；每周提供多类可验收任务与资源入口。</p>
           </div>
         </article>
 
         <article id="resources-capability" class="auth-capability-card" style="--reveal-delay: 180ms">
           <figure class="auth-capability-media media-resource">
             <picture>
-              <source srcset="/auth-capability-resources.webp" type="image/webp" />
-              <img src="/auth-capability-resources.png" alt="多模态学习资源生成工作台" loading="lazy" decoding="async" />
+              <source srcset="/auth-hero-tcm-learning.webp" type="image/webp" />
+              <img src="/auth-hero-tcm-learning.webp" alt="中医多模态学习资源" loading="lazy" decoding="async" />
             </picture>
           </figure>
           <div class="auth-capability-copy">
             <span><BookOpenCheck :size="18" />个性化资源</span>
             <h3>任务参数直接进入生成工具</h3>
-            <p>提供题库、PPT、思维导图、视频查找、单片机实验与 AI 视频讲解；AI 视频仅在用户确认后生成。</p>
+            <p>提供题库、讲义、PPT、思维导图、视频查找与 AI 视频讲解；AI 视频仅在用户确认后生成。</p>
           </div>
         </article>
 
         <article id="assessment-capability" class="auth-capability-card" style="--reveal-delay: 270ms">
           <figure class="auth-capability-media media-assessment">
             <picture>
-              <source srcset="/auth-capability-assessment.webp" type="image/webp" />
-              <img src="/auth-capability-assessment.png" alt="嵌入式实验与学习效果评估" loading="lazy" decoding="async" />
+              <source srcset="/auth-hero-tcm-learning.webp" type="image/webp" />
+              <img src="/auth-hero-tcm-learning.webp" alt="中医学习实践与效果评估" loading="lazy" decoding="async" />
             </picture>
           </figure>
           <div class="auth-capability-copy">
@@ -253,7 +245,7 @@
       <div class="auth-innovation-grid auth-stagger">
         <article style="--reveal-delay: 0ms">
           <div class="innovation-preview knowledge-preview">
-            <img src="/auth-knowledge-network-focus.jpg" alt="嵌智学航真实知识网络页面" loading="lazy" decoding="async" />
+            <img src="/auth-knowledge-network-focus.jpg" alt="岐黄智境知识网络页面" loading="lazy" decoding="async" />
             <span class="knowledge-preview-badge">真实知识网络</span>
           </div>
           <div class="innovation-copy">
@@ -272,7 +264,7 @@
             <span class="auth-section-kicker">学习闭环</span>
             <h2>从一次对话，到持续更新</h2>
           </div>
-          <p>嵌小智统一编排画像、路径、资源与评估，任务执行状态全程可见。</p>
+          <p>岐小智统一编排画像、路径、资源与评估，任务执行状态全程可见。</p>
         </header>
 
         <div class="auth-flow-track auth-stagger">
@@ -300,7 +292,7 @@
               <b>03</b>
             </div>
             <h3>生成与实践</h3>
-            <p>资源和实验按任务状态准备，AI 视频在用户确认后进入后台生成。</p>
+            <p>资源和辨证实践按任务状态准备，AI 视频在用户确认后进入后台生成。</p>
             <ArrowRight class="auth-flow-arrow" :size="18" aria-hidden="true" />
           </article>
           <article style="--reveal-delay: 300ms; --flow-color: #c2415d; --flow-soft: #fbecef">
@@ -318,10 +310,10 @@
     <section class="auth-bonus-section auth-reveal" aria-labelledby="bonus-capabilities-title">
       <header class="auth-section-head compact">
         <div>
-          <span class="auth-section-kicker">赛题加分能力</span>
-          <h2 id="bonus-capabilities-title">从生成到验证的 AI 学习工程</h2>
+          <span class="auth-section-kicker">平台扩展能力</span>
+          <h2 id="bonus-capabilities-title">从知识理解到验证的中医学习工程</h2>
         </div>
-        <p>以可追溯的学习证据连接知识、智能体、资源与实验。</p>
+        <p>以可追溯的学习证据连接知识、智能体、资源与中医学习实践。</p>
       </header>
       <div class="auth-bonus-grid auth-stagger">
         <article style="--reveal-delay: 0ms">
@@ -330,7 +322,7 @@
         </article>
         <article style="--reveal-delay: 70ms">
           <Clapperboard :size="20" :stroke-width="2" />
-          <div><strong>多模态资源生成</strong><span>题单、PPT、导图、视频与实验</span></div>
+          <div><strong>多模态资源生成</strong><span>题单、PPT、导图、视频与医案</span></div>
         </article>
         <article style="--reveal-delay: 140ms">
           <Database :size="20" :stroke-width="2" />
@@ -349,16 +341,16 @@
           <div><strong>开放调用接口</strong><span>资源任务支持智能体与页面复用</span></div>
         </article>
         <article style="--reveal-delay: 420ms">
-          <Cable :size="20" :stroke-width="2" />
-          <div><strong>软硬件融合实验</strong><span>Arduino、8051 仿真与实操证据</span></div>
+          <BookOpenCheck :size="20" :stroke-width="2" />
+          <div><strong>中医经典研读</strong><span>经典条文、医案与方药知识联动</span></div>
         </article>
         <article style="--reveal-delay: 490ms">
           <BrainCircuit :size="20" :stroke-width="2" />
           <div><strong>辅导与动态评估</strong><span>学习辅导、画像更新与路径调整</span></div>
         </article>
         <article style="--reveal-delay: 560ms">
-          <FileCode2 :size="20" :stroke-width="2" />
-          <div><strong>AI Coding 工程化</strong><span>需求、测试与可复现构建记录</span></div>
+          <Bot :size="20" :stroke-width="2" />
+          <div><strong>多智能体辨析</strong><span>分析、生成、审核与反馈协同</span></div>
         </article>
         <article style="--reveal-delay: 630ms">
           <ServerCog :size="20" :stroke-width="2" />
@@ -369,9 +361,9 @@
 
     <section class="auth-proof-section auth-reveal auth-stagger" aria-label="平台实证数据">
       <div>
-        <strong>6,223</strong>
-        <span>私有知识文档</span>
-        <small>覆盖嵌入式课程与实践</small>
+        <strong>中医</strong>
+        <span>领域知识内容</span>
+        <small>经典、方药、医案与辨证主题</small>
       </div>
       <div>
         <strong>22</strong>
@@ -393,8 +385,8 @@
     <section class="auth-final-section auth-reveal auth-stagger">
       <div>
         <span class="auth-section-kicker">开始学习</span>
-        <h2>建立属于你的嵌入式学习闭环</h2>
-        <p>登录后，嵌小智会从当前画像继续，而不是从头开始。</p>
+        <h2>建立属于你的中医学习闭环</h2>
+        <p>登录后，岐小智会从当前画像继续，而不是从头开始。</p>
       </div>
       <div class="auth-final-actions">
         <button type="button" class="auth-start-button" @click="openAuth('login')">
@@ -407,8 +399,8 @@
 
     <footer class="auth-landing-footer">
       <div class="auth-footer-brand">
-        <img src="/logo.png" alt="嵌智学航" />
-        <span>嵌入式学习智能体平台</span>
+        <img src="/qihuang-zhijing-mark-512.png" alt="岐黄智境" />
+        <span>中医智慧学习智能体平台</span>
       </div>
       <div class="auth-open-source" aria-label="开源项目与框架">
         <span>开源项目与框架</span>
@@ -484,13 +476,10 @@
       </button>
       <header class="text-center" :class="activeTab === 'register' ? 'mb-2' : 'mb-6'">
         <div class="mx-auto mb-1.5 flex items-center justify-center gap-3">
-          <div class="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-brand-50 to-white text-brand-600 shadow-[0_14px_30px_rgba(16,185,129,0.14)] ring-1 ring-brand-100">
-            <Cpu class="absolute -right-1.5 -top-1.5 text-brand-400" :size="18" />
-            <GraduationCap :size="28" stroke-width="1.9" />
-          </div>
+          <img class="h-12 w-12 object-contain" src="/qihuang-zhijing-mark-512.png" alt="" />
           <div class="text-left">
-            <h1 class="text-[28px] font-extrabold leading-tight tracking-[0] text-brand-600">嵌智学航</h1>
-            <p class="mt-0.5 text-xs font-medium tracking-[0.12em] text-slate-400">智能学习 · 智慧未来</p>
+            <h1 class="text-[28px] font-extrabold leading-tight tracking-[0] text-brand-600">岐黄智境</h1>
+            <p class="mt-0.5 text-xs font-medium tracking-[0.12em] text-slate-400">传承经典 · 智启新知</p>
           </div>
         </div>
       </header>
@@ -540,16 +529,13 @@ import {
   Bot,
   BookOpenCheck,
   BrainCircuit,
-  Cable,
   CheckCircle2,
   Clapperboard,
   Cpu,
   Database,
   Eye,
-  FileCode2,
   FlaskConical,
   Gauge,
-  GraduationCap,
   Image as ImageIcon,
   Layers3,
   Network,
@@ -995,15 +981,23 @@ async function submitRegister() {
   width: fit-content;
   display: inline-flex;
   align-items: center;
+  gap: 10px;
+  color: #123d2d;
+  text-decoration: none;
 }
 
 .auth-landing-brand img {
-  width: 146px;
-  height: auto;
+  width: 50px;
+  height: 50px;
   display: block;
+  object-fit: contain;
   filter: none;
   opacity: 1;
 }
+
+.auth-landing-brand span { display: grid; gap: 3px; line-height: 1.05; }
+.auth-landing-brand strong { font-size: 20px; }
+.auth-landing-brand small { color: #8d4b3d; font-size: 10px; font-weight: 650; }
 
 .auth-landing-links {
   display: flex;
@@ -1404,8 +1398,12 @@ async function submitRegister() {
   }
 
   .auth-landing-brand img {
-    width: 116px;
+    width: 42px;
+    height: 42px;
   }
+
+  .auth-landing-brand strong { font-size: 17px; }
+  .auth-landing-brand small { display: none; }
 
   .auth-landing-actions {
     gap: 6px;
@@ -1592,6 +1590,9 @@ async function submitRegister() {
 }
 
 .auth-gallery-crop.crop-scope img {
+  padding: 22px;
+  background: #f3f8f5;
+  object-fit: contain;
   object-position: center;
 }
 

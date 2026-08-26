@@ -6,7 +6,7 @@
         <ArrowLeft :size="22" />
       </button>
       <RouterLink v-else class="header-brand" to="/home">
-        <img :src="`${baseUrl}logo.png`" alt="嵌智学航" />
+        <img :src="`${baseUrl}qihuang-zhijing-mark.png`" alt="岐黄智境" />
       </RouterLink>
       <strong>{{ title }}</strong>
       <RouterLink class="avatar-button" to="/me" aria-label="我的">
@@ -31,6 +31,6 @@ import TaskStatusStrip from './TaskStatusStrip.vue'
 const route = useRoute()
 const router = useRouter()
 const baseUrl = import.meta.env.BASE_URL
-const titles = { home: '今日学习', path: '学习路径', 'path-stage': '本周任务', resources: '资源中心', 'resource-new': '生成资源', 'resource-task': '任务详情', 'resource-detail': '资源详情', practice: '练习题', tutor: 'AI 辅导', profile: '学习画像', 'profile-collect': '画像采集', me: '我的' }
-const title = computed(() => titles[String(route.name)] || '嵌智学航')
+const titles = { home: '今日学习', path: '学习路径', 'path-stage': '本周任务', resources: '资源中心', 'resource-new': '生成资源', 'resource-task': '任务详情', 'resource-detail': '资源详情', practice: '练习题', tutor: '岐小智辅导', profile: '学习画像', 'profile-collect': '画像采集', me: '我的' }
+const title = computed(() => titles[String(route.name)] || '岐黄智境')
 </script>

@@ -1,6 +1,6 @@
 page {
   min-height: 100%;
-  background: #f2f6fb;
+  background: #f3f7f4;
   color: #20332a;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -14,16 +14,16 @@ button::after { border: 0; }
 
 .page { min-height: 100vh; padding: 30rpx 28rpx 170rpx; }
 .page-head { margin-bottom: 26rpx; }
-.eyebrow { color: #1d68b3; font-size: 20rpx; font-weight: 800; }
+.eyebrow { color: #176f4b; font-size: 20rpx; font-weight: 800; }
 .page-title { margin-top: 10rpx; font-size: 42rpx; font-weight: 800; line-height: 1.25; }
 .page-subtitle { margin-top: 10rpx; color: #6c7a73; font-size: 23rpx; line-height: 1.6; }
 .card { padding: 28rpx; border: 1rpx solid #d7e2ee; border-radius: 12rpx; background: #fff; box-shadow: 0 8rpx 24rpx rgba(39, 74, 111, .045); }
 .section-title { margin-bottom: 18rpx; font-size: 29rpx; font-weight: 750; }
 .muted { color: #748179; font-size: 22rpx; line-height: 1.55; }
 .primary, .secondary { min-height: 88rpx; display: flex; align-items: center; justify-content: center; padding: 0 26rpx; border-radius: 12rpx; font-size: 26rpx; font-weight: 700; }
-.primary { background: #1d68b3; color: #fff; }
+.primary { background: #176f4b; color: #fff; }
 .primary[disabled] { opacity: .55; }
-.secondary { border: 1rpx solid #b9cde2; background: #fff; color: #1d68b3; }
+.secondary { border: 1rpx solid #bfd3c8; background: #fff; color: #176f4b; }
 .field { display: block; margin-top: 22rpx; }
 .field-label { display: block; margin-bottom: 10rpx; color: #40534a; font-size: 23rpx; font-weight: 650; }
 .field-input, .field-textarea { width: 100%; border: 1rpx solid #cad8d1; border-radius: 12rpx; background: #fff; font-size: 27rpx; }
@@ -36,4 +36,4 @@ button::after { border: 0; }
 .status.running, .status.queued { background: #e5f4f2; color: #147d75; }
 .status.failed { background: #fff0ec; color: #a04435; }
 .progress { height: 12rpx; overflow: hidden; border-radius: 8rpx; background: #dce7e1; }
-.progress-bar { height: 100%; border-radius: inherit; background: #1d68b3; }
+.progress-bar { height: 100%; border-radius: inherit; background: #176f4b; }

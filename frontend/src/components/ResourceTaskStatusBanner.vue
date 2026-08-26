@@ -47,11 +47,11 @@ const showFeedbackActions = computed(() => (
 ))
 const taskMessage = computed(() => {
   const status = task.value?.status
-  if (status === 'running') return '嵌小智正在后台生成，切换页面后状态会继续保留。'
-  if (status === 'queued') return '任务已进入队列，嵌小智会持续跟进。'
+  if (status === 'running') return '岐小智正在后台生成，切换页面后状态会继续保留。'
+  if (status === 'queued') return '任务已进入队列，岐小智会持续跟进。'
   if (status === 'complete') return task.value?.result?.message || '任务已完成，可以继续查看或编辑对应资源。'
   if (status === 'failed') return task.value?.error || '任务生成失败，请稍后重试。'
-  return '正在同步嵌小智后台任务状态。'
+  return '正在同步岐小智后台任务状态。'
 })
 const taskResultSummary = computed(() => {
   if (!task.value) return ''

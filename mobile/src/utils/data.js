@@ -27,6 +27,10 @@ export function pathWeeks(payload = {}) {
     .filter(week => week && week.enabled !== false && !week.placeholder)
     .map((week, index) => ({
       ...week,
+      tasks: (Array.isArray(week.tasks) ? week.tasks : []).filter(task => {
+        const type = String(task?.resourceType || task?.type || '').toLowerCase()
+        return !['mcu', 'simulator'].includes(type)
+      }),
       id: String(week.id || `week-${index + 1}`),
       order: Number(week.order ?? index + 1),
       title: String(week.title || `第 ${index + 1} 周学习任务`),
@@ -68,6 +72,7 @@ export function effectAssessmentMetrics(payload = {}, weeks = [], tasks = []) {
 export function stageNodes(payload = {}) {
   const stage = payload?.data?.stage || payload?.stage || payload?.data || payload || {}
   return (Array.isArray(stage.nodes) ? stage.nodes : [])
+    .filter(node => !['mcu', 'simulator'].includes(String(node?.resourceType || '').toLowerCase()))
     .map((node, index) => ({
       ...node,
       id: String(node.id || node.cacheKey || index + 1),

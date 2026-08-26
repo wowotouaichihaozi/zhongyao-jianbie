@@ -1,14 +1,14 @@
 .profile-callout { display: flex; flex-direction: column; gap: 24rpx; margin-bottom: 24rpx; }
 .profile-callout text { display: block; }
 .mini-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18rpx; }
-.workspace-tag { display: inline-block; padding: 8rpx 12rpx; border-left: 5rpx solid #1d68b3; background: #eaf2fb; color: #1d68b3; font-size: 19rpx; font-weight: 800; }
+.workspace-tag { display: inline-block; padding: 8rpx 12rpx; border-left: 5rpx solid #b04c3b; background: #fff0ec; color: #8d4035; font-size: 19rpx; font-weight: 800; }
 .today { flex: none; margin-top: 8rpx; color: #718298; font-size: 21rpx; }
-.today-panel { display: grid; grid-template-columns: 1fr 116rpx; gap: 18rpx; margin-bottom: 18rpx; padding: 28rpx; border-radius: 12rpx; background: #153f6b; color: #fff; box-shadow: 0 18rpx 38rpx rgba(21, 63, 107, .18); }
+.today-panel { display: grid; grid-template-columns: 1fr 116rpx; gap: 18rpx; margin-bottom: 18rpx; padding: 28rpx; border-radius: 12rpx; background: #164a36; color: #fff; box-shadow: 0 18rpx 38rpx rgba(22, 74, 54, .18); }
 .today-copy text { display: block; }
 .panel-kicker { margin-bottom: 10rpx; color: #8fc8e8; font-size: 19rpx; font-weight: 800; }
 .today-copy .continue-title { color: #fff; }
 .today-copy > text:last-child { margin-top: 10rpx; color: #c9d9e7; font-size: 21rpx; line-height: 1.55; }
-.today-action { align-self: center; width: 112rpx; min-height: 72rpx; margin: 0; padding: 0; border-radius: 10rpx; background: #fff; color: #1d68b3; font-size: 23rpx; font-weight: 800; }
+.today-action { align-self: center; width: 112rpx; min-height: 72rpx; margin: 0; padding: 0; border-radius: 10rpx; background: #fff; color: #176f4b; font-size: 23rpx; font-weight: 800; }
 .today-progress { grid-column: 1 / -1; }
 .today-progress > text { display: block; margin-bottom: 10rpx; color: #bcd0df; font-size: 19rpx; }
 .today-progress .progress { background: rgba(255,255,255,.18); }
@@ -17,10 +17,10 @@
 .metrics view { padding: 22rpx 12rpx; border-right: 1rpx solid #e0e8e4; text-align: center; }
 .metrics view:last-child { border-right: 0; }
 .metrics text, .metrics b { display: block; }
-.metrics text { color: #748179; font-size: 20rpx; }.metrics b { margin-top: 8rpx; color: #1d68b3; font-size: 34rpx; }
+.metrics text { color: #748179; font-size: 20rpx; }.metrics b { margin-top: 8rpx; color: #176f4b; font-size: 34rpx; }
 .continue { display: flex; flex-direction: column; align-items: flex-start; gap: 12rpx; }
 .continue-title { font-size: 33rpx; font-weight: 750; }.short { min-height: 72rpx; margin-top: 8rpx; font-size: 23rpx; }
 .section { margin: 34rpx -28rpx 0; padding: 28rpx; border-top: 1rpx solid #d9e3de; background: #fff; }
 .section-row { display: flex; justify-content: space-between; }.link { color: #176f4b; font-size: 23rpx; }
 .task { min-height: 112rpx; display: flex; align-items: center; justify-content: space-between; gap: 18rpx; border-top: 1rpx solid #e2e9e5; }.task text { display: block; }.task-title { margin-bottom: 8rpx; font-size: 25rpx; font-weight: 700; }
-.quick { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; margin-top: 24rpx; }.quick button { position: relative; min-height: 158rpx; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; color: #243c55; font-size: 26rpx; font-weight: 700; text-align: left; }.quick button b { position: absolute; top: 18rpx; right: 18rpx; width: 42rpx; height: 42rpx; display: flex; align-items: center; justify-content: center; border-radius: 8rpx; background: #eaf2fb; color: #1d68b3; font-size: 20rpx; }.quick button text { margin-top: 8rpx; color: #748179; font-size: 20rpx; font-weight: 400; }.quick .resource b { background: #e5f4f2; color: #147d75; }.quick .profile b { background: #fff4df; color: #9b6917; }.quick .map b { background: #f0ebf8; color: #6d52a0; }
+.quick { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; margin-top: 24rpx; }.quick button { position: relative; min-height: 158rpx; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; color: #243c36; font-size: 26rpx; font-weight: 700; text-align: left; }.quick button b { position: absolute; top: 18rpx; right: 18rpx; width: 42rpx; height: 42rpx; display: flex; align-items: center; justify-content: center; border-radius: 8rpx; background: #edf5f1; color: #176f4b; font-size: 20rpx; }.quick button text { margin-top: 8rpx; color: #748179; font-size: 20rpx; font-weight: 400; }.quick .resource b { background: #e5f4f2; color: #147d75; }.quick .profile b { background: #fff4df; color: #9b6917; }.quick .map b { background: #fff0ec; color: #a04435; }

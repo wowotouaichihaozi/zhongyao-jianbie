@@ -10,14 +10,14 @@
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "嵌智学航",
+    "navigationBarTitleText": "岐黄智境",
     "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#f2f6fb",
+    "backgroundColor": "#f3f7f4",
     "backgroundTextStyle": "dark"
   },
   "tabBar": {
     "color": "#78857e",
-    "selectedColor": "#1d68b3",
+    "selectedColor": "#176f4b",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [

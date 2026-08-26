@@ -1,7 +1,8 @@
-﻿<template>
+<template>
   <header class="topnavbar">
-    <RouterLink class="brand" to="/login" aria-label="返回登录页">
-      <img src="/logo.png" alt="嵌智学航" />
+    <RouterLink class="brand" to="/login" aria-label="返回岐黄智境登录页">
+      <img src="/qihuang-zhijing-mark-512.png" alt="" />
+      <span class="brand-copy"><strong>岐黄智境</strong><small>中医智慧学习平台</small></span>
     </RouterLink>
 
     <nav class="nav-links" aria-label="主功能导航">
@@ -77,8 +78,7 @@ const navItems = [
   { to: '/knowledge-network', label: '知识网络', icon: Share2, active: () => route.path.startsWith('/knowledge-network') },
   { to: '/agent-digital-twin', label: '数字孪生', icon: Orbit, active: () => route.path.startsWith('/agent-digital-twin') },
   { to: '/effect-assessment', label: '效果评估', icon: Gauge, active: () => route.path.startsWith('/effect-assessment') },
-  { to: '/digital-human-interview', label: 'AI面试', icon: ChartNoAxesCombined, active: () => route.path.startsWith('/digital-human-interview') },
-  { to: '/ai-coding', label: 'AI 编程', logo: '/deepseek-harness.svg', active: () => route.path.startsWith('/ai-coding') },
+  { to: '/digital-human-interview', label: '学习访谈', icon: ChartNoAxesCombined, active: () => route.path.startsWith('/digital-human-interview') },
 ]
 
 const mobileNavItems = [
@@ -144,18 +144,29 @@ async function logout() {
   height: 72px;
   display: inline-flex;
   align-items: center;
-  padding-left: 32px;
+  gap: 10px;
+  padding-left: 24px;
   box-sizing: border-box;
   text-decoration: none;
 }
 
 .brand img {
-  height: 42px;
-  max-width: 164px;
+  width: 46px;
+  height: 46px;
   object-fit: contain;
   filter: none;
   opacity: 1;
 }
+
+.brand-copy {
+  display: grid;
+  gap: 2px;
+  color: #123d2d;
+  line-height: 1.1;
+}
+
+.brand-copy strong { font-size: 18px; }
+.brand-copy small { color: #8d4b3d; font-size: 10px; font-weight: 650; }
 
 .nav-links {
   height: 72px;

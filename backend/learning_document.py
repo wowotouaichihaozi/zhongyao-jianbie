@@ -114,7 +114,7 @@ def _normalize_practice(item: object, index: int) -> dict[str, Any] | None:
 
 
 def _fallback_document(payload: dict[str, Any], reason: str) -> dict[str, Any]:
-    topic = _text(payload.get("topic") or payload.get("title") or "嵌入式系统专题", 120)
+    topic = _text(payload.get("topic") or payload.get("title") or "中医系统专题", 120)
     hits = [item for item in (payload.get("knowledgeContext") or []) if isinstance(item, dict)]
     references = _known_references(payload)
     sections: list[dict[str, Any]] = []
@@ -143,7 +143,7 @@ def _fallback_document(payload: dict[str, Any], reason: str) -> dict[str, Any]:
                 "order": index + 1,
                 "title": fallback_titles[index],
                 "summary": f"围绕{topic}建立可执行的学习步骤。",
-                "content": "课程知识库未提供足够直接证据，本节只给出学习组织框架；涉及硬件参数、寄存器位定义和时序结论时需进一步核验。",
+                "content": "课程知识库未提供足够直接证据，本节只给出学习组织框架；涉及中医定义、经典原文、方药功效和禁忌时需进一步核验。",
                 "keyPoints": ["先确认数据手册或课程资料", "完成最小实验并记录输入、输出和异常"],
                 "example": "",
                 "codeExample": "",
@@ -152,25 +152,25 @@ def _fallback_document(payload: dict[str, Any], reason: str) -> dict[str, Any]:
     return {
         "title": f"{topic}个性化学习讲义",
         "abstract": f"面向当前学习画像整理的{topic}课程讲义。由于模型生成未完成，正文优先使用课程知识库片段并标注待核验内容。",
-        "audience": "嵌入式课程学习者",
+        "audience": "中医课程学习者",
         "learningObjectives": [f"建立{topic}的概念结构", "完成一次可复盘的实践验证", "识别并解释至少两类常见错误"],
         "sections": sections,
         "keyPoints": [f"围绕{topic}形成概念、实践、测评和复盘闭环"],
-        "commonMistakes": ["没有先核对芯片型号和数据手册", "只记录成功现象，没有保留错误与修正证据"],
+        "commonMistakes": ["没有先核对权威教材、经典原文或知识库来源", "只记录最终结论，没有保留推理与修正证据"],
         "practiceTasks": [
             {"order": 1, "task": f"用自己的话解释{topic}的输入、处理和输出", "expectedEvidence": "一段费曼式复述", "hint": "避免照抄术语"},
             {"order": 2, "task": f"完成一个{topic}最小实验并记录现象", "expectedEvidence": "代码、配置、现象和复盘记录", "hint": "先定义验收条件"},
         ],
         "summary": f"本讲义将{topic}拆成知识理解、错误诊断和实践验证三个层次。",
         "references": references,
-        "verificationNotes": ["涉及具体硬件参数、寄存器位定义和时序要求时，请以芯片手册为准。"],
+        "verificationNotes": ["涉及经典原文、方药功效、用量与禁忌时，请以权威教材、药典或原始文献为准。"],
         "source": "knowledge-template-fallback",
         "fallbackReason": _text(reason, 500),
     }
 
 
 def _normalize_document(raw: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
-    topic = _text(payload.get("topic") or payload.get("title") or "嵌入式系统专题", 120)
+    topic = _text(payload.get("topic") or payload.get("title") or "中医系统专题", 120)
     sections = [
         section
         for index, item in enumerate(raw.get("sections") or [], start=1)
@@ -197,7 +197,7 @@ def _normalize_document(raw: dict[str, Any], payload: dict[str, Any]) -> dict[st
     document = {
         "title": _text(raw.get("title") or f"{topic}个性化学习讲义", 180),
         "abstract": _text(raw.get("abstract") or raw.get("summary"), 1200),
-        "audience": _text(raw.get("audience") or "嵌入式课程学习者", 300),
+        "audience": _text(raw.get("audience") or "中医课程学习者", 300),
         "learningObjectives": _string_list(raw.get("learningObjectives") or raw.get("objectives"), 8),
         "sections": sections,
         "keyPoints": _string_list(raw.get("keyPoints"), 12),
@@ -291,7 +291,7 @@ def evaluate_learning_document(document: dict[str, Any], profile: dict[str, Any]
 
 
 def generate_learning_document(payload: dict[str, Any]) -> dict[str, Any]:
-    topic = _text(payload.get("topic") or payload.get("title") or "嵌入式系统专题", 120)
+    topic = _text(payload.get("topic") or payload.get("title") or "中医系统专题", 120)
     profile = payload.get("profile") if isinstance(payload.get("profile"), dict) else {}
     profile_summary = _profile_summary(profile)
     references = _known_references(payload)
@@ -302,8 +302,8 @@ def generate_learning_document(payload: dict[str, Any]) -> dict[str, Any]:
     )
     system = """
 你是嵌小智总控调用的课程讲解文档生成子智能体。
-请生成面向高校嵌入式课程的个性化学习讲义，严格使用给定画像和课程知识片段。
-涉及定义、寄存器、参数、接线和时序结论时必须使用给定 [KBn] 引用；没有依据的事实写“需进一步核验”，不得编造来源。
+请生成面向高校中医课程的个性化学习讲义，严格使用给定画像和课程知识片段。
+涉及定义、经典原文、证候、方药功效、用量和禁忌时必须使用给定 [KBn] 引用；没有依据的事实写“需进一步核验”，不得编造来源。
 只输出 JSON，字段必须为 title、abstract、audience、learningObjectives、sections、keyPoints、commonMistakes、practiceTasks、summary、references、verificationNotes。
 sections 为 4-8 项，每项包含 title、summary、content、keyPoints、example、codeExample；practiceTasks 每项包含 task、expectedEvidence、hint；references 只能引用输入中存在的 id。
 """
