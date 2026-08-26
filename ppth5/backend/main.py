@@ -91,12 +91,16 @@ class GeneratedPage(BaseModel):
     title: str
     contentOutline: str = ""
     html: str
+    generationMode: str = "model"
+    generationWarning: str | None = None
 
 
 class GenerateResponse(BaseModel):
     sessionId: str
     title: str
     pages: list[GeneratedPage]
+    generationMode: str = "model"
+    generationWarnings: list[str] = Field(default_factory=list)
 
 
 @app.get("/api/health")
@@ -120,17 +124,24 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
     raw_pages = await call_llm(req, runtime)
 
     pages: list[GeneratedPage] = []
+    warnings: list[str] = []
     for index, page in enumerate(raw_pages[: req.pageCount]):
         page_number = index + 1
         title = repair_text(str(page.get("title") or f"Page {page_number}"))
         outline = repair_text(str(page.get("contentOutline") or page.get("b") or ""))
         body = repair_text(str(page.get("h") or page.get("html") or page.get("bodyHtml") or ""))
+        generation_mode = str(page.get("generationMode") or "model").strip() or "model"
+        generation_warning = repair_text(str(page.get("generationWarning") or "")).strip() or None
+        if generation_warning and generation_warning not in warnings:
+            warnings.append(generation_warning)
         pages.append(
             GeneratedPage(
                 pageNumber=page_number,
                 title=title,
                 contentOutline=outline,
                 html=make_slide(body, title, page_number),
+                generationMode=generation_mode,
+                generationWarning=generation_warning,
             )
         )
 
@@ -140,7 +151,15 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
             detail=f"Model returned {len(pages)}/{req.pageCount} parseable slides.",
         )
 
-    return GenerateResponse(sessionId=req.sessionId, title=repair_text(req.topic), pages=pages)
+    modes = {page.generationMode for page in pages}
+    overall_mode = "fallback" if "fallback" in modes else "recovered" if "recovered" in modes else "model"
+    return GenerateResponse(
+        sessionId=req.sessionId,
+        title=repair_text(req.topic),
+        pages=pages,
+        generationMode=overall_mode,
+        generationWarnings=warnings,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -472,6 +491,90 @@ FORMAT CORRECTION FOR RETRY {attempt + 2}:
     raise RuntimeError(f"pages {start_page}-{end_page}: {last_error}")
 
 
+def _fallback_page(req: GenerateRequest, page_number: int, warning: str) -> dict[str, Any]:
+    safe_topic = escape(repair_text(req.topic or "中医学习课件"))
+    if page_number == 1:
+        title = repair_text(req.topic or "中医学习课件")
+        section_label = "学习主题与目标"
+    elif page_number == req.pageCount:
+        title = "总结、订正与下一步"
+        section_label = "回顾要点"
+    else:
+        title = f"核心内容梳理 · {page_number}"
+        section_label = "结构化保底页"
+    body = f"""
+<style>
+.fallback-grid{{display:grid;grid-template-columns:1.2fr .8fr;gap:34px;margin-top:54px}}
+.fallback-panel{{padding:34px;border:1px solid #bfd2c8;border-radius:8px;background:#fff;box-shadow:0 12px 32px rgba(35,95,75,.08)}}
+.fallback-panel h2{{margin:0 0 18px;color:#235f4b;font-size:32px}}
+.fallback-panel p,.fallback-panel li{{font-size:23px;line-height:1.7;color:#3e514a}}
+.fallback-badge{{display:inline-flex;padding:8px 14px;border-radius:4px;background:#fff4d6;color:#805d13;font-size:18px;font-weight:700}}
+</style>
+<section>
+  <span class="fallback-badge">自动恢复页 · 内容待复核</span>
+  <div class="fallback-grid">
+    <article class="fallback-panel" data-anim="fade-up">
+      <h2>{escape(section_label)}</h2>
+      <p>本页围绕“{safe_topic}”保留完整课件结构。模型本次未返回可解析页面，请结合课程知识库补充并复核具体内容。</p>
+    </article>
+    <aside class="fallback-panel" data-anim="slide-left">
+      <h2>学习闭环</h2>
+      <ul><li>记录关键辨证依据</li><li>核对答案与解析</li><li>标注错因并完成订正</li></ul>
+    </aside>
+  </div>
+</section>"""
+    return {
+        "title": title,
+        "contentOutline": f"{section_label}（模型响应异常，已生成可编辑保底页）",
+        "h": body,
+        "generationMode": "fallback",
+        "generationWarning": warning[:500],
+    }
+
+
+async def _generate_batch_with_recovery(
+    req: GenerateRequest,
+    *,
+    start_page: int,
+    page_count: int,
+    **kwargs: Any,
+) -> tuple[int, list[dict[str, Any]]]:
+    try:
+        return await _generate_batch(
+            req,
+            start_page=start_page,
+            page_count=page_count,
+            **kwargs,
+        )
+    except Exception as batch_error:
+        batch_reason = str(batch_error) or batch_error.__class__.__name__
+
+    recovered_pages: list[dict[str, Any]] = []
+    for page_number in range(start_page, start_page + page_count):
+        try:
+            _, single_pages = await _generate_batch(
+                req,
+                start_page=page_number,
+                page_count=1,
+                **kwargs,
+            )
+            page = single_pages[0]
+            page["generationMode"] = "recovered"
+            page["generationWarning"] = (
+                f"第 {start_page}-{start_page + page_count - 1} 页批量生成未完整返回，"
+                f"第 {page_number} 页已自动逐页重试。"
+            )
+        except Exception as page_error:
+            page_reason = str(page_error) or page_error.__class__.__name__
+            warning = (
+                f"第 {page_number} 页模型响应异常，系统已生成可编辑保底页。"
+                f"批次原因：{batch_reason}；单页原因：{page_reason}"
+            )
+            page = _fallback_page(req, page_number, warning)
+        recovered_pages.append(page)
+    return start_page, recovered_pages
+
+
 async def call_llm(req: GenerateRequest, runtime: dict[str, str]) -> list[dict[str, Any]]:
     base_url = runtime["baseUrl"]
     api_key = ANTHROPIC_AUTH_TOKEN
@@ -502,9 +605,9 @@ async def call_llm(req: GenerateRequest, runtime: dict[str, str]) -> list[dict[s
     except (TypeError, ValueError):
         batch_size = 3
     try:
-        max_parallel = max(1, min(3, int(os.getenv("OHMYPPT_LLM_MAX_PARALLEL", "2"))))
+        max_parallel = max(1, min(3, int(os.getenv("OHMYPPT_LLM_MAX_PARALLEL", "1"))))
     except (TypeError, ValueError):
-        max_parallel = 2
+        max_parallel = 1
     max_tokens = _completion_token_budget()
 
     batches = [
@@ -514,7 +617,7 @@ async def call_llm(req: GenerateRequest, runtime: dict[str, str]) -> list[dict[s
     semaphore = asyncio.Semaphore(max_parallel)
     results = await asyncio.gather(
         *(
-            _generate_batch(
+            _generate_batch_with_recovery(
                 req,
                 start_page=start_page,
                 page_count=page_count,

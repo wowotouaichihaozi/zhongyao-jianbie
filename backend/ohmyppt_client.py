@@ -182,6 +182,8 @@ def _validate_pages(payload: dict[str, Any], *, session_id: str, expected_count:
                 "title": title[:240],
                 "contentOutline": str(page.get("contentOutline") or "").strip()[:1200],
                 "html": html,
+                "generationMode": str(page.get("generationMode") or "model").strip() or "model",
+                "generationWarning": str(page.get("generationWarning") or "").strip()[:1200] or None,
             }
         )
     return normalized
@@ -255,11 +257,31 @@ def generate_with_ohmyppt(
 
     _emit(on_stage, "ohmyppt_validate", "页面已返回，正在执行结构与安全校验", 88, pageCount=page_count)
     pages = _validate_pages(response_payload, session_id=session_id, expected_count=page_count)
-    _emit(on_stage, "ohmyppt_complete", f"OhMyPPT 已完成 {len(pages)} 页课件", 96, pageCount=len(pages))
+    fallback_count = sum(1 for page in pages if page.get("generationMode") == "fallback")
+    completion_message = f"OhMyPPT 已完成 {len(pages)} 页课件"
+    if fallback_count:
+        completion_message += f"，其中 {fallback_count} 页为可编辑保底页"
+    _emit(
+        on_stage,
+        "ohmyppt_complete",
+        completion_message,
+        96,
+        pageCount=len(pages),
+        generationMode=str(response_payload.get("generationMode") or "model"),
+        fallbackCount=fallback_count,
+    )
+    raw_warnings = response_payload.get("generationWarnings")
+    generation_warnings = raw_warnings if isinstance(raw_warnings, list) else []
     return {
         "sessionId": session_id,
         "title": str(response_payload.get("title") or topic).strip() or topic,
         "pages": pages,
+        "generationMode": str(response_payload.get("generationMode") or "model").strip() or "model",
+        "generationWarnings": [
+            str(item).strip()[:1200]
+            for item in generation_warnings
+            if str(item).strip()
+        ],
         "engine": {
             "id": "ohmyppt-fastapi",
             "version": str(health.get("version") or ""),

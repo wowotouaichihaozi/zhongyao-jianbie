@@ -83,7 +83,7 @@ code6.14/
 
 当前场景包含 14 个展示节点和 22 条展示连线，用于表达主控、能力组、知识资源、实验与评估之间的信息流。一个展示节点可以代表一个能力组，因此这些节点不计入 Harness 智能体角色数量，也不改变 22 个 Harness 角色和 18 个注册 Skill 的真实统计口径。页面固定标记为“架构展示 · 非实时运行”，不宣称展示真实实时调用记录；数字孪生只增强答辩展示层，不替换学习画像、学习路径、资源生成、实验与效果评估闭环。
 
-数字孪生包装页把固定 `1920x1080` 场景按可用视口等比缩放，桌面和移动端均不要求横向滚动；同源资源预检失败时显示原因与重试入口。OhMyPPT 全屏包装页在 iframe 上方保留“返回个性化资源”，加载前预检 `/ppt/`，失败时不会留下空白全屏页面，并提供重试。
+数字孪生包装页把固定 `1920x1080` 场景按可用视口等比缩放，桌面和移动端均不要求横向滚动；同源资源预检失败时显示原因与重试入口。OhMyPPT 全屏包装页在 iframe 上方保留“返回个性化资源”，加载前精确预检 `/ppt/index.html`，失败时不会留下空白全屏页面，并提供重试；若错误的 SPA 回退仍让主站进入 iframe，包装页会阻止二次 iframe，主应用也会隐藏全局导航、任务横幅和悬浮智能体，避免递归叠出多套界面。
 
 验证方式：在 `frontend` 目录执行 `npm run test:wrapper-pages` 和 `npm run build -- --emptyOutDir=false`，确认构建产物包含 `dist/digital-twin/index.html`；运行一键启动脚本后登录并访问 `http://127.0.0.1:3000/agent-digital-twin`。开发环境可访问 `http://127.0.0.1:5088/agent-digital-twin`。
 
@@ -244,15 +244,15 @@ Supervisor / Skill / MCP / Handoff / 质量与安全审核
 
 智能体统一入口 `POST /api/personalized-resources/agent-task` 在 `resourceType=ppt` 时会接收 `topic`、`prompt/userMessage`、`pageCount/pages`、`styleName`、`styleDescription`、`cacheKey` 等参数，创建稳定的 OhMyPPT `sessionId`，并立即在任务结果中返回 `ppt.sessionId`、`ppt.pageCount`、`ppt.route` 和 `/ppt-generator/generating/:sessionId?...&xzTask=:taskId`。因此岐小智、学习路径任务卡或后续 MCP Tool 只需要传参即可启动后台生成，用户打开窗口后看到的是持续更新的生成状态，不需要再次填写主题或页数。
 
-浏览器不会直接携带模型 API Key 调用 OhMyPPT。Flask 与 FastAPI 之间使用带时间戳的 HMAC 内部签名传递当前用户选择的协议、模型地址和模型名；FastAPI 同时校验地址白名单、页数、HTML 结构和外部资源。解析层兼容严格 JSON、标准分隔格式以及中英文 Markdown 字段，但只有返回指定页数且每页包含有效 HTML 时才算成功；生成失败不会使用本地模板伪装为成功。
+浏览器不会直接携带模型 API Key 调用 OhMyPPT。Flask 与 FastAPI 之间使用带时间戳的 HMAC 内部签名传递当前用户选择的协议、模型地址和模型名；FastAPI 同时校验地址白名单、页数、HTML 结构和外部资源。解析层兼容严格 JSON、标准分隔格式以及中英文 Markdown 字段。正常模型页、逐页恢复页和保底页分别使用 `generationMode=model|recovered|fallback`，异常原因写入 `generationWarning(s)`；保底页在页面内显示“自动恢复页 · 内容待复核”，不会伪装成正常模型内容。
 
 OhMyPPT 默认使用 `Spark X2 Flash`（`astron-code-latest`）。独立引擎优先读取 `ppth5/backend/.env`，示例见 `ppth5/backend/.env.example`；模型密钥只保存在服务端环境文件中，不写入浏览器配置、构建产物或 API 响应。原始 H5 的快速创建把该模型识别为服务端托管模型；本机回环地址可在开发模式下使用默认模型，线上浏览器请求必须通过主站登录态校验，智能体后台请求继续使用 HMAC 内部签名。
 
-为避免模型一次返回整份长 HTML 导致读取超时，OhMyPPT 默认按每批 3 页、最多 2 批并行生成，再按原始页码合并并执行页数、HTML 安全与结构校验。失败信息会标明具体页段，系统不会因单批超时而重复执行整份 PPT；批大小与并发数可通过 `OHMYPPT_LLM_BATCH_SIZE`、`OHMYPPT_LLM_MAX_PARALLEL` 调整。
+为避免模型一次返回整份长 HTML 导致读取超时，OhMyPPT 默认按每批 3 页、批次串行生成，再按原始页码合并并执行页数、HTML 安全与结构校验。某一批为空、超时或无法解析时，只把该批拆成单页串行重试；单页仍失败则补入带警告的可编辑保底页，因此任务仍能保存完整页数，且降级状态可被任务历史和审核链识别。批大小与并发数可通过 `OHMYPPT_LLM_BATCH_SIZE`、`OHMYPPT_LLM_MAX_PARALLEL` 调整，生产默认并发为 1。
 
 原始 H5 在等待整份模型结果时会持续展示当前阶段、已等待时长和保守进度，模型尚未返回时进度不会伪装为页面已完成；“取消生成”会中止当前浏览器请求。模型返回后再进入页面解析、结构校验和逐页写入阶段。
 
-默认模型请求最长等待 600 秒且不自动整单重跑，避免五页生成在 300 秒超时后静默从头执行；失败会显示为失败状态，由用户主动决定是否重试。
+默认模型请求最长等待 600 秒且不自动整单重跑，避免五页生成在 300 秒超时后静默从头执行；系统仅在失败批次内执行有界逐页恢复，并把最终降级原因随结果返回。
 
 主站工作台使用稳定查询指纹创建 OhMyPPT 会话，相同学习任务刷新后会恢复同一会话；未传页数时默认生成 6 页。演示优先使用原生 Fullscreen API，内置浏览器不提供该 API 时自动切换到页面级全屏，点击动画完成后继续翻页，并支持 `Esc` 退出。
 
@@ -336,9 +336,9 @@ python -m py_compile app.py ppt_h5.py
 
 完整学习路径保存后，后端把所有已启用周次投入周资源准备线程池。每一周使用快速派发模式：先在一次短事务中为全部节点创建持久化任务记录和带 `xzTask` 的页面入口，再把题库、PPT、导图、视频查找和单片机实验等普通资源全部提交后台执行器；接口不会等待资源生成完成。PPT 任务在数据库记录和 OhMyPPT 会话参数写入完成后立即提交专用后台执行器，用户不需要打开课件页面才能开始生成；该执行器默认串行，避免多份长课件各自拆批后放大模型侧超时，可通过 `PPT_RESOURCE_MAX_WORKERS` 在 1-2 之间调整。服务重启时，后端会先释放已中断的进程内任务，再自动扫描当前已保存的学习路径并重新投入周资源准备线程池；失败的路径资源仍遵守最多两次生成尝试的边界，不会无限重试。PPT 运行、失败和完成写回会合并已有状态，持续保留 `sessionId`、页数、生成参数、路径来源、缓存键和带 `xzTask` 的入口；OhMyPPT“会话列表”会单独读取这些服务器任务，展示队列、进度、完成页数和错误，并在后台任务活跃时自动刷新。其他普通资源默认最多 10 路并行，可通过 `RESOURCE_AGENT_MAX_WORKERS` 在 1-12 之间调整。不同周写回时通过用户级短锁重读最新配置并只合并当前周，避免并发覆盖任务 ID 或进度。`generated_video` 是唯一例外：入口立即可点击，但状态为 `waiting_for_user`，用户进入三栏视频工作台后编辑提示词、时长、风格、音色、清晰度和模型，并手动确认后才启动原任务。
 
-本批状态管理可用 `python -m pytest backend/tests/test_learning_profile_api.py -q`、`cd ppth5 && npm run typecheck:web` 和 `cd frontend && npm run build -- --emptyOutDir=false` 验证；PPT H5 生产构建需直接调用 Vite 并传入 `--emptyOutDir=false`，避免清理既有输出目录。
+本批状态管理可用 `python -m pytest backend/tests/test_learning_profile_api.py backend/tests/test_ohmyppt_client.py -q`、`python -m unittest discover -s ppth5/backend/tests -p test_batch_generation.py -v`、`cd ppth5 && npm run typecheck:web` 和 `cd frontend && npm run build -- --emptyOutDir=false` 验证；PPT H5 生产构建需直接调用 Vite 并传入 `--emptyOutDir=false`，避免清理既有输出目录。
 
-主站 `/personalized-resources/ppt?tab=history` 会把 `tab=history` 映射到带版本参数的 OhMyPPT `#/sessions` 地址，避免复用浏览器中已加载的旧工作台文档。Nginx 对 `/ppt/` 与 `/ppt/index.html` 明确发送 `no-cache, no-store, must-revalidate`，哈希静态资源仍由独立文件名控制版本；因此发布新会话状态逻辑后不再需要用户手动清缓存。
+主站 `/personalized-resources/ppt?tab=history` 会把 `tab=history` 映射到带版本参数的精确 `/ppt/index.html#/sessions` 地址，避免 `/ppt/` 被错误的 SPA fallback 接管，也避免复用浏览器中已加载的旧工作台文档。Nginx 对 `/ppt/` 与 `/ppt/index.html` 明确发送 `no-cache, no-store, must-revalidate`，哈希静态资源仍由独立文件名控制版本；因此发布新会话状态逻辑后不再需要用户手动清缓存。
 
 周详情页调用 `POST /api/learning-path/stages/:stageId/prepare-resources` 并传入 `{ "parallelDispatch": true, "advance": false }`。响应返回后，无论任务是 `queued`、`running`、`complete`、`waiting` 还是 `failed`，只要任务记录已建立，卡片都保留可打开入口；前端每 2 秒通过 `GET /api/learning-path/stages/:stageId/resource-tasks` 更新状态，并用“资源生成中 / 资源已生成 / 待用户确认 / 生成失败”区分。重复进入或重复派发会复用现有任务 ID，不会再次消耗模型调用。各资源生成任务自身仍经过岐小智 Harness 的结构化输出、知识依据、质量审核与安全审核；单任务失败按原上限重试，不阻塞其他任务。任务卡片按序号使用不同强调色，悬浮只改变阴影，不改变位置或尺寸。周资源和路径生成并发上限还可通过 `LEARNING_PATH_WEEK_PREPARATION_MAX_WORKERS` 与 `LEARNING_PATH_GENERATION_MAX_WORKERS` 调整。
 

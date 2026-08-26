@@ -63,12 +63,16 @@ def test_generate_uses_signed_internal_headers_and_validates_pages(monkeypatch):
             {
                 "sessionId": "ppt-test",
                 "title": "GPIO",
+                "generationMode": "fallback",
+                "generationWarnings": ["第 1 页模型响应异常，已生成保底页"],
                 "pages": [
                     {
                         "pageNumber": 1,
                         "title": "GPIO 基础",
                         "contentOutline": "工作模式",
                         "html": valid_slide_html("GPIO 基础"),
+                        "generationMode": "fallback",
+                        "generationWarning": "第 1 页模型响应异常，已生成保底页",
                     }
                 ],
             }
@@ -84,6 +88,10 @@ def test_generate_uses_signed_internal_headers_and_validates_pages(monkeypatch):
     assert result["engine"]["id"] == "ohmyppt-fastapi"
     assert result["engine"]["model"] == "spark-x2-agent"
     assert len(result["pages"]) == 1
+    assert result["generationMode"] == "fallback"
+    assert result["generationWarnings"] == ["第 1 页模型响应异常，已生成保底页"]
+    assert result["pages"][0]["generationMode"] == "fallback"
+    assert result["pages"][0]["generationWarning"] == "第 1 页模型响应异常，已生成保底页"
     assert captured["url"] == "http://127.0.0.1:8765/api/generate"
     assert captured["headers"]["X-OhMyPPT-Protocol"] == "openai"
     assert captured["headers"]["X-OhMyPPT-Model"] == "spark-x2-agent"
@@ -98,6 +106,8 @@ def test_generate_uses_signed_internal_headers_and_validates_pages(monkeypatch):
         "ohmyppt_validate",
         "ohmyppt_complete",
     ]
+    assert stages[-1]["fallbackCount"] == 1
+    assert "1 页为可编辑保底页" in stages[-1]["message"]
 
 
 def test_validate_pages_rejects_external_resources():

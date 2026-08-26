@@ -1,5 +1,5 @@
 <template>
-  <div id="app" :class="{ 'xiaozhi-embed-app': isXiaoZhiEmbed }">
+  <div id="app" :class="{ 'xiaozhi-embed-app': isXiaoZhiEmbed || isFramedApp }">
     <TopNavbar v-if="showNavbar" />
     <RouterView v-slot="{ Component, route }">
       <component :is="Component" :key="route.fullPath" />
@@ -20,6 +20,7 @@ import TopNavbar from './components/TopNavbar.vue'
 import { logXiaoZhiEvent, pulseLearningActivity } from './services/api.js'
 
 const route = useRoute()
+const isFramedApp = window.self !== window.top
 const isXiaoZhiEmbed = computed(() => route.query.xzEmbed === '1' || route.query.embed === 'xiaozhi')
 
 const routesWithoutNavbar = new Set([
@@ -33,6 +34,7 @@ const routesWithoutNavbar = new Set([
 ])
 
 const showNavbar = computed(() => {
+  if (isFramedApp) return false
   if (isXiaoZhiEmbed.value) return false
   if (route.meta?.noNavbar) return false
   if (routesWithoutNavbar.has(route.name)) return false
@@ -49,6 +51,7 @@ const routesWithoutFloatingAssistant = new Set([
 ])
 
 const showFloatingAssistant = computed(() => {
+  if (isFramedApp) return false
   if (isXiaoZhiEmbed.value) return false
   if (routesWithoutFloatingAssistant.has(route.name)) return false
   if (route.path.startsWith('/admin')) return false

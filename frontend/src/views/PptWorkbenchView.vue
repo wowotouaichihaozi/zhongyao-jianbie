@@ -1,6 +1,10 @@
 <template>
-  <main class="ppt-workbench-page" aria-label="OhMyPPT 演示文稿工作台">
-    <header class="ppt-workbench-toolbar">
+  <main
+    class="ppt-workbench-page"
+    :class="{ 'ppt-workbench-page--nested': isNestedFrame }"
+    aria-label="OhMyPPT 演示文稿工作台"
+  >
+    <header v-if="!isNestedFrame" class="ppt-workbench-toolbar">
       <RouterLink
         class="ppt-workbench-return"
         to="/personalized-resources"
@@ -14,7 +18,13 @@
     </header>
 
     <section class="ppt-workbench-surface">
-      <div v-if="loading" class="ppt-workbench-state" role="status" aria-live="polite">
+      <div v-if="isNestedFrame" class="ppt-workbench-state ppt-workbench-error" role="alert">
+        <TriangleAlert :size="28" aria-hidden="true" />
+        <strong>已阻止重复嵌入</strong>
+        <span>请返回上一层后重新打开 OhMyPPT，页面不会继续创建嵌套工作台。</span>
+      </div>
+
+      <div v-else-if="loading" class="ppt-workbench-state" role="status" aria-live="polite">
         <LoaderCircle class="spin" :size="24" aria-hidden="true" />
         <span>正在检查并打开 OhMyPPT...</span>
       </div>
@@ -30,7 +40,7 @@
       </div>
 
       <iframe
-        v-if="iframeSrc"
+        v-if="!isNestedFrame && iframeSrc"
         :key="iframeSrc"
         :src="iframeSrc"
         title="OhMyPPT 演示文稿工作台"
@@ -51,8 +61,9 @@ const loading = ref(true)
 const loadError = ref('')
 const iframeSrc = ref('')
 let prepareSequence = 0
-const PPT_WEB_BUILD_VERSION = '20260826-ppt-history-v2'
-const PPT_ENTRY_URL = `/ppt/?v=${encodeURIComponent(PPT_WEB_BUILD_VERSION)}`
+const isNestedFrame = window.self !== window.top
+const PPT_WEB_BUILD_VERSION = '20260826-ppt-history-v3'
+const PPT_ENTRY_URL = `/ppt/index.html?v=${encodeURIComponent(PPT_WEB_BUILD_VERSION)}`
 
 const FORWARDED_QUERY_KEYS = [
   'topic',
@@ -113,6 +124,10 @@ async function prepareWorkbench() {
   loading.value = true
   loadError.value = ''
   iframeSrc.value = ''
+  if (isNestedFrame) {
+    loading.value = false
+    return
+  }
   try {
     const response = await fetch(PPT_ENTRY_URL, { cache: 'no-store', credentials: 'same-origin' })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
@@ -146,6 +161,10 @@ watch(workbenchUrl, () => {
   overflow: hidden;
   background: #f7f9f8;
   box-sizing: border-box;
+}
+
+.ppt-workbench-page--nested {
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .ppt-workbench-toolbar {

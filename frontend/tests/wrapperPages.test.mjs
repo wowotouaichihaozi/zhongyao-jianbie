@@ -4,6 +4,7 @@ import test from 'node:test'
 
 const digitalTwinSource = fs.readFileSync(new URL('../src/views/AgentDigitalTwinView.vue', import.meta.url), 'utf8')
 const pptWorkbenchSource = fs.readFileSync(new URL('../src/views/PptWorkbenchView.vue', import.meta.url), 'utf8')
+const appSource = fs.readFileSync(new URL('../src/App.vue', import.meta.url), 'utf8')
 
 test('digital twin scales the fixed scene into the available viewport and exposes recovery', () => {
   assert.match(digitalTwinSource, /const SCENE_WIDTH = 1920/)
@@ -18,12 +19,21 @@ test('digital twin scales the fixed scene into the available viewport and expose
 
 test('PPT workbench preflights the embedded app and never traps the learner in a blank iframe', () => {
   assert.match(pptWorkbenchSource, /to="\/personalized-resources"/)
-  assert.match(pptWorkbenchSource, /const PPT_WEB_BUILD_VERSION = '20260826-ppt-history-v2'/)
+  assert.match(pptWorkbenchSource, /const PPT_WEB_BUILD_VERSION = '20260826-ppt-history-v3'/)
+  assert.match(pptWorkbenchSource, /const PPT_ENTRY_URL = `\/ppt\/index\.html\?v=/)
   assert.match(pptWorkbenchSource, /fetch\(PPT_ENTRY_URL/)
   assert.match(pptWorkbenchSource, /route\.query\.tab/)
   assert.match(pptWorkbenchSource, /historyRequested \? '\/sessions' : '\/'/)
   assert.match(pptWorkbenchSource, /v-else-if="loadError"/)
   assert.match(pptWorkbenchSource, /@click="prepareWorkbench"/)
-  assert.match(pptWorkbenchSource, /v-if="iframeSrc"/)
+  assert.match(pptWorkbenchSource, /v-if="!isNestedFrame && iframeSrc"/)
   assert.match(pptWorkbenchSource, /grid-template-rows: 52px minmax\(0, 1fr\)/)
+})
+
+test('PPT wrapper blocks recursive embedding and framed main apps hide duplicate global chrome', () => {
+  assert.match(pptWorkbenchSource, /const isNestedFrame = window\.self !== window\.top/)
+  assert.match(pptWorkbenchSource, /v-if="isNestedFrame"/)
+  assert.match(pptWorkbenchSource, /v-if="!isNestedFrame && iframeSrc"/)
+  assert.match(appSource, /const isFramedApp = window\.self !== window\.top/)
+  assert.match(appSource, /if \(isFramedApp\) return false/g)
 })
