@@ -203,6 +203,18 @@ Local evidence on 2026-08-26: DeepSeek accepted intentionally short requests car
 
 Production evidence on 2026-08-26: backed up and deployed the three Flask PPT integration files plus the standalone OhMyPPT backend file, preserved both production `.env` files and the existing database, and restarted only `feishengwangying-backend` and `feishengwangying-pptapi`. Both services remained active. Public `/ppt-api/health` and `/api/ppt-h5/health` returned HTTP 200 with `deepseek-v4-flash-vision-exp`, OpenAI protocol, and `maxCompletionTokens=32768`. An authenticated production request to `/api/ppt-h5/generate` returned 1/1 grounded page with 11532 characters of HTML and orchestration status `complete`.
 
+### Learning-path PPT background generation recovery
+
+- [x] Ensure learning-path PPT tasks start generating immediately after persistence and automatically resume through the existing bounded retry path after a backend restart.
+- [x] Add focused regression coverage for immediate executor submission and startup recovery without changing the explicit confirmation rule for AI video.
+- [x] Preserve the PPT session identifier, page count, route, source parameters, cache key, progress, stage and error across queued, running, failed and completed task writes.
+- [x] Show persisted learning-path and XiaoZhi PPT tasks in the OhMyPPT session list, with active polling, progress/page counts, errors and a route back to the original platform task.
+- [x] Build both affected frontends without cleaning their output directories; deploy and verify the backend and public routes before committing.
+
+Local evidence on 2026-08-26: Python compilation passed. Eight focused backend tests passed for complete-path week queuing, immediate dedicated PPT executor submission, persisted PPT state preservation, startup recovery, bounded failed-resource retry, parallel clickable-task dispatch, bounded planner concurrency, and background idempotency. `npm run typecheck:web` passed for OhMyPPT. The OhMyPPT Vite build and main Vue build both completed with `--emptyOutDir=false`; only the existing large-chunk warnings remained.
+
+Production evidence on 2026-08-26: backed up and deployed `backend/app.py`, `backend/portable_server.py`, the main frontend dist and the OhMyPPT H5 dist without deleting production files. The main backend compiled, restarted and remained active; `/api/health`, `/ppt-api/health` and `/api/ppt-h5/health` all returned HTTP 200. Authenticated PPT history returned 18 persisted tasks; the newest completed task retained its session ID, PPT payload and route. The deployed OhMyPPT session page rendered all 18 server tasks, including completed 6/6 page counts and historical failure details, without console errors. At 390 x 844 it had no horizontal overflow; the personalized-resource page also had no horizontal overflow and kept only the `个性化资源` and `历史资源` heading levels at mobile and 1912 px desktop widths.
+
 Acceptance criteria for this batch:
 
 - Image uploads are sent to the configured Bailian OpenAI-compatible endpoint with `qwen3-vl-plus`; audio uploads use the Bailian native multimodal endpoint with `qwen3-omni-flash`; both are then handed to Spark as grounded evidence text.

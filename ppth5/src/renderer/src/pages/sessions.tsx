@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/Dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/Tooltip'
-import { FileArchive, FileText, FileUp, FolderOpen, LayoutTemplate, MessageSquare, MessagesSquare, Pencil, Sparkles, Trash2, X, type LucideIcon } from 'lucide-react'
+import { Cloud, FileArchive, FileText, FileUp, FolderOpen, LayoutTemplate, LoaderCircle, MessageSquare, MessagesSquare, Pencil, RefreshCw, Sparkles, Trash2, X, type LucideIcon } from 'lucide-react'
 import { type Session, useSessionStore, useTemplateStore } from '../store'
 import { useToastStore } from '../store'
 import { ipc, type GenerateRunStateSnapshot } from '../lib/ipc'
@@ -19,6 +19,70 @@ dayjs.extend(duration)
 
 type ActiveGenerateRun = GenerateRunStateSnapshot & {
   status: 'queued' | 'running'
+}
+
+type PlatformPptTask = {
+  taskId: string
+  title?: string
+  prompt?: string
+  status: 'queued' | 'running' | 'complete' | 'failed' | string
+  route?: string
+  result?: Record<string, unknown>
+  error?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+type PlatformPptTaskView = {
+  taskId: string
+  title: string
+  status: string
+  statusText: string
+  statusClassName: string
+  progress: number
+  pageCount: number
+  generatedCount: number
+  route: string
+  error: string
+  updatedAt: string
+}
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+
+const clampTaskProgress = (value: unknown): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? Math.max(0, Math.min(100, Math.round(parsed))) : 0
+}
+
+const platformTaskView = (task: PlatformPptTask): PlatformPptTaskView => {
+  const result = asRecord(task.result)
+  const ppt = asRecord(result.ppt)
+  const pages = Array.isArray(ppt.pages) ? ppt.pages : []
+  const status = String(task.status || 'queued').toLowerCase()
+  const progress = status === 'complete' ? 100 : clampTaskProgress(ppt.progress ?? result.progress)
+  const pageCount = Math.max(1, Number(ppt.pageCount || result.pageCount || pages.length || 6))
+  const statusMeta = status === 'complete'
+    ? { text: '已完成', className: 'border-[#bad8b7] bg-[#eef9ec] text-[#4a7a46]' }
+    : status === 'failed'
+      ? { text: '生成失败', className: 'border-[#d7b5ae] bg-[#f3e8e6] text-[#93564f]' }
+      : status === 'running'
+        ? { text: `生成中 ${progress}%`, className: 'border-[#b7e6d0] bg-[#eefbf4] text-[#117a51]' }
+        : { text: '排队中', className: 'border-[#d9c88c] bg-[#fff8df] text-[#886c16]' }
+  const route = String(task.route || result.route || ppt.route || '')
+  return {
+    taskId: task.taskId,
+    title: String(task.title || ppt.title || result.topic || task.prompt || '中医学习课件'),
+    status,
+    statusText: statusMeta.text,
+    statusClassName: statusMeta.className,
+    progress,
+    pageCount,
+    generatedCount: pages.length,
+    route,
+    error: String(task.error || ppt.error || result.qualityError || ''),
+    updatedAt: String(task.updatedAt || task.createdAt || '')
+  }
 }
 
 const getSourceTag = (
@@ -105,10 +169,55 @@ export function SessionsPage(): React.JSX.Element {
   const [saveTemplateTarget, setSaveTemplateTarget] = useState<Session | null>(null)
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [activeRuns, setActiveRuns] = useState<Record<string, ActiveGenerateRun>>({})
+  const [platformTasks, setPlatformTasks] = useState<PlatformPptTask[]>([])
+  const [platformLoading, setPlatformLoading] = useState(true)
+  const [platformError, setPlatformError] = useState('')
+  const [platformRefreshToken, setPlatformRefreshToken] = useState(0)
 
   useEffect(() => {
     void fetchSessions()
   }, [fetchSessions])
+
+  useEffect(() => {
+    let mounted = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    const loadPlatformTasks = async (): Promise<void> => {
+      setPlatformLoading(true)
+      try {
+        const response = await fetch('/api/personalized-resources/ppt/tasks?limit=60', {
+          credentials: 'include',
+          headers: { Accept: 'application/json' }
+        })
+        const payload = (await response.json().catch(() => ({}))) as {
+          code?: number
+          msg?: string
+          data?: { tasks?: PlatformPptTask[] }
+        }
+        if (!response.ok || payload.code !== 0) {
+          throw new Error(payload.msg || `HTTP ${response.status}`)
+        }
+        if (!mounted) return
+        const tasks = Array.isArray(payload.data?.tasks) ? payload.data.tasks : []
+        setPlatformTasks(tasks)
+        setPlatformError('')
+        const hasActiveTask = tasks.some((task) => task.status === 'queued' || task.status === 'running')
+        timer = setTimeout(() => void loadPlatformTasks(), hasActiveTask ? 2500 : 12000)
+      } catch (err) {
+        if (!mounted) return
+        setPlatformError(err instanceof Error ? err.message : '历史记录加载失败')
+        timer = setTimeout(() => void loadPlatformTasks(), 12000)
+      } finally {
+        if (mounted) setPlatformLoading(false)
+      }
+    }
+
+    void loadPlatformTasks()
+    return () => {
+      mounted = false
+      if (timer) clearTimeout(timer)
+    }
+  }, [platformRefreshToken])
 
   useEffect(() => {
     let mounted = true
@@ -186,6 +295,14 @@ export function SessionsPage(): React.JSX.Element {
   }, [fetchSessions])
 
   const sortedSessions = sessions
+  const platformTaskViews = platformTasks.map(platformTaskView)
+
+  const openPlatformTask = (task: PlatformPptTaskView): void => {
+    if (!task.route.startsWith('/')) return
+    const url = new URL(task.route, window.location.origin)
+    if (!url.searchParams.has('xzTask')) url.searchParams.set('xzTask', task.taskId)
+    window.location.assign(`${url.pathname}${url.search}${url.hash}`)
+  }
   const canEnterEditor = (session: {
     id: string
     status: string
@@ -341,6 +458,83 @@ export function SessionsPage(): React.JSX.Element {
             </Button>
           </div>
         </div>
+      </div>
+
+      <section className="mb-6" aria-labelledby="platform-ppt-history-title">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Cloud className="h-5 w-5 shrink-0 text-[#189072]" />
+            <h2 id="platform-ppt-history-title" className="truncate text-base font-semibold text-[#3e4a32]">
+              学习路径与岐小智课件
+            </h2>
+            <span className="rounded-md bg-[#e8f8f3] px-2 py-0.5 text-xs font-semibold text-[#1f6f5f]">
+              {platformTaskViews.length}
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            title="刷新后台课件"
+            aria-label="刷新后台课件"
+            disabled={platformLoading}
+            onClick={() => setPlatformRefreshToken((value) => value + 1)}
+          >
+            <RefreshCw className={`h-4 w-4 ${platformLoading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {platformLoading && platformTaskViews.length === 0 ? (
+          <div className="flex min-h-28 items-center justify-center rounded-lg border border-[#dce8e2] bg-white/75 text-sm text-muted-foreground">
+            <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
+            正在同步后台课件
+          </div>
+        ) : platformError && platformTaskViews.length === 0 ? (
+          <div className="rounded-lg border border-[#e1c2bc] bg-[#fff5f3] px-4 py-5 text-sm text-[#93564f]">
+            后台课件暂时无法加载：{platformError}
+          </div>
+        ) : platformTaskViews.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-[#cbd8d2] bg-white/60 px-4 py-8 text-center text-sm text-muted-foreground">
+            暂无后台课件
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {platformTaskViews.map((task) => (
+              <Card
+                key={task.taskId}
+                className={`transition-shadow ${task.route.startsWith('/') ? 'cursor-pointer hover:shadow-[0_12px_26px_rgba(45,86,72,0.12)]' : ''}`}
+                onClick={() => openPlatformTask(task)}
+              >
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#e8f8f3] text-[#189072]">
+                    <FileText className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm font-semibold text-[#34423a]">{task.title}</strong>
+                    <small className="mt-1 block text-xs text-muted-foreground">
+                      {task.updatedAt ? dayjs(task.updatedAt).format('YYYY/MM/DD HH:mm') : '时间待同步'}
+                      {task.error ? ` · ${task.error}` : ''}
+                    </small>
+                  </span>
+                  <span className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
+                    <span className={`rounded-md border px-2 py-1 font-semibold ${task.statusClassName}`}>
+                      {task.statusText}
+                    </span>
+                    <span className="rounded-md border border-[#c8d6ba] bg-[#f0faf5] px-2 py-1 text-[#5d6b4d]">
+                      {task.generatedCount}/{task.pageCount} 页
+                    </span>
+                  </span>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="mb-3 flex items-center gap-2">
+        <h2 className="text-base font-semibold text-[#3e4a32]">工作台本地会话</h2>
+        <span className="rounded-md bg-[#f0f4f2] px-2 py-0.5 text-xs font-semibold text-[#65756d]">
+          {sessions.length}
+        </span>
       </div>
 
       {sessions.length === 0 ? (

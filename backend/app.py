@@ -588,6 +588,12 @@ try:
 except (TypeError, ValueError):
     _resource_agent_workers = 10
 RESOURCE_AGENT_EXECUTOR = ThreadPoolExecutor(max_workers=_resource_agent_workers, thread_name_prefix="resource-agent")
+# PPT requests are long and internally batch pages, so serialize them by default.
+try:
+    _ppt_resource_workers = max(1, min(2, int(os.getenv("PPT_RESOURCE_MAX_WORKERS", "1"))))
+except (TypeError, ValueError):
+    _ppt_resource_workers = 1
+PPT_RESOURCE_EXECUTOR = ThreadPoolExecutor(max_workers=_ppt_resource_workers, thread_name_prefix="ppt-resource")
 # Long-running video work is isolated from ordinary resource tasks.
 VIDEO_RESOURCE_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="video-resource")
 try:
@@ -619,6 +625,8 @@ LEARNING_PATH_WEEK_PREPARATION_EXECUTOR = ThreadPoolExecutor(
     max_workers=LEARNING_PATH_WEEK_PREPARATION_MAX_WORKERS,
     thread_name_prefix="learning-path-week-preparation",
 )
+_LEARNING_PATH_RESOURCE_RECOVERY_LOCK = threading.Lock()
+_learning_path_resource_recovery_started = False
 try:
     _profile_portrait_workers = max(1, min(3, int(os.getenv("PROFILE_PORTRAIT_MAX_WORKERS", "2"))))
 except (TypeError, ValueError):
@@ -9288,7 +9296,11 @@ def xiaozhi_create_resource_agent_task(
         task_title,
         {"taskId": task_id, "taskType": normalized_type, "topic": task_topic, "params": params},
     )
-    executor = VIDEO_RESOURCE_EXECUTOR if normalized_type == "generated_video" else RESOURCE_AGENT_EXECUTOR
+    executor = (
+        VIDEO_RESOURCE_EXECUTOR
+        if normalized_type == "generated_video"
+        else (PPT_RESOURCE_EXECUTOR if normalized_type == "ppt" else RESOURCE_AGENT_EXECUTOR)
+    )
     if normalized_type == "generated_video":
         initial_result["message"] = "AI 视频提示词已保存；打开工作台并确认参数后才会调用视频模型。"
         initial_result["currentStage"] = "waiting_for_user"
@@ -10583,7 +10595,7 @@ def _prepare_learning_path_week_resources_in_background(user_id: int, stage_id: 
         )
 
 
-def _queue_learning_path_week_resource_preparation(user_id: int, config: dict) -> None:
+def _queue_learning_path_week_resource_preparation(user_id: int, config: dict) -> int:
     """Start non-video weekly resources as soon as their path tasks are saved."""
     stages = config.get("stages") if isinstance(config.get("stages"), dict) else {}
     weeks = config.get("weeks") if isinstance(config.get("weeks"), list) else []
@@ -10603,6 +10615,75 @@ def _queue_learning_path_week_resource_preparation(user_id: int, config: dict) -
             int(user_id),
             stage_id,
         )
+    return len(dict.fromkeys(stage_ids))
+
+
+def _recover_learning_path_resource_generation_after_restart() -> dict:
+    """Fail interrupted workers, then requeue persisted active learning paths."""
+    with auth_db() as conn:
+        recovered_tasks = recover_interrupted_xiaozhi_tasks(conn)
+        user_rows = conn.execute(
+            """
+            SELECT DISTINCT user_id FROM user_learning_path_configs
+            UNION
+            SELECT DISTINCT user_id FROM learning_path_profile_configs
+            ORDER BY user_id
+            """
+        ).fetchall()
+
+    queued_users = 0
+    queued_stages = 0
+    for row in user_rows:
+        user_id = int(row["user_id"])
+        try:
+            with auth_db() as conn:
+                config = read_learning_path_config(conn, user_id)
+            if not isinstance(config, dict) or learning_path_config_is_degraded(config):
+                continue
+            submitted = _queue_learning_path_week_resource_preparation(user_id, config)
+            if submitted:
+                queued_users += 1
+                queued_stages += submitted
+        except Exception:
+            app.logger.exception(
+                "learning path startup resource recovery failed for user=%s",
+                user_id,
+            )
+
+    result = {
+        "recoveredTasks": recovered_tasks,
+        "queuedUsers": queued_users,
+        "queuedStages": queued_stages,
+    }
+    if recovered_tasks or queued_stages:
+        app.logger.warning(
+            "Learning-path resource recovery finished: interrupted=%s users=%s stages=%s",
+            recovered_tasks,
+            queued_users,
+            queued_stages,
+        )
+    return result
+
+
+def start_learning_path_resource_recovery() -> bool:
+    """Start persisted learning-path resource recovery once per backend process."""
+    global _learning_path_resource_recovery_started
+    with _LEARNING_PATH_RESOURCE_RECOVERY_LOCK:
+        if _learning_path_resource_recovery_started:
+            return False
+        try:
+            _recover_learning_path_resource_generation_after_restart()
+        except Exception:
+            app.logger.exception("learning path startup resource recovery failed")
+            return False
+        _learning_path_resource_recovery_started = True
+    return True
+
+
+@app.before_request
+def _ensure_learning_path_resource_recovery_started() -> None:
+    if not app.config.get("TESTING"):
+        start_learning_path_resource_recovery()
 
 
 def prepare_learning_path_stage_resources_for_user(
@@ -13385,9 +13466,100 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
                 error=str(exc) or "AI 视频生成失败",
             )
         return
+    with auth_db() as conn:
+        task_row = conn.execute(
+            "SELECT result_json FROM xiaozhi_tasks WHERE task_id = ? LIMIT 1",
+            (task_id,),
+        ).fetchone()
+    task_result_state = json_loads_safe(task_row["result_json"], {}) if task_row else {}
+    if not isinstance(task_result_state, dict):
+        task_result_state = {}
     logs: list[dict] = []
     agent_runs: dict[str, dict] = {}
+
+    def merge_ppt_task_state(
+        result: dict,
+        *,
+        status: str,
+        stage: str,
+        message: str,
+        progress: int,
+        error_message: str = "",
+    ) -> dict:
+        if task_type != "ppt":
+            return result
+        merged = {**task_result_state, **result}
+        persisted_params = task_result_state.get("params") if isinstance(task_result_state.get("params"), dict) else {}
+        merged_params = {**persisted_params, **params}
+        try:
+            page_count = max(
+                1,
+                min(
+                    20,
+                    int(
+                        merged.get("pageCount")
+                        or merged_params.get("pageCount")
+                        or merged_params.get("pages")
+                        or merged_params.get("page_count")
+                        or 6
+                    ),
+                ),
+            )
+        except (TypeError, ValueError):
+            page_count = 6
+        current_ppt = task_result_state.get("ppt") if isinstance(task_result_state.get("ppt"), dict) else {}
+        result_ppt = result.get("ppt") if isinstance(result.get("ppt"), dict) else {}
+        session_id = str(
+            result_ppt.get("sessionId")
+            or current_ppt.get("sessionId")
+            or merged.get("sessionId")
+            or merged.get("ohmyPptSessionId")
+            or merged_params.get("sessionId")
+            or ""
+        ).strip()
+        route = str(
+            merged.get("route")
+            or current_ppt.get("route")
+            or _resource_agent_route(
+                "ppt",
+                topic or "中医学习课件",
+                {**merged_params, "sessionId": session_id, "pageCount": page_count},
+            )
+        )
+        route = xiaozhi_route_with_task(route, task_id)
+        merged_ppt = {
+            **current_ppt,
+            **result_ppt,
+            "status": status,
+            "sessionId": session_id,
+            "title": str(result_ppt.get("title") or current_ppt.get("title") or topic),
+            "topic": str(result_ppt.get("topic") or current_ppt.get("topic") or topic),
+            "pageCount": page_count,
+            "route": route,
+            "progress": max(0, min(100, int(progress))),
+            "currentStage": stage,
+            "message": message,
+            "error": error_message,
+        }
+        merged.update(
+            {
+                "message": message,
+                "topic": topic,
+                "resourceType": "ppt",
+                "params": merged_params,
+                "sessionId": session_id,
+                "ohmyPptSessionId": session_id,
+                "pageCount": page_count,
+                "route": route,
+                "progress": max(0, min(100, int(progress))),
+                "currentStage": stage,
+                "ppt": merged_ppt,
+            }
+        )
+        return merged
+
     def push_progress(stage: str, message: str, progress: int, event: dict | None = None):
+        nonlocal task_result_state
         log_entry = {"time": now_iso(), "stage": stage, "message": message, "progress": progress}
         if not logs or logs[-1].get("stage") != stage or logs[-1].get("message") != message:
             logs.append(log_entry)
@@ -13405,19 +13577,30 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
                 "detail": message,
                 "progress": max(progress, int(agent_runs.get(agent_id, {}).get("progress") or 0)),
             }
+        progress_value = max(0, min(100, int(progress)))
+        progress_result = {
+            **task_result_state,
+            "message": message,
+            "topic": topic,
+            "progress": progress_value,
+            "currentStage": stage,
+            "logs": logs[-40:],
+            "agentRuns": list(agent_runs.values()),
+            "architecture": XIAOZHI_ARCHITECTURE,
+            "rootAgent": XIAOZHI_MASTER_AGENT_ID,
+        }
+        progress_result = merge_ppt_task_state(
+            progress_result,
+            status="running",
+            stage=stage,
+            message=message,
+            progress=progress_value,
+        )
+        task_result_state = progress_result
         xiaozhi_update_task(
             task_id,
             status="running",
-            result_json={
-                "message": message,
-                "topic": topic,
-                "progress": max(0, min(100, int(progress))),
-                "currentStage": stage,
-                "logs": logs[-40:],
-                "agentRuns": list(agent_runs.values()),
-                "architecture": XIAOZHI_ARCHITECTURE,
-                "rootAgent": XIAOZHI_MASTER_AGENT_ID,
-            },
+            result_json=progress_result,
         )
 
     try:
@@ -13488,6 +13671,14 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
             result["currentStage"] = "quality_review_failed"
             result["qualityError"] = failure_message
             result.pop(XIAOZHI_LEARNING_PATH_CANDIDATE_FIELD, None)
+            result = merge_ppt_task_state(
+                result,
+                status="failed",
+                stage="quality_review_failed",
+                message=failure_message,
+                progress=100,
+                error_message=failure_message,
+            )
             xiaozhi_update_task(
                 task_id,
                 status="failed",
@@ -13497,6 +13688,13 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
             )
             return
         _persist_xiaozhi_reviewed_learning_path_candidate(task_type, int(user_id), result)
+        result = merge_ppt_task_state(
+            result,
+            status="complete",
+            stage="complete",
+            message=str(result.get("message") or "PPT 生成已完成"),
+            progress=100,
+        )
         xiaozhi_update_task(task_id, status="complete", result_json=result, route=xiaozhi_route_with_task(route, task_id))
     except SkillReviewError as exc:
         result = dict(exc.result)
@@ -13518,6 +13716,14 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
         ] or logs[-40:]
         result["agentRuns"] = trace.get("agentRuns") or list(agent_runs.values())
         route = result.get("route") or _resource_agent_route(task_type, topic, params)
+        result = merge_ppt_task_state(
+            result,
+            status="failed",
+            stage="quality_review_failed",
+            message=str(exc),
+            progress=100,
+            error_message=str(exc),
+        )
         xiaozhi_update_task(
             task_id,
             status="failed",
@@ -13536,7 +13742,18 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
             "architecture": XIAOZHI_ARCHITECTURE,
             "rootAgent": XIAOZHI_MASTER_AGENT_ID,
         }
-        xiaozhi_update_task(task_id, status="failed", result_json=error_result, error=str(exc))
+        error_result = merge_ppt_task_state(
+            error_result,
+            status="failed",
+            stage="error",
+            message=str(exc) or "PPT 生成失败",
+            progress=100,
+            error_message=str(exc),
+        )
+        update_fields = {"status": "failed", "result_json": error_result, "error": str(exc)}
+        if task_type == "ppt" and str(error_result.get("route") or ""):
+            update_fields["route"] = str(error_result["route"])
+        xiaozhi_update_task(task_id, **update_fields)
 
 
 def xiaozhi_latest_task_for_type(tasks: list[dict], task_type: str) -> dict | None:
@@ -15695,9 +15912,6 @@ def disabled_api(_path: str):
 
 
 if __name__ == "__main__":
-    with auth_db() as conn:
-        recovered_tasks = recover_interrupted_xiaozhi_tasks(conn)
-    if recovered_tasks:
-        app.logger.warning("Recovered %s interrupted XiaoZhi task(s)", recovered_tasks)
+    start_learning_path_resource_recovery()
     port = int(get_setting("PORT", "3000"))
     app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

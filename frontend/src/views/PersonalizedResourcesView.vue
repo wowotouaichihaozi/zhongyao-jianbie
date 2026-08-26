@@ -2,7 +2,6 @@
   <div class="resources-page">
     <div class="resources-header">
       <h1>个性化资源</h1>
-      <p>基于学习画像智能推荐适配当前水平的学习资料</p>
     </div>
 
     <!-- 无学习画像引导提示条 -->
@@ -22,13 +21,7 @@
     </div>
 
     <!-- 资源列表 -->
-    <section class="resource-tools-section" aria-labelledby="resource-tools-title">
-      <div class="resource-tools-head">
-        <div>
-          <h2 id="resource-tools-title">资源生成工具</h2>
-          <p>从这里进入题库、课件、导图、视频生成和视频检索工具，独立页面更专注。</p>
-        </div>
-      </div>
+    <section class="resource-tools-section" aria-label="资源生成工具">
       <div class="resource-tools-grid">
         <RouterLink
           v-for="tool in resourceTools"
@@ -754,39 +747,15 @@ function formatResourceTime(value) {
   z-index: 2;
   max-width: 1260px;
   text-align: left;
-  margin: 0 auto 24px;
+  margin: 0 auto 16px;
 }
 
 .resources-header h1 {
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 700;
   color: #173533;
-  margin: 0 0 10px;
-  line-height: 1.2;
-}
-
-.resources-header h1 {
-  font-size: 0;
-}
-
-.resources-header h1::before {
-  content: "个性化资源";
-  font-size: 32px;
-}
-
-.resources-header p {
-  font-size: 15px;
-  color: #64748b;
   margin: 0;
-}
-
-.resources-header p {
-  font-size: 0;
-}
-
-.resources-header p::before {
-  content: "基于学习画像智能推荐，适配当前水平的学习资料";
-  font-size: 15px;
+  line-height: 1.2;
 }
 
 .no-profile-banner {
@@ -839,48 +808,6 @@ function formatResourceTime(value) {
   border-radius: 8px;
   background: #ffffff;
   box-shadow: none;
-}
-
-.resource-tools-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-  padding-left: 0;
-  border-left: 0;
-  border-radius: 0;
-}
-
-.resource-tools-head h2 {
-  margin: 0 0 6px;
-  color: #1f3433;
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.resource-tools-head h2 {
-  font-size: 0;
-}
-
-.resource-tools-head h2::before {
-  content: "资源生成工具";
-  font-size: 24px;
-}
-
-.resource-tools-head p {
-  margin: 0;
-  color: #6f8581;
-  font-size: 14px;
-}
-
-.resource-tools-head p {
-  font-size: 0;
-}
-
-.resource-tools-head p::before {
-  content: "生成题库、PPT、导图并连接视频与实验";
-  font-size: 14px;
 }
 
 .resource-tools-grid {

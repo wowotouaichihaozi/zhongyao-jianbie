@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from waitress import serve
 
-from app import app, auth_db, recover_interrupted_xiaozhi_tasks
+from app import app, start_learning_path_resource_recovery
 
 
 def _bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -24,10 +24,7 @@ def _bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
 
 
 def main() -> None:
-    with auth_db() as conn:
-        recovered_tasks = recover_interrupted_xiaozhi_tasks(conn)
-    if recovered_tasks:
-        app.logger.warning("Recovered %s interrupted XiaoZhi task(s)", recovered_tasks)
+    start_learning_path_resource_recovery()
 
     host = os.getenv("PORTABLE_HOST", "127.0.0.1").strip() or "127.0.0.1"
     port = _bounded_int("PORT", 3000, 1, 65535)

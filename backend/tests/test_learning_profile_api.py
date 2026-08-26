@@ -3184,6 +3184,197 @@ class LearningProfileApiTests(unittest.TestCase):
         self.assertFalse(terminal["needsPreparationRetry"])
         self.assertEqual(terminal["stage"]["nodes"][0]["resourceTask"]["taskId"], retry_task["taskId"])
 
+    def test_learning_path_ppt_task_starts_background_generation_immediately(self) -> None:
+        task_id = ""
+        with patch.object(app_module.PPT_RESOURCE_EXECUTOR, "submit", return_value=None) as submit:
+            task = app_module.xiaozhi_create_resource_agent_task(
+                101,
+                "ppt",
+                "八纲辨证入门",
+                {
+                    "source": "learning-path",
+                    "stageId": "week-tcm-ppt-background",
+                    "nodeId": "03",
+                    "cacheKey": "week-tcm-ppt-background-03",
+                    "pageCount": 6,
+                },
+                title="第一周 · 八纲辨证入门课件",
+                prompt="生成六页八纲辨证入门课件",
+            )
+            task_id = task["taskId"]
+
+        def cleanup_task() -> None:
+            with app_module.auth_db() as conn:
+                conn.execute(
+                    "DELETE FROM xiaozhi_events WHERE user_id = ? AND payload_json LIKE ?",
+                    (101, f'%"taskId": "{task_id}"%'),
+                )
+                conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
+
+        self.addCleanup(cleanup_task)
+
+        self.assertEqual(task["status"], "queued")
+        self.assertEqual(task["result"]["currentStage"], "queued")
+        self.assertEqual(task["result"]["ppt"]["status"], "queued")
+        self.assertTrue(task["result"]["ppt"]["sessionId"])
+        submit.assert_called_once()
+        callback, submitted_task_id, user_id, task_type, topic, params = submit.call_args.args
+        self.assertIs(callback, app_module.xiaozhi_run_resource_task)
+        self.assertEqual(submitted_task_id, task_id)
+        self.assertEqual(user_id, 101)
+        self.assertEqual(task_type, "ppt")
+        self.assertEqual(topic, "八纲辨证入门")
+        self.assertEqual(params["source"], "learning-path")
+
+        with app_module.auth_db() as conn:
+            stored = conn.execute(
+                "SELECT status, result_json FROM xiaozhi_tasks WHERE task_id = ?",
+                (task_id,),
+            ).fetchone()
+        self.assertEqual(stored["status"], "queued")
+        self.assertEqual(json.loads(stored["result_json"])["params"]["source"], "learning-path")
+
+    def test_ppt_progress_and_failure_preserve_persisted_session_state(self) -> None:
+        task_id = ""
+        with patch.object(app_module.PPT_RESOURCE_EXECUTOR, "submit", return_value=None):
+            task = app_module.xiaozhi_create_resource_agent_task(
+                101,
+                "ppt",
+                "四诊合参基础",
+                {
+                    "source": "learning-path",
+                    "stageId": "week-ppt-state",
+                    "nodeId": "04",
+                    "cacheKey": "week-ppt-state-04",
+                    "pageCount": 6,
+                },
+            )
+            task_id = task["taskId"]
+
+        def cleanup_task() -> None:
+            with app_module.auth_db() as conn:
+                conn.execute(
+                    "DELETE FROM xiaozhi_events WHERE user_id = ? AND payload_json LIKE ?",
+                    (101, f'%"taskId": "{task_id}"%'),
+                )
+                conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
+
+        self.addCleanup(cleanup_task)
+        captured = {}
+
+        def fail_after_progress(*_args, **kwargs):
+            kwargs["on_event"](
+                {
+                    "stage": "ohmyppt_request",
+                    "message": "OhMyPPT 正在生成 6 页课件",
+                    "progress": 53,
+                    "pageCount": 6,
+                }
+            )
+            with app_module.auth_db() as conn:
+                row = conn.execute(
+                    "SELECT status, result_json FROM xiaozhi_tasks WHERE task_id = ?",
+                    (task_id,),
+                ).fetchone()
+            captured["status"] = row["status"]
+            captured["result"] = json.loads(row["result_json"])
+            raise RuntimeError("PPT provider temporarily unavailable")
+
+        with (
+            patch.object(app_module, "xiaozhi_latest_context", return_value={}),
+            patch.object(app_module, "xiaozhi_run_orchestrated", side_effect=fail_after_progress),
+        ):
+            app_module._xiaozhi_run_resource_task(
+                task_id,
+                101,
+                "ppt",
+                "四诊合参基础",
+                task["result"]["params"],
+            )
+
+        progress_result = captured["result"]
+        self.assertEqual(captured["status"], "running")
+        self.assertEqual(progress_result["currentStage"], "ohmyppt_request")
+        self.assertEqual(progress_result["pageCount"], 6)
+        self.assertEqual(progress_result["params"]["source"], "learning-path")
+        self.assertEqual(progress_result["ppt"]["status"], "running")
+        self.assertEqual(progress_result["ppt"]["sessionId"], task["result"]["ppt"]["sessionId"])
+        self.assertIn(f"xzTask={task_id}", progress_result["route"])
+
+        with app_module.auth_db() as conn:
+            failed_row = conn.execute(
+                "SELECT status, route, result_json, error FROM xiaozhi_tasks WHERE task_id = ?",
+                (task_id,),
+            ).fetchone()
+        failed_result = json.loads(failed_row["result_json"])
+        self.assertEqual(failed_row["status"], "failed")
+        self.assertIn("temporarily unavailable", failed_row["error"])
+        self.assertEqual(failed_result["params"]["cacheKey"], "week-ppt-state-04")
+        self.assertEqual(failed_result["ppt"]["status"], "failed")
+        self.assertEqual(failed_result["ppt"]["pageCount"], 6)
+        self.assertEqual(failed_result["ppt"]["sessionId"], task["result"]["ppt"]["sessionId"])
+        self.assertIn(f"xzTask={task_id}", failed_row["route"])
+
+    def test_startup_recovery_requeues_saved_learning_path_resources(self) -> None:
+        snapshot = self._snapshot_learning_path_storage()
+        with app_module.auth_db() as conn:
+            previous_state = app_module.profile_state_for_user(conn, 101)
+        config = app_module.default_learning_path_config()
+        config["meta"].update({"needsRegeneration": False, "generationState": "complete"})
+        config["weeks"] = [
+            {
+                "id": "week-startup-ppt-recovery",
+                "order": 1,
+                "weekLabel": "第一周",
+                "title": "辨证基础",
+                "status": "current",
+                "enabled": True,
+            }
+        ]
+        config["stages"] = {
+            "week-startup-ppt-recovery": {
+                "id": "week-startup-ppt-recovery",
+                "weekLabel": "第一周",
+                "title": "辨证基础",
+                "focus": "八纲辨证",
+                "nodes": [],
+            }
+        }
+        try:
+            with app_module.auth_db() as conn:
+                app_module.activate_profile(conn, 101, self.profile_one["id"])
+                app_module.write_learning_path_config(conn, config, 101)
+
+            queued = []
+
+            def fake_queue(user_id, saved_config):
+                queued.append((user_id, saved_config))
+                return 1 if user_id == 101 else 0
+
+            with (
+                patch.object(app_module, "recover_interrupted_xiaozhi_tasks", return_value=2),
+                patch.object(
+                    app_module,
+                    "_queue_learning_path_week_resource_preparation",
+                    side_effect=fake_queue,
+                ),
+            ):
+                result = app_module._recover_learning_path_resource_generation_after_restart()
+
+            queued_for_user = [saved for user_id, saved in queued if user_id == 101]
+            self.assertEqual(result["recoveredTasks"], 2)
+            self.assertEqual(result["queuedUsers"], 1)
+            self.assertEqual(result["queuedStages"], 1)
+            self.assertEqual(queued_for_user[0]["weeks"][0]["id"], "week-startup-ppt-recovery")
+        finally:
+            self._restore_learning_path_storage(snapshot)
+            with app_module.auth_db() as conn:
+                active_report_id = previous_state.get("activeReportId")
+                if active_report_id:
+                    app_module.activate_profile(conn, 101, int(active_report_id))
+                else:
+                    app_module.reset_profile_state(conn, 101)
+
     def test_stage_resource_preparation_is_background_and_idempotent(self) -> None:
         with app_module.auth_db() as conn:
             app_module.activate_profile(conn, 101, self.profile_one["id"])
@@ -3697,6 +3888,7 @@ class LearningProfileApiTests(unittest.TestCase):
             with (
                 patch.object(app_module, "xiaozhi_run_orchestrated", side_effect=fake_orchestrated) as orchestrate,
                 patch.object(app_module.RESOURCE_AGENT_EXECUTOR, "submit", return_value=None) as submit,
+                patch.object(app_module.PPT_RESOURCE_EXECUTOR, "submit", return_value=None) as ppt_submit,
                 patch.object(app_module.VIDEO_RESOURCE_EXECUTOR, "submit", return_value=None) as video_submit,
                 patch.object(app_module, "LEARNING_PATH_RESOURCE_PLANNER_MAX_WORKERS", 3),
             ):
@@ -3710,7 +3902,8 @@ class LearningProfileApiTests(unittest.TestCase):
             created_task_ids = [task["taskId"] for task in result["tasks"]]
             cache_keys = [str(node.get("cacheKey") or "") for node in result["stage"]["nodes"]]
             self.assertEqual(orchestrate.call_count, 6)
-            self.assertEqual(submit.call_count, 5)
+            self.assertEqual(submit.call_count, 4)
+            self.assertEqual(ppt_submit.call_count, 1)
             self.assertEqual(video_submit.call_count, 0)
             self.assertEqual(len(created_task_ids), 6)
             self.assertEqual(result["preparation"]["status"], "complete")
