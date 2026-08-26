@@ -218,7 +218,7 @@ Acceptance criteria for this batch:
 - [x] Reject corrupted knowledge-point labels before they can enter effect-assessment heatmaps or dynamic learning-path adjustments.
 - [x] Repair the two affected production tasks and their resource metadata without regenerating the learner's existing path.
 
-### 岐黄智境中医领域文案全量迁移（已完成）
+### 中药鉴别中医领域文案全量迁移（已完成）
 
 - [x] 将学习画像、个性化路径、资源生成、数字人访谈、测评与反馈中的活动提示词统一迁移为中医学习语境。
 - [x] 同步 Web、移动端和微信小程序的默认示例、空状态与引导文案，保留现有功能入口和交互流程。
@@ -232,9 +232,9 @@ Acceptance criteria for this batch:
 
 ## Completed changes
 
-### 岐黄智境中医主题换皮（已完成）
+### 中药鉴别中医主题换皮（已完成）
 
-- [x] Web、移动端和微信小程序品牌统一为“岐黄智境”，总控助手统一为“岐小智”，更新 Logo、登录主视觉、主题色和中医学习示例文案。
+- [x] Web、移动端和微信小程序品牌统一为“中药鉴别”，总控助手统一为“岐小智”，更新 Logo、登录主视觉、主题色和中医学习示例文案。
 - [x] 从主导航、前端路由、个性化资源入口和学习路径展示中下线 AI 编程与单片机模拟实验；保留旧实现与历史数据兼容。
 - [x] 将默认首周展示内容换为中医基础、八纲辨证、方剂配伍、中药性味归经和医案辨析。
 - [x] 主前端与移动端使用非清理模式构建通过；小程序配置 JSON 与新增静态资源路径检查通过。

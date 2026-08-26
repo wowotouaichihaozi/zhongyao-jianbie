@@ -3,9 +3,9 @@
     <div class="auth-scroll-progress" :style="{ transform: `scaleX(${scrollProgress})` }" aria-hidden="true"></div>
 
     <header class="auth-landing-nav">
-      <a class="auth-landing-brand" href="#top" aria-label="岐黄智境首页">
+      <a class="auth-landing-brand" href="#top" aria-label="中药鉴别首页">
         <img src="/qihuang-zhijing-mark-512.png" alt="" />
-        <span><strong>岐黄智境</strong><small>中医智慧学习平台</small></span>
+        <span><strong>中药鉴别</strong><small>中医智慧学习平台</small></span>
       </a>
 
       <nav class="auth-landing-links" aria-label="产品能力">
@@ -30,7 +30,7 @@
           Agent Harness 架构 · 22 个已实现角色
         </span>
         <h1>
-          <strong>岐黄智境</strong>
+          <strong>中药鉴别</strong>
           <span>让每一步中医学习都有依据</span>
         </h1>
         <p>从学习画像到周路径、经典研读、方药辨析与效果评估，让智能体围绕真实学习证据持续编排。</p>
@@ -245,7 +245,7 @@
       <div class="auth-innovation-grid auth-stagger">
         <article style="--reveal-delay: 0ms">
           <div class="innovation-preview knowledge-preview">
-            <img src="/auth-knowledge-network-focus.jpg" alt="岐黄智境知识网络页面" loading="lazy" decoding="async" />
+            <img src="/auth-knowledge-network-focus.jpg" alt="中药鉴别知识网络页面" loading="lazy" decoding="async" />
             <span class="knowledge-preview-badge">真实知识网络</span>
           </div>
           <div class="innovation-copy">
@@ -399,7 +399,7 @@
 
     <footer class="auth-landing-footer">
       <div class="auth-footer-brand">
-        <img src="/qihuang-zhijing-mark-512.png" alt="岐黄智境" />
+        <img src="/qihuang-zhijing-mark-512.png" alt="中药鉴别" />
         <span>中医智慧学习智能体平台</span>
       </div>
       <div class="auth-open-source" aria-label="开源项目与框架">
@@ -478,7 +478,7 @@
         <div class="mx-auto mb-1.5 flex items-center justify-center gap-3">
           <img class="h-12 w-12 object-contain" src="/qihuang-zhijing-mark-512.png" alt="" />
           <div class="text-left">
-            <h1 class="text-[28px] font-extrabold leading-tight tracking-[0] text-brand-600">岐黄智境</h1>
+            <h1 class="text-[28px] font-extrabold leading-tight tracking-[0] text-brand-600">中药鉴别</h1>
             <p class="mt-0.5 text-xs font-medium tracking-[0.12em] text-slate-400">传承经典 · 智启新知</p>
           </div>
         </div>

@@ -703,7 +703,7 @@ def node_llm_agent_decide(state: WorkflowState) -> WorkflowState:
     latest = state.get("latest_user_input") or ""
     previous_assistant = previous_assistant_text_for_latest_user(state.get("messages") or [])
     missing = [dimension for dimension in PROFILE_DIMENSIONS if not is_filled((state.get("profile") or {}).get(dimension))]
-    system = "你是嵌智学航的学习画像对话智能体。必须只返回一个 JSON 对象，不要 Markdown。"
+    system = "你是中药鉴别的学习画像对话智能体。必须只返回一个 JSON 对象，不要 Markdown。"
     prompt = f"""
 你需要基于中医学习对话完成两件事：
 1. 理解用户最新回复，抽取本轮可以作为学习画像证据的信息。

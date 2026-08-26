@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover
 
 
 PLATFORM_PPT_STYLE_PROMPT = """
-Highest-priority platform style: make every slide look like the 嵌智学航 platform.
+Highest-priority platform style: make every slide look like the 中药鉴别 platform.
 - Overall tone: clean, bright, professional education-tech UI. Use pure white or very pale gray/mint backgrounds, generous whitespace, and calm information density.
 - Palette: primary text #1F2937 / #172033, secondary text #64748B, main brand green #21B978, light green #58D89C, soft mint surfaces #F7FFFC / #EEF9F4. Use neutral gray as the base and green only for titles, section markers, key numbers, icons, progress bars, and active states.
 - Layout: modular full-slide sections, left-aligned or centered content, clear hierarchy through size/weight/spacing. Prefer white cards with subtle mint borders, thin dividers, compact dashboards, learning-platform panels, timelines, metric blocks, and outline icons.

@@ -1,5 +1,5 @@
 <view class="page">
-  <view class="page-head mini-head"><view><text class="workspace-tag">岐黄智境 · 微信学习台</text><view class="page-title">{{greeting}}，{{displayName}}</view><view class="page-subtitle">{{profile ? '画像：' + (profile.profileName || '学习画像') + ' v' + (profile.version || 1) : '先完成画像采集，让经典、方药与辨证路径真正匹配你。'}}</view></view><text class="today">{{todayLabel}}</text></view>
+  <view class="page-head mini-head"><view><text class="workspace-tag">中药鉴别 · 微信学习台</text><view class="page-title">{{greeting}}，{{displayName}}</view><view class="page-subtitle">{{profile ? '画像：' + (profile.profileName || '学习画像') + ' v' + (profile.version || 1) : '先完成画像采集，让经典、方药与辨证路径真正匹配你。'}}</view></view><text class="today">{{todayLabel}}</text></view>
   <view class="loading" wx:if="{{loading}}">正在同步学习数据...</view>
   <view class="error" wx:elif="{{error}}">{{error}}</view>
   <block wx:else>

@@ -122,7 +122,7 @@ onMounted(loadData);
     <header class="dashboard-hero">
       <div>
         <p class="eyebrow">ADMIN VISUAL CENTER</p>
-        <h1>嵌智学航数据大屏</h1>
+        <h1>中药鉴别数据大屏</h1>
         <p>集中查看区域学习热度、用户画像沉淀、资源生成任务和智能体运行状态。</p>
       </div>
       <NButton type="primary" round secondary @click="loadData">

@@ -1,8 +1,8 @@
 <template>
   <header class="topnavbar">
-    <RouterLink class="brand" to="/login" aria-label="返回岐黄智境登录页">
+    <RouterLink class="brand" to="/login" aria-label="返回中药鉴别登录页">
       <img src="/qihuang-zhijing-mark-512.png" alt="" />
-      <span class="brand-copy"><strong>岐黄智境</strong><small>中医智慧学习平台</small></span>
+      <span class="brand-copy"><strong>中药鉴别</strong><small>中医智慧学习平台</small></span>
     </RouterLink>
 
     <nav class="nav-links" aria-label="主功能导航">

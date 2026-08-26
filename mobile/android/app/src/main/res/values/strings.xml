@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">岐黄智境</string>
-    <string name="title_activity_main">岐黄智境</string>
+    <string name="app_name">中药鉴别</string>
+    <string name="title_activity_main">中药鉴别</string>
     <string name="package_name">xyz.lzhan.qianzhi</string>
     <string name="custom_url_scheme">xyz.lzhan.qianzhi</string>
 </resources>

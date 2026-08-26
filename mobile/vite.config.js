@@ -22,8 +22,8 @@ export default defineConfig(({ mode }) => {
         registerType: 'prompt',
         includeAssets: ['app-icon.png', 'qihuang-zhijing-mark.png', 'tcm-learning-login.webp'],
         manifest: {
-          name: '岐黄智境',
-          short_name: '岐黄智境',
+          name: '中药鉴别',
+          short_name: '中药鉴别',
           description: '中医个性化学习与多智能体资源平台',
           lang: 'zh-CN',
           start_url: '/m/',

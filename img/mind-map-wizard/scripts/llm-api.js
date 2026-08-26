@@ -50,7 +50,7 @@
 				messages: [
 					{
 						role: 'system',
-						content: `以下内容来自嵌智学航本地课程知识库。生成导图时必须优先依据这些片段，关键节点使用 [KB1]、[KB2] 标注来源；资料没有支持的具体硬件参数不得编造。\n\n${knowledge.context}`
+						content: `以下内容来自中药鉴别本地课程知识库。生成导图时必须优先依据这些片段，关键节点使用 [KB1]、[KB2] 标注来源；资料没有支持的具体硬件参数不得编造。\n\n${knowledge.context}`
 					},
 					...(payload.messages || [])
 				]

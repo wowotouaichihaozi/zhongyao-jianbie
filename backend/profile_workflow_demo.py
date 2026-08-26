@@ -437,7 +437,7 @@ def node_choose_next_dimension(state: WorkflowState) -> WorkflowState:
 
 def node_llm2_respond(state: WorkflowState) -> WorkflowState:
     next_dimension = state.get("next_dimension") or "画像总结"
-    system = "你是嵌智学航的数字人 AI 讲师。用中文自然回复，最多两句话。"
+    system = "你是中药鉴别的数字人 AI 讲师。用中文自然回复，最多两句话。"
     prompt = f"""
 你需要根据当前学习画像和下一个目标维度，生成自然追问或回答。
 

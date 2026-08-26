@@ -6,7 +6,7 @@ def test_ppt_root_serves_ohmyppt_app():
 
     assert response.status_code == 200
     assert b"<title>OhMyPPT</title>" in response.data
-    assert "嵌智学航".encode() not in response.data
+    assert "中药鉴别".encode() not in response.data
 
 
 def test_ppt_asset_is_served_directly():
@@ -35,5 +35,5 @@ def test_main_ppt_workbench_route_stays_in_main_app():
     response = app.test_client().get("/personalized-resources/ppt")
 
     assert response.status_code == 200
-    assert "<title>嵌智学航</title>".encode() in response.data
+    assert "<title>中药鉴别</title>".encode() in response.data
     assert b"<title>OhMyPPT</title>" not in response.data

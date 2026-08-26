@@ -1,6 +1,6 @@
 <template>
   <AppShell>
-    <header class="page-head"><span class="eyebrow"><Sparkles :size="15" />岐黄智境 · 中医个性化学习</span><h1>{{ greeting }}，{{ displayName }}</h1><p>{{ profile ? `当前使用 ${profile.profileName || '学习画像'} v${profile.version || 1}` : '先完成画像采集，让经典、方药与辨证路径真正匹配你。' }}</p></header>
+    <header class="page-head"><span class="eyebrow"><Sparkles :size="15" />中药鉴别 · 中医个性化学习</span><h1>{{ greeting }}，{{ displayName }}</h1><p>{{ profile ? `当前使用 ${profile.profileName || '学习画像'} v${profile.version || 1}` : '先完成画像采集，让经典、方药与辨证路径真正匹配你。' }}</p></header>
     <AsyncState :loading="loading" :error="error" @retry="load">
       <section v-if="!profile" class="profile-callout">
         <div><span><ScanFace :size="22" /></span><strong>建立你的十维学习画像</strong><p>通过多轮对话收集目标、基础、偏好和时间投入。</p></div>

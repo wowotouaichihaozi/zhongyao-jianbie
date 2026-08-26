@@ -8,7 +8,7 @@
       <header class="brand-lockup">
         <img :src="`${baseUrl}qihuang-zhijing-mark.png`" alt="" />
         <div>
-          <strong>岐黄智境</strong>
+          <strong>中药鉴别</strong>
           <span>中医智慧学习平台</span>
         </div>
       </header>

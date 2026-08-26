@@ -11317,7 +11317,7 @@ def _llm_prompt_parts(payload: dict) -> tuple[str, str]:
             dialogue_parts.append(f"{role_labels[role]}：\n{content}")
     if not dialogue_parts:
         raise ValueError("至少需要一条非空用户消息")
-    system = "\n\n".join(system_parts).strip() or "你是嵌智学航的学习资源生成助手。"
+    system = "\n\n".join(system_parts).strip() or "你是中药鉴别的学习资源生成助手。"
     prompt = "\n\n".join(dialogue_parts).strip()
     return system, prompt
 
@@ -13010,7 +13010,7 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
                 "topic": topic or "中医学习课件",
                 "userMessage": user_message,
                 "pageCount": page_count,
-                "styleName": str(params.get("styleName") or "嵌智学航浅绿平台风"),
+                "styleName": str(params.get("styleName") or "中药鉴别浅绿平台风"),
                 "styleDescription": str(params.get("styleDescription") or "白底浅绿、干净明亮、模块化教育科技风。"),
                 "styleSkill": str(params.get("styleSkill") or ""),
             },

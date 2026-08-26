@@ -426,7 +426,7 @@ async function retryGeneration() {
       topic: topic.value,
       userMessage: String(task.value?.prompt || route.query.prompt || `生成一份关于“${topic.value}”的学习 PPT。`),
       pageCount: Math.max(1, Math.min(20, Number(route.query.pageCount || pptPayload.value?.pages?.length || 6))),
-      styleName: '岐黄智境浅绿平台风',
+      styleName: '中药鉴别浅绿平台风',
       styleDescription: '白底浅绿、干净明亮、模块化教育科技风。',
     })
     const nextTask = response?.data?.task || response?.task

@@ -69,7 +69,7 @@ CASES = [
         {
             "topic": f"{PREFIX} STM32 GPIO 与中断浅绿色课件",
             "pageCount": 6,
-            "styleName": "嵌智学航浅绿平台风",
+            "styleName": "中药鉴别浅绿平台风",
         },
     ),
     (

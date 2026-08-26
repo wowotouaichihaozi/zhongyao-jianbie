@@ -16,8 +16,8 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <RouterLink to="/" class="w-full flex-center nowrap-hidden" aria-label="嵌智学航管理端首页">
-    <img v-if="showTitle" class="platform-logo-full" :src="platformLogo" alt="嵌智学航" />
+  <RouterLink to="/" class="w-full flex-center nowrap-hidden" aria-label="中药鉴别管理端首页">
+    <img v-if="showTitle" class="platform-logo-full" :src="platformLogo" alt="中药鉴别" />
     <SystemLogo v-else class="size-32px" />
   </RouterLink>
 </template>

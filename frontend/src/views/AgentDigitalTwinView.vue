@@ -7,7 +7,7 @@
           class="digital-twin-frame"
           :src="iframeSrc"
           :style="frameStyle"
-          title="岐黄智境智能体数字孪生架构展示"
+          title="中药鉴别智能体数字孪生架构展示"
           allow="fullscreen"
           @load="handleFrameLoad"
         />

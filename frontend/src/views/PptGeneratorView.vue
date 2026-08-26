@@ -9,7 +9,7 @@
       <div>
         <div class="ppt-kicker">
           <Sparkles :size="16" aria-hidden="true" />
-          <span>岐黄智境 PPT</span>
+          <span>中药鉴别 PPT</span>
         </div>
         <h1>快速创建演示文稿</h1>
       </div>
@@ -322,7 +322,7 @@ const GENERATION_STAGE_LABELS = {
   error: '生成异常',
 }
 const PLATFORM_STYLE_SKILL = [
-  '使用岐黄智境平台同款画风。',
+  '使用中药鉴别平台同款画风。',
   '白底或极浅薄荷绿背景，深灰文字，绿色 #21B978 / #58D89C 作为强调色。',
   '模块化分区、充足留白、轻量卡片、清晰教育科技感。',
   '避免深色主题、蓝紫主色、高饱和颜色和复杂动效。',
@@ -1167,9 +1167,9 @@ async function submitQuickCreate() {
     const response = await startPptH5Generation({
       sessionId,
       topic,
-      userMessage: form.userMessage.trim() || `生成一份关于“${topic}”的岐黄智境平台风格 PPT。`,
+      userMessage: form.userMessage.trim() || `生成一份关于“${topic}”的中药鉴别平台风格 PPT。`,
       pageCount: form.pageCount,
-      styleName: '岐黄智境平台',
+      styleName: '中药鉴别平台',
       styleDescription: '白底浅绿、干净明亮、留白充足、模块化教育科技风。',
       styleSkill: PLATFORM_STYLE_SKILL,
     })
@@ -1337,7 +1337,7 @@ function exportPptFile() {
   exporting.value = true
   try {
     const session = currentSession.value || {}
-    const title = session.title || session.topic || form.topic || '岐黄智境PPT'
+    const title = session.title || session.topic || form.topic || '中药鉴别PPT'
     const html = buildStandalonePptHtml(title, pages.value)
     downloadBlob(html, `${sanitizeFilename(title)}.html`, 'text/html;charset=utf-8')
   } finally {
@@ -1355,7 +1355,7 @@ function buildStandalonePptHtml(title, slidePages) {
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029')
   const safeTitle = escapeHtmlText(title)
-  const titleJson = JSON.stringify(String(title || '岐黄智境PPT'))
+  const titleJson = JSON.stringify(String(title || '中药鉴别PPT'))
     .replace(/</g, '\\u003c')
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029')
@@ -1396,7 +1396,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <body>
 <div class="deck-shell">
   <header class="deck-head">
-    <div class="deck-title"><strong id="deckTitle"></strong><span>岐黄智境 H5 演示文稿</span></div>
+    <div class="deck-title"><strong id="deckTitle"></strong><span>中药鉴别 H5 演示文稿</span></div>
     <div class="deck-actions">
       <span class="counter" id="counter"></span>
       <button id="prevBtn" type="button">上一页</button>
@@ -1477,8 +1477,8 @@ render();
 }
 
 function sanitizeFilename(value) {
-  const name = String(value || '岐黄智境PPT').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim()
-  return name.slice(0, 80) || '岐黄智境PPT'
+  const name = String(value || '中药鉴别PPT').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim()
+  return name.slice(0, 80) || '中药鉴别PPT'
 }
 
 function escapeHtmlText(value) {
