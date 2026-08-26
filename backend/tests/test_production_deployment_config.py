@@ -67,6 +67,9 @@ def test_production_script_serves_desktop_and_mobile_with_safe_cache_rules():
     assert "try_files $uri $uri/ /m/index.html;" in deploy_script
     assert "location /api {" in deploy_script
     assert "location /ppt-api/ {" in deploy_script
+    assert "location = /ppt/ {" in deploy_script
+    assert "location = /ppt/index.html {" in deploy_script
+    assert deploy_script.count("try_files /ppt/index.html =404;") == 2
     assert "location ^~ /assets/ {" in deploy_script
     assert 'add_header Cache-Control "public, max-age=31536000, immutable" always;' in deploy_script
     assert 'add_header Cache-Control "public, max-age=604800" always;' in deploy_script

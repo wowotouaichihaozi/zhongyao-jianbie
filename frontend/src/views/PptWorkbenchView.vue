@@ -51,6 +51,8 @@ const loading = ref(true)
 const loadError = ref('')
 const iframeSrc = ref('')
 let prepareSequence = 0
+const PPT_WEB_BUILD_VERSION = '20260826-ppt-history-v2'
+const PPT_ENTRY_URL = `/ppt/?v=${encodeURIComponent(PPT_WEB_BUILD_VERSION)}`
 
 const FORWARDED_QUERY_KEYS = [
   'topic',
@@ -76,6 +78,11 @@ function stableHash(value) {
   return (hash >>> 0).toString(36)
 }
 
+function pptWorkbenchLocation(hashPath = '/') {
+  const normalizedHashPath = hashPath.startsWith('/') ? hashPath : `/${hashPath}`
+  return `${PPT_ENTRY_URL}#${normalizedHashPath}`
+}
+
 const workbenchUrl = computed(() => {
   const params = new URLSearchParams()
   FORWARDED_QUERY_KEYS.forEach((key) => {
@@ -85,7 +92,10 @@ const workbenchUrl = computed(() => {
 
   const hasGenerationInput = ['topic', 'prompt', 'userMessage', 'pageCount', 'pages', 'autostart']
     .some((key) => params.has(key))
-  if (!hasGenerationInput) return '/ppt/#/'
+  if (!hasGenerationInput) {
+    const historyRequested = queryValue(route.query.tab).trim().toLowerCase() === 'history'
+    return pptWorkbenchLocation(historyRequested ? '/sessions' : '/')
+  }
 
   if (!params.has('pageCount') && !params.has('pages')) params.set('pageCount', '6')
   params.set('autostart', '1')
@@ -95,7 +105,7 @@ const workbenchUrl = computed(() => {
     queryValue(route.query.cacheKey) ||
     route.fullPath
   const sessionId = `embedded_${stableHash(taskIdentity)}`
-  return `/ppt/#/sessions/${encodeURIComponent(sessionId)}/generating?${params.toString()}`
+  return pptWorkbenchLocation(`/sessions/${encodeURIComponent(sessionId)}/generating?${params.toString()}`)
 })
 
 async function prepareWorkbench() {
@@ -104,7 +114,7 @@ async function prepareWorkbench() {
   loadError.value = ''
   iframeSrc.value = ''
   try {
-    const response = await fetch('/ppt/', { cache: 'no-store', credentials: 'same-origin' })
+    const response = await fetch(PPT_ENTRY_URL, { cache: 'no-store', credentials: 'same-origin' })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     if (sequence !== prepareSequence) return
     iframeSrc.value = workbenchUrl.value

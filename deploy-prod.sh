@@ -239,6 +239,22 @@ server {
         return 301 /ppt/;
     }
 
+    location = /ppt/ {
+        try_files /ppt/index.html =404;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+
+    location = /ppt/index.html {
+        try_files /ppt/index.html =404;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+
     location ^~ /ppt/ {
         alias /var/www/feishengwangying/frontend/dist/ppt/;
         index index.html;

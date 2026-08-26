@@ -18,7 +18,10 @@ test('digital twin scales the fixed scene into the available viewport and expose
 
 test('PPT workbench preflights the embedded app and never traps the learner in a blank iframe', () => {
   assert.match(pptWorkbenchSource, /to="\/personalized-resources"/)
-  assert.match(pptWorkbenchSource, /fetch\('\/ppt\/'/)
+  assert.match(pptWorkbenchSource, /const PPT_WEB_BUILD_VERSION = '20260826-ppt-history-v2'/)
+  assert.match(pptWorkbenchSource, /fetch\(PPT_ENTRY_URL/)
+  assert.match(pptWorkbenchSource, /route\.query\.tab/)
+  assert.match(pptWorkbenchSource, /historyRequested \? '\/sessions' : '\/'/)
   assert.match(pptWorkbenchSource, /v-else-if="loadError"/)
   assert.match(pptWorkbenchSource, /@click="prepareWorkbench"/)
   assert.match(pptWorkbenchSource, /v-if="iframeSrc"/)

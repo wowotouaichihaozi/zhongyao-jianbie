@@ -215,6 +215,14 @@ Local evidence on 2026-08-26: Python compilation passed. Eight focused backend t
 
 Production evidence on 2026-08-26: backed up and deployed `backend/app.py`, `backend/portable_server.py`, the main frontend dist and the OhMyPPT H5 dist without deleting production files. The main backend compiled, restarted and remained active; `/api/health`, `/ppt-api/health` and `/api/ppt-h5/health` all returned HTTP 200. Authenticated PPT history returned 18 persisted tasks; the newest completed task retained its session ID, PPT payload and route. The deployed OhMyPPT session page rendered all 18 server tasks, including completed 6/6 page counts and historical failure details, without console errors. At 390 x 844 it had no horizontal overflow; the personalized-resource page also had no horizontal overflow and kept only the `个性化资源` and `历史资源` heading levels at mobile and 1912 px desktop widths.
 
+### OhMyPPT history cache-bust and direct history routing
+
+- [x] Map the platform `tab=history` route to OhMyPPT `#/sessions` instead of the workbench home page.
+- [x] Version the embedded OhMyPPT entry URL so a previously loaded browser document cannot hide the newly deployed server-history UI.
+- [x] Send no-store response headers for both `/ppt/` and `/ppt/index.html` in the canonical production Nginx configuration.
+
+Production evidence on 2026-08-26: backed up the active Nginx site, deployed the canonical exact PPT entry rules, passed `nginx -t`, reloaded Nginx and kept the service active. `/ppt/?v=20260826-ppt-history-v2` returned HTTP 200 with `no-cache, no-store, must-revalidate` and referenced the current `index-PX28YSB2.js` bundle. The deployed bundle contained both server-history sections. Browser verification of the versioned `#/sessions` route rendered 20 persisted server tasks; the two newest tasks were complete at 6/6 pages and no console errors were reported. The main frontend's deployed PPT wrapper chunk contained the version key, history route and `tab=history` mapping. Wrapper tests passed 2/2, production deployment tests passed 7/7, and both affected frontends built with `--emptyOutDir=false`.
+
 Acceptance criteria for this batch:
 
 - Image uploads are sent to the configured Bailian OpenAI-compatible endpoint with `qwen3-vl-plus`; audio uploads use the Bailian native multimodal endpoint with `qwen3-omni-flash`; both are then handed to Spark as grounded evidence text.

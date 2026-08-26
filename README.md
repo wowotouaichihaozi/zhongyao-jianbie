@@ -338,6 +338,8 @@ python -m py_compile app.py ppt_h5.py
 
 本批状态管理可用 `python -m pytest backend/tests/test_learning_profile_api.py -q`、`cd ppth5 && npm run typecheck:web` 和 `cd frontend && npm run build -- --emptyOutDir=false` 验证；PPT H5 生产构建需直接调用 Vite 并传入 `--emptyOutDir=false`，避免清理既有输出目录。
 
+主站 `/personalized-resources/ppt?tab=history` 会把 `tab=history` 映射到带版本参数的 OhMyPPT `#/sessions` 地址，避免复用浏览器中已加载的旧工作台文档。Nginx 对 `/ppt/` 与 `/ppt/index.html` 明确发送 `no-cache, no-store, must-revalidate`，哈希静态资源仍由独立文件名控制版本；因此发布新会话状态逻辑后不再需要用户手动清缓存。
+
 周详情页调用 `POST /api/learning-path/stages/:stageId/prepare-resources` 并传入 `{ "parallelDispatch": true, "advance": false }`。响应返回后，无论任务是 `queued`、`running`、`complete`、`waiting` 还是 `failed`，只要任务记录已建立，卡片都保留可打开入口；前端每 2 秒通过 `GET /api/learning-path/stages/:stageId/resource-tasks` 更新状态，并用“资源生成中 / 资源已生成 / 待用户确认 / 生成失败”区分。重复进入或重复派发会复用现有任务 ID，不会再次消耗模型调用。各资源生成任务自身仍经过岐小智 Harness 的结构化输出、知识依据、质量审核与安全审核；单任务失败按原上限重试，不阻塞其他任务。任务卡片按序号使用不同强调色，悬浮只改变阴影，不改变位置或尺寸。周资源和路径生成并发上限还可通过 `LEARNING_PATH_WEEK_PREPARATION_MAX_WORKERS` 与 `LEARNING_PATH_GENERATION_MAX_WORKERS` 调整。
 
 节点的 `taskId`、缓存键和结果路由会写回 SQLite。缓存键包含资源编排版本；升级资源语义规则时只解除旧节点缓存引用，历史任务记录仍保留，但错误的旧路由不会重新挂回当前周。重复进入、刷新或在同一版本编排完成后继续调用接口都会复用原任务，不会重复消耗模型请求；`GET /api/learning-path/stages/:stageId/resource-tasks` 用于轮询生成状态。带 `xzTask` 的思维导图页直接读取后台 `selectedResource.content`，通过隔离 iframe 接入 Mind Map Wizard 的 SVG 布局与交互引擎，支持滚轮缩放、拖拽、适应屏幕、全屏和 SVG 下载；页面不会再次调用模型。新任务使用 `# / ## / ###` Markdown 导图契约，至少包含 4 个有具体含义的主分支，并在节点中保留课程知识库引用；数据库中的旧 Mermaid `mindmap` 内容会由前端兼容转换后继续显示。
