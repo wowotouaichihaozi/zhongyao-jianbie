@@ -22,6 +22,11 @@ try:
 except ImportError:  # pragma: no cover - package-style import fallback
     from .private_knowledge import retrieve_private_knowledge
 
+try:
+    from hybrid_knowledge import route_hybrid_knowledge
+except ImportError:  # pragma: no cover - package-style import fallback
+    from .hybrid_knowledge import route_hybrid_knowledge
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CORPUS_DIR = Path(os.environ.get("COURSE_KNOWLEDGE_CORPUS_DIR") or (PROJECT_ROOT / "rag文档")).resolve()
@@ -435,19 +440,27 @@ def retrieve_course_knowledge(
     include_private: bool = True,
 ) -> dict[str, Any]:
     built_in = _knowledge_base.retrieve(query, top_k=top_k, max_context_chars=max_context_chars)
-    if not include_private:
-        return built_in
-    private = retrieve_private_knowledge(
-        query,
-        user_id=user_id,
-        db_path=db_path,
-        collection_id=private_collection_id,
+    private = (
+        retrieve_private_knowledge(
+            query,
+            user_id=user_id,
+            db_path=db_path,
+            collection_id=private_collection_id,
+            top_k=top_k,
+            max_context_chars=max_context_chars,
+        )
+        if include_private
+        else {"query": query, "hits": [], "stats": {}}
+    )
+    document_result = _merge_knowledge_results(
+        built_in,
+        private,
         top_k=top_k,
         max_context_chars=max_context_chars,
     )
-    return _merge_knowledge_results(
-        built_in,
-        private,
+    return route_hybrid_knowledge(
+        query,
+        document_result,
         top_k=top_k,
         max_context_chars=max_context_chars,
     )
@@ -475,10 +488,18 @@ def grounded_prompt_block(
             "课程知识库未检索到直接相关内容。不要编造教材事实；不确定的内容必须明确标注为待核验。",
             [],
         )
+    verification = ((result.get("routing") or {}).get("crossValidation") or {})
+    verification_note = (
+        f"混合路由审核：{verification.get('status') or 'unknown'}；"
+        f"决策：{verification.get('decision') or 'mark_for_verification'}；"
+        f"证据路由：{', '.join(verification.get('evidenceRoutes') or []) or '无'}。"
+    )
     prompt = (
-        "以下内容来自项目课程知识库和当前用户激活的私有知识库。涉及定义、步骤、寄存器、参数和结论时，"
-        "必须优先依据这些片段；无法由片段支持的事实要标注为“需进一步核验”。"
-        "输出中使用 [KB1]、[KB2] 标注内置资料，使用 [PKB1]、[PKB2] 标注用户私有资料。\n\n"
+        "以下内容由混合知识路由器从结构化 QA、课程文档切块、当前用户私有文档和中医知识图谱中检索，"
+        "并完成多源证据交叉验证。涉及定义、辨证依据、方药、步骤、参数和结论时必须优先依据这些证据；"
+        "无法由证据支持或仅有单一来源支持的事实要明确标注为“需进一步核验”。"
+        "输出中使用 [QA1] 标注 QA 对、[KB1] 标注文档、[PKB1] 标注用户私有资料、[KG1] 标注图谱节点。\n"
+        f"{verification_note}\n\n"
         f"{result['context']}"
     )
     return prompt, result["citations"]

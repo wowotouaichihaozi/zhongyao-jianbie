@@ -2,6 +2,26 @@
 
 本项目为“中药鉴别”多智能体学习平台，部分模块参考或基于第三方开源项目进行二次开发。项目展示、比赛答辩、论文或交付材料中应保留本说明，并遵守各原项目许可证要求。
 
+## Three.js 与生命树设计参考
+
+- Three.js：https://github.com/mrdoob/three.js ，MIT License，前端依赖版本 `0.185.1`。
+- 用途：`/life-tree` 的 WebGL 场景、低多边形树体、相机控制、光照、节点拾取和响应式渲染。
+- 集成位置：`frontend/src/components/LifeTreeScene.vue`；依赖声明位于 `frontend/package.json` 与锁文件。
+- 本项目修改：未修改 Three.js 依赖源码；生命树几何、状态颜色、数据适配、节点详情和闭环跳转均为本项目实现。
+
+生命树设计阶段还核对了 `dgreenheck/ez-tree`（MIT）、`vasturiano/3d-force-graph`（MIT）、`vasturiano/r3f-forcegraph`（MIT）、`andrico1234/beautiful-skill-tree`（GPL-3.0）和 `SkyeShark/SeedThree`（MIT）的公开仓库。它们只作为树形生成、三维关系图和技能树交互的调研参考；本项目没有复制、改写或打包上述五个仓库的源码、样式与素材，也不把它们声明为产品运行依赖。
+
+## 混合中医知识语料
+
+以下 Hugging Face 数据集以固定 revision 下载，经过文本规范化、去重、切片、压缩和 FTS5 索引后进入 `backend/data/tcm_hybrid_corpus.db.gz`。项目不修改上游许可证，不把数据集内容声明为平台原创；构建清单保留输入文件 SHA-256、纳入数量和输出数据库双重哈希。
+
+- `SylvanL/Traditional-Chinese-Medicine-Dataset-SFT`：https://huggingface.co/datasets/SylvanL/Traditional-Chinese-Medicine-Dataset-SFT ，revision `412f3ff8417bdf1d7d0e2157c4e5d2323a74b5e5`，Apache-2.0；用于中医 QA 检索。
+- `SylvanL/Traditional-Chinese-Medicine-Dataset-Pretrain`：https://huggingface.co/datasets/SylvanL/Traditional-Chinese-Medicine-Dataset-Pretrain ，revision `fd01649d8e019ed2b002119e0fd74076c5f7b73d`，Apache-2.0；完整纳入 `CPT_tcmKnowledge_source2_12889.json` 并切分为文档片段。
+- `ZJUFanLab/TCMChat-dataset-600k`：https://huggingface.co/datasets/ZJUFanLab/TCMChat-dataset-600k ，revision `c65f284fc43d7de94ecc83e58dac0db281d73295`，Apache-2.0；用于 QA 子集及中医基础理论、中药学、方剂学、伤寒论教材切片。
+- `shuyuej/CMMLU-Traditional-Chinese-Medicine-Benchmark`：https://huggingface.co/datasets/shuyuej/CMMLU-Traditional-Chinese-Medicine-Benchmark ，revision `0008b9c567ed5c81f5c855312fe32abb07ea1742`，Apache-2.0；用于中医多项选择 QA 检索与检索回归。
+
+运行时只把这些资料用于课程学习内容的检索增强，并保留 `educational_only;not_for_clinical_diagnosis_or_prescription` 安全标记。数据可能包含错误、历史表述或不适用于具体个体的内容；平台要求至少两类独立知识路由一致后才允许按证据生成，否则明确标记为待核验。实际诊疗、用药和处方必须由具备资质的专业人员完成。
+
 ## 知识网络展示
 
 ### nashsu/llm_wiki

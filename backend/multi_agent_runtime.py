@@ -396,22 +396,28 @@ def node_retrieve_knowledge(state: MultiAgentState) -> MultiAgentState:
     state["blackboard"]["knowledge"] = knowledge
     state["blackboard"]["artifacts"]["course_knowledge"] = knowledge
     citations = knowledge.get("citations") or []
+    routing = knowledge.get("routing") or {}
+    verification = routing.get("crossValidation") or {}
     _emit(
         state,
         "course-knowledge-retrieval-agent",
         "retrieve_knowledge",
         "complete" if citations else "warning",
-        f"课程知识库检索完成，命中 {len(citations)} 条可追溯资料",
+        f"混合知识路由完成，命中 {len(citations)} 条可追溯证据；审核结论：{verification.get('status') or '待核验'}",
         30,
-        {"query": query, "citations": citations},
+        {"query": query, "citations": citations, "routing": routing},
     )
     _handoff(
         state,
         "course-knowledge-retrieval-agent",
         policy["worker"],
         "grounded_knowledge",
-        f"交接 {len(citations)} 条课程知识引用和检索片段",
-        {"citations": citations, "chunks": (knowledge.get("chunks") or knowledge.get("hits") or [])[:7]},
+        f"交接 {len(citations)} 条混合知识证据与交叉验证结论",
+        {
+            "citations": citations,
+            "chunks": (knowledge.get("chunks") or knowledge.get("hits") or [])[:7],
+            "routing": routing,
+        },
     )
     return state
 
@@ -434,6 +440,8 @@ def _specialist_payload(state: MultiAgentState) -> dict[str, Any]:
     payload["knowledgeSources"] = (state.get("knowledge") or {}).get("citations") or []
     knowledge = state.get("knowledge") or {}
     payload["knowledgeContext"] = knowledge.get("chunks") or knowledge.get("hits") or []
+    payload["knowledgeRouting"] = knowledge.get("routing") or {}
+    payload["knowledgeVerification"] = (knowledge.get("routing") or {}).get("crossValidation") or {}
     payload["orchestrationContext"] = {
         "runId": state.get("run_id"),
         "rootAgent": XIAOZHI_MASTER_AGENT_ID,

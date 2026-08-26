@@ -27,6 +27,7 @@ const LearningDocumentView = () => import('../views/LearningDocumentView.vue')
 const SmartTutorView = () => import('../views/SmartTutorView.vue')
 const KnowledgeBaseView = () => import('../views/KnowledgeBaseView.vue')
 const KnowledgeNetworkView = () => import('../views/KnowledgeNetworkOriginalEmbedView.vue')
+const LifeTreeView = () => import('../views/LifeTreeView.vue')
 const AgentDigitalTwinView = () => import('../views/AgentDigitalTwinView.vue')
 
 const CODEX_PREVIEW_AUTH_KEY = 'codexPreviewAuth'
@@ -187,6 +188,12 @@ const routes = [
   {
     path: '/personalized-resources/knowledge-network',
     redirect: '/knowledge-network',
+  },
+  {
+    path: '/life-tree',
+    name: 'life-tree',
+    component: LifeTreeView,
+    meta: { requiresAuth: true },
   },
   {
     path: '/agent-digital-twin',

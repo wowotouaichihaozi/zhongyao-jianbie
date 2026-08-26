@@ -27,7 +27,7 @@
       >
         <img v-if="item.logo" class="nav-item-logo" :src="item.logo" alt="" aria-hidden="true" />
         <component v-else :is="item.icon" :size="21" :stroke-width="2.2" />
-        <span>{{ item.label }}</span>
+        <span>{{ item.mobileLabel || item.label }}</span>
       </RouterLink>
     </nav>
 
@@ -59,6 +59,7 @@ import {
   Orbit,
   Route as RouteIcon,
   Share2,
+  TreePine,
   UserRound,
 } from 'lucide-vue-next'
 import { logoutUser } from '../services/api.js'
@@ -72,18 +73,19 @@ const isResourceSection = computed(() => {
 })
 
 const navItems = [
-  { to: '/learning-profile', label: '学习画像', icon: Network, active: () => route.path.startsWith('/learning-profile') },
-  { to: '/learning-path', label: '学习路径', icon: RouteIcon, active: () => route.path.startsWith('/learning-path') },
-  { to: '/personalized-resources', label: '个性化资源', icon: FlaskConical, active: () => isResourceSection.value },
-  { to: '/knowledge-network', label: '知识网络', icon: Share2, active: () => route.path.startsWith('/knowledge-network') },
-  { to: '/agent-digital-twin', label: '数字孪生', icon: Orbit, active: () => route.path.startsWith('/agent-digital-twin') },
-  { to: '/effect-assessment', label: '效果评估', icon: Gauge, active: () => route.path.startsWith('/effect-assessment') },
-  { to: '/digital-human-interview', label: '学习访谈', icon: ChartNoAxesCombined, active: () => route.path.startsWith('/digital-human-interview') },
+  { to: '/learning-profile', label: '学习画像', mobileLabel: '画像', icon: Network, active: () => route.path.startsWith('/learning-profile') },
+  { to: '/learning-path', label: '学习路径', mobileLabel: '路径', icon: RouteIcon, active: () => route.path.startsWith('/learning-path') },
+  { to: '/personalized-resources', label: '个性化资源', mobileLabel: '资源', icon: FlaskConical, active: () => isResourceSection.value },
+  { to: '/knowledge-network', label: '知识网络', mobileLabel: '知识', icon: Share2, active: () => route.path.startsWith('/knowledge-network') },
+  { to: '/life-tree', label: '生命树', mobileLabel: '生命树', icon: TreePine, active: () => route.path.startsWith('/life-tree') },
+  { to: '/agent-digital-twin', label: '数字孪生', mobileLabel: '孪生', icon: Orbit, active: () => route.path.startsWith('/agent-digital-twin') },
+  { to: '/effect-assessment', label: '效果评估', mobileLabel: '评估', icon: Gauge, active: () => route.path.startsWith('/effect-assessment') },
+  { to: '/digital-human-interview', label: '学习访谈', mobileLabel: '访谈', icon: ChartNoAxesCombined, active: () => route.path.startsWith('/digital-human-interview') },
 ]
 
 const mobileNavItems = [
   ...navItems.filter(item => item.to !== '/digital-human-interview'),
-  { to: '/user-profile', label: '我的', icon: UserRound, active: () => route.path.startsWith('/user-profile') },
+  { to: '/user-profile', label: '我的', mobileLabel: '我的', icon: UserRound, active: () => route.path.startsWith('/user-profile') },
 ]
 
 const DEFAULT_USER_AVATAR = '/userlogo.png'
@@ -173,7 +175,7 @@ async function logout() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 22px;
+  gap: 16px;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -360,7 +362,7 @@ async function logout() {
   .mobile-bottom-nav {
     height: 100%;
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(8, minmax(0, 1fr));
     align-items: center;
     padding: 6px;
     box-sizing: border-box;
@@ -387,6 +389,7 @@ async function logout() {
   }
 
   .mobile-bottom-nav a span {
+    width: 100%;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;

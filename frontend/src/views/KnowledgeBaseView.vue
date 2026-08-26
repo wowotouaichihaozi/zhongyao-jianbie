@@ -7,8 +7,8 @@
       </RouterLink>
       <div class="title-row">
         <div>
-          <p class="eyebrow">PRIVATE KNOWLEDGE</p>
-          <h1>我的知识库</h1>
+          <p class="eyebrow">HYBRID KNOWLEDGE</p>
+          <h1>混合知识库</h1>
         </div>
         <div class="header-actions">
           <RouterLink class="network-entry" to="/knowledge-network">
@@ -173,8 +173,8 @@
           <section class="retrieval-section" aria-labelledby="retrieval-title">
             <div class="section-heading retrieval-heading">
               <div>
-                <h3 id="retrieval-title">检索验证</h3>
-                <span>内置资料 + 当前私有知识库</span>
+                <h3 id="retrieval-title">混合路由验证</h3>
+                <span>QA 对 + 文档切块 + 知识图谱</span>
               </div>
             </div>
             <form class="search-form" @submit.prevent="searchKnowledge">
@@ -193,12 +193,39 @@
                   私有来源：{{ searchResult.activePrivateCollection.name }}
                 </span>
               </div>
+              <div v-if="searchResult.routing" class="routing-status">
+                <div class="route-strip" aria-label="混合检索路由">
+                  <span
+                    v-for="route in searchResult.routing.routes"
+                    :key="route.id"
+                    class="route-chip"
+                    :class="route.id"
+                  >
+                    {{ route.label }}
+                    <strong>{{ route.matched }}</strong>
+                  </span>
+                </div>
+                <div
+                  class="verification-state"
+                  :class="searchResult.routing.crossValidation?.status"
+                >
+                  <ShieldCheck
+                    v-if="searchResult.routing.crossValidation?.status === 'corroborated'"
+                    :size="17"
+                  />
+                  <ShieldAlert v-else :size="17" />
+                  <span>{{ verificationLabel(searchResult.routing.crossValidation) }}</span>
+                  <small>
+                    证据一致度 {{ formatAgreement(searchResult.routing.crossValidation?.agreementScore) }}
+                  </small>
+                </div>
+              </div>
               <div v-if="searchResult.hits?.length" class="hit-list">
                 <article v-for="hit in searchResult.hits" :key="`${hit.citationId}-${hit.source}-${hit.section}`" class="hit-row">
-                  <span class="citation" :class="{ private: hit.scope === 'private' }">{{ hit.citationId }}</span>
+                  <span class="citation" :class="[hit.route, { private: hit.scope === 'private' }]">{{ hit.citationId }}</span>
                   <div>
                     <strong>{{ hit.title }}</strong>
-                    <small>{{ hit.scope === 'private' ? '我的知识库' : '内置课程资料' }} · {{ hit.source }}</small>
+                    <small>{{ knowledgeSourceLabel(hit) }} · {{ hit.source }}</small>
                     <p>{{ hit.excerpt }}</p>
                   </div>
                 </article>
@@ -236,6 +263,8 @@ import {
   Pencil,
   Search,
   Share2,
+  ShieldAlert,
+  ShieldCheck,
   Trash2,
   Upload,
   X,
@@ -436,6 +465,24 @@ function formatBytes(value) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function knowledgeSourceLabel(hit) {
+  if (hit?.scope === 'private') return '我的文档切块'
+  if (hit?.route === 'qa') return 'QA 精确问答'
+  if (hit?.route === 'graph') return '知识图谱节点'
+  return '课程文档切块'
+}
+
+function verificationLabel(verification) {
+  if (verification?.status === 'corroborated') return '已通过多源交叉验证'
+  if (verification?.status === 'low_agreement') return '多源结论一致度不足，需核验'
+  if (verification?.status === 'single_source') return '单源证据，需进一步核验'
+  return '证据不足，禁止无依据生成'
+}
+
+function formatAgreement(value) {
+  return `${Math.round(Math.max(0, Math.min(1, Number(value || 0))) * 100)}%`
 }
 
 onMounted(() => loadCollections())
@@ -810,6 +857,43 @@ h1 {
 
 .search-result { margin-top: 14px; border-top: 1px solid #e4ece9; }
 .result-summary { min-height: 44px; display: flex; align-items: center; gap: 18px; color: #677e79; font-size: 12px; }
+.routing-status {
+  padding: 12px 0 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-top: 1px solid #edf2f0;
+}
+.route-strip { display: flex; flex-wrap: wrap; gap: 7px; }
+.route-chip {
+  min-height: 28px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #cdded9;
+  border-radius: 5px;
+  color: #48645f;
+  background: #f5f9f8;
+  font-size: 11px;
+}
+.route-chip strong { color: #173d35; font-size: 12px; }
+.route-chip.qa { border-color: #c9d9ef; color: #315f96; background: #f1f6fc; }
+.route-chip.graph { border-color: #d8cfec; color: #65459a; background: #f6f2fb; }
+.verification-state {
+  min-height: 32px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-left: 3px solid #bc4960;
+  color: #8f3347;
+  background: #fff5f6;
+  font-size: 12px;
+}
+.verification-state.corroborated { border-left-color: #149264; color: #176c4d; background: #edf9f4; }
+.verification-state small { color: inherit; opacity: 0.72; }
 .hit-list { border-top: 1px solid #edf2f0; }
 .hit-row {
   padding: 16px 0;
@@ -820,6 +904,8 @@ h1 {
 }
 .citation { align-self: start; padding: 5px 7px; border-radius: 4px; color: #346fae; background: #eaf1fa; font-size: 11px; font-weight: 800; text-align: center; }
 .citation.private { color: #b13f59; background: #fff0f3; }
+.citation.qa { color: #246ea4; background: #eaf4fb; }
+.citation.graph { color: #6a499d; background: #f1ecf8; }
 .hit-row strong { display: block; color: #294743; font-size: 14px; }
 .hit-row small { display: block; margin-top: 3px; color: #7c908c; font-size: 11px; }
 .hit-row p { margin: 8px 0 0; color: #536c67; font-size: 12px; line-height: 1.65; display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
@@ -872,6 +958,8 @@ h1 {
   .edit-form input:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
   .document-row { grid-template-columns: 40px minmax(0, 1fr) 36px; }
   .ready-status { display: none; }
+  .routing-status { align-items: stretch; flex-direction: column; }
+  .verification-state { align-self: flex-start; }
 }
 
 @media (max-width: 480px) {
@@ -881,5 +969,6 @@ h1 {
   .workspace-actions { justify-content: flex-start; }
   .section-heading { align-items: flex-start; }
   .result-summary { align-items: flex-start; flex-direction: column; gap: 4px; padding: 10px 0; }
+  .verification-state { width: 100%; box-sizing: border-box; flex-wrap: wrap; }
 }
 </style>
