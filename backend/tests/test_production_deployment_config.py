@@ -67,6 +67,10 @@ def test_production_script_serves_desktop_and_mobile_with_safe_cache_rules():
     assert "try_files $uri $uri/ /m/index.html;" in deploy_script
     assert "location /api {" in deploy_script
     assert "location /ppt-api/ {" in deploy_script
+    assert "location = /admin/index.html {" in deploy_script
+    assert "location ^~ /admin/assets/ {" in deploy_script
+    assert "alias /var/www/feishengwangying/admin/dist/index.html;" in deploy_script
+    assert "alias /var/www/feishengwangying/admin/dist/assets/;" in deploy_script
     assert "location = /ppt/ {" in deploy_script
     assert "location = /ppt/index.html {" in deploy_script
     assert deploy_script.count("try_files /ppt/index.html =404;") == 2
@@ -76,6 +80,7 @@ def test_production_script_serves_desktop_and_mobile_with_safe_cache_rules():
     assert "location / {" in deploy_script
     assert "try_files $uri $uri/ /index.html;" in deploy_script
     assert 'add_header Cache-Control "no-cache, no-store, must-revalidate" always;' in deploy_script
+    assert deploy_script.count('add_header Cache-Control "public, max-age=31536000, immutable" always;') >= 2
     assert 'return 503 "Web frontend temporarily offline\\n";' not in deploy_script
 
 

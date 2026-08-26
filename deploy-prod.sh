@@ -229,10 +229,30 @@ server {
         return 301 /admin/;
     }
 
+    location = /admin/index.html {
+        alias /var/www/feishengwangying/admin/dist/index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+
+    location ^~ /admin/assets/ {
+        alias /var/www/feishengwangying/admin/dist/assets/;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+
     location ^~ /admin/ {
         alias /var/www/feishengwangying/admin/dist/;
         index index.html;
         try_files $uri $uri/ /admin/index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     }
 
     location = /ppt {

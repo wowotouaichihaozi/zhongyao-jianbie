@@ -223,6 +223,12 @@ Production evidence on 2026-08-26: backed up and deployed `backend/app.py`, `bac
 
 Production evidence on 2026-08-26: backed up the active Nginx site, deployed the canonical exact PPT entry rules, passed `nginx -t`, reloaded Nginx and kept the service active. `/ppt/?v=20260826-ppt-history-v2` returned HTTP 200 with `no-cache, no-store, must-revalidate` and referenced the current `index-PX28YSB2.js` bundle. The deployed bundle contained both server-history sections. Browser verification of the versioned `#/sessions` route rendered 20 persisted server tasks; the two newest tasks were complete at 6/6 pages and no console errors were reported. The main frontend's deployed PPT wrapper chunk contained the version key, history route and `tab=history` mapping. Wrapper tests passed 2/2, production deployment tests passed 7/7, and both affected frontends built with `--emptyOutDir=false`.
 
+### Admin login cache policy
+
+- [x] Prevent stale admin login HTML from pinning an old authentication bundle while retaining immutable caching for fingerprinted admin assets.
+
+Production evidence on 2026-08-26: backed up the active site as `/etc/nginx/sites-available/lzhan.xyz.pre-admin-cache-20260826`, deployed the canonical admin entry and asset cache rules, passed `nginx -t`, and reloaded Nginx without restarting application services. `/admin/login` returned HTTP 200 with `no-cache, no-store, must-revalidate`; its current `/admin/assets/index-BHmfjGhf.js` returned HTTP 200 with a one-year immutable cache. The admin login API continued to return success code `0000` with a token. Deployment configuration tests passed 7/7.
+
 Acceptance criteria for this batch:
 
 - Image uploads are sent to the configured Bailian OpenAI-compatible endpoint with `qwen3-vl-plus`; audio uploads use the Bailian native multimodal endpoint with `qwen3-omni-flash`; both are then handed to Spark as grounded evidence text.
