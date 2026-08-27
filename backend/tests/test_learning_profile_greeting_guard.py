@@ -22,12 +22,12 @@ class LearningProfileGreetingGuardTests(unittest.TestCase):
 
     def test_greeting_only_does_not_fill_profile_even_if_llm_hallucinates(self) -> None:
         hallucinated = {
-            "reply": "你的中医学习画像已经基本补齐，我会根据这些信息为你推荐更合适的学习路径和资源。",
+            "reply": "你好，我们从你的中医学习方向开始。你目前主要在学习哪门中医课程？",
             "evidence": [
                 {"dimension": dimension, "value": "已补齐", "confidence": 0.99}
                 for dimension in workflow_agent.PROFILE_DIMENSIONS
             ],
-            "next_dimension": "",
+            "next_dimension": "专业/课程背景",
             "user_intent": "补充画像信息",
         }
 
@@ -47,7 +47,46 @@ class LearningProfileGreetingGuardTests(unittest.TestCase):
         self.assertEqual(result["completeness"], 0)
         self.assertEqual(result["workflow"]["candidateEvidence"], [])
         self.assertIn("中医", result["reply"])
-        self.assertNotIn("已经基本补齐", result["reply"])
+
+    def test_model_failure_is_reported_instead_of_returning_a_fixed_question(self) -> None:
+        with patch.object(
+            workflow_agent,
+            "_request_llm_text",
+            side_effect=RuntimeError("provider unavailable"),
+        ) as request_model:
+            with self.assertRaises(workflow_agent.LearningProfileModelUnavailable):
+                workflow_agent.run_learning_profile_workflow(
+                    [{"role": "user", "content": "我在学习中药学"}],
+                    user_id="unavailable-user",
+                    verbose=False,
+                )
+
+        self.assertEqual(request_model.call_count, 2)
+
+    def test_repeated_model_reply_is_retried_then_reported(self) -> None:
+        repeated = {
+            "reply": "你目前主要在学习哪门中医课程？",
+            "evidence": [],
+            "next_dimension": "专业/课程背景",
+            "user_intent": "补充画像信息",
+        }
+        messages = [
+            {"role": "assistant", "content": repeated["reply"]},
+            {"role": "user", "content": "中药学"},
+        ]
+        with patch.object(
+            workflow_agent,
+            "_request_llm_text",
+            return_value=json.dumps(repeated, ensure_ascii=False),
+        ) as request_model:
+            with self.assertRaises(workflow_agent.LearningProfileModelUnavailable):
+                workflow_agent.run_learning_profile_workflow(
+                    messages,
+                    user_id="duplicate-user",
+                    verbose=False,
+                )
+
+        self.assertEqual(request_model.call_count, 2)
 
 
 if __name__ == "__main__":

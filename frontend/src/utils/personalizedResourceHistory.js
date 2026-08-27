@@ -7,6 +7,7 @@ const TASK_RESOURCE_TYPES = {
   generated_video: 'generated_video',
   animation: 'animation',
   mcu: 'simulator',
+  herb_model: 'herb_model',
 }
 
 const RESOURCE_TITLES = {
@@ -19,6 +20,7 @@ const RESOURCE_TITLES = {
   code: '中医辨证示例',
   quiz: '中医练习题',
   simulator: '中医医案推演',
+  herb_model: '药材模型辨识',
 }
 
 const RESOURCE_TYPE_NAMES = {
@@ -31,6 +33,7 @@ const RESOURCE_TYPE_NAMES = {
   code: '代码示例',
   quiz: '练习题',
   simulator: '模拟器实验',
+  herb_model: '药材模型辨识',
 }
 
 function objectValue(value) {

@@ -2,6 +2,8 @@
 
 Last updated: 2026-08-28
 
+- [x] 2026-08-27：移除学习画像对话的大模型失败固定问句兜底，模型调用失败、无效输出或连续重复回复时由 API 明确返回 `503 / MODEL_UNAVAILABLE`；重复输出先执行一次真实模型重试。服务端会话仅在完整模型回合成功后写入，前端不再把旧 `localStorage` 对话拼接到空服务端会话。新增 20 种可独立加载的药材模型辨识资源，并让正常七项以上周路径稳定包含一个目录内药材任务；短历史路径不被覆盖。验证：画像 API 69 项加 7 个子测试、药材资源 7 项、前端会话 3 项、非清理生产构建全部通过；本地真实 DeepSeek 两轮画像从“学习目标”推进到“薄弱知识点”，回复不同且保存 4 条消息。生产增量部署后主后端、Nginx、PPT 服务均为 active，药材 OBJ 与 WebP 分别返回 200 和完整字节；生产 DeepSeek 账户随后返回 `402 Insufficient Balance`，画像接口按新契约明确返回模型不可用且不再输出模板问题，充值后无需改代码即可恢复。
+
 This file is the source of truth for the current scoring review and frontend refinement work. Update it before and after every implementation batch.
 
 ## Status legend

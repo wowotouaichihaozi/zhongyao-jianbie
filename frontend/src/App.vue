@@ -50,6 +50,7 @@ const routesWithoutFloatingAssistant = new Set([
   'ai-coding',
   'herb-recognition',
   'personalized-resource-video-generator',
+  'personalized-resource-herb-model',
 ])
 
 const showFloatingAssistant = computed(() => {

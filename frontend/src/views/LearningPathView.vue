@@ -225,6 +225,7 @@ import {
   MoreHorizontal,
   Rocket,
   RotateCcw,
+  ScanSearch,
   Target,
 } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
@@ -263,6 +264,7 @@ const iconMap = {
   rocket: Rocket,
   'file-text': FileText,
   film: Film,
+  'scan-search': ScanSearch,
 }
 
 const pageMeta = computed(() => ({
@@ -774,9 +776,11 @@ function normalizeTaskResourceType(resourceType, index = 0) {
     'video-generation': 'generated_video',
     'ai-video': 'generated_video',
     ai_video: 'generated_video',
+    herb_model: 'herb-model',
+    'herb-recognition': 'herb-model',
   }
   const normalized = aliases[rawType] || rawType
-  if (['video', 'generated_video', 'animation', 'document', 'ppt', 'mindmap', 'question-bank', 'mcu'].includes(normalized)) return normalized
+  if (['video', 'generated_video', 'animation', 'document', 'ppt', 'mindmap', 'question-bank', 'herb-model', 'mcu'].includes(normalized)) return normalized
   return 'video'
 }
 
@@ -789,6 +793,7 @@ function taskResourceLabel(resourceType, index) {
     ppt: 'PPT生成',
     mindmap: '思维导图',
     'question-bank': '题库生成',
+    'herb-model': '药材模型辨识',
     mcu: '课程讲义',
   }
   return labels[normalizeTaskResourceType(resourceType, index)]
@@ -803,6 +808,7 @@ function taskIcon(resourceType, index) {
     ppt: 'layers',
     mindmap: 'brain',
     'question-bank': 'clipboard-check',
+    'herb-model': 'scan-search',
     mcu: 'cpu',
     quiz: 'clipboard-check',
     simulator: 'cpu',
@@ -1654,6 +1660,12 @@ function shouldAutoPlan(config) {
   --tone: #b42318;
   --tone-soft: #fff0ee;
   --tone-border: #efb7b1;
+}
+
+.task-resource-card[data-resource-type="herb-model"] {
+  --tone: #9f2d35;
+  --tone-soft: #fff0f1;
+  --tone-border: #e7b3b7;
 }
 
 .task-resource-card[data-resource-type="mcu"] {

@@ -137,6 +137,7 @@
             <svg v-else-if="resource.type === 'simulator'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M9 3h6v3h3a2 2 0 012 2v8a2 2 0 01-2 2h-3v3H9v-3H6a2 2 0 01-2-2V8a2 2 0 012-2h3V3zM8 11h2m4 0h2M8 15h8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
+            <ScanSearch v-else-if="resource.type === 'herb_model'" :size="30" aria-hidden="true" />
             <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -201,6 +202,7 @@ import {
   Presentation,
   RefreshCw,
   Search,
+  ScanSearch,
   Share2,
   TriangleAlert,
 } from 'lucide-vue-next'
@@ -251,6 +253,13 @@ const resourceTools = [
     tone: 'tool-purple',
   },
   {
+    title: '药材模型识别',
+    description: '旋转观察三维药材，完成性状辨识与特征核对。',
+    to: '/personalized-resources/herb-model',
+    icon: markRaw(ScanSearch),
+    tone: 'tool-red',
+  },
+  {
     title: '视频查找',
     description: '检索适合当前学习阶段的讲解视频。',
     to: '/personalized-resources/video-search',
@@ -266,6 +275,7 @@ const categories = [
   { key: 'video', label: '视频' },
   { key: 'generated_video', label: 'AI 视频生成' },
   { key: 'quiz', label: '练习题' },
+  { key: 'herb_model', label: '药材模型' },
 ]
 
 const requestedCategory = String(route.query.category || '')
@@ -565,6 +575,7 @@ function getTypeName(type) {
     animation: '动画微课',
     code: '代码示例',
     quiz: '练习题',
+    herb_model: '药材模型辨识',
   }
   return names[type] || type
 }
@@ -579,6 +590,7 @@ const resourceTypePalettes = {
   code: { background: '#e8f7ef', foreground: '#177a4e' },
   quiz: { background: '#fff7df', foreground: '#a16207' },
   simulator: { background: '#fff1e7', foreground: '#d66a08' },
+  herb_model: { background: '#fce8e8', foreground: '#a33434' },
 }
 
 function getTypeColor(type) {

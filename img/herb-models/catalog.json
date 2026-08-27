@@ -1,0 +1,425 @@
+{
+  "revision": "tcm-herb-models-v1",
+  "count": 20,
+  "items": [
+    {
+      "id": "ginseng",
+      "name": "人参",
+      "pinyin": "renshen",
+      "category": "根及根茎类",
+      "medicinalPart": "干燥根和根茎",
+      "features": [
+        "主根呈纺锤形或圆柱形",
+        "表面黄白色并见纵皱纹",
+        "根茎部常见芦头与凹窝状茎痕"
+      ],
+      "modelUrl": "/herb-models/models/ginseng.obj",
+      "materialTextures": {
+        "01_Ginseng": "/herb-models/textures/01_Ginseng.webp"
+      }
+    },
+    {
+      "id": "eucommia",
+      "name": "杜仲",
+      "pinyin": "duzhong",
+      "category": "皮类",
+      "medicinalPart": "干燥树皮",
+      "features": [
+        "呈板片状或两边稍内卷",
+        "外表面灰棕色、内表面紫褐色",
+        "折断时可见细密银白色弹性胶丝"
+      ],
+      "modelUrl": "/herb-models/models/eucommia.obj",
+      "materialTextures": {
+        "EucommiaBark": "/herb-models/textures/EucommiaBark.webp"
+      }
+    },
+    {
+      "id": "angelica",
+      "name": "当归",
+      "pinyin": "danggui",
+      "category": "根及根茎类",
+      "medicinalPart": "干燥根",
+      "features": [
+        "根头、主根和支根层次较明显",
+        "表面黄棕色并有纵皱纹",
+        "断面黄白或淡黄棕色并具浓郁香气"
+      ],
+      "modelUrl": "/herb-models/models/angelica.obj",
+      "materialTextures": {
+        "Angelica_Low": "/herb-models/textures/Angelica_Low.webp"
+      }
+    },
+    {
+      "id": "forsythia",
+      "name": "连翘",
+      "pinyin": "lianqiao",
+      "category": "果实种子类",
+      "medicinalPart": "干燥果实",
+      "features": [
+        "呈长卵形至卵形",
+        "表面有不规则纵皱纹和多数突起小斑点",
+        "顶端常开裂成两瓣"
+      ],
+      "modelUrl": "/herb-models/models/forsythia.obj",
+      "materialTextures": {
+        "10_ForsythiaFruit_A_Low": "/herb-models/textures/10_ForsythiaFruit_A_Low.webp",
+        "10_ForsythiaFruit_B_Low": "/herb-models/textures/10_ForsythiaFruit_B_Low.webp",
+        "10_ForsythiaFruit_C_Low": "/herb-models/textures/10_ForsythiaFruit_C_Low.webp"
+      }
+    },
+    {
+      "id": "gardenia",
+      "name": "栀子",
+      "pinyin": "zhizi",
+      "category": "果实种子类",
+      "medicinalPart": "干燥成熟果实",
+      "features": [
+        "呈长卵圆形或椭圆形",
+        "表面红黄色至棕红色",
+        "具六条翅状纵棱，顶端残存萼片"
+      ],
+      "modelUrl": "/herb-models/models/gardenia.obj",
+      "materialTextures": {
+        "11_CapeJasmineFruit_A": "/herb-models/textures/11_CapeJasmineFruit_A.webp",
+        "11_CapeJasmineFruit_B": "/herb-models/textures/11_CapeJasmineFruit_B.webp",
+        "11_CapeJasmineFruit_Inside": "/herb-models/textures/11_CapeJasmineFruit_Inside.webp",
+        "11_CapeJasmineFruit_Shield": "/herb-models/textures/11_CapeJasmineFruit_Shield.webp"
+      }
+    },
+    {
+      "id": "scrophularia",
+      "name": "玄参",
+      "pinyin": "xuanshen",
+      "category": "根及根茎类",
+      "medicinalPart": "干燥根",
+      "features": [
+        "呈类圆柱形并略弯曲",
+        "表面灰黄色至灰褐色且有纵沟",
+        "质坚实，断面黑色并微有光泽"
+      ],
+      "modelUrl": "/herb-models/models/scrophularia.obj",
+      "materialTextures": {
+        "15_ScrophulariaRoot": "/herb-models/textures/15_ScrophulariaRoot.webp"
+      }
+    },
+    {
+      "id": "inula",
+      "name": "旋覆花",
+      "pinyin": "xuanfuhua",
+      "category": "花类",
+      "medicinalPart": "干燥头状花序",
+      "features": [
+        "花序呈扁球形或类球形",
+        "总苞片多层、覆瓦状排列",
+        "舌状花黄色并位于外围"
+      ],
+      "modelUrl": "/herb-models/models/inula.obj",
+      "materialTextures": {
+        "22_InulaFlower_Low": "/herb-models/textures/22_InulaFlower_Low.webp",
+        "22_InulaFlowerB_Low": "/herb-models/textures/22_InulaFlowerB_Low.webp"
+      }
+    },
+    {
+      "id": "amomum",
+      "name": "砂仁",
+      "pinyin": "sharen",
+      "category": "果实种子类",
+      "medicinalPart": "干燥成熟果实",
+      "features": [
+        "果实呈椭圆形或卵圆形",
+        "表面棕褐色并有密生刺状突起",
+        "果皮内分三室，种子团具浓烈芳香"
+      ],
+      "modelUrl": "/herb-models/models/amomum.obj",
+      "materialTextures": {
+        "35_AmomumFruit_Full_Low": "/herb-models/textures/35_AmomumFruit_Full_Low.webp",
+        "35_AmomumFruit_core.002": "/herb-models/textures/35_AmomumFruit_core.002.webp",
+        "35_AmomumFruit_shield.001": "/herb-models/textures/35_AmomumFruit_shield.001.webp"
+      }
+    },
+    {
+      "id": "poria",
+      "name": "茯苓",
+      "pinyin": "fuling",
+      "category": "菌藻类",
+      "medicinalPart": "干燥菌核",
+      "features": [
+        "完整菌核形状不一，切片多为块片状",
+        "外皮棕褐至黑褐色",
+        "内部白色或淡粉红色，质细腻"
+      ],
+      "modelUrl": "/herb-models/models/poria.obj",
+      "materialTextures": {
+        "36_Poria_Low.001": "/herb-models/textures/36_Poria_Low.001.webp"
+      }
+    },
+    {
+      "id": "cinnamon",
+      "name": "肉桂",
+      "pinyin": "rougui",
+      "category": "皮类",
+      "medicinalPart": "干燥树皮",
+      "features": [
+        "呈槽状或卷筒状",
+        "外表面灰棕色，内表面红棕色",
+        "断面颗粒性，气香浓烈、味甜辣"
+      ],
+      "modelUrl": "/herb-models/models/cinnamon.obj",
+      "materialTextures": {
+        "37_Cinnamon_A_Low": "/herb-models/textures/37_Cinnamon_A_Low.webp",
+        "37_Cinnamon_B_Low": "/herb-models/textures/37_Cinnamon_B_Low.webp",
+        "37_Cinnamon_C_Low.001": "/herb-models/textures/37_Cinnamon_C_Low.001.webp"
+      }
+    },
+    {
+      "id": "tangerine-peel",
+      "name": "陈皮",
+      "pinyin": "chenpi",
+      "category": "果实种子类",
+      "medicinalPart": "干燥成熟果皮",
+      "features": [
+        "常剥成数瓣并呈不规则片状",
+        "外表面橙红或红棕色，密布凹下油点",
+        "内表面黄白色并呈海绵状"
+      ],
+      "modelUrl": "/herb-models/models/tangerine-peel.obj",
+      "materialTextures": {
+        "TangerinePeel.001": "/herb-models/textures/TangerinePeel.001.webp"
+      }
+    },
+    {
+      "id": "chuanxiong",
+      "name": "川芎",
+      "pinyin": "chuanxiong",
+      "category": "根及根茎类",
+      "medicinalPart": "干燥根茎",
+      "features": [
+        "呈不规则结节状拳形团块",
+        "表面黄褐色并有隆起轮节",
+        "断面黄白色，可见波状环纹和油点"
+      ],
+      "modelUrl": "/herb-models/models/chuanxiong.obj",
+      "materialTextures": {
+        "41_ChuanxiongRhizome": "/herb-models/textures/41_ChuanxiongRhizome.webp"
+      }
+    },
+    {
+      "id": "red-sage",
+      "name": "丹参",
+      "pinyin": "danshen",
+      "category": "根及根茎类",
+      "medicinalPart": "干燥根和根茎",
+      "features": [
+        "根呈长圆柱形并常有分枝",
+        "表面棕红或暗棕红色，具纵皱纹",
+        "老根外皮疏松呈鳞片状，断面黄白或棕色"
+      ],
+      "modelUrl": "/herb-models/models/red-sage.obj",
+      "materialTextures": {
+        "42_RedSageRoot_A": "/herb-models/textures/42_RedSageRoot_A.webp",
+        "42_RedSageRoot_B": "/herb-models/textures/42_RedSageRoot_B.webp",
+        "42_RedSageRoot_C": "/herb-models/textures/42_RedSageRoot_C.webp"
+      }
+    },
+    {
+      "id": "notoginseng",
+      "name": "三七",
+      "pinyin": "sanqi",
+      "category": "根及根茎类",
+      "medicinalPart": "干燥根和根茎",
+      "features": [
+        "主根呈类圆锥形或圆柱形",
+        "表面灰黄或灰褐色，有断续纵皱纹",
+        "顶端可见茎痕，质坚实"
+      ],
+      "modelUrl": "/herb-models/models/notoginseng.obj",
+      "materialTextures": {
+        "44_Notoginseng_Low": "/herb-models/textures/44_Notoginseng_Low.webp"
+      }
+    },
+    {
+      "id": "ox-gallstone",
+      "name": "牛黄",
+      "pinyin": "niuhuang",
+      "category": "动物类",
+      "medicinalPart": "牛的干燥胆结石",
+      "features": [
+        "多呈卵形、类球形或不规则形",
+        "表面黄红至棕黄色，细腻而略有光泽",
+        "断面可见紧密细致的同心层纹"
+      ],
+      "modelUrl": "/herb-models/models/ox-gallstone.obj",
+      "materialTextures": {
+        "45_OxGallstone_Low": "/herb-models/textures/45_OxGallstone_Low.webp"
+      }
+    },
+    {
+      "id": "hawthorn",
+      "name": "山楂",
+      "pinyin": "shanzha",
+      "category": "果实种子类",
+      "medicinalPart": "干燥成熟果实",
+      "features": [
+        "多加工成圆形横切片",
+        "外皮红色并有细皱纹与灰白小斑点",
+        "果肉深黄至浅棕色，内有硬核"
+      ],
+      "modelUrl": "/herb-models/models/hawthorn.obj",
+      "materialTextures": {
+        "48_HawthornFruit_A_Low": "/herb-models/textures/48_HawthornFruit_A_Low.webp",
+        "48_HawthornFruit_B_Low": "/herb-models/textures/48_HawthornFruit_B_Low.webp",
+        "Default_OBJ.001": "/herb-models/textures/Default_OBJ.001.webp"
+      }
+    },
+    {
+      "id": "pumpkin-seed",
+      "name": "南瓜子",
+      "pinyin": "nanguazi",
+      "category": "果实种子类",
+      "medicinalPart": "干燥成熟种子",
+      "features": [
+        "呈扁椭圆形，一端稍尖",
+        "表面黄白或淡黄绿色",
+        "边缘可见浅色隆起种脊"
+      ],
+      "modelUrl": "/herb-models/models/pumpkin-seed.obj",
+      "materialTextures": {
+        "Material": "/herb-models/textures/Material.webp",
+        "Material.001": "/herb-models/textures/Material.001.webp"
+      }
+    },
+    {
+      "id": "dendrobium",
+      "name": "石斛",
+      "pinyin": "shihu",
+      "category": "茎木类",
+      "medicinalPart": "新鲜或干燥茎",
+      "features": [
+        "茎呈圆柱形或扁圆柱形",
+        "表面黄绿色至金黄色，有纵沟",
+        "节部明显，质实而易折断"
+      ],
+      "modelUrl": "/herb-models/models/dendrobium.obj",
+      "materialTextures": {
+        "HerbaDendrobii_Low_B.001": "/herb-models/textures/HerbaDendrobii_Low_B.001.webp",
+        "HerbaDendrobii_Low_C.001": "/herb-models/textures/HerbaDendrobii_Low_C.001.webp"
+      }
+    },
+    {
+      "id": "pilose-antler",
+      "name": "鹿茸",
+      "pinyin": "lurong",
+      "category": "动物类",
+      "medicinalPart": "未骨化密生茸毛的幼角",
+      "features": [
+        "呈圆柱状分枝",
+        "外皮红棕或棕色并密生细茸毛",
+        "锯口外围骨质、中部可见蜂窝状细孔"
+      ],
+      "modelUrl": "/herb-models/models/pilose-antler.obj",
+      "materialTextures": {
+        "Low.001": "/herb-models/textures/Low.001.webp"
+      }
+    },
+    {
+      "id": "prunella",
+      "name": "夏枯草",
+      "pinyin": "xiakucao",
+      "category": "全草及其他类",
+      "medicinalPart": "干燥果穗",
+      "features": [
+        "果穗呈圆柱形或略扁",
+        "表面淡棕至棕红色",
+        "宿萼呈覆瓦状排列，先端有短尖"
+      ],
+      "modelUrl": "/herb-models/models/prunella.obj",
+      "materialTextures": {
+        "PrunellaVulgaris.001": "/herb-models/textures/PrunellaVulgaris.001.webp",
+        "PrunellaVulgaris_Long.001": "/herb-models/textures/PrunellaVulgaris_Long.001.webp"
+      }
+    }
+  ],
+  "build": {
+    "ginseng": {
+      "vertices": 9840,
+      "faces": 10866
+    },
+    "eucommia": {
+      "vertices": 285,
+      "faces": 491
+    },
+    "angelica": {
+      "vertices": 1097,
+      "faces": 2000
+    },
+    "forsythia": {
+      "vertices": 1806,
+      "faces": 3000
+    },
+    "gardenia": {
+      "vertices": 3935,
+      "faces": 6722
+    },
+    "scrophularia": {
+      "vertices": 565,
+      "faces": 1000
+    },
+    "inula": {
+      "vertices": 4878,
+      "faces": 5496
+    },
+    "amomum": {
+      "vertices": 5885,
+      "faces": 10500
+    },
+    "poria": {
+      "vertices": 1106,
+      "faces": 2000
+    },
+    "cinnamon": {
+      "vertices": 3395,
+      "faces": 6000
+    },
+    "tangerine-peel": {
+      "vertices": 3847,
+      "faces": 5874
+    },
+    "chuanxiong": {
+      "vertices": 1205,
+      "faces": 2000
+    },
+    "red-sage": {
+      "vertices": 2765,
+      "faces": 5000
+    },
+    "notoginseng": {
+      "vertices": 1132,
+      "faces": 2000
+    },
+    "ox-gallstone": {
+      "vertices": 279,
+      "faces": 498
+    },
+    "hawthorn": {
+      "vertices": 1484,
+      "faces": 2082
+    },
+    "pumpkin-seed": {
+      "vertices": 778,
+      "faces": 1536
+    },
+    "dendrobium": {
+      "vertices": 2418,
+      "faces": 4000
+    },
+    "pilose-antler": {
+      "vertices": 1392,
+      "faces": 2468
+    },
+    "prunella": {
+      "vertices": 2419,
+      "faces": 3999
+    }
+  }
+}

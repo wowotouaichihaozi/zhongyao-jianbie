@@ -936,7 +936,6 @@ const chatHistory = ref([]) // ?????????
 const profileSessions = ref([])
 const activeProfileSessionId = ref(null)
 const activeChatReport = ref(null)
-const legacyChatFallbackSessionId = ref(null)
 const CHAT_CONNECTING_TEXT = '正在连接学习背景智能体，请稍候...'
 const CHAT_REPLY_PENDING_TEXT = '正在整理你的学习背景信息...'
 const LLM_CHAT_TIMEOUT_MS = 90000
@@ -2967,44 +2966,11 @@ async function ensureInitialChatQuestion() {
   await scrollChatToBottom()
 }
 
-function getPersistedChatMessages() {
-  const persisted = Array.isArray(profileData.value?.chatMessages) ? profileData.value.chatMessages : []
-  return persisted
-    .filter(item => item && (item.role === 'user' || item.role === 'bot' || item.role === 'assistant'))
-    .map(item => ({
-      id: item.id || createChatMessageId(item.role === 'assistant' ? 'bot' : item.role),
-      role: item.role === 'assistant' ? 'bot' : item.role,
-      text: String(item.text || item.content || ''),
-      time: item.time || '',
-      timestamp: item.timestamp || null,
-      source: item.source || 'legacy-local-cache',
-      attachments: Array.isArray(item.attachments) ? item.attachments : [],
-    }))
-    .filter(item => item.text.trim())
-}
-
-function mergeProfileSessionMessages(serverMessages, fallbackMessages) {
-  const merged = [...serverMessages]
-  const known = new Set(serverMessages.map(item => `${item.role}\u0000${item.text.trim()}`))
-  fallbackMessages.forEach((item) => {
-    const key = `${item.role}\u0000${item.text.trim()}`
-    if (!known.has(key)) {
-      merged.push(item)
-      known.add(key)
-    }
-  })
-  return merged.sort((left, right) => Number(left.timestamp || 0) - Number(right.timestamp || 0))
-}
-
-function applyProfileSession(session, { allowLegacyFallback = false } = {}) {
+function applyProfileSession(session) {
   if (!session) return
   activeProfileSessionId.value = session.id
   activeChatReport.value = historyReports.value.find((report) => Number(report.id) === Number(session.reportId)) || null
-  const serverMessages = buildProfileSessionChatMessages(session.messages)
-  const legacyMessages = allowLegacyFallback ? getPersistedChatMessages() : []
-  if (!serverMessages.length && legacyMessages.length) legacyChatFallbackSessionId.value = session.id
-  const fallbackMessages = legacyChatFallbackSessionId.value === session.id ? legacyMessages : []
-  chatMsgs.value = mergeProfileSessionMessages(serverMessages, fallbackMessages)
+  chatMsgs.value = buildProfileSessionChatMessages(session.messages)
   chatHistory.value = chatMsgs.value.map((message) => ({
     role: message.role === 'bot' ? 'assistant' : 'user', content: message.text,
   }))
@@ -3019,7 +2985,7 @@ function applyProfileSession(session, { allowLegacyFallback = false } = {}) {
 async function loadSelectedProfileSession() {
   if (!activeProfileSessionId.value) return
   try {
-    applyProfileSession(await getLearningProfileSession(activeProfileSessionId.value), { allowLegacyFallback: true })
+    applyProfileSession(await getLearningProfileSession(activeProfileSessionId.value))
   } catch (error) {
     addLog(error, 'error', '加载学习画像会话')
     showToast('学习画像会话加载失败')
@@ -3032,7 +2998,7 @@ async function initializeProfileSessions() {
   if (!sessions.length) {
     const session = await createLearningProfileSession()
     profileSessions.value = [session]
-    applyProfileSession(session, { allowLegacyFallback: true })
+    applyProfileSession(session)
     return
   }
   activeProfileSessionId.value = sessions[0].id
@@ -3044,7 +3010,6 @@ async function startNewProfileSession() {
   try {
     const session = await createLearningProfileSession({ title: `学习画像 ${profileSessions.value.length + 1}` })
     profileSessions.value = [session, ...profileSessions.value]
-    legacyChatFallbackSessionId.value = null
     applyProfileSession(session)
     showToast('已创建新的独立学习画像对话')
   } catch (error) {
@@ -3103,7 +3068,19 @@ async function sendChat() {
       await scrollChatToBottom()
     } catch (error) {
       addLog(error, 'error', '学习画像会话对话')
-      showToast(error?.response?.data?.msg || error?.message || '学习画像对话失败')
+      const modelUnavailable = error?.response?.data?.errorCode === 'MODEL_UNAVAILABLE'
+      const errorText = modelUnavailable
+        ? '学习画像大模型不可用，请稍后重试。'
+        : (error?.response?.data?.msg || error?.message || '学习画像对话失败')
+      chatMsgs.value.push({
+        id: createChatMessageId('bot-error'),
+        role: 'bot',
+        text: errorText,
+        timestamp: Date.now(),
+        source: 'error',
+      })
+      showToast(errorText)
+      await scrollChatToBottom()
     } finally {
       chatLoading.value = false
       chatStreaming.value = false
@@ -3324,35 +3301,6 @@ onMounted(() => {
   const saved = profileData.value.scaleScores
   if (saved) {
     saved.forEach((v, i) => { scaleAnswers[i] = v })
-  }
-  // 鎭㈠鑱婂ぉ璁板綍
-  if (Array.isArray(profileData.value.chatMessages) && profileData.value.chatMessages.length) {
-    chatMsgs.value = profileData.value.chatMessages
-      .filter(item => item && (item.role === 'user' || item.role === 'bot' || item.role === 'assistant'))
-      .map(item => ({
-        id: item.id || createChatMessageId(item.role === 'assistant' ? 'bot' : item.role),
-        role: item.role === 'assistant' ? 'bot' : item.role,
-        text: String(item.text || item.content || ''),
-        time: item.time || '',
-        timestamp: item.timestamp || null,
-        source: item.source || '',
-        attachments: Array.isArray(item.attachments) ? item.attachments : [],
-      }))
-      .filter(item => item.text)
-  }
-  if (Array.isArray(profileData.value.chatHistory) && profileData.value.chatHistory.length) {
-    chatHistory.value = profileData.value.chatHistory
-      .filter(item => item && (item.role === 'user' || item.role === 'assistant' || item.role === 'bot'))
-      .map(item => ({
-        role: item.role === 'bot' ? 'assistant' : item.role,
-        content: String(item.content || item.text || ''),
-      }))
-      .filter(item => item.content)
-  } else if (chatMsgs.value.length) {
-    chatHistory.value = chatMsgs.value.map(item => ({
-      role: item.role === 'user' ? 'user' : 'assistant',
-      content: item.text,
-    }))
   }
   startLearningAvatar({ replayLatest: activeMenu.value === 'assess' })
   if (activeMenu.value === 'assess') {

@@ -27,6 +27,7 @@ const EffectAssessmentView = () => import('../views/EffectAssessmentView.vue')
 const LearningDocumentView = () => import('../views/LearningDocumentView.vue')
 const SmartTutorView = () => import('../views/SmartTutorView.vue')
 const KnowledgeBaseView = () => import('../views/KnowledgeBaseView.vue')
+const HerbModelRecognitionView = () => import('../views/HerbModelRecognitionView.vue')
 const KnowledgeNetworkView = () => import('../views/KnowledgeNetworkOriginalEmbedView.vue')
 const LifeTreeView = () => import('../views/LifeTreeView.vue')
 const AgentDigitalTwinView = () => import('../views/AgentDigitalTwinView.vue')
@@ -195,6 +196,12 @@ const routes = [
   {
     path: '/personalized-resources/knowledge-network',
     redirect: '/knowledge-network',
+  },
+  {
+    path: '/personalized-resources/herb-model',
+    name: 'personalized-resource-herb-model',
+    component: HerbModelRecognitionView,
+    meta: { requiresAuth: true, noNavbar: true, resourceTool: true },
   },
   {
     path: '/life-tree',

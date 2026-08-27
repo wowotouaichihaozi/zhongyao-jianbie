@@ -762,6 +762,11 @@ export async function getMcuCatalog(params = {}) {
   return data?.data || { boards: [], components: [], experiments: [], sources: [], counts: {} }
 }
 
+export async function getHerbModelCatalog(params = {}) {
+  const { data } = await apiClient.get('/api/herb-models/catalog', { params })
+  return data?.data || { revision: '', count: 0, items: [], usage: '' }
+}
+
 export async function getMcuRecommendations(payload = {}) {
   const { data } = await apiClient.post('/api/mcu/recommendations', payload)
   return data?.data || { recommendations: [], profileBound: false, historyCount: 0 }

@@ -25,12 +25,14 @@ try:
     from api_config import setting_default
     from common import build_anthropic_messages_url, create_llm_headers, get_setting
     from course_knowledge import grounded_prompt_block
+    from herb_model_catalog import select_learning_path_herb
     from mcu_catalog import normalize_mcu_resource_params
     from model_routing import DEFAULT_VISION_MODEL_ID, model_display_name
 except ImportError:  # pragma: no cover
     from .api_config import setting_default
     from .common import build_anthropic_messages_url, create_llm_headers, get_setting
     from .course_knowledge import grounded_prompt_block
+    from .herb_model_catalog import select_learning_path_herb
     from .mcu_catalog import normalize_mcu_resource_params
     from .model_routing import DEFAULT_VISION_MODEL_ID, model_display_name
 
@@ -1240,6 +1242,7 @@ def fallback_background_chat(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def generate_background_chat(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Run one model-backed profile turn without template or rule reply fallbacks."""
     messages = payload.get("messages") or []
     normalized_messages = []
     for item in messages:
@@ -1249,224 +1252,23 @@ def generate_background_chat(payload: Dict[str, Any]) -> Dict[str, Any]:
             normalized_messages.append({"role": role, "text": text})
 
     try:
-        try:
-            from learning_profile_workflow_agent import run_learning_profile_workflow
-        except ImportError:  # pragma: no cover
-            from .learning_profile_workflow_agent import run_learning_profile_workflow
+        from learning_profile_workflow_agent import run_learning_profile_workflow
+    except ImportError:  # pragma: no cover
+        from .learning_profile_workflow_agent import run_learning_profile_workflow
 
-        workflow_result = run_learning_profile_workflow(
-            normalized_messages,
-            user_id=str(payload.get("userId") or payload.get("user_id") or "current-user"),
-            profile=payload.get("studentProfile") or payload.get("profile") or {},
-            verbose=bool(payload.get("debugWorkflow")),
-        )
-        workflow_result["source"] = "llm"
-        workflow_result.setdefault("provider", "xunfei-coding-plan")
-        workflow_result.setdefault("model", get_setting("ANTHROPIC_MODEL", setting_default("ANTHROPIC_MODEL")))
-        workflow_result = normalize_study_profile_output(workflow_result, normalized_messages)
-        return workflow_result
-    except Exception as workflow_exc:
-        # Keep the previous implementation as a last-resort fallback, but make
-        # the workflow failure visible for debugging.
-        payload["workflowError"] = str(workflow_exc)
-
-    profile_snapshot = fallback_study_profile(normalized_messages)
-    profile_followups = profile_snapshot.get("follow_up_questions") or []
-    latest_text = latest_user_text(normalized_messages)
-    if not normalized_messages:
-        return build_fast_background_chat(normalized_messages)
-
-    fast_result = fallback_background_chat(normalized_messages)
-    try:
-        plain_reply = request_llm_text(
-            "你是中药鉴别的数字人 AI 讲师，只用中文和学生对话。不要解释 JSON，不要输出列表，不要自称学习背景助手。",
-            (
-                "学生正在补全中医学习画像。请用 1 到 2 句话回复，并只追问 1 个中医学习相关问题。\n"
-                "问题可以围绕年级专业、课程、阴阳藏象、四诊八纲、中药方剂、医案经验、薄弱点或可投入时间。\n"
-                f"最近一轮学生输入：{latest_text or '你好'}\n"
-                f"当前对话记录：{json.dumps(normalized_messages[-8:], ensure_ascii=False)}\n"
-                f"已抽取画像参考：{json.dumps(profile_snapshot, ensure_ascii=False)}"
-            ),
-            max_tokens=220,
-            timeout=35,
-            json_mode=False,
-        ).strip()
-        if plain_reply:
-            fast_result.update({
-                "agent": "learning-background-dialogue-agent",
-                "source": "llm",
-                "provider": "xunfei-coding-plan",
-                "model": get_setting("ANTHROPIC_MODEL", setting_default("ANTHROPIC_MODEL")),
-                "status": "collecting" if profile_snapshot.get("need_followup") else "complete",
-                "studentProfile": profile_snapshot.get("student_profile") or {},
-                "needFollowup": profile_snapshot.get("need_followup"),
-                "followUpQuestions": profile_followups,
-                "missingProfileDimensions": profile_snapshot.get("missing_profile_dimensions") or [],
-                "question": shorten_background_reply(plain_reply, fast_result.get("question") or ""),
-                "reply": shorten_background_reply(plain_reply, fast_result.get("reply") or ""),
-                "summary": build_study_profile_messages(normalized_messages) or fast_result.get("summary") or "",
-            })
-            return fast_result
-    except Exception as exc:
-        fast_result["llmError"] = str(exc)
-
-    system = (
-        "你是中药鉴别的数字人 AI 讲师，负责通过自然对话采集学生的中医学习画像。"
-        "你必须调用大模型能力生成回复，不能只套模板。"
-        "你只能返回一个合法 JSON 对象，不能输出 Markdown，不能输出思考过程。"
+    workflow_result = run_learning_profile_workflow(
+        normalized_messages,
+        user_id=str(payload.get("userId") or payload.get("user_id") or "current-user"),
+        profile=payload.get("studentProfile") or payload.get("profile") or {},
+        verbose=bool(payload.get("debugWorkflow")),
     )
-    prompt = f"""
-快速生成下一轮学习背景对话回复。
-要求：
-- 不要深度分析，不要输出思考过程。
-- 每轮只问 1 个最关键的问题。
-- reply 必须是中文，1 到 2 句话，60 字以内。
-- 如果用户寒暄或问“你是谁”，简单说明身份后立刻问一个学习背景问题。
-- 只返回 JSON，不要 Markdown。
-
-必须判断以下字段是否足够：
-{json.dumps(BACKGROUND_FIELDS, ensure_ascii=False)}
-
-对话记录：
-{json.dumps(normalized_messages, ensure_ascii=False)}
-
-学习画像智能体已抽取的十维画像：
-{json.dumps(profile_snapshot, ensure_ascii=False)}
-
-只返回下面结构的 JSON 对象：
-{{"agent":"learning-background-dialogue-agent","source":"llm","status":"collecting","completeness":70,"missingFields":["缺失字段"],"extracted":{{"grade":"大二"}},"studentProfile":{{"专业/课程背景":"中医诊断学","学习目标":["提升辨证与医案分析能力"],"当前知识基础":"已学习中医基础理论","学习进度":"四诊与八纲辨证阶段","薄弱知识点":["证候鉴别"],"易错点类型":["四诊信息到病机判断的迁移困难"],"学习风格/认知偏好":[],"资源形式偏好":["分步骤医案解析"],"可投入时间":"","难度接受程度":"适合由基础辨证逐步过渡到综合医案","补充信息":{{"student_id":"current-user","source_type":"学习背景对话","baseInfo":{{}},"证据摘要":"学生原话证据"}}}},"needFollowup":true,"followUpQuestions":["下一步最关键追问"],"missingProfileDimensions":["缺失画像维度"],"question":"下一句追问","summary":"画像报告可用的背景摘要","reply":"展示给学生的回复"}}
-
-完整判定规则：
-- 至少能明确专业方向或课程背景
-- 至少能明确基础水平或学习时长
-- 至少能明确已学课程或医案实践经历
-- 至少能明确学习目标
-- 至少能明确薄弱环节
-不满足就必须 status=collecting 并继续追问。
-reply 字段必须等于真正展示给学生的短回复，不能超过 2 句话。
-"""
-    prompt = f"""
-请根据下面的多轮对话，生成下一轮学习背景对话回复，并抽取 10 个学习画像维度。
-
-对话要求：
-- 你必须自称“数字人 AI 讲师”或“你的中医学习顾问”，不要自称“学习背景助手”。
-- 每轮只问 1 个最关键问题。
-- reply 必须是中文，1 到 2 句话，80 字以内。
-- 如果用户只说“你好”，先简短回应身份，然后询问中医学习背景。
-- 问题必须围绕中医学习，例如年级专业、已学课程、阴阳藏象、四诊八纲、中药方剂、医案实践、薄弱点和可投入时间。
-
-需要补齐的画像维度：
-{json.dumps(["专业/课程背景", "学习目标", "当前知识基础", "学习进度", "薄弱知识点", "易错点类型", "学习风格/认知偏好", "资源形式偏好", "可投入时间", "难度接受程度"], ensure_ascii=False)}
-
-当前对话记录：
-{json.dumps(normalized_messages, ensure_ascii=False)}
-
-规则抽取到的画像参考：
-{json.dumps(profile_snapshot, ensure_ascii=False)}
-
-只返回下面结构的 JSON 对象：
-{{
-  "agent": "learning-background-dialogue-agent",
-  "source": "llm",
-  "status": "collecting",
-  "completeness": 20,
-  "missingFields": ["缺失字段"],
-  "extracted": {{"grade": "", "major": "", "course": ""}},
-  "studentProfile": {{
-    "专业/课程背景": "",
-    "学习目标": [],
-    "当前知识基础": "",
-    "学习进度": "",
-    "薄弱知识点": [],
-    "易错点类型": [],
-    "学习风格/认知偏好": [],
-    "资源形式偏好": [],
-    "可投入时间": "",
-    "难度接受程度": "",
-    "补充信息": {{"student_id": "current-user", "source_type": "学习背景对话", "baseInfo": {{}}, "证据摘要": ""}}
-  }},
-  "needFollowup": true,
-  "followUpQuestions": ["下一步最关键追问"],
-  "missingProfileDimensions": ["缺失画像维度"],
-  "question": "下一句追问",
-  "summary": "画像报告可用的背景摘要",
-  "reply": "展示给学生的回复"
-}}
-"""
-    try:
-        result = call_llm_json(system, prompt, max_tokens=500, repair=False, timeout=18)
-        fallback = fallback_background_chat(normalized_messages)
-        fallback.update({k: v for k, v in result.items() if v is not None})
-        profile_payload = result.get("studentProfile") or result.get("student_profile")
-        if isinstance(profile_payload, dict):
-            profile_snapshot = normalize_study_profile_result(
-                {
-                    "student_profile": profile_payload,
-                    "follow_up_questions": result.get("followUpQuestions") or result.get("follow_up_questions") or [],
-                },
-                normalized_messages,
-            )
-            profile_followups = profile_snapshot.get("follow_up_questions") or []
-        fallback["agent"] = "learning-background-dialogue-agent"
-        fallback["source"] = "llm"
-        fallback["provider"] = "xunfei-coding-plan"
-        fallback["model"] = get_setting("ANTHROPIC_MODEL", setting_default("ANTHROPIC_MODEL"))
-        fallback["studentProfile"] = profile_snapshot.get("student_profile") or {}
-        fallback["needFollowup"] = profile_snapshot.get("need_followup")
-        fallback["followUpQuestions"] = profile_followups
-        fallback["missingProfileDimensions"] = profile_snapshot.get("missing_profile_dimensions") or []
-        if fallback.get("status") not in {"collecting", "complete"}:
-            fallback["status"] = "collecting"
-        if fallback["status"] == "collecting" and profile_followups:
-            result_question = str(fallback.get("question") or "").strip()
-            if not result_question or result_question in {"你目前的专业方向是什么？", "请继续补充你的学习背景。"}:
-                fallback["question"] = profile_followups[0]
-        fallback["reply"] = shorten_background_reply(
-            fallback.get("reply") or fallback.get("question"),
-            "请继续补充你的学习背景。",
-        )
-        fallback["question"] = shorten_background_reply(
-            fallback.get("question") or fallback.get("reply"),
-            fallback["reply"],
-        )
-        if fallback.get("status") == "collecting" and not re.search(r"[?？]", fallback["question"]):
-            fallback["question"] = "你目前的专业方向是什么？"
-        if fallback.get("status") == "collecting" and not re.search(r"[?？]", fallback["reply"]):
-            question = fallback.get("question") or "你目前的专业方向是什么？"
-            if question and question not in fallback["reply"]:
-                prefix = re.sub(r"[。！？!?]\s*$", "", fallback["reply"]).strip()
-                fallback["reply"] = shorten_background_reply(f"{prefix}，{question}", question)
-        return fallback
-    except Exception as exc:
-        result = build_fast_background_chat(normalized_messages)
-        result["source"] = "llm-fallback"
-        result["provider"] = "xunfei-coding-plan"
-        result["model"] = get_setting("ANTHROPIC_MODEL", setting_default("ANTHROPIC_MODEL"))
-        result["llmError"] = str(exc)
-        result["studentProfile"] = profile_snapshot.get("student_profile") or result.get("studentProfile") or {}
-        result["needFollowup"] = profile_snapshot.get("need_followup")
-        result["followUpQuestions"] = profile_followups
-        result["missingProfileDimensions"] = profile_snapshot.get("missing_profile_dimensions") or []
-        try:
-            plain_reply = request_llm_text(
-                "你是中药鉴别的数字人 AI 讲师，只用中文回复学生。不要解释 JSON，不要输出列表。",
-                (
-                    "学生正在补全中医学习画像。\n"
-                    f"最近一轮学生输入：{latest_text or '你好'}\n"
-                    "请用 1 到 2 句话回复，并只追问 1 个中医学习相关问题。"
-                    "不要自称学习背景助手，要自称数字人 AI 讲师或中医学习顾问。"
-                ),
-                max_tokens=220,
-                timeout=25,
-                json_mode=False,
-            ).strip()
-            if plain_reply:
-                result["source"] = "llm"
-                result["reply"] = shorten_background_reply(plain_reply, result.get("reply") or "")
-                result["question"] = result["reply"]
-        except Exception as plain_exc:
-            result["plainLlmError"] = str(plain_exc)
-        return result
+    workflow_result["source"] = "llm"
+    workflow_result.setdefault("provider", "configured-openai-compatible")
+    workflow_result.setdefault(
+        "model",
+        get_setting("ANTHROPIC_MODEL", setting_default("ANTHROPIC_MODEL")),
+    )
+    return normalize_study_profile_output(workflow_result, normalized_messages)
 
 
 PATH_WEEK_LABELS = ["第一周", "第二周", "第三周", "第四周", "第五周", "第六周", "第七周", "第八周", "第九周", "第十周", "第十一周", "第十二周"]
@@ -1503,10 +1305,12 @@ LEARNING_PATH_RESOURCE_ALIASES = {
     "learning-document": "document",
     "animated-lesson": "animation",
     "learning-animation": "animation",
+    "herb_model": "herb-model",
+    "herb-recognition": "herb-model",
 }
-LEARNING_PATH_RESOURCE_TYPES = {"video", "generated_video", "animation", "document", "ppt", "mindmap", "question-bank"}
-LEARNING_PATH_REQUIRED_RESOURCE_TYPES = ("question-bank", "ppt", "mindmap", "video", "document", "generated_video")
-LEARNING_PATH_RESOURCE_PLAN_VERSION = "tcm-profile-routed-resources-v20-weekly-six-resource-coverage"
+LEARNING_PATH_RESOURCE_TYPES = {"video", "generated_video", "animation", "document", "ppt", "mindmap", "question-bank", "herb-model"}
+LEARNING_PATH_REQUIRED_RESOURCE_TYPES = ("herb-model", "question-bank", "ppt", "mindmap", "video", "document", "generated_video")
+LEARNING_PATH_RESOURCE_PLAN_VERSION = "tcm-profile-routed-resources-v21-weekly-herb-model"
 LEARNING_PATH_RESOURCE_CONCENTRATION_LIMIT = 2
 LEARNING_PATH_RESOURCE_CONCENTRATION_PENALTY = 5
 LEARNING_PATH_RESOURCE_ACTIONS = {
@@ -1517,6 +1321,7 @@ LEARNING_PATH_RESOURCE_ACTIONS = {
     "ppt": "生成学习课件",
     "mindmap": "生成思维导图",
     "question-bank": "生成练习题单",
+    "herb-model": "开展药材模型辨识",
 }
 
 
@@ -1571,6 +1376,7 @@ def _task_allowed_resource_types(node_title: str, description: str) -> set[str]:
     # "概念建模". This keeps an experiment task from being routed to a mind map
     # while still letting the profile router choose within compatible agents.
     explicit_title_rules = [
+        (["药材模型", "模型辨识", "模型识别", "药材辨识", "药材识别"], {"herb-model"}),
         (["动画微课", "动画讲解", "过程动画", "动态演示"], {"animation"}),
         (["思维导图", "知识导图", "知识图谱", "概念图"], {"mindmap"}),
         (["ppt", "课件", "幻灯片", "演示文稿"], {"ppt"}),
@@ -1584,6 +1390,7 @@ def _task_allowed_resource_types(node_title: str, description: str) -> set[str]:
             return resource_types
 
     explicit_artifact_rules = [
+        (["药材模型", "模型辨识", "模型识别", "药材辨识", "药材识别"], {"herb-model"}),
         (["动画微课", "动画讲解", "过程动画", "动态演示"], {"animation"}),
         (["思维导图", "知识导图", "知识图谱", "概念图"], {"mindmap"}),
         (["ppt", "课件", "幻灯片", "演示文稿"], {"ppt"}),
@@ -1660,6 +1467,7 @@ def _profile_routed_resource_type(
         "ppt": ["ppt", "课件", "演示文稿", "幻灯片"],
         "mindmap": ["思维导图", "导图", "图谱", "结构化", "知识树", "mindmap"],
         "question-bank": ["题库", "练习", "刷题", "测评", "考试", "quiz"],
+        "herb-model": ["药材", "本草", "鉴别", "模型", "三维", "实物", "观察"],
     }
     matched_preferences: Dict[str, List[str]] = {}
     for resource_type, keywords in preference_rules.items():
@@ -1676,6 +1484,7 @@ def _profile_routed_resource_type(
         "ppt": ["课件", "汇报", "展示", "演示"],
         "mindmap": ["建模", "结构", "概念", "关联", "复盘", "知识图"],
         "question-bank": ["测评", "题", "错因", "诊断", "检验", "考试"],
+        "herb-model": ["药材", "中药", "外观", "性状", "鉴别", "辨识", "实物", "模型"],
     }
     for resource_type, keywords in task_rules.items():
         scores[resource_type] += sum(3 for keyword in keywords if keyword in task_text)
@@ -1712,7 +1521,7 @@ def _profile_routed_resource_type(
             previous_resource_types.count(resource_type)
             * LEARNING_PATH_RESOURCE_CONCENTRATION_PENALTY
         )
-    tie_order = [item for item in ["video", "animation", "document", "mindmap", "ppt", "mcu", "question-bank"] if item in allowed_types]
+    tie_order = [item for item in ["video", "animation", "document", "mindmap", "ppt", "herb-model", "question-bank"] if item in allowed_types]
     rotation = max(0, index - 1) % len(tie_order)
     tie_order = tie_order[rotation:] + tie_order[:rotation]
     resource_type = max(tie_order, key=lambda item: (scores[item], -tie_order.index(item)))
@@ -1753,6 +1562,7 @@ LEARNING_PATH_RESOURCE_PARAM_FIELDS = {
     "ppt": {"prompt", "pageCount", "styleName"},
     "mindmap": {"keyword", "prompt"},
     "question-bank": {"course", "chapter", "count", "difficulty", "constraints"},
+    "herb-model": {"herbId", "herbName", "challengeMode"},
     "mcu": {
         "board",
         "projectId",
@@ -1877,6 +1687,11 @@ def _resource_params_for_task(
             "count": 8 if compact_task else 10,
             "difficulty": str(profile_context.get("difficulty") or "medium")[:40],
             "constraints": f"重点检查“{weak_point}”；任务要求：{description}"[:500],
+        }
+    elif resource_type == "herb-model":
+        defaults = {
+            **common,
+            "challengeMode": "identify",
         }
     else:
         topic_text = f"{topic} {description}".lower()
@@ -2524,7 +2339,7 @@ def _apply_required_weekly_resources(
     goal: str,
     stage_id: str,
 ) -> List[Dict[str, Any]]:
-    """Apply the six-resource weekly invariant before a path is first shown."""
+    """Apply the weekly resource invariant before a path is first shown."""
     if len(nodes) < 6:
         return nodes
 
@@ -2737,9 +2552,10 @@ def ensure_weekly_learning_path_resource_coverage(
     *,
     profile_context: Dict[str, Any],
     topic: str,
+    stage_id: str = "",
     existing_resource_types: List[str] | None = None,
 ) -> List[Dict[str, Any]]:
-    """Enforce the six learner-facing tools before resource tasks are created."""
+    """Enforce the learner-facing tools before resource tasks are created."""
     normalized_tasks = [dict(task) for task in tasks if isinstance(task, dict)]
     existing_types = [
         _canonical_learning_path_resource_type(resource_type)
@@ -2760,10 +2576,32 @@ def ensure_weekly_learning_path_resource_coverage(
         if resource_type in coverage_counts:
             coverage_counts[resource_type] += 1
 
+    profile_id = (profile_context.get("evidence") or {}).get("profileReportId") or 0
+
+    def assign_herb_model(task: Dict[str, Any], task_index: int) -> None:
+        herb = select_learning_path_herb(
+            profile_id,
+            stage_id,
+            str(task.get("id") or task_index),
+        )
+        params = dict(task.get("resourceParams")) if isinstance(task.get("resourceParams"), dict) else {}
+        params.update(
+            {
+                "herbId": herb["id"],
+                "herbName": herb["name"],
+                "topic": f"{herb['name']}药材模型辨识",
+                "targetTopic": herb["name"],
+                "challengeMode": "identify",
+            }
+        )
+        task["resourceParams"] = params
+
     replaceable_indexes: List[int] = []
     for task_index, task in enumerate(normalized_tasks):
         resource_type = _canonical_learning_path_resource_type(task.get("resourceType"))
         task["resourceType"] = resource_type
+        if resource_type == "herb-model":
+            assign_herb_model(task, task_index)
         if resource_type in coverage_counts:
             coverage_counts[resource_type] += 1
         else:
@@ -2782,24 +2620,29 @@ def ensure_weekly_learning_path_resource_coverage(
         node_title = str(node.get("title") or task.get("title") or "学习任务")
         description = str(node.get("description") or node.get("desc") or "")
         deliverable = str(node.get("deliverable") or "")
+        resource_params = _resource_params_for_task(
+            resource_type,
+            topic,
+            node_title,
+            description,
+            deliverable,
+            profile_context,
+            None,
+        )
+        if resource_type == "herb-model":
+            task["resourceParams"] = resource_params
+            assign_herb_model(task, task_index)
+            resource_params = task["resourceParams"]
         task.update(
             {
                 "resourceType": resource_type,
-                "resourceParams": _resource_params_for_task(
-                    resource_type,
-                    topic,
-                    node_title,
-                    description,
-                    deliverable,
-                    profile_context,
-                    None,
-                ),
+                "resourceParams": resource_params,
                 "resourcePrompt": (
-                    f"根据当前学习画像完成“{node_title}”并生成可直接打开的"
+                    f"根据当前学习画像完成“{node_title}”并"
                     f"{LEARNING_PATH_RESOURCE_ACTIONS[resource_type]}。"
                 ),
                 "resourceSelectionReason": (
-                    "每周资源覆盖规则：本周必须包含题库、PPT、思维导图、"
+                    "每周资源覆盖规则：本周必须包含药材模型辨识、题库、PPT、思维导图、"
                     "视频查找、课程讲义和待确认的 AI 视频讲解。"
                 ),
                 "resourceSelectionSource": "weekly-resource-coverage",
@@ -2831,6 +2674,30 @@ def ensure_weekly_learning_path_resource_coverage(
             coverage_counts[previous_type] -= 1
         enforce_resource_type(task_index, resource_type)
         coverage_counts[resource_type] += 1
+
+    herb_indexes = [
+        index
+        for index, task in enumerate(normalized_tasks)
+        if task.get("resourceType") == "herb-model"
+    ]
+    for task_index in herb_indexes[1:]:
+        node = task_node(task_index)
+        allowed_types = _task_allowed_resource_types(
+            str(node.get("title") or normalized_tasks[task_index].get("title") or "学习任务"),
+            str(node.get("description") or node.get("desc") or ""),
+        ) - {"herb-model"}
+        if not allowed_types:
+            allowed_types = set(LEARNING_PATH_RESOURCE_TYPES) - {"herb-model"}
+        replacement_type, _ = _profile_routed_resource_type(
+            profile_context,
+            str(node.get("title") or "学习任务"),
+            str(node.get("description") or node.get("desc") or ""),
+            str(node.get("deliverable") or ""),
+            task_index + 1,
+            allowed_types,
+            [str(task.get("resourceType") or "") for task in normalized_tasks[:task_index]],
+        )
+        enforce_resource_type(task_index, replacement_type)
 
     return normalized_tasks
 
@@ -2887,11 +2754,11 @@ def plan_learning_path_stage_resources(payload: Dict[str, Any]) -> Dict[str, Any
 {knowledge_context}
 
 要求:
-1. resourceType 只能是 generated_video、video、animation、document、ppt、mindmap、question-bank。
-2. 必须按画像偏好、薄弱点、学习目标和任务产出逐项选择；允许重复，不得套用固定节点顺序。资源必须适合任务产出：测评/测试卷优先题库，辨证过程与证候演变可选动画微课，概念建模优先导图/讲义/PPT/动画，医案辨析优先讲义或题库，复盘优先导图/讲义。参考已编排类型避免单一资源过度集中；每周必须安排 1 项 generated_video 的 AI 视频讲解任务。该任务只创建待确认入口，用户打开并确认后才会调用视频模型生成，不能在路径编排阶段自动生成。video 仍表示视频查找，不能替代 generated_video。
+1. resourceType 只能是 generated_video、video、animation、document、ppt、mindmap、question-bank、herb-model。
+2. 必须按画像偏好、薄弱点、学习目标和任务产出逐项选择；允许重复，不得套用固定节点顺序。资源必须适合任务产出：药材性状与中药鉴别任务优先 herb-model，测评/测试卷优先题库，辨证过程与证候演变可选动画微课，概念建模优先导图/讲义/PPT/动画，医案辨析优先讲义或题库，复盘优先导图/讲义。参考已编排类型避免单一资源过度集中；每周必须安排 1 项 herb-model 药材模型辨识和 1 项 generated_video 的 AI 视频讲解任务。generated_video 只创建待确认入口，用户打开并确认后才会调用视频模型生成。video 仍表示视频查找，不能替代 generated_video。
    如果任务标题明确包含视频、动画、PPT、思维导图、题库、讲义或实验，resourceType 必须与标题指定的产物一致。
 3. 每项必须返回与子智能体匹配的 resourceParams，参数要完整到后台能立即生成，不能让用户进入页面后再填写。
-4. generated_video 至少给 topic/duration/style/voice/resolution；video 至少给 topic/keyword；animation 至少给 topic/requirements；document 至少给 topic/requirements；ppt 至少给 topic/prompt/pageCount；mindmap 至少给 topic/keyword/prompt；question-bank 至少给 course/chapter/count/constraints。
+4. herb-model 的 herbId 由平台覆盖规则从模型库确定，模型不得编造；generated_video 至少给 topic/duration/style/voice/resolution；video 至少给 topic/keyword；animation 至少给 topic/requirements；document 至少给 topic/requirements；ppt 至少给 topic/prompt/pageCount；mindmap 至少给 topic/keyword/prompt；question-bank 至少给 course/chapter/count/constraints。
 5. selectionReason 必须明确指出使用了哪项画像依据，resourcePrompt 必须是可直接交给子智能体的指令。
 
 只返回:
@@ -2934,6 +2801,7 @@ def plan_learning_path_stage_resources(payload: Dict[str, Any]) -> Dict[str, Any
         nodes,
         profile_context=profile_context,
         topic=topic,
+        stage_id=str(stage.get("id") or stage.get("stageId") or ""),
         existing_resource_types=previous_resource_types,
     )
 
@@ -3334,6 +3202,7 @@ RESOURCE_TYPE_ALIASES = {
     "learning-document": "document",
     "animated-lesson": "animation",
     "learning-animation": "animation",
+    "herb_model": "herb-model",
 }
 
 
@@ -3348,13 +3217,14 @@ RESOURCE_TYPE_LABELS = {
     "simulator": "实验任务",
     "quiz": "题库练习",
     "note": "复盘笔记",
+    "herb-model": "药材模型辨识",
 }
 
 
 def _normalize_resource_type(value: Any) -> str:
     resource_type = str(value or "").strip()
     resource_type = RESOURCE_TYPE_ALIASES.get(resource_type, resource_type)
-    if resource_type in {"profile", "document", "mindmap", "ppt", "video", "generated_video", "animation", "code", "simulator", "quiz", "note"}:
+    if resource_type in {"profile", "document", "mindmap", "ppt", "video", "generated_video", "animation", "code", "simulator", "quiz", "note", "herb-model"}:
         return resource_type
     return "note"
 
@@ -3439,6 +3309,9 @@ def _stage_resource_route(
         animation_topic = str(params.get("topic") or topic).strip()
         requirements = str(params.get("requirements") or params.get("prompt") or "").strip()
         return f"/personalized-resources/animation?{query({'topic': animation_topic, 'requirements': requirements, 'autostart': 1})}"
+    if resource_type == "herb-model":
+        herb_id = str(params.get("herbId") or "").strip()
+        return f"/personalized-resources/herb-model?{query({'herb': herb_id, 'mode': 'identify'})}"
     if resource_type == "quiz":
         course = str(params.get("course") or params.get("courseName") or "中医系统").strip()
         chapter = str(params.get("chapter") or params.get("targetTopic") or topic).strip()

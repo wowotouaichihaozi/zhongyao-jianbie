@@ -85,7 +85,7 @@ try:
         plan_learning_path_stage_resources,
         sanitize_learning_path_resource_params,
     )
-    from learning_profile_workflow_agent import clear_persisted_profile_dialogue, run_learning_profile_workflow
+    from learning_profile_workflow_agent import LearningProfileModelUnavailable, clear_persisted_profile_dialogue, run_learning_profile_workflow
     from learning_profile_sessions import add_message as add_profile_session_message, create_session as create_profile_session, get_session as get_profile_session, list_sessions as list_profile_sessions, update_session as update_profile_session
     from learning_profile_versions import (
         activate_profile,
@@ -118,6 +118,7 @@ try:
         resolve_model_routing,
     )
     from course_knowledge import CACHE_PATH as COURSE_KNOWLEDGE_CACHE_PATH, retrieve_course_knowledge
+    from herb_model_catalog import HERB_MODEL_REVISION, find_herb_model, public_herb_model_catalog, select_learning_path_herb
     import knowledge_growth
     import private_knowledge as private_knowledge_service
     import showcase_network
@@ -184,7 +185,7 @@ except ImportError:  # pragma: no cover - package-style import fallback
         plan_learning_path_stage_resources,
         sanitize_learning_path_resource_params,
     )
-    from .learning_profile_workflow_agent import clear_persisted_profile_dialogue, run_learning_profile_workflow
+    from .learning_profile_workflow_agent import LearningProfileModelUnavailable, clear_persisted_profile_dialogue, run_learning_profile_workflow
     from .learning_profile_sessions import add_message as add_profile_session_message, create_session as create_profile_session, get_session as get_profile_session, list_sessions as list_profile_sessions, update_session as update_profile_session
     from .learning_profile_versions import (
         activate_profile,
@@ -217,6 +218,7 @@ except ImportError:  # pragma: no cover - package-style import fallback
         resolve_model_routing,
     )
     from .course_knowledge import CACHE_PATH as COURSE_KNOWLEDGE_CACHE_PATH, retrieve_course_knowledge
+    from .herb_model_catalog import HERB_MODEL_REVISION, find_herb_model, public_herb_model_catalog, select_learning_path_herb
     from . import knowledge_growth
     from . import private_knowledge as private_knowledge_service
     from . import showcase_network
@@ -655,6 +657,8 @@ LEARNING_PATH_TASK_RESOURCE_ALIASES = {
     "learning-document": "document",
     "animated-lesson": "animation",
     "learning-animation": "animation",
+    "herb_model": "herb-model",
+    "herb-recognition": "herb-model",
 }
 LEARNING_PATH_TASK_RESOURCE_ACTIONS = {
     "generated_video": "生成 AI 视频讲解",
@@ -664,6 +668,7 @@ LEARNING_PATH_TASK_RESOURCE_ACTIONS = {
     "ppt": "生成学习课件",
     "mindmap": "生成思维导图",
     "question-bank": "生成练习题单",
+    "herb-model": "开展药材模型辨识",
     "mcu": "查看历史实践记录",
 }
 LEARNING_PATH_RESOURCE_ROUTE_TYPES = {
@@ -674,6 +679,7 @@ LEARNING_PATH_RESOURCE_ROUTE_TYPES = {
     "/personalized-resources/ppt": "ppt",
     "/personalized-resources/mind-map": "mindmap",
     "/personalized-resources/question-bank": "question-bank",
+    "/personalized-resources/herb-model": "herb-model",
     "/personalized-resources/mcu-simulator": "mcu",
 }
 
@@ -781,6 +787,13 @@ def _learning_path_task_resource_route(
             "autostart": "1",
             **common,
         }
+    elif resource_type == "herb-model":
+        path = "/personalized-resources/herb-model"
+        params = {
+            "herb": resource_params.get("herbId") or "",
+            "mode": resource_params.get("challengeMode") or "identify",
+            **common,
+        }
     else:
         resource_params = normalize_mcu_resource_params(resource_params, topic)
         board = str(resource_params["board"])
@@ -791,20 +804,27 @@ def _learning_path_task_resource_route(
 
 
 def _ensure_learning_path_task_resource_coverage(nodes: list[dict], topic: str, stage_id: str) -> list[dict]:
-    """Keep every weekly task set covered by six learner-facing resource tools."""
-    required = list(LEARNING_PATH_REQUIRED_TASK_RESOURCE_TYPES)
+    """Keep every weekly task set covered by the required learner-facing tools."""
     normalized_nodes = [node for node in nodes if isinstance(node, dict)]
-    if len(normalized_nodes) < len(required):
+    if len(normalized_nodes) < len(LEARNING_PATH_REQUIRED_TASK_RESOURCE_TYPES):
         return normalized_nodes
+    required = list(LEARNING_PATH_REQUIRED_TASK_RESOURCE_TYPES)
 
     def replace_resource(index: int, resource_type: str) -> None:
         node = normalized_nodes[index]
-        previous_type = str(node.get("resourceType") or "")
-        if previous_type == resource_type:
-            return
         node_id = str(node.get("id") or index + 1)
         cache_key = re.sub(r"[^a-zA-Z0-9_.:-]+", "-", f"{stage_id}-{node_id}-{resource_type}").strip("-")
         params = sanitize_learning_path_resource_params(resource_type, node.get("resourceParams"), include_runtime=True)
+        if resource_type == "herb-model":
+            herb = select_learning_path_herb(0, stage_id, node_id)
+            params.update(
+                {
+                    "herbId": herb["id"],
+                    "herbName": herb["name"],
+                    "topic": f"{herb['name']}药材模型辨识",
+                    "challengeMode": "identify",
+                }
+            )
         node.update(
             {
                 "resourceType": resource_type,
@@ -814,7 +834,7 @@ def _ensure_learning_path_task_resource_coverage(nodes: list[dict], topic: str, 
                 "actionText": LEARNING_PATH_TASK_RESOURCE_ACTIONS[resource_type],
                 "actionRoute": _learning_path_task_resource_route(resource_type, topic, stage_id, node_id, cache_key, params),
                 "resourcePrompt": f"根据当前学习画像完成“{node.get('title') or '学习任务'}”并生成对应学习资源。",
-                "resourceSelectionReason": "每周六类资源覆盖规则已补齐当前任务。",
+                "resourceSelectionReason": "每周七类资源覆盖规则已补齐当前任务。",
                 "resourceSelectionSource": "weekly-resource-coverage",
                 "resourceTask": {"status": "waiting", "progress": 0},
             }
@@ -824,6 +844,12 @@ def _ensure_learning_path_task_resource_coverage(nodes: list[dict], topic: str, 
     unsupported_indexes: list[int] = []
     for index, node in enumerate(normalized_nodes):
         resource_type = str(node.get("resourceType") or "")
+        if resource_type == "herb-model" and find_herb_model(
+            (node.get("resourceParams") or {}).get("herbId")
+            if isinstance(node.get("resourceParams"), dict)
+            else None
+        ) is None:
+            replace_resource(index, "herb-model")
         if resource_type in counts:
             counts[resource_type] += 1
         else:
@@ -7017,27 +7043,6 @@ def learning_profile_session_message(session_id: int):
             return jsonify({"code": 404, "msg": "学习画像会话不存在"}), 404
         if session.get("status") == "complete":
             return jsonify({"code": 409, "msg": "此学习画像已完成，请新建画像或使用报告页的重新评估", "data": {"session": session}}), 409
-        user_message_id = add_profile_session_message(
-            conn,
-            int(user["id"]),
-            session_id,
-            "user",
-            display_content,
-            timestamp,
-            {"attachments": public_attachments},
-        )
-        memory_source_key = f"{session_id}:{user_message_id}"
-        knowledge_growth.record_conversation_memory(
-            conn,
-            int(user["id"]),
-            source_type="profile-dialogue",
-            source_key=memory_source_key,
-            session_id=str(session_id),
-            route="/learning-profile/chat",
-            user_message=display_content,
-            metadata={"attachments": public_attachments},
-            timestamp=timestamp,
-        )
         messages = []
         for item in session.get("messages", []):
             item_content = str(item.get("content") or "")
@@ -7050,27 +7055,35 @@ def learning_profile_session_message(session_id: int):
         messages.append({"role": "user", "content": agent_content})
 
     # The workflow receives only this session's transcript and dimensions.
-    workflow = xiaozhi_run_orchestrated(
-        "learning_background",
-        agent_content,
-        {
-            "messages": messages,
-            "attachments": public_attachments,
-            "profile": session.get("dimensions")
-            if isinstance(session.get("dimensions"), dict)
-            else {},
-        },
-        int(user["id"]),
-        lambda managed_payload, _progress: run_learning_profile_workflow(
-            managed_payload.get("messages") or [],
-            user_id=f"profile-session-{user['id']}-{session_id}",
-            profile=managed_payload.get("profile")
-            if isinstance(managed_payload.get("profile"), dict)
-            else {},
-        ),
-        context=xiaozhi_latest_context(int(user["id"])),
-        max_retries=0,
-    )
+    try:
+        workflow = xiaozhi_run_orchestrated(
+            "learning_background",
+            agent_content,
+            {
+                "messages": messages,
+                "attachments": public_attachments,
+                "profile": session.get("dimensions")
+                if isinstance(session.get("dimensions"), dict)
+                else {},
+            },
+            int(user["id"]),
+            lambda managed_payload, _progress: run_learning_profile_workflow(
+                managed_payload.get("messages") or [],
+                user_id=f"profile-session-{user['id']}-{session_id}",
+                profile=managed_payload.get("profile")
+                if isinstance(managed_payload.get("profile"), dict)
+                else {},
+            ),
+            context=xiaozhi_latest_context(int(user["id"])),
+            max_retries=0,
+        )
+    except LearningProfileModelUnavailable as exc:
+        app.logger.warning("learning-profile model unavailable: %s", exc)
+        return jsonify({
+            "code": 503,
+            "errorCode": "MODEL_UNAVAILABLE",
+            "msg": "学习画像大模型不可用，请稍后重试。",
+        }), 503
     reply = str(workflow.get("reply") or workflow.get("question") or "请继续补充你的学习情况。").strip()
     dimensions = workflow.get("studentProfile") if isinstance(workflow.get("studentProfile"), dict) else {}
     dimensions.pop("补充信息", None)
@@ -7103,6 +7116,16 @@ def learning_profile_session_message(session_id: int):
             workflow["reportError"] = profile_analysis.get("error") or "profile agent did not return a valid result"
     report = None
     with auth_db() as conn:
+        user_message_id = add_profile_session_message(
+            conn,
+            int(user["id"]),
+            session_id,
+            "user",
+            display_content,
+            timestamp,
+            {"attachments": public_attachments},
+        )
+        memory_source_key = f"{session_id}:{user_message_id}"
         assistant_timestamp = now_iso()
         assistant_message_id = add_profile_session_message(conn, int(user["id"]), session_id, "assistant", reply, assistant_timestamp, {
             "completeness": workflow.get("completeness"), "missingFields": workflow.get("missingProfileDimensions") or [],
@@ -7172,14 +7195,22 @@ def learning_profile_background_chat():
     payload = request.get_json(silent=True) or {}
     payload, _ = _apply_profile_multimodal_context(payload, int(user["id"]))
     payload["userId"] = (user["id"] if "id" in user.keys() else None) or payload.get("userId") or "current-user"
-    result = xiaozhi_run_orchestrated(
-        "learning_background",
-        str(payload.get("message") or (payload.get("messages") or [{}])[-1].get("content") or "继续采集学习背景"),
-        payload,
-        int(user["id"]),
-        lambda managed_payload, _progress: generate_background_chat(managed_payload),
-        max_retries=0,
-    )
+    try:
+        result = xiaozhi_run_orchestrated(
+            "learning_background",
+            str(payload.get("message") or (payload.get("messages") or [{}])[-1].get("content") or "继续采集学习背景"),
+            payload,
+            int(user["id"]),
+            lambda managed_payload, _progress: generate_background_chat(managed_payload),
+            max_retries=0,
+        )
+    except LearningProfileModelUnavailable as exc:
+        app.logger.warning("learning-profile model unavailable: %s", exc)
+        return jsonify({
+            "code": 503,
+            "errorCode": "MODEL_UNAVAILABLE",
+            "msg": "学习画像大模型不可用，请稍后重试。",
+        }), 503
     if result.get("source") not in {"llm", "llm-fallback", "fallback-rule"}:
         return jsonify({
             "code": 503,
@@ -8608,6 +8639,33 @@ def resolve_mcu_agent_params_for_user(user_id: int, params: dict | None, topic: 
     return normalized
 
 
+@app.get("/api/herb-models/catalog")
+def herb_models_catalog_get():
+    user = g.get("current_user")
+    if not user:
+        return jsonify({"code": 401, "msg": "未登录"}), 401
+    items = public_herb_model_catalog()
+    query_text = str(request.args.get("query") or "").strip().lower()
+    if query_text:
+        items = [
+            item for item in items
+            if query_text in " ".join(
+                [item["name"], item["pinyin"], item["category"], item["medicinalPart"], *item["features"]]
+            ).lower()
+        ]
+    return jsonify(
+        {
+            "code": 0,
+            "data": {
+                "revision": HERB_MODEL_REVISION,
+                "count": len(items),
+                "items": items,
+                "usage": "中药材性状学习模型，不用于临床诊断或真伪检验结论。",
+            },
+        }
+    )
+
+
 @app.get("/api/mcu/catalog")
 def mcu_catalog_get():
     """Return the canonical MCU boards, pins, components, experiments, and sources."""
@@ -8777,6 +8835,9 @@ RESOURCE_AGENT_TYPE_ALIASES = {
     "resource-package": "personalized_resources",
     "resource_package": "personalized_resources",
     "resources": "personalized_resources",
+    "herb-model": "herb_model",
+    "herb_model": "herb_model",
+    "herb-recognition": "herb_model",
 }
 
 RESOURCE_AGENT_ALLOWED_TYPES = {
@@ -8792,6 +8853,7 @@ RESOURCE_AGENT_ALLOWED_TYPES = {
     "knowledge_base",
     "profile_management",
     "learning_feedback",
+    "herb_model",
 }
 
 XIAOZHI_TASK_COMMAND_MARKERS = (
@@ -8894,6 +8956,7 @@ def xiaozhi_detect_requested_resource_types(message: str) -> list[str]:
         return ["personalized_resources"]
     requested: list[str] = []
     checks = [
+        ("herb_model", ["药材模型", "模型识别", "模型辨识", "药材识别", "药材辨识", "三维药材"]),
         ("generated_video", ["生成视频", "制作视频", "创建视频", "生成讲解视频", "制作讲解视频", "ai视频", "AI视频"]),
         ("document", ["课程讲义", "学习讲义", "讲义", "学习文档", "课程文档", "handout"]),
         ("ppt", ["ppt", "课件", "演示文稿"]),
@@ -8990,6 +9053,15 @@ def _resource_agent_route(task_type: str, topic: str, params: dict | None = None
         return query(
             "/personalized-resources/animation",
             {"topic": topic, "requirements": requirements, "autostart": "1", **context_params},
+        )
+    if task_type == "herb_model":
+        return query(
+            "/personalized-resources/herb-model",
+            {
+                "herb": params.get("herbId") or "",
+                "mode": params.get("challengeMode") or "identify",
+                **context_params,
+            },
         )
     if task_type == "mcu":
         params = normalize_mcu_resource_params(params, topic)
@@ -9264,6 +9336,22 @@ def xiaozhi_create_resource_agent_task(
     if normalized_type == "mcu":
         params = resolve_mcu_agent_params_for_user(int(user_id), params, task_topic)
         task_topic = _resource_agent_topic(topic, params)
+    if normalized_type == "herb_model":
+        herb = find_herb_model(params.get("herbId"))
+        if herb is None:
+            herb = select_learning_path_herb(
+                params.get("profileReportId") or 0,
+                params.get("stageId") or "resource-library",
+                params.get("nodeId") or secrets.token_hex(4),
+            )
+        params.update(
+            {
+                "herbId": herb["id"],
+                "herbName": herb["name"],
+                "challengeMode": "identify",
+            }
+        )
+        task_topic = f"{herb['name']}药材模型辨识"
     task_title = str(title or f"{task_topic[:32]} · {XIAOZHI_RESOURCE_LABELS.get(normalized_type, '学习资源智能体')}")
     task_prompt = str(prompt or task_topic).strip()
     if normalized_type == "generated_video":
@@ -9329,6 +9417,38 @@ def xiaozhi_create_resource_agent_task(
         task_title,
         {"taskId": task_id, "taskType": normalized_type, "topic": task_topic, "params": params},
     )
+    if normalized_type == "herb_model":
+        public_herb = next(
+            item for item in public_herb_model_catalog() if item["id"] == params["herbId"]
+        )
+        completed_result = {
+            **initial_result,
+            "message": f"资源路由智能体已抽取{public_herb['name']}，药材模型辨识入口可直接学习。",
+            "progress": 100,
+            "route": task["route"],
+            "selectedResource": {
+                "id": f"herb-model:{public_herb['id']}",
+                "type": "herb_model",
+                "title": f"{public_herb['name']}药材模型辨识",
+                "description": f"旋转观察{public_herb['name']}模型，通过性状要点完成辨识。",
+                "route": task["route"],
+                "content": public_herb,
+                "metadata": {
+                    "herbId": public_herb["id"],
+                    "catalogRevision": HERB_MODEL_REVISION,
+                    "selectionSource": "learning-path-resource-router-agent",
+                    "profileReportId": params.get("profileReportId") or 0,
+                },
+            },
+            "qualityEvaluation": {
+                "passed": True,
+                "score": 100,
+                "reviewType": "curated-model-catalog",
+            },
+        }
+        xiaozhi_update_task(task_id, status="complete", result_json=completed_result, route=task["route"])
+        task.update({"status": "complete", "result": completed_result})
+        return task
     executor = (
         VIDEO_RESOURCE_EXECUTOR
         if normalized_type == "generated_video"
@@ -9654,11 +9774,12 @@ def _learning_path_stage_has_required_resources(stage: dict) -> bool:
     nodes = [node for node in (stage.get("nodes") or []) if isinstance(node, dict)]
     if len(nodes) < len(LEARNING_PATH_REQUIRED_TASK_RESOURCE_TYPES):
         return True
+    required = set(LEARNING_PATH_REQUIRED_TASK_RESOURCE_TYPES)
     resource_types = {
         _canonical_learning_path_task_resource(node, index)
         for index, node in enumerate(nodes, start=1)
     }
-    return set(LEARNING_PATH_REQUIRED_TASK_RESOURCE_TYPES).issubset(resource_types)
+    return required.issubset(resource_types)
 
 
 def _persist_learning_path_stage_update(user_id: int, stage_id: str, stage: dict) -> dict:
@@ -9850,6 +9971,13 @@ def _apply_learning_path_node_resource_plan(
             "profileReportId": profile_id,
         }
     )
+    if resource_type == "herb-model" and params.get("herbName"):
+        node["title"] = f"药材模型辨识 · {params['herbName']}"
+        node["description"] = (
+            f"旋转观察{params['herbName']}三维模型，先独立判断药材名称，"
+            "再核对药用部位与关键性状并完成辨识。"
+        )
+        node["deliverable"] = "药材辨识结果与三条性状依据"
     node.update(
         {
             "cacheKey": cache_key,
@@ -10227,7 +10355,7 @@ def _enforce_parallel_learning_path_resource_coverage(
     planning_results: dict[str, dict],
     profile: dict,
 ) -> None:
-    """Reconcile independently planned nodes into one weekly six-resource set."""
+    """Reconcile independently planned nodes into one complete weekly resource set."""
     nodes = [node for node in (stage.get("nodes") or []) if isinstance(node, dict)]
     planning_node_ids = {str(state.get("nodeId") or "") for state in planning_states}
     existing_resource_types = [
@@ -10256,6 +10384,7 @@ def _enforce_parallel_learning_path_resource_coverage(
         planned_nodes,
         profile_context=build_learning_profile_context(profile),
         topic=str(stage.get("focus") or stage.get("goal") or stage.get("title") or "中医学习任务"),
+        stage_id=str(stage.get("id") or ""),
         existing_resource_types=existing_resource_types,
     )
     covered_by_id = {
@@ -10876,7 +11005,7 @@ def prepare_learning_path_stage_resources_for_user(
                 "",
             )
             if not terminal_error and not coverage_complete:
-                terminal_error = "本周资源编排未覆盖全部六类资源，将自动重新编排。"
+                terminal_error = "本周资源编排未覆盖全部七类资源，将自动重新编排。"
             stage["resourcePlanVersion"] = (
                 LEARNING_PATH_RESOURCE_PLAN_VERSION if not terminal_error else ""
             )
@@ -11083,7 +11212,7 @@ def prepare_learning_path_stage_resources_for_user(
         )
         coverage_complete = _learning_path_stage_has_required_resources(stage)
         if not next_candidates and not terminal_planning_error and not coverage_complete:
-            terminal_planning_error = "本周资源编排未覆盖全部六类资源，将自动重新编排。"
+            terminal_planning_error = "本周资源编排未覆盖全部七类资源，将自动重新编排。"
         preparation_status = (
             "running"
             if next_candidates

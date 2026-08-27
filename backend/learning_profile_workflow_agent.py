@@ -74,6 +74,10 @@ LIST_DIMENSIONS = {
 DB_PATH = Path(__file__).resolve().parent / "data" / "profile_workflow.sqlite"
 
 
+class LearningProfileModelUnavailable(RuntimeError):
+    """Raised when a profile turn cannot obtain a usable model response."""
+
+
 class WorkflowState(TypedDict, total=False):
     user_id: str
     messages: List[Dict[str, str]]
@@ -532,13 +536,8 @@ def merge_agent_result(current_profile: Dict[str, Any], agent_result: Dict[str, 
             if dimension in source:
                 append_profile_value(merged_profile, dimension, source.get(dimension))
     missing = [dimension for dimension in PROFILE_DIMENSIONS if not is_filled(merged_profile.get(dimension))]
-    ordered_next = next((dimension for dimension in PROFILE_COLLECTION_ORDER if dimension in missing), "")
     agent_next_dimension = agent_result.get("next_dimension") or ""
-    next_dimension = agent_next_dimension
-    if next_dimension not in missing:
-        next_dimension = missing[0] if missing else ""
-    if ordered_next and next_dimension != ordered_next:
-        next_dimension = ordered_next
+    next_dimension = agent_next_dimension if agent_next_dimension in missing else ""
     mentioned = [dimension for dimension in PROFILE_DIMENSIONS if is_filled(profile_patch.get(dimension))]
     return {
         "mentioned_dimensions": mentioned,
@@ -749,27 +748,46 @@ def node_llm_agent_decide(state: WorkflowState) -> WorkflowState:
 6. 如果所有维度都完整，next_dimension 为空字符串，reply 给出简短总结。
 7. 只输出 JSON 对象。
 """
-    try:
-        raw = _request_llm_text(
-            system,
-            prompt,
-            max_tokens=900,
-            timeout=35,
-            json_mode=True,
-            allow_anthropic_fallback=False,
-        )
-        parsed = _extract_json(raw)
-        state["agent_raw"] = raw
-        state["agent_json"] = parsed
-        if is_greeting_only(latest):
-            # Greeting-only turns are not allowed to create profile evidence.
-            # Keep the reply path, but strip any model-hallucinated profile fill.
-            state["agent_json"]["evidence"] = []
-            state["agent_json"]["candidate_evidence"] = []
-            state["agent_json"]["next_dimension"] = ""
-    except Exception as exc:
-        state["agent_raw"] = f"LLM agent failed: {exc}"
-        state["agent_json"] = {}
+    last_error: Exception | None = None
+    for attempt in range(2):
+        retry_instruction = ""
+        if attempt:
+            retry_instruction = (
+                "\n上一次输出无效或与上一句助手回复重复。请重新理解最新回答，"
+                "生成不同且能推进画像采集的回复；不得复述上一句助手内容。"
+            )
+        try:
+            raw = _request_llm_text(
+                system,
+                prompt + retry_instruction,
+                max_tokens=900,
+                timeout=35,
+                json_mode=True,
+                allow_anthropic_fallback=False,
+            )
+            parsed = _extract_json(raw)
+            validated = validate_agent_json(parsed)
+            reply = str(validated.get("reply") or "").strip()
+            next_dimension = str(validated.get("next_dimension") or "").strip()
+            if not reply:
+                raise ValueError("大模型未返回可显示回复")
+            if previous_assistant and reply == previous_assistant.strip():
+                raise ValueError("大模型连续返回重复回复")
+            if missing and next_dimension not in missing:
+                raise ValueError("大模型未返回有效的下一采集维度")
+            state["agent_raw"] = raw
+            state["agent_json"] = parsed
+            if is_greeting_only(latest):
+                # A greeting may advance the conversation but cannot fill evidence.
+                state["agent_json"]["evidence"] = []
+                state["agent_json"]["candidate_evidence"] = []
+            break
+        except Exception as exc:
+            last_error = exc
+    else:
+        raise LearningProfileModelUnavailable(
+            "学习画像大模型不可用或未返回有效回复，请稍后重试。"
+        ) from last_error
     _log(state, "llm_agent_decide", {"raw": state.get("agent_raw"), "json": state.get("agent_json")})
     return state
 
@@ -798,63 +816,34 @@ def node_persist_evidence(state: WorkflowState) -> WorkflowState:
 def node_choose_next_dimension(state: WorkflowState) -> WorkflowState:
     missing = [dimension for dimension in PROFILE_DIMENSIONS if not is_filled((state.get("profile") or {}).get(dimension))]
     next_dimension = (state.get("classifier_result") or {}).get("next_dimension") or ""
-    if next_dimension and next_dimension not in missing:
-        next_dimension = ""
-    for dimension in PROFILE_COLLECTION_ORDER:
-        if not next_dimension and dimension in missing:
-            next_dimension = dimension
-            break
-    if not next_dimension and missing:
-        next_dimension = missing[0]
+    if missing and next_dimension not in missing:
+        raise LearningProfileModelUnavailable(
+            "学习画像大模型未返回有效的下一采集维度，请稍后重试。"
+        )
     state["next_dimension"] = next_dimension
     _log(state, "choose_next_dimension", {"missing": missing, "next_dimension": next_dimension})
     return state
 
 
-def fallback_question(next_dimension: str, profile: Dict[str, Any], latest: str) -> str:
-    if not latest or is_greeting_only(latest):
-        return "你现在主要在学中医的哪一部分，比如中医基础理论、中医诊断学、中药学、方剂学，还是医案辨析？"
-    questions = {
-        "专业/课程背景": "你现在是几年级、什么专业，正在学习哪门中医课程？",
-        "学习目标": "你学习中医最想达成什么目标，比如夯实课程基础、准备考试、参加竞赛还是提升医案辨析能力？",
-        "当前知识基础": "你对阴阳五行、藏象、气血津液和经络等基础内容，大概掌握到什么程度？",
-        "学习进度": "你目前学到哪一块了，比如四诊、八纲辨证、中药、方剂，还是已经开始分析综合医案？",
-        "薄弱知识点": "为了更精准推荐练习，四诊信息归纳、辨证分型、中药功效、方剂配伍或医案分析，哪一块最常卡住？",
-        "易错点类型": "你更容易错在四诊信息提取、证候鉴别、病机判断，还是方药配伍？",
-        "学习风格/认知偏好": "你更适合先理解理论框架、结合图表记忆，还是通过典型医案边练边学？",
-        "资源形式偏好": "你更希望我推荐哪类资源：PPT课件、视频讲解、医案解析、方药对比表还是练习题？",
-        "可投入时间": "你每周大概能投入多少时间学习中医并复盘医案？",
-        "难度接受程度": "接下来的任务难度你希望循序渐进，还是可以直接挑战综合医案辨析？",
-    }
-    return questions.get(next_dimension) or "你可以再补充一个中医学习上的具体困难吗？"
-
-
 def node_finalize_reply(state: WorkflowState) -> WorkflowState:
     next_dimension = state.get("next_dimension") or ""
-    latest = state.get("latest_user_input") or ""
-    if is_greeting_only(latest) and next_dimension:
-        state["final_reply"] = f"你好，我们开始。{fallback_question(next_dimension, state.get('profile') or {}, latest)}"
-        _log(state, "finalize_reply", {"reply": state.get("final_reply")})
-        return state
-    if not next_dimension:
-        raw_reply = (state.get("classifier_result") or {}).get("reply") or ""
-        reply = shorten_reply(raw_reply, "")
-        state["final_reply"] = reply or "你的中医学习画像已经基本补齐，我会根据这些信息为你推荐更合适的学习路径和资源。"
-        _log(state, "finalize_reply", {"reply": state.get("final_reply")})
-        return state
-    fallback = fallback_question(next_dimension, state.get("profile") or {}, latest)
     classifier_result = state.get("classifier_result") or {}
     raw_reply = classifier_result.get("reply") or ""
-    agent_next_dimension = classifier_result.get("agent_next_dimension") or ""
-    reply = shorten_reply(raw_reply, fallback)
+    reply = shorten_reply(raw_reply, "")
     previous_assistant = previous_assistant_text_for_latest_user(state.get("messages") or [])
-    if agent_next_dimension != next_dimension:
-        reply = fallback
     if previous_assistant and reply and reply.strip() == previous_assistant.strip():
-        reply = fallback
-    if fallback and not re.search(r"[？?]", reply):
-        reply = fallback
-    state["final_reply"] = reply or fallback
+        raise LearningProfileModelUnavailable(
+            "学习画像大模型连续返回重复回复，请稍后重试。"
+        )
+    if not reply:
+        raise LearningProfileModelUnavailable(
+            "学习画像大模型未返回可显示内容，请稍后重试。"
+        )
+    if next_dimension and not re.search(r"[？?]", reply):
+        raise LearningProfileModelUnavailable(
+            "学习画像大模型未返回有效追问，请稍后重试。"
+        )
+    state["final_reply"] = reply
     _log(state, "finalize_reply", {"reply": state.get("final_reply")})
     return state
 
@@ -942,8 +931,12 @@ def workflow_result_from_state(state: WorkflowState) -> Dict[str, Any]:
     profile = state.get("profile") or {}
     missing = [dimension for dimension in PROFILE_DIMENSIONS if not is_filled(profile.get(dimension))]
     completeness = round((len(PROFILE_DIMENSIONS) - len(missing)) / len(PROFILE_DIMENSIONS) * 100)
-    reply = state.get("final_reply") or fallback_question(state.get("next_dimension") or "", profile, state.get("latest_user_input") or "")
-    next_dimension = state.get("next_dimension") or (missing[0] if missing else "")
+    reply = str(state.get("final_reply") or "").strip()
+    next_dimension = state.get("next_dimension") or ""
+    if not reply:
+        raise LearningProfileModelUnavailable(
+            "学习画像大模型未返回可显示内容，请稍后重试。"
+        )
     profile_payload = {dimension: profile.get(dimension, [] if dimension in LIST_DIMENSIONS else "") for dimension in PROFILE_DIMENSIONS}
     profile_payload["补充信息"] = {
         "student_id": state.get("user_id") or "current-user",
@@ -954,7 +947,7 @@ def workflow_result_from_state(state: WorkflowState) -> Dict[str, Any]:
     return {
         "agent": "learning-profile-workflow-agent",
         "source": "llm",
-        "provider": "xunfei-coding-plan",
+        "provider": "configured-openai-compatible",
         "model": get_setting("ANTHROPIC_MODEL", setting_default("ANTHROPIC_MODEL")),
         "status": "complete" if not missing else "collecting",
         "completeness": completeness,
@@ -962,7 +955,7 @@ def workflow_result_from_state(state: WorkflowState) -> Dict[str, Any]:
         "missingProfileDimensions": missing,
         "studentProfile": profile_payload,
         "needFollowup": bool(missing),
-        "followUpQuestions": [fallback_question(next_dimension, profile, state.get("latest_user_input") or "")] if next_dimension else [],
+        "followUpQuestions": [reply] if next_dimension else [],
         "question": reply,
         "reply": reply,
         "summary": build_profile_summary(profile),

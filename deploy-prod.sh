@@ -295,7 +295,7 @@ server {
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     }
 
-    location ~* \.(png|jpg|jpeg|webp|avif|gif|ico|svg|woff|woff2|ttf|eot)$ {
+    location ~* \.(png|jpg|jpeg|webp|avif|gif|ico|svg|woff|woff2|ttf|eot|obj)$ {
         try_files $uri =404;
         add_header Cache-Control "public, max-age=604800" always;
         add_header X-Frame-Options "SAMEORIGIN" always;

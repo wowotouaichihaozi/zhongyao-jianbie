@@ -1294,6 +1294,32 @@ class LearningProfileApiTests(unittest.TestCase):
         self.assertEqual(first_detail["dimensions"], {"专业/课程背景": "STM32"})
         self.assertEqual(second_detail["dimensions"], {})
 
+    def test_profile_session_model_failure_returns_503_without_persisting_turn(self) -> None:
+        session = self.client.post(
+            "/api/learning-profile/sessions",
+            headers=self.headers,
+            json={"title": "模型失败会话"},
+        ).get_json()["data"]["session"]
+
+        with patch.object(
+            app_module,
+            "xiaozhi_run_orchestrated",
+            side_effect=app_module.LearningProfileModelUnavailable("provider unavailable"),
+        ):
+            response = self.client.post(
+                f"/api/learning-profile/sessions/{session['id']}/messages",
+                headers=self.headers,
+                json={"content": "我在学习中药学"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.get_json()["errorCode"], "MODEL_UNAVAILABLE")
+        detail = self.client.get(
+            f"/api/learning-profile/sessions/{session['id']}", headers=self.headers
+        ).get_json()["data"]["session"]
+        self.assertEqual(detail["messages"], [])
+        self.assertEqual(detail["dimensions"], {})
+
     def test_background_chat_stream_does_not_disguise_failures_as_llm_output(self) -> None:
         with patch.object(app_module, "generate_background_chat", side_effect=RuntimeError("model unavailable")):
             response = self.client.post(
