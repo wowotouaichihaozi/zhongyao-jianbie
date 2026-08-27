@@ -110,6 +110,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import { getHerbModelCatalog, saveLearningPathNodeCache } from '../services/api.js'
+import { buildHerbAnswerOptions } from '../utils/herbAnswerOptions.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -152,10 +153,7 @@ function chooseRandomHerb(excludedId = '') {
 }
 
 function buildAnswerOptions(herb) {
-  if (!herb) return []
-  const sameCategory = catalog.value.filter(item => item.id !== herb.id && item.category === herb.category)
-  const remaining = catalog.value.filter(item => item.id !== herb.id && !sameCategory.some(match => match.id === item.id))
-  return shuffled([herb, ...shuffled(sameCategory).slice(0, 3), ...shuffled(remaining)]).slice(0, 4)
+  return buildHerbAnswerOptions(catalog.value, herb)
 }
 
 function setSelectedHerb(herb, replaceRoute = true) {
