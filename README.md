@@ -175,6 +175,22 @@ powershell -ExecutionPolicy Bypass -File scripts\expand-course-knowledge.ps1 `
   -IndexPath "<作品目录>\backend\data\course_knowledge_index.json"
 ```
 
+## 全站交互动效
+
+主前端使用统一的轻量动效系统处理路由内容中的卡片与面板插入、弹层遮罩、浮动任务提示、岐小智窗口及其内部视图切换。路由组件始终由 RouterView 直接挂载，动效不会参与页面卸载或阻塞新页面渲染。动效仅改变 `transform` 与 `opacity`，不会延迟后台任务、修改业务状态或替代加载/错误提示；系统启用“减少动态效果”时会自动降级为近乎即时切换。导航、按钮和链接同时保留键盘焦点反馈与轻量按压状态。
+
+可重复验收命令：
+
+```powershell
+Set-Location frontend
+$env:E2E_BASE_URL = 'http://127.0.0.1:5088'
+npm run test:motion-system:e2e
+npm run test:resource-detail:e2e
+npm run build -- --emptyOutDir=false
+```
+
+动效验收覆盖桌面 `1440x900`、移动端 `390x844`、连续路由切换不空白、异步卡片插入、岐小智开关与标签切换、横向溢出以及 `prefers-reduced-motion` 降级。资源详情合成 E2E 继续覆盖错误、重试恢复、填充内容和学习反馈交互，且不写入生产 SQLite。
+
 ## 本地运行
 
 ### 1. 后端
@@ -364,6 +380,8 @@ python -m py_compile app.py ppt_h5.py
 
 ## 学习路径渐进生成
 
+周次地图 `/learning-path/stage/overview` 使用项目专属的浅色中药科技背景：药草叶脉、人参、经络网络和低对比度技术网格只作为环境层，不承载业务状态。周次入口由圆形标记改为六种纯代码 SVG 等距地标，依次为月门草庐、玻璃药圃、环形四诊院、双层讲学院、三层藏经阁和知识宫阙；建筑使用三角飞檐、半圆月窗、椭圆脉诊核心、圆柱廊阵、窗棂、栏杆与水院等不同几何结构，外框只随周次做克制的渐进放大，主要通过院落和功能构件逐步丰富来表达成长。建筑下方使用“本草基原与药用部位、药材性状观察与记录、真伪药材对比鉴别、显微与理化鉴别进阶、炮制品与易混品辨析、综合中药鉴别实践”六级项目阶段名；点击后的详情弹层继续展示画像驱动生成的真实周主题，两层信息互不覆盖。完成、当前与未开始状态仍由真实路径数据控制。页面首次进入时，两侧路径面板和六座建筑会在 0.5 秒内完成快速入场，建筑按从左到右的顺序错峰上浮；系统启用“减少动态效果”后会直接显示。移动端使用双列长画布避开画像和进度面板，保留纵向滚动、键盘焦点、减弱动效模式以及加载、空、错误和重试状态。浏览器回归可运行 `cd frontend && npm run test:learning-path-academy:e2e`。
+
 学习路径入口 `/learning-path` 直接展示由“第一周、第二周”等节点组成的周次地图，避免周次与任务层级颠倒。选择一个周次后，才进入该周的具体任务列表；任务页可返回周次地图。
 
 周次节点会跳转至 `/learning-path/week/:stageId`。该页面沿用周学习计划的卡片布局，但卡片内容改为所选周的动态任务节点，例如目标拆解、概念建模、示例跟做、实操验证、专项测评与复盘迭代；任务卡片继续使用其对应的资源入口。
@@ -451,6 +469,17 @@ npm run test:interview-fail-open
 # start-all.bat 启动后检查独立引擎与 Flask 聚合健康状态
 curl http://127.0.0.1:8765/api/health
 curl http://localhost:3000/api/ppt-h5/health
+```
+
+### 学习画像本地测试工具
+
+在 `/learning-profile` 页面按 `F4` 可打开隐藏的学习画像开发工具。工具支持用固定测试数据一键提交全部十个画像维度，以及二次确认后清除当前画像采集数据。填充操作复用正式画像分析接口：后端生成并保存报告、将其设为当前激活画像，并创建对应的学习路径后台任务；只有服务端返回有效报告后前端才显示成功。清除操作保留历史画像版本。
+
+```powershell
+Set-Location frontend
+npm run test:learning-profile-developer-tools
+npm run test:learning-profile-developer-tools:e2e
+npm run build -- --emptyOutDir=false
 ```
 
 ## 软件杯赛题对照
