@@ -690,14 +690,22 @@ function statusIcon(status) {
 }
 
 function weekEntryTag(week) {
-  return isWeekTaskPage.value && week?.actionRoute ? 'a' : 'button'
+  return isWeekTaskPage.value && week?.actionRoute && !opensResourceInCurrentTab(week) ? 'a' : 'button'
 }
 
-function weekEntryHref(week) {
+function weekActionHref(week) {
   if (!isWeekTaskPage.value || !week?.actionRoute) return null
   return /^https?:\/\//i.test(week.actionRoute)
     ? week.actionRoute
     : router.resolve(week.actionRoute).href
+}
+
+function opensResourceInCurrentTab(week) {
+  return normalizeResourceType(week?.resourceType) === 'herb-model'
+}
+
+function weekEntryHref(week) {
+  return opensResourceInCurrentTab(week) ? null : weekActionHref(week)
 }
 
 function openWeek(week, event) {
@@ -709,8 +717,12 @@ function openWeek(week, event) {
       }
       return
     }
+    if (opensResourceInCurrentTab(week)) {
+      router.push(weekActionHref(week))
+      return
+    }
     if (event?.currentTarget?.tagName === 'A') return
-    window.open(weekEntryHref(week), '_blank', 'noopener,noreferrer')
+    window.open(weekActionHref(week), '_blank', 'noopener,noreferrer')
     return
   }
   router.push({ name: 'learning-path-week-detail', params: { stageId: week.id } })

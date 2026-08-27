@@ -1,7 +1,7 @@
 <template>
   <main class="herb-model-page">
     <header class="herb-model-toolbar">
-      <button class="icon-button" type="button" title="返回个性化资源" aria-label="返回个性化资源" @click="router.push('/personalized-resources')">
+      <button class="icon-button" type="button" :title="backLabel" :aria-label="backLabel" @click="goBack">
         <ArrowLeft :size="20" aria-hidden="true" />
       </button>
       <div>
@@ -124,6 +124,7 @@ const answerCorrect = ref(false)
 const loading = ref(true)
 const errorMessage = ref('')
 const isLearningPathTask = computed(() => String(route.query.source || '') === 'learning-path')
+const backLabel = computed(() => isLearningPathTask.value ? '返回学习路径' : '返回个性化资源')
 
 let renderer = null
 let scene = null
@@ -154,6 +155,20 @@ function chooseRandomHerb(excludedId = '') {
 
 function buildAnswerOptions(herb) {
   return buildHerbAnswerOptions(catalog.value, herb)
+}
+
+function goBack() {
+  const historyBack = String(window.history.state?.back || '')
+  const stageId = String(route.query.stageId || '').trim()
+  if (historyBack && (!isLearningPathTask.value || historyBack.startsWith('/learning-path'))) {
+    router.back()
+    return
+  }
+  if (isLearningPathTask.value && stageId) {
+    router.push({ name: 'learning-path-week-detail', params: { stageId } })
+    return
+  }
+  router.push('/personalized-resources')
 }
 
 function setSelectedHerb(herb, replaceRoute = true) {

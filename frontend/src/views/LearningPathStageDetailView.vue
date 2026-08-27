@@ -1303,6 +1303,10 @@ async function openNodeAction(node) {
       route: href,
     })
   }
+  if (node.resourceType === 'herb-model' && !/^https?:\/\//i.test(href)) {
+    await router.push(href)
+    return
+  }
   window.open(href, '_blank', 'noopener,noreferrer')
 }
 
