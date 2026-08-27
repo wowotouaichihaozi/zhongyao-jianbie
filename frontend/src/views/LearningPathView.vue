@@ -701,7 +701,7 @@ function weekActionHref(week) {
 }
 
 function opensResourceInCurrentTab(week) {
-  return normalizeResourceType(week?.resourceType) === 'herb-model'
+  return normalizeTaskResourceType(week?.resourceType) === 'herb-model'
 }
 
 function weekEntryHref(week) {

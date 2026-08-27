@@ -22,7 +22,8 @@ test('both learning-path task views keep herb models in the current tab', async 
     readFile(learningPathPath, 'utf8'),
     readFile(stageDetailPath, 'utf8'),
   ])
-  assert.match(learningPath, /normalizeResourceType\(week\?\.resourceType\) === 'herb-model'/)
+  assert.match(learningPath, /normalizeTaskResourceType\(week\?\.resourceType\) === 'herb-model'/)
+  assert.doesNotMatch(learningPath, /normalizeResourceType\(/)
   assert.match(learningPath, /router\.push\(weekActionHref\(week\)\)/)
   assert.match(stageDetail, /node\.resourceType === 'herb-model'/)
   assert.match(stageDetail, /await router\.push\(href\)/)
