@@ -10,77 +10,6 @@
       </div>
     </Transition>
 
-    <Teleport to="body">
-      <Transition name="developer-panel">
-        <div
-          v-if="developerPanelOpen"
-          class="profile-developer-backdrop"
-          role="presentation"
-          @click.self="closeDeveloperPanel"
-        >
-          <section
-            ref="developerPanelRef"
-            class="profile-developer-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="profile-developer-title"
-            tabindex="-1"
-          >
-            <header class="profile-developer-header">
-              <span class="profile-developer-icon" aria-hidden="true">
-                <Wrench :size="20" />
-              </span>
-              <div>
-                <p>仅用于本地测试</p>
-                <h2 id="profile-developer-title">学习画像开发工具</h2>
-              </div>
-              <button type="button" title="关闭" aria-label="关闭开发工具" @click="closeDeveloperPanel">
-                <X :size="19" />
-              </button>
-            </header>
-
-            <div class="profile-developer-status">
-              <span>当前采集进度</span>
-              <strong>{{ completedProfileDimensionCount }}/{{ profileDimensionKeys.length }}</strong>
-            </div>
-
-            <div class="profile-developer-actions">
-              <button
-                type="button"
-                class="profile-developer-action fill"
-                :disabled="developerActionBusy"
-                @click="fillDeveloperProfile"
-              >
-                <Sparkles :size="20" />
-                <span>
-                  <strong>{{ developerActionBusy ? '正在创建并激活画像' : '一键完成学习画像' }}</strong>
-                  <small>{{ developerActionBusy ? '服务端正在保存画像并创建学习路径任务' : '写入十维测试数据，生成正式报告与学习路径' }}</small>
-                </span>
-              </button>
-
-              <button
-                type="button"
-                :class="['profile-developer-action', 'clear', { armed: developerClearArmed }]"
-                :disabled="developerActionBusy"
-                @click="clearDeveloperProfile"
-              >
-                <Trash2 :size="20" />
-                <span>
-                  <strong>{{ developerClearArmed ? '再次点击确认清除' : '清除当前画像信息' }}</strong>
-                  <small>{{ developerClearArmed ? '当前采集数据将被重置' : '历史画像版本仍会保留' }}</small>
-                </span>
-              </button>
-            </div>
-
-            <footer>
-              <kbd>F4</kbd>
-              <span>再次按下可关闭</span>
-            </footer>
-          </section>
-        </div>
-      </Transition>
-    </Teleport>
-
     <aside class="lp-sidebar">
       <nav class="sidebar-nav">
         <button
@@ -882,7 +811,6 @@ import {
   SlidersHorizontal,
   Sparkles,
   Target,
-  Trash2,
   TriangleAlert,
   UploadCloud,
   UserRound,
@@ -916,10 +844,6 @@ import {
   buildProfileSessionChatMessages,
   INITIAL_CHAT_OPENING,
 } from '../utils/learningProfileChat.js'
-import {
-  createLearningProfileDeveloperFixture,
-  isLearningProfileDeveloperShortcut,
-} from '../utils/learningProfileDeveloperTools.js'
 
 const LS_KEY = 'learningProfileData'
 const BOT_AVATAR_URL = '/botlogo.png'
@@ -942,39 +866,6 @@ const CHAT_REPLY_PENDING_TEXT = '正在整理你的学习背景信息...'
 const LLM_CHAT_TIMEOUT_MS = 90000
 let initialChatRequestStarted = false
 let chatMessageIdSeed = 0
-const developerPanelOpen = ref(false)
-const developerPanelRef = ref(null)
-const developerActionBusy = ref(false)
-const developerClearArmed = ref(false)
-let developerClearTimer = null
-
-function closeDeveloperPanel() {
-  developerPanelOpen.value = false
-  developerClearArmed.value = false
-  window.clearTimeout(developerClearTimer)
-}
-
-async function toggleDeveloperPanel() {
-  developerPanelOpen.value = !developerPanelOpen.value
-  developerClearArmed.value = false
-  window.clearTimeout(developerClearTimer)
-  if (developerPanelOpen.value) {
-    await nextTick()
-    developerPanelRef.value?.focus()
-  }
-}
-
-function handleDeveloperShortcut(event) {
-  if (isLearningProfileDeveloperShortcut(event)) {
-    event.preventDefault()
-    void toggleDeveloperPanel()
-    return
-  }
-  if (event.key === 'Escape' && developerPanelOpen.value) {
-    event.preventDefault()
-    closeDeveloperPanel()
-  }
-}
 
 function createChatMessageId(prefix = 'chat') {
   chatMessageIdSeed += 1
@@ -2386,17 +2277,15 @@ function generateReport(options = {}) {
     .finally(() => { aiAnalyzing.value = false })
 }
 
-async function callAIAnalysis(profileOverride = null) {
-  const override = profileOverride && typeof profileOverride === 'object' ? profileOverride : null
-  const studentProfile = override?.dimensions || chatStudentProfile.value
+async function callAIAnalysis() {
   const payload = {
-    scaleScores: override?.scaleScores || profileData.value.scaleScores,
-    scaleTimestamp: override ? Date.now() : profileData.value.scaleTimestamp,
-    chatBackground: override?.summary || profileData.value.chatBackground,
-    chatTimestamp: override ? Date.now() : profileData.value.chatTimestamp,
-    chatStudentProfile: studentProfile,
-    completedProfileDimensions: profileDimensionKeys.filter(key => isProfileDimensionFilled(studentProfile[key])),
-    missingProfileDimensions: profileDimensionKeys.filter(key => !isProfileDimensionFilled(studentProfile[key])),
+    scaleScores: profileData.value.scaleScores,
+    scaleTimestamp: profileData.value.scaleTimestamp,
+    chatBackground: profileData.value.chatBackground,
+    chatTimestamp: profileData.value.chatTimestamp,
+    chatStudentProfile: chatStudentProfile.value,
+    completedProfileDimensions: profileDimensionKeys.filter(key => isProfileDimensionFilled(chatStudentProfile.value[key])),
+    missingProfileDimensions: profileDimensionKeys.filter(key => !isProfileDimensionFilled(chatStudentProfile.value[key])),
     uploadFiles: profileData.value.uploadFiles || [],
     uploadTimestamp: profileData.value.uploadTimestamp,
     scaleQuestions: scaleQuestions.map(q => ({ text: q.text, short: q.short })),
@@ -2432,9 +2321,7 @@ async function callAIAnalysis(profileOverride = null) {
       analysisLogRef.value.scrollTop = analysisLogRef.value.scrollHeight
     }
     if (event === 'result' && data?.report) {
-      report = data?.learningPathTask
-        ? { ...data.report, learningPathTask: data.learningPathTask }
-        : data.report
+      report = data.report
     }
     if (event === 'error') {
       throw new Error(data?.detail || data?.message || data?.error || 'AI analysis failed')
@@ -3205,86 +3092,6 @@ async function resetChat() {
   ensureInitialChatQuestion()
 }
 
-async function fillDeveloperProfile() {
-  if (developerActionBusy.value) return
-  const fixture = createLearningProfileDeveloperFixture()
-  developerActionBusy.value = true
-  aiAnalyzing.value = true
-  try {
-    const report = await callAIAnalysis(fixture)
-    activeChatReport.value = null
-    viewingHistory.value = null
-    chatMsgs.value = fixture.messages
-    chatHistory.value = fixture.chatHistory
-    profileChatAttachments.value = []
-    replaceProfile({
-      ...report,
-      chatMessages: fixture.messages,
-      chatHistory: fixture.chatHistory,
-    })
-    historyReports.value = [report, ...historyReports.value.filter(item => item.id !== report.id)]
-    activeMenu.value = 'assess'
-    activeOrb.value = null
-    closeDeveloperPanel()
-    const pathPending = ['queued', 'running'].includes(String(report?.learningPathTask?.status || ''))
-    showToast(pathPending ? '学习画像已激活，学习路径正在生成' : '学习画像已写入并激活')
-    nextTick(() => scrollChatToBottom({ retry: true }))
-  } catch (error) {
-    showToast(error?.response?.data?.msg || error?.message || '测试画像写入失败')
-  } finally {
-    aiAnalyzing.value = false
-    developerActionBusy.value = false
-  }
-}
-
-async function clearDeveloperProfile() {
-  if (developerActionBusy.value) return
-  if (!developerClearArmed.value) {
-    developerClearArmed.value = true
-    window.clearTimeout(developerClearTimer)
-    developerClearTimer = window.setTimeout(() => {
-      developerClearArmed.value = false
-    }, 4000)
-    return
-  }
-
-  developerActionBusy.value = true
-  window.clearTimeout(developerClearTimer)
-  try {
-    await resetLearningProfile()
-    try {
-      await resetLearningProfileBackgroundChat()
-    } catch (error) {
-      addLog(error, 'error', '开发工具清理学习画像对话')
-    }
-    clearProfileCache()
-    activeChatReport.value = null
-    Object.keys(scaleAnswers).forEach(key => delete scaleAnswers[key])
-    uploadFiles.value = []
-    profileChatAttachments.value = []
-    analysisStreamEvents.value = []
-    analysisStreamMessage.value = ''
-    aiAnalyzing.value = false
-    chatLoading.value = false
-    chatStreaming.value = false
-    chatInitializing.value = false
-    initialChatRequestStarted = false
-    autoReportStarted = false
-    resetReportPortraitView()
-    await startNewProfileSession()
-    await loadHistoryReports()
-    activeMenu.value = 'assess'
-    activeOrb.value = null
-    closeDeveloperPanel()
-    showToast('当前学习画像信息已清除')
-  } catch (error) {
-    developerClearArmed.value = false
-    showToast(error?.response?.data?.msg || error?.message || '学习画像清除失败')
-  } finally {
-    developerActionBusy.value = false
-  }
-}
-
 function submitScale() {
   const answered = Object.values(scaleAnswers).filter(v => v !== undefined).length
   if (answered < scaleQuestions.length) {
@@ -3316,7 +3123,6 @@ function applyRouteQuery() {
 
 // 重新打开时恢复已保存的量表答案
 onMounted(() => {
-  window.addEventListener('keydown', handleDeveloperShortcut)
   applyRouteQuery()
   loadHistoryReports()
   initializeProfileSessions().catch((error) => addLog(error, 'error', '初始化学习画像会话'))
@@ -3400,8 +3206,6 @@ watch(
 // Report generation remains available through explicit user actions and the effect assessment update flow.
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleDeveloperShortcut)
-  window.clearTimeout(developerClearTimer)
   resetReportPortraitView()
   digitalHumanRef.value?.destroyAvatar?.()
 })
@@ -3439,251 +3243,6 @@ onBeforeUnmount(() => {
 .toast-leave-active { animation: toastOut 0.3s ease; }
 @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-16px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 @keyframes toastOut { from { opacity: 1; transform: translateX(-50%) translateY(0); } to { opacity: 0; transform: translateX(-50%) translateY(-16px); } }
-
-.profile-developer-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1400;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(15, 23, 42, 0.44);
-  backdrop-filter: blur(8px);
-}
-
-.profile-developer-panel {
-  width: min(440px, 100%);
-  max-height: calc(100dvh - 48px);
-  overflow-y: auto;
-  padding: 22px;
-  border: 1px solid rgba(15, 118, 110, 0.2);
-  border-radius: 8px;
-  background: #fbfdfc;
-  color: #18322e;
-  box-shadow: 0 24px 64px rgba(17, 57, 50, 0.24);
-  outline: none;
-}
-
-.profile-developer-panel:focus-visible {
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.28), 0 24px 64px rgba(17, 57, 50, 0.24);
-}
-
-.profile-developer-header {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 36px;
-  align-items: center;
-  gap: 12px;
-}
-
-.profile-developer-icon {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border-radius: 8px;
-  background: #e7f5f1;
-  color: #0f766e;
-}
-
-.profile-developer-header p,
-.profile-developer-header h2 {
-  margin: 0;
-  letter-spacing: 0;
-}
-
-.profile-developer-header p {
-  margin-bottom: 3px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.profile-developer-header h2 {
-  font-size: 19px;
-  line-height: 1.3;
-}
-
-.profile-developer-header > button {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
-  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
-}
-
-.profile-developer-header > button:hover {
-  background: #edf2f1;
-  color: #18322e;
-}
-
-.profile-developer-header > button:active {
-  transform: scale(0.96);
-}
-
-.profile-developer-header > button:focus-visible,
-.profile-developer-action:focus-visible {
-  outline: 3px solid rgba(20, 184, 166, 0.3);
-  outline-offset: 2px;
-}
-
-.profile-developer-status {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin: 22px 0 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #dfe9e6;
-  color: #64748b;
-  font-size: 13px;
-}
-
-.profile-developer-status strong {
-  color: #0f766e;
-  font-size: 17px;
-  font-variant-numeric: tabular-nums;
-}
-
-.profile-developer-actions {
-  display: grid;
-  gap: 10px;
-}
-
-.profile-developer-action {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 72px;
-  padding: 13px 15px;
-  border: 1px solid #dbe8e4;
-  border-radius: 7px;
-  background: #ffffff;
-  color: #1f3f3b;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
-}
-
-.profile-developer-action:hover {
-  border-color: rgba(15, 118, 110, 0.42);
-  background: #f5fbf9;
-  box-shadow: 0 8px 22px rgba(17, 94, 80, 0.09);
-  transform: translateY(-1px);
-}
-
-.profile-developer-action:active {
-  transform: translateY(1px);
-}
-
-.profile-developer-action:disabled {
-  cursor: wait;
-  opacity: 0.58;
-}
-
-.profile-developer-action.fill > svg {
-  color: #0f8a73;
-}
-
-.profile-developer-action.clear > svg {
-  color: #c2413b;
-}
-
-.profile-developer-action.clear.armed {
-  border-color: rgba(194, 65, 59, 0.48);
-  background: #fff7f6;
-}
-
-.profile-developer-action span {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.profile-developer-action strong,
-.profile-developer-action small {
-  letter-spacing: 0;
-}
-
-.profile-developer-action strong {
-  font-size: 14px;
-  line-height: 1.35;
-}
-
-.profile-developer-action small {
-  color: #71817d;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.profile-developer-panel footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  margin-top: 17px;
-  color: #82908d;
-  font-size: 12px;
-}
-
-.profile-developer-panel kbd {
-  padding: 2px 6px;
-  border: 1px solid #cedbd7;
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  background: #f3f7f6;
-  color: #405b55;
-  font: 600 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
-}
-
-.developer-panel-enter-active,
-.developer-panel-leave-active {
-  transition: opacity 180ms ease;
-}
-
-.developer-panel-enter-active .profile-developer-panel,
-.developer-panel-leave-active .profile-developer-panel {
-  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.developer-panel-enter-from,
-.developer-panel-leave-to,
-.developer-panel-enter-from .profile-developer-panel,
-.developer-panel-leave-to .profile-developer-panel {
-  opacity: 0;
-}
-
-.developer-panel-enter-from .profile-developer-panel,
-.developer-panel-leave-to .profile-developer-panel {
-  transform: translateY(10px) scale(0.98);
-}
-
-@media (max-width: 560px) {
-  .profile-developer-backdrop {
-    align-items: end;
-    padding: 12px;
-  }
-
-  .profile-developer-panel {
-    width: 100%;
-    max-height: calc(100dvh - 24px);
-    padding: 18px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .developer-panel-enter-active,
-  .developer-panel-leave-active,
-  .developer-panel-enter-active .profile-developer-panel,
-  .developer-panel-leave-active .profile-developer-panel {
-    transition-duration: 1ms;
-  }
-}
 
 /* 宸︿晶瀵艰埅鏍?*/
 .lp-sidebar {

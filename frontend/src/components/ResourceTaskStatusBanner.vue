@@ -1,5 +1,4 @@
 <template>
-  <Transition name="motion-toast">
   <aside v-if="showTaskBanner" class="xz-task-banner" :class="task.status">
     <span class="state-dot"></span>
     <div>
@@ -20,7 +19,6 @@
       />
     </div>
   </aside>
-  </Transition>
 </template>
 
 <script setup>

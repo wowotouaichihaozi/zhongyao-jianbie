@@ -1154,8 +1154,7 @@ def extract_original_questions_from_sheet(text: str) -> list[dict[str, Any]]:
         cleaned = re.split(r"\n\s*我的答案\s*[:：]", cleaned)[0]
         cleaned = re.split(r"\n\s*正确答案\s*[:：]", cleaned)[0]
         option_matches = re.findall(r"(?m)^\s*([A-D])\s*[\.、]\s*(.+?)(?=\n\s*[A-D]\s*[\.、]|\n\s*(?:我的答案|正确答案|答案解析|解析|AI讲解)|\Z)", cleaned, flags=re.S)
-        normalized_options = ((label, re.sub(r"\s+", " ", body).strip()) for label, body in option_matches)
-        options = [f"{label}. {body}" for label, body in normalized_options]
+        options = [f"{label}. {re.sub(r'\\s+', ' ', body).strip()}" for label, body in option_matches]
         stem = cleaned
         if option_matches:
             first_option = re.search(r"(?m)^\s*[A-D]\s*[\.、]", cleaned)
