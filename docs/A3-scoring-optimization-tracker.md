@@ -1,6 +1,6 @@
 # A3 Scoring Optimization Tracker
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 
 This file is the source of truth for the current scoring review and frontend refinement work. Update it before and after every implementation batch.
 
@@ -11,6 +11,21 @@ This file is the source of truth for the current scoring review and frontend ref
 - `[x]` Complete and verified
 - `[!]` Blocked or needs a product decision
 
+## 2026-08-27 生命树学习闭环可视化
+
+- [x] 新增独立 `/life-tree` 功能模块，用三维树冠承载当前画像、知识掌握、周路径、资源反馈和效果评估证据；节点区分已掌握、学习中、薄弱、推荐下一步与待验证，不把缺失证据伪装为完成状态。节点详情提供证据说明、关联阶段和资源/测评入口，形成画像到再评估的可操作闭环。验证：3 项生命树数据模型测试与前端非清理构建通过；2026-08-27 增量部署后 `/life-tree` 返回 HTTP 200，主后端与 Nginx 保持 active。
+
+## 2026-08-27 数字孪生中医语义清理
+
+- [x] 清理 `/agent-digital-twin` 静态节点、大屏指标、趋势图、模型调用图和协同信息流中残留的单片机、仿真与实验实践措辞，改为中医学习智能体、辨证协同、画像证据、医案实践和四诊合参语义；保留原有三维拓扑、数据结构和交互方式。验证：包装页递归嵌套测试与前端非清理构建通过；2026-08-27 增量部署后 `/agent-digital-twin` 返回 HTTP 200。
+
+## 2026-08-27 混合知识路由与交叉验证
+
+- [x] 在现有中医课程文档切块、用户私有文档和知识图谱基础上增加结构化 QA 对检索，统一为 `QA + Document + Graph RAG` 混合路由；当前可复现语料包含 `101,968` 条去重 QA、`31,668` 个文档切片和 `1,601` 个图谱节点，完整纳入 SylvanL 的 `12,889` 条中医预训练资料。路由器按问题主体与属性执行标题精确检索、FTS5 召回、路由内重排和多源证据融合，输出可追溯引用、证据覆盖、交叉验证状态及“允许生成 / 需进一步核验”决策；检索验证页同步展示三路命中和审核结论。验证：压缩与解压数据库连续两次构建哈希一致；黄连、独活寄生汤、八纲辨证、阴阳消长四类实问命中正确主体，缓存后典型耗时约 `315-407 ms`；5 项混合路由/便携缓存测试、2 项私有知识隔离 API 测试、前端非清理构建均通过。2026-08-27 生产增量部署前创建 `backups/20260827-before-hybrid-knowledge`，上传暂存区与本地后端哈希、前端 `3,135` 文件和 `207,104,182` 字节完全一致；重启主后端后真实 `admin123` 登录与 `/api/knowledge/retrieve` 均为 HTTP 200，线上统计和交叉验证结论正确，主后端、Nginx 与 PPT API 均健康。
+
+## 2026-08-26 三维中医药知识网络替换
+
+- [x] 按用户最新要求，将 `/knowledge-network` 改为直接呈现 `wu-xing-holo-core (1).zip` 的原始 React/Vite 页面，不对 ZIP 中的源码作任何行级修改，也不再做 Vue/Three.js 重写。附件原始 `src/data.ts` 保持不变；ZIP 外部新增构建期数据适配层，将原页面原样使用的 `nodes`、`edges` 接口指向用户提供的 `中医药知识库_1600节点_知识讲解_实质内容版.json`。按用户后续要求，外层现在保留与数字孪生页一致的主站导航：桌面为顶部 72px 导航，手机为不遮挡画布的底部导航。验证：原页面构建及主前端非清理构建通过；`5089` 桌面 1440x900、移动 390x844 以及当前项目 Flask `3001` 桌面实际路由均显示主导航、无横向溢出、画布可拖拽、无控制台或请求错误；截图位于 `frontend/test-output/visual-audit/knowledge-network-navbar-*-clean.png`。ZIP 源文件未修改。生产验证：2026-08-26 将提交 `4370ac9` 的前端产物增量部署至 `lzhan.xyz`，保留旧哈希资源和入口备份；`/knowledge-network`、原始嵌入页及其 JS/CSS 均返回 HTTP 200，桌面 `1440x900` 与移动 `390x844` 均渲染 WebGL 画布、1600+ 节点矩阵和知识总览，无横向溢出或控制台错误；Nginx、主后端和 PPT API 均保持 active 且健康接口为 HTTP 200。
 ## Safety and scope
 
 - [x] Active repository identified as `94015785源码/嵌智学航源码` inside the current workspace.

@@ -157,6 +157,9 @@ class PrivateKnowledgeApiTests(unittest.TestCase):
         data = retrieved.get_json()["data"]
         self.assertEqual(data["activePrivateCollection"]["id"], collection_id)
         self.assertTrue(any(item.get("scope") == "private" for item in data["hits"]))
+        self.assertEqual(data["routing"]["strategy"], "hybrid-routing-v1")
+        self.assertIn("document", data["routing"]["crossValidation"]["evidenceRoutes"])
+        self.assertTrue(data["routing"]["crossValidation"]["verificationRequired"])
 
         other = self.client.post(
             "/api/knowledge/retrieve",

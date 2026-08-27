@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "hybrid-corpus-v1",
+  "purpose": "中医学习混合检索；仅用于教育，不用于临床诊断、处方或治疗决策。",
+  "qa": {
+    "projectCurated": 19,
+    "sylvanSft": 92801,
+    "tcmChatKnowledge": 24907,
+    "cmmluBenchmark": 133,
+    "graphDerived": 1600,
+    "deduplicatedTotal": 101968,
+    "duplicatesRemoved": 17492
+  },
+  "documents": {
+    "sylvanKnowledgeChunks": 28942,
+    "textbook:中医基础理论": 258,
+    "textbook:中药学": 621,
+    "textbook:方剂学": 251,
+    "textbook:伤寒论": 11,
+    "graphDerivedChunks": 1600,
+    "deduplicatedTotal": 31668,
+    "duplicatesRemoved": 15
+  },
+  "database": {
+    "path": "backend/data/tcm_hybrid_corpus.db.gz",
+    "bytes": 75816885,
+    "sha256": "894B2F2866B6F2E30B7D0218588320690C9BEE895F4DA2827340AC2389715E52",
+    "uncompressedBytes": 135921664,
+    "uncompressedSha256": "3FB25E8CFBFEE7C7F9C39451EA57BBF640687A0D140C9D0FD894788A3BA854FB"
+  },
+  "sources": [
+    {
+      "dataset": "SylvanL/Traditional-Chinese-Medicine-Dataset-SFT",
+      "revision": "412f3ff8417bdf1d7d0e2157c4e5d2323a74b5e5",
+      "file": "SFT_medicalKnowledge_source2_99334.json",
+      "license": "Apache-2.0",
+      "sha256": "572394C4685FFB2082D91F0631A562A2B18EB77E78AE26F92E70B5FA7A1F9D7D",
+      "kind": "qa",
+      "includedLimit": null
+    },
+    {
+      "dataset": "ZJUFanLab/TCMChat-dataset-600k",
+      "revision": "c65f284fc43d7de94ecc83e58dac0db281d73295",
+      "file": "sft/train/knowledge.json",
+      "license": "Apache-2.0",
+      "sha256": "29C615226AE88F55538808ED2DAED5E3C794C2AD23BCC2A1B3755BE890945D40",
+      "kind": "qa",
+      "includedLimit": 25000
+    },
+    {
+      "dataset": "shuyuej/CMMLU-Traditional-Chinese-Medicine-Benchmark",
+      "revision": "0008b9c567ed5c81f5c855312fe32abb07ea1742",
+      "file": "traditional_chinese_medicine.json",
+      "license": "Apache-2.0",
+      "sha256": "CEB8E3DD3015259FC32CA9A70B964A22D5068C5AC2D5BAA13EBAC27CDBF4248C",
+      "kind": "benchmark",
+      "includedLimit": null
+    },
+    {
+      "dataset": "SylvanL/Traditional-Chinese-Medicine-Dataset-Pretrain",
+      "revision": "fd01649d8e019ed2b002119e0fd74076c5f7b73d",
+      "file": "CPT_tcmKnowledge_source2_12889.json",
+      "license": "Apache-2.0",
+      "sha256": "FD88C8DB6598E888319A6C79C3374B926420B64A359F708AD6A9005CB5B6051D",
+      "kind": "document",
+      "includedLimit": null
+    },
+    {
+      "dataset": "ZJUFanLab/TCMChat-dataset-600k",
+      "revision": "c65f284fc43d7de94ecc83e58dac0db281d73295",
+      "files": [
+        "pretrain/train/books/textbook/中医基础理论.txt",
+        "pretrain/train/books/textbook/中药学.txt",
+        "pretrain/train/books/textbook/方剂学.txt",
+        "pretrain/train/books/textbook/伤寒论.txt"
+      ],
+      "license": "Apache-2.0",
+      "kind": "document"
+    }
+  ]
+}

@@ -16,6 +16,10 @@ REQUIRED_FILES = (
     "backend/app.py",
     "backend/requirements.txt",
     "backend/data/course_knowledge_index.json",
+    "backend/data/tcm_qa_pairs.json",
+    "backend/data/tcm_graph_index.json",
+    "backend/data/tcm_hybrid_corpus.db.gz",
+    "backend/data/tcm_hybrid_corpus_manifest.json",
     "frontend/dist/index.html",
     "mobile/dist/index.html",
     "admin/dist/index.html",
@@ -66,7 +70,13 @@ def include_backend(path: Path) -> bool:
     if path.name == ".env" or path.suffix.lower() in {".pyc", ".pyo", ".log"}:
         return False
     if name.startswith("backend/data/"):
-        return name == "backend/data/course_knowledge_index.json"
+        return name in {
+            "backend/data/course_knowledge_index.json",
+            "backend/data/tcm_qa_pairs.json",
+            "backend/data/tcm_graph_index.json",
+            "backend/data/tcm_hybrid_corpus.db.gz",
+            "backend/data/tcm_hybrid_corpus_manifest.json",
+        }
     return True
 
 

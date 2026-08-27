@@ -60,6 +60,7 @@ code6.14/
 - 学习画像详细执行信息：`POST /api/learning-profile/analyze-stream` 使用队列式 SSE 实时推送岐小智总控、学习上下文、Skill Registry、MCP Tool、JSON 契约、质量审核、内容安全、保存报告和后台人像排队事件。画像报告生成页展示当前智能体、模型、`runId`、执行进度、累计耗时、审核得分以及每条事件的结构化详情；只展示计数与审核元数据，不输出 API Key、原始 Prompt 或完整画像隐私内容。
 - 画像人像与报告仪表盘：学习画像、画像报告和历史记录始终使用同一套三级侧栏；侧栏下方的 `#learning-profile-digital-human-stage` 真实挂载讯飞数字人组件，在画像对话页同步播报智能体回复，切换到报告或历史页时释放会话。数字人连接失败只显示降级状态，文字对话、历史消息和输入框继续可用，不挂载本地形象或静态兜底人物。报告主体包含六项摘要、十维能力条、六维雷达、证据矩阵、AI 结论和推荐方案；后端使用豆包 Seedream 4.5（通过 APIMart 服务通道接入）基于学习方向、目标、风格与薄弱点生成非真人化学习者插画，并把图片二进制按报告 ID 保存到 SQLite 的 `learning_profile_portraits` 表。报告头像读取、生成、缺失或失败期间先展示内置的非真人默认学习者头像及真实状态提示；数据库中的报告专属头像变为 `ready` 后立即替换默认图。报告保存后会立即排队生成，接口不再同步等待生图；前端轮询数据库状态并在 `ready` 后通过认证接口读取 BLOB，失败或超时会退出加载态并提供重试。服务从 `backend/.env` 读取 `SEEDREAM_BASE_URL` 与 `SEEDREAM_API_KEY`，模型固定为 `seedream-4-5`、最低使用服务支持的 `2K` 分辨率；提交后通过 `/v1/tasks/{task_id}` 轮询结果，轮询时限与间隔分别由 `IMAGE2_POLL_TIMEOUT_SECONDS`、`IMAGE2_POLL_INTERVAL_SECONDS` 控制。
 - 效果评估：`/effect-assessment` 汇总聊天、题单与考试、MCU 实验、资源调用和学习路径完成记录，展示前后能力雷达、薄弱点与可验证的进步；可在该页自动更新当前画像，不新增画像条目。
+- 生命树：`/life-tree` 以可交互三维树呈现当前学习画像、六类中医能力主枝、知识掌握、周路径和效果评估证据；节点状态可追溯到真实答题次数、路径状态或画像薄弱点，并可直接进入对应资源、当前周或效果评估完成再学习与再验证。
 - 学习路径：学习画像保存完成后，后端立即创建可追踪且幂等的 `learning_path` 后台任务，无需用户先进入学习路径页面；路径根据该画像的目标、薄弱点和偏好生成，并由资源路由智能体逐任务选择子智能体、补齐参数和后台预生成结果。
 - 渐进式学习路径：后台任务先生成并保存第一周，再基于同一画像逐周补全后续周，每周生成 7-10 个可验收任务与资源入口。用户中途打开页面时读取 `meta.backgroundGeneration` 显示进度并轮询数据库，不会另起重复规划；后台失败后仍可通过原有页面生成接口继续缺失周次。生产环境使用独立路径执行器承载画像后的长任务，避免占满普通资源或视频任务线程池。
 - 题库生成：支持文档上传、题目生成、考试记录与 AI 评分。考试会同时兼容题单内嵌题目和会话顶层题目；空题单不会启动计时、写入历史或提交评估证据，并提供明确返回入口。考试计时按会话开始后的真实经过时间计算，进行中可确认退出，移动端不会横向溢出。
@@ -73,15 +74,45 @@ code6.14/
 - 智能辅导：`/smart-tutor` 展示岐小智通过 `learning.tutor.answer` Skill 生成的苏格拉底追问、费曼复述任务、三级提示、带解析练习、Mermaid 学习流程、学习卡、知识引用和 Harness 执行轨迹；同一页面支持悬浮窗嵌入预览与新页面完整打开。
 - 数字人面试：集成讯飞数字人 SDK、题目生成、追问和可选关键帧分析。数字人连接、销毁和播报是独立的限时 best-effort 支线，面试 API 返回首题、下一题或总结后会立即解锁文字输入、发送、结束与重新开始；数字人或摄像头失败不会覆盖面试状态，也不会阻断完整文字面试。`/api/avatar/config`、`/api/avatar/diagnostics` 与备用会话接口均要求登录，防止匿名请求消耗数字人额度。
 
+## 生命树学习闭环
+
+`/life-tree` 是独立于知识网络和数字孪生的个性化成长视图。页面用 Three.js 原生构建全屏三维树：主干绑定当前学习画像，六条主枝表示中医基础、辨证思维、中药药性、方剂配伍、医案实践和医道安全，发光节点对应效果评估知识热力与个性化周路径。颜色严格区分“已掌握、学习中、薄弱、推荐下一步、待验证”；缺少答题或路径证据时保持待验证，不把画像自述或零分默认值伪装成掌握结论。
+
+前端并行读取现有 `GET /api/effect-assessment` 和 `GET /api/learning-path/config`，不新增平行数据库或不可审计的成长分数。`frontend/src/utils/lifeTreeModel.js` 负责把画像、知识热力、路径阶段与评估调整任务转换为可解释节点；`frontend/src/components/LifeTreeScene.vue` 只负责三维渲染和节点拾取；`frontend/src/views/LifeTreeView.vue` 提供证据详情、加载/空数据/部分失败/完整失败状态以及资源、路径和评估入口。页面明确展示“画像分析 -> 路径规划 -> 资源生成 -> 效果评估”的协同闭环，选择薄弱或推荐节点即可进入专项题库、导图、讲义等真实资源页面，完成后由原有效果评估链路更新生命树。
+
+桌面保留顶部导航，移动端保留八项短标签底部导航；三维相机会按画布纵横比调整取景，避免窄屏裁掉树冠。生命树页面关闭全局悬浮智能体，防止全屏 WebGL 场景重复叠加助手或导航。验证命令：
+
+```powershell
+cd frontend
+node --test tests/lifeTreeModel.test.mjs
+npm run build -- --emptyOutDir=false
+```
+
+浏览器验收覆盖 `1440x900` 与 `390x844`：只出现一套导航和一个 WebGL 画布，无横向溢出，场景控制、节点详情与闭环跳转可用。运行依赖为 Three.js `0.185.1`（MIT）；用户提供的 `ez-tree`、`3d-force-graph`、`r3f-forcegraph`、`beautiful-skill-tree` 和 `SeedThree` 只用于产品与交互调研，当前实现没有复制这些仓库的源码或素材。
+
 ## 知识网络展示
 
-`/knowledge-network` 是与学习画像、学习路径和个性化资源并列的独立二维知识网络功能页，顶部主导航可直接进入；旧地址 `/personalized-resources/knowledge-network` 仅保留兼容重定向。图谱前端直接参考并改编 GPL-3.0 开源项目 [nashsu/llm_wiki](https://github.com/nashsu/llm_wiki) 的 Graph View：Sigma.js 3 使用 WebGL 绘制节点、边和标签，Graphology 保存图结构，ForceAtlas2 通过独立 Web Worker 完成布局。当前作品索引会形成 12,000 余个真实文档节点；接口只返回文档元数据及关系，不会把全部 chunk 正文一次发送到浏览器，引用片段继续按节点展开。
+`/knowledge-network` 在主站导航栏下方嵌入用户提供的 `wu-xing-holo-core (1).zip` 原始 React/Vite 页面；旧地址 `/personalized-resources/knowledge-network` 保留兼容重定向。原始附件逐文件复制在 `frontend/wu-xing-holo-core-original/`，不修改其中任一文件的代码、样式、入口或依赖声明。知识网络沿用与数字孪生页相同的可用视口规则：桌面保留顶部主导航，手机保留底部主导航，画布不被导航遮挡，可从主导航直接返回其他主页面。
+
+用户提供的 `中医药知识库_1600节点_知识讲解_实质内容版.json` 原样保存在 `frontend/src/data/tcm-knowledge-network.v1.2-substantive.json`。原 ZIP SHA-256 为 `9176A840EE386BF6B970C7156B3A2C3F2A4BADAFDB424503B5DF8CAA47F7C555`，知识库 JSON SHA-256 为 `D4FE839D525254EDC9AA4F588BD5A0873F550E06ACF8F66E5E4AC9B93F8EF922`。ZIP 内的 `src/data.ts` 保持原样；附件目录外的 `frontend/wu-xing-holo-core-runner/knowledgeDataAdapter.ts` 在构建期将该 JSON 树转换为原页面已使用的 `nodes`、`edges` 接口，因此运行页面使用 1601 个节点、1600 条父子边和所提供的实质知识说明，而不改写附件源码。数据仅用于学习知识浏览，不作为临床诊疗依据。
+
+首次配置或更新知识库后，先构建原页面静态产物，再构建主前端：
+
+```powershell
+cd frontend\wu-xing-holo-core-runner
+node node_modules\vite\bin\vite.js build --config vite.config.mjs
+
+cd ..
+npm.cmd run build -- --emptyOutDir=false
+```
+
+随后运行 `start-frontend-backend.bat`，统一入口默认位于 `http://127.0.0.1:3000/knowledge-network`。
 
 ## 智能体数字孪生展示
 
 `/agent-digital-twin` 是与 `/knowledge-network` 相互独立的架构展示功能页，主导航提供“数字孪生”入口，TvT.js 场景嵌入在导航栏下方并填满剩余视口。页面直接复用用户提供并确认具有商业授权的 TvT.js / `networkLinkTopology` 静态场景，资源位于 `img/digital-twin`，由主前端同源发布：Vite 开发环境跟随 `5088` 端口，构建后一键启动环境跟随后端统一入口 `3000` 端口，不需要单独启动 `5174` 服务。
 
-当前场景包含 14 个展示节点和 22 条展示连线，用于表达主控、能力组、知识资源、实验与评估之间的信息流。一个展示节点可以代表一个能力组，因此这些节点不计入 Harness 智能体角色数量，也不改变 22 个 Harness 角色和 18 个注册 Skill 的真实统计口径。页面固定标记为“架构展示 · 非实时运行”，不宣称展示真实实时调用记录；数字孪生只增强答辩展示层，不替换学习画像、学习路径、资源生成、实验与效果评估闭环。
+当前场景包含 14 个展示节点和 22 条展示连线，用于表达岐小智主控、经典检索、学情画像、中医资源、研习路径、医案辨析、四诊合参与辨证评估之间的信息流。大屏指标和趋势图采用中医学习语义，协同信息流明确展示经典引用、个性化资源、医案证据与画像更新。一个展示节点可以代表一个能力组，因此这些节点不计入 Harness 智能体角色数量，也不改变 22 个 Harness 角色和 18 个注册 Skill 的真实统计口径。页面固定标记为“架构展示 · 非实时运行”，不宣称展示真实实时调用记录；数字孪生只增强答辩展示层，不替换学习画像、学习路径、资源生成、医案实践与效果评估闭环。
 
 数字孪生包装页把固定 `1920x1080` 场景按可用视口等比缩放，桌面和移动端均不要求横向滚动；同源资源预检失败时显示原因与重试入口。OhMyPPT 全屏包装页在 iframe 上方保留“返回个性化资源”，加载前精确预检 `/ppt/index.html`，失败时不会留下空白全屏页面，并提供重试；若错误的 SPA 回退仍让主站进入 iframe，包装页会阻止二次 iframe，主应用也会隐藏全局导航、任务横幅和悬浮智能体，避免递归叠出多套界面。
 
@@ -96,6 +127,25 @@ code6.14/
 该页的数据口径来自当前课程索引、当前用户私有知识、真实 Harness 运行和反哺候选。`GET /api/knowledge-network/overview?view=atlas&limit=15000` 返回文档级图谱，默认调用仍保留聚合视图。搜索框在浏览器内对当前全部节点执行轻量相似度排序，依次考虑名称精确匹配、前缀、包含、来源、知识域、分词命中与字符二元组相似度，返回前 10 个结果；点击或键盘回车会直接定位原图谱节点，不另造搜索节点或删减图谱。Vue 适配实现位于 `frontend/src/components/KnowledgeSigmaGraph.vue`，布局 Worker 位于 `frontend/src/workers/knowledge-graph-layout.worker.js`，上游 GPL-3.0 许可证保存在 `frontend/public/vendor/llm-wiki/LICENSE`。它是“LLM Wiki 启发的可审计知识演化网络”，不宣称实现自动递归重写知识库的完整 LLM Wiki 引擎，也不包含 3D 或数字孪生能力。
 
 知识网络顶部保留“关系网络”和“AI 知识库自生长”两个固定模式。“关系网络”只展示本地课程索引和当前用户私有知识，不再混入智能体运行、审核候选等展示节点；正式 `course_knowledge_index.json` 是文档关系的唯一课程索引来源，`course_knowledge_index_catalog.json` 是由该索引生成的文档级只读投影，使低内存部署无需反序列化全部切片文本即可展示同等数量的真实文档节点。便携源码包未携带体积较大的原始 `rag文档` 时，课程知识加载器会只读已打包索引，禁止用空语料覆盖正式索引。“AI 知识库自生长”用于用户隔离的长期对话记忆：岐小智总控与学习画像每完成一轮对话，后端都会先保存原始用户消息，再在智能体回复后补全核心摘要、主题和目标/偏好/薄弱点等学习信号。最近完成的记忆通过 `longTermMemories` 合并到下一轮智能体上下文，并进入平台学习证据；聊天内容不会被当作已经核验的课程事实，也不会直接写入可信 RAG 文档。
+
+### QA + 文档 + 图谱混合知识路由
+
+后端生成链路统一通过 `backend/hybrid_knowledge.py` 执行 `QA + Document + Graph RAG` 混合检索。当前只读语料包含 `101,968` 条去重 QA、`31,668` 个文档切片和 `1,601` 个图谱节点；文档切片完整纳入 SylvanL 的 `12,889` 条中医预训练资料，并叠加中医基础理论、中药学、方剂学、伤寒论教材及原有用户私有文档。大语料只服务后端检索与生成依据，不在前端重复绘制；已有知识网络继续承担可视化浏览。
+
+路由器先抽取问题主体与所问属性，再执行实体标题精确检索、FTS5 候选召回、路由内重排和跨路由融合。结构化 QA 适合定义与固定问答，文档切片提供原文上下文，图谱处理关系与多跳语义；同一图谱派生的 QA/文档不会被重复计算为独立证据。只有至少两类独立路由命中且语义一致度达到阈值时，`crossValidation.decision` 才返回 `allow_grounded_generation`；单源、低一致度或无证据结果统一返回 `mark_for_verification`，并由 `grounded_prompt_block` 要求生成智能体标注“需进一步核验”。
+
+`POST /api/knowledge/retrieve` 返回 `routing.routes`、`routing.crossValidation`、逐条引用和数据集 revision/许可证；混合知识库页面只展示检索命中和审核状态，不展示或加载全部大语料。多智能体运行时把 `knowledgeRouting` 和 `knowledgeVerification` 一并交给资源专员，避免审核结论在智能体交接时丢失。压缩 SQLite 语料位于 `backend/data/tcm_hybrid_corpus.db.gz`，运行时按清单校验并解压为只读缓存；压缩 SHA-256 为 `894B2F2866B6F2E30B7D0218588320690C9BEE895F4DA2827340AC2389715E52`，解压 SHA-256 为 `3FB25E8CFBFEE7C7F9C39451EA57BBF640687A0D140C9D0FD894788A3BA854FB`。
+
+固定数据集 revision、许可证和输入文件 SHA-256 记录在 `backend/data/tcm_hybrid_corpus_manifest.json` 与 `THIRD_PARTY_NOTICES.md`。语料重建和验证命令：
+
+```powershell
+python scripts/build-hybrid-knowledge-corpus.py
+python -m unittest backend.tests.test_hybrid_knowledge backend.tests.test_course_knowledge_portable_cache
+cd backend
+python -m unittest tests.test_private_knowledge
+```
+
+该语料仅用于中医药课程学习，不用于临床诊断、处方或治疗决策；第三方数据可能存在噪声，平台不会把单条数据集答案视为已经核验的医疗结论。
 
 对话记忆保存在 `knowledge_growth_memories`，每条记录保留来源入口、来源消息、原始问答、提取器版本和时间，按用户鉴权隔离。`scripts/seed-conversation-growth-demo.py` 可为本地 `admin123` 幂等写入六轮示例对话，同时清理旧版候选/审核示例数据。相关接口均要求登录：
 
@@ -517,6 +567,7 @@ backend/api_config.py
 - 管理端：基于 Soybean Admin，MIT License。
 - PPT 生成功能：参考 OnMyPPT / Oh My PPT，Apache License 2.0。
 - 思维导图功能：参考 Mind Map Wizard，CC BY-NC 4.0，仅允许非商业使用，商业化需单独授权。
+- 生命树三维渲染：使用 Three.js 0.185.1，MIT License；生命树几何、数据适配和交互为本项目实现。
 
 思维导图嵌入引擎位于 `img/mind-map-wizard/embedded/`。其中 `renderer.js`、`interaction.js` 和 `mind-map-elements.css` 来自 Mind Map Wizard，项目新增 `bridge.js`、嵌入页及 Vue 通信组件，以接收岐小智后台生成的 Markdown，而未接入原项目的模型密钥、账号、分析统计或付费逻辑。
 

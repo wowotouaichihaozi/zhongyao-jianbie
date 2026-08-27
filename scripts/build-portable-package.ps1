@@ -87,6 +87,10 @@ Assert-File (Join-Path $ProjectRoot "frontend\dist\index.html") "Learner fronten
 Assert-File (Join-Path $ProjectRoot "admin\dist\index.html") "Admin frontend build"
 Assert-File (Join-Path $ProjectRoot "ppth5\dist-web\index.html") "PPT frontend build"
 Assert-File (Join-Path $ProjectRoot "backend\data\course_knowledge_index.json") "Knowledge index"
+Assert-File (Join-Path $ProjectRoot "backend\data\tcm_qa_pairs.json") "TCM QA index"
+Assert-File (Join-Path $ProjectRoot "backend\data\tcm_graph_index.json") "TCM graph retrieval index"
+Assert-File (Join-Path $ProjectRoot "backend\data\tcm_hybrid_corpus.db.gz") "TCM hybrid corpus"
+Assert-File (Join-Path $ProjectRoot "backend\data\tcm_hybrid_corpus_manifest.json") "TCM hybrid corpus manifest"
 
 & $SourcePython -c "import bcrypt, cv2, fastapi, fitz, flask, json_repair, langgraph, oss2, paramiko, pydantic, requests, torch, torchvision, ultralytics, uvicorn, waitress" *> $null
 if ($LASTEXITCODE -ne 0) {
@@ -186,6 +190,10 @@ New-Item -ItemType Directory -Force -Path `
     (Join-Path $backendData "profile_portraits"), `
     (Join-Path $OutputPath "backend\generated\video") | Out-Null
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "backend\data\course_knowledge_index.json") -Destination $backendData -Force
+Copy-Item -LiteralPath (Join-Path $ProjectRoot "backend\data\tcm_qa_pairs.json") -Destination $backendData -Force
+Copy-Item -LiteralPath (Join-Path $ProjectRoot "backend\data\tcm_graph_index.json") -Destination $backendData -Force
+Copy-Item -LiteralPath (Join-Path $ProjectRoot "backend\data\tcm_hybrid_corpus.db.gz") -Destination $backendData -Force
+Copy-Item -LiteralPath (Join-Path $ProjectRoot "backend\data\tcm_hybrid_corpus_manifest.json") -Destination $backendData -Force
 $langGraphData = Join-Path $ProjectRoot "backend\data\langgraph"
 if (Test-Path -LiteralPath $langGraphData -PathType Container) {
     Invoke-Robocopy $langGraphData (Join-Path $backendData "langgraph")
