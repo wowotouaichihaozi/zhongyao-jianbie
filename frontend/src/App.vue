@@ -48,6 +48,7 @@ const routesWithoutFloatingAssistant = new Set([
   'knowledge-network',
   'life-tree',
   'ai-coding',
+  'herb-recognition',
   'personalized-resource-video-generator',
 ])
 

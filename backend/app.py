@@ -40,6 +40,11 @@ except ImportError:  # pragma: no cover - package import fallback
     from .video_generation import execute_generated_video_task, media_file
 
 try:
+    from herb_recognition import HerbRecognitionError, recognize_herb_image, recognize_herb_image_with_deepseek
+except ImportError:  # pragma: no cover - package import fallback
+    from .herb_recognition import HerbRecognitionError, recognize_herb_image, recognize_herb_image_with_deepseek
+
+try:
     from api_config import setting_default
     from common import build_anthropic_messages_url, create_avatar_config, create_llm_headers, get_setting, now_iso, setting_overrides
     from database_schema import (
@@ -4220,6 +4225,34 @@ def _apply_profile_multimodal_context(payload: dict, user_id: int) -> tuple[dict
         for item in public_attachments
     ]
     return next_payload, public_attachments
+
+
+@app.post("/api/herb-recognition/recognize")
+def herb_recognition_recognize():
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        return jsonify({"code": 400, "msg": "请选择药材图片"}), 400
+
+    try:
+        herb_name = recognize_herb_image(upload.filename, upload.read())
+    except HerbRecognitionError as exc:
+        return jsonify({"code": exc.status_code, "msg": str(exc)}), exc.status_code
+
+    return jsonify({"code": 0, "data": {"name": herb_name}})
+
+
+@app.post("/api/herb-recognition/ai-calibrate")
+def herb_recognition_ai_calibrate():
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        return jsonify({"code": 400, "msg": "请选择药材图片"}), 400
+
+    try:
+        herb_name = recognize_herb_image_with_deepseek(upload.filename, upload.read())
+    except HerbRecognitionError as exc:
+        return jsonify({"code": exc.status_code, "msg": str(exc)}), exc.status_code
+
+    return jsonify({"code": 0, "data": {"name": herb_name}})
 
 
 @app.post("/api/multimodal-inputs")

@@ -51,6 +51,7 @@ code6.14/
 
 ## 主要功能
 
+- 药材识别：主导航“药材识别”支持上传 JPG、PNG、WebP 图片或打开浏览器摄像头锁定画面。默认由本地 `backend/models/herbwise-yolo26s.pt` 识别；点击摄像头右侧的“AI 校准”后，图片仅请求 `deepseek-v4-flash-vision-exp`，不会调用或融合 YOLO。两种方式均只返回一个中文药材名称。AI 校准使用 `HERB_AI_BASE_URL`、`HERB_AI_MODEL`、`HERB_AI_CONTEXT_WINDOW`、`HERB_AI_TIMEOUT`、`HERB_AI_MAX_TOKENS`，可复用 `ANTHROPIC_AUTH_TOKEN` 或设置独立 `HERB_AI_API_KEY`。启动后登录访问 `/herb-recognition`；可用 `cd backend; .\venv\Scripts\python.exe -m unittest tests.test_herb_recognition` 检查本地映射与 DeepSeek 地址规则，再以清晰药材图片完成真实接口识别。
 - 岐小智总控与扩展：22 个已实现 Harness 角色和 18 个可调用 Skill 由 `backend/agent_manifests/xiaozhi_agents.json` 统一声明。角色数严格按 Manifest 中有实际职责的条目统计，执行步骤和占位名称不计入智能体数量。Handler Registry 在启动时校验重复 ID、缺失处理器、非法权限和 MCP 映射。新增可调用业务能力通过 Manifest、Handler 与 MCP 接入，不修改 Supervisor 主流程。
 - 学习画像：首次补齐十个画像维度时创建报告；后续重新评估、会话补全和证据更新都会合并到当前画像并原位保存，保持画像 ID、名称、版本和历史位置不变，只有明确选择另一份历史画像时才切换当前画像。
 - 学习画像会话恢复：部署切换或会话接口暂时返回空消息时，页面会保留当前账号已有的本地对话草稿，并只将其绑定到本次初始化的旧会话；新建会话不会继承旧记录。验证命令：`cd frontend && node --test tests/learningProfileChat.test.mjs`。

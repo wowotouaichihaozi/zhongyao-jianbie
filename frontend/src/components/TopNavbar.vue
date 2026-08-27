@@ -58,6 +58,7 @@ import {
   Network,
   Orbit,
   Route as RouteIcon,
+  ScanSearch,
   Share2,
   TreePine,
   UserRound,
@@ -76,6 +77,7 @@ const navItems = [
   { to: '/learning-profile', label: '学习画像', mobileLabel: '画像', icon: Network, active: () => route.path.startsWith('/learning-profile') },
   { to: '/learning-path', label: '学习路径', mobileLabel: '路径', icon: RouteIcon, active: () => route.path.startsWith('/learning-path') },
   { to: '/personalized-resources', label: '个性化资源', mobileLabel: '资源', icon: FlaskConical, active: () => isResourceSection.value },
+  { to: '/herb-recognition', label: '药材识别', mobileLabel: '识别', icon: ScanSearch, active: () => route.path.startsWith('/herb-recognition') },
   { to: '/knowledge-network', label: '知识网络', mobileLabel: '知识', icon: Share2, active: () => route.path.startsWith('/knowledge-network') },
   { to: '/life-tree', label: '生命树', mobileLabel: '生命树', icon: TreePine, active: () => route.path.startsWith('/life-tree') },
   { to: '/agent-digital-twin', label: '数字孪生', mobileLabel: '孪生', icon: Orbit, active: () => route.path.startsWith('/agent-digital-twin') },
@@ -362,7 +364,7 @@ async function logout() {
   .mobile-bottom-nav {
     height: 100%;
     display: grid;
-    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-columns: repeat(9, minmax(0, 1fr));
     align-items: center;
     padding: 6px;
     box-sizing: border-box;

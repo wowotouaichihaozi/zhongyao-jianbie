@@ -11,6 +11,12 @@ This file is the source of truth for the current scoring review and frontend ref
 - `[x]` Complete and verified
 - `[!]` Blocked or needs a product decision
 
+## 2026-08-27 药材识别第一版
+
+- [x] 新增主导航“药材识别”，第一版只提供实际可运行的本地 YOLO 药材名称识别：图片上传和浏览器摄像头锁帧均提交到受鉴权 API；不实现 mock、云端模型、视频抽帧、识别历史或学习闭环占位。模型与 45 类中文映射已导入 `backend/models/`，接口仅返回一个中文药材名称。验证：项目 venv 下 Python 编译与 2 项类别映射/旧类别标签解码测试通过；本地 `3002` 服务中未鉴权请求为 HTTP 401，带本地预览登录令牌上传参考项目样图返回 HTTP 200 和模型实际结果“肉苁蓉”；前端以 `npm.cmd run build -- --emptyOutDir=false` 非清理构建，桌面 1440x900 与移动 390x844 实际上传识别均通过，移动端无横向溢出且结果卡片不被底部导航遮挡。截图：`C:/Users/30949/.codex/visualizations/2026/08/27/01a041ce-ac44-7d12-a7f4-f37f0737bc2b/herb-recognition-desktop.png`、`C:/Users/30949/.codex/visualizations/2026/08/27/01a041ce-ac44-7d12-a7f4-f37f0737bc2b/herb-recognition-mobile-final.png`。
+- [x] 增加“AI 校准”入口，上传图片仅调用 `deepseek-v4-flash-vision-exp`，不触发 YOLO 或融合回退；已完成独立 API、模型/地址/超时/上下文窗口配置和 6 项后端单元测试（含 DeepSeek 官方 `/chat/completions` 地址、无密钥失败与“不得调用 YOLO”断言）。本地 `3000` 服务携带预览授权实际请求 DeepSeek，对非药材图片返回真实 422“未返回可确认的药材名称”，未降级到本地模型；Flask 托管构建产物与开发服务器均在桌面 `1440x900`、移动 `390x844` 验证 AI 校准可切换、按钮文案更新且无横向溢出。截图：`C:/Users/30949/.codex/visualizations/2026/08/27/01a041ce-ac44-7d12-a7f4-f37f0737bc2b/herb-ai-final-desktop.png`、`C:/Users/30949/.codex/visualizations/2026/08/27/01a041ce-ac44-7d12-a7f4-f37f0737bc2b/herb-ai-final-mobile.png`。主前端 `npm.cmd run build -- --emptyOutDir=false` 已通过；同时将既有 `LearningProfileView.vue` 的用户头像改为与同页机器人头像一致的静态 URL 绑定，恢复该构建。
+- [x] 提交前重新验证前端构建时，收口 `LearningProfileView.vue` 中既有机器人和用户头像的静态 URL 解析问题，改为运行时变量引用且不改变视觉效果；`npm.cmd run build -- --emptyOutDir=false` 已通过。
+
 ## 2026-08-27 生命树学习闭环可视化
 
 - [x] 新增独立 `/life-tree` 功能模块，用三维树冠承载当前画像、知识掌握、周路径、资源反馈和效果评估证据；节点区分已掌握、学习中、薄弱、推荐下一步与待验证，不把缺失证据伪装为完成状态。节点详情提供证据说明、关联阶段和资源/测评入口，形成画像到再评估的可操作闭环。验证：3 项生命树数据模型测试与前端非清理构建通过；2026-08-27 增量部署后 `/life-tree` 返回 HTTP 200，主后端与 Nginx 保持 active。

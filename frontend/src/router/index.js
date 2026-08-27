@@ -12,6 +12,7 @@ const LearningProfileUploadView = () => import('../views/LearningProfileUploadVi
 const LearningPathView = () => import('../views/LearningPathView.vue')
 const LearningPathStageDetailView = () => import('../views/LearningPathStageDetailView.vue')
 const PersonalizedResourcesView = () => import('../views/PersonalizedResourcesView.vue')
+const HerbRecognitionView = () => import('../views/HerbRecognitionView.vue')
 const ResourceDetailView = () => import('../views/ResourceDetailView.vue')
 const DigitalHumanInterviewView = () => import('../views/DigitalHumanInterviewView.vue')
 const UserProfileView = () => import('../views/UserProfileView.vue')
@@ -177,6 +178,12 @@ const routes = [
     path: '/personalized-resources/knowledge-base',
     name: 'personalized-resource-knowledge-base',
     component: KnowledgeBaseView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/herb-recognition',
+    name: 'herb-recognition',
+    component: HerbRecognitionView,
     meta: { requiresAuth: true },
   },
   {

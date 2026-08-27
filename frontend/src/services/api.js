@@ -489,6 +489,26 @@ export async function uploadMultimodalInputs(files, context = 'chat', route = ''
   return data?.data?.attachments || []
 }
 
+export async function recognizeHerb(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await apiClient.post('/api/herb-recognition/recognize', formData, {
+    timeout: 120000,
+  })
+  if (data?.code !== 0) throw new Error(data?.msg || '药材识别失败')
+  return data?.data
+}
+
+export async function calibrateHerbWithAi(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await apiClient.post('/api/herb-recognition/ai-calibrate', formData, {
+    timeout: 120000,
+  })
+  if (data?.code !== 0) throw new Error(data?.msg || 'AI 校准失败')
+  return data?.data
+}
+
 export async function getLearningProfileHistory() {
   const { data } = await apiClient.get('/api/learning-profile/history')
   return data
