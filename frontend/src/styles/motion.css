@@ -1,0 +1,179 @@
+:root {
+  --motion-fast: 160ms;
+  --motion-base: 260ms;
+  --motion-slow: 420ms;
+  --motion-enter: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-exit: cubic-bezier(0.4, 0, 1, 1);
+  --motion-press-scale: 0.985;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Cards and panels animate on insertion, including asynchronously loaded results. */
+#app :where(
+  [class$="-card"],
+  [class*="-card "],
+  [class$="-panel"],
+  [class*="-panel "]
+):not(.no-motion, .auth-page *) {
+  animation: motion-surface-enter var(--motion-slow) var(--motion-enter) backwards;
+}
+
+#app :where(
+  [class$="-grid"],
+  [class*="-grid "],
+  [class$="-list"],
+  [class*="-list "]
+) > :where(
+  [class$="-card"],
+  [class*="-card "],
+  article
+):nth-child(2) { animation-delay: 45ms; }
+
+#app :where(
+  [class$="-grid"],
+  [class*="-grid "],
+  [class$="-list"],
+  [class*="-list "]
+) > :where(
+  [class$="-card"],
+  [class*="-card "],
+  article
+):nth-child(3) { animation-delay: 85ms; }
+
+#app :where(
+  [class$="-grid"],
+  [class*="-grid "],
+  [class$="-list"],
+  [class*="-list "]
+) > :where(
+  [class$="-card"],
+  [class*="-card "],
+  article
+):nth-child(n + 4) { animation-delay: 120ms; }
+
+@keyframes motion-surface-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.992);
+  }
+}
+
+/* Shared overlays: fade the scrim and give the foreground a short weighted lift. */
+#app :where(
+  .dialog-backdrop,
+  .modal-backdrop,
+  [class$="-backdrop"],
+  [class*="-backdrop "]
+) {
+  animation: motion-backdrop-enter var(--motion-base) ease-out backwards;
+}
+
+#app :where([role="dialog"], [aria-modal="true"]) {
+  animation: motion-dialog-enter 320ms var(--motion-enter) backwards;
+  transform-origin: center top;
+}
+
+@keyframes motion-backdrop-enter {
+  from { opacity: 0; }
+}
+
+@keyframes motion-dialog-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.975);
+  }
+}
+
+/* Explicit Vue transitions used by persistent floating UI. */
+.motion-pop-enter-active,
+.motion-pop-leave-active {
+  transform-origin: var(--motion-origin, right bottom);
+  transition:
+    opacity var(--motion-base) ease,
+    transform 320ms var(--motion-enter);
+}
+
+.motion-pop-enter-from,
+.motion-pop-leave-to {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0) scale(0.96);
+}
+
+.motion-toast-enter-active,
+.motion-toast-leave-active {
+  transition:
+    opacity var(--motion-base) ease,
+    transform 340ms var(--motion-enter);
+}
+
+.motion-toast-enter-from,
+.motion-toast-leave-to {
+  opacity: 0;
+  transform: translate3d(18px, 0, 0) scale(0.98);
+}
+
+.motion-panel-enter-active,
+.motion-panel-leave-active {
+  transition:
+    opacity 210ms ease,
+    transform var(--motion-base) var(--motion-enter);
+}
+
+.motion-panel-enter-from {
+  opacity: 0;
+  transform: translate3d(10px, 0, 0);
+}
+
+.motion-panel-leave-to {
+  opacity: 0;
+  transform: translate3d(-8px, 0, 0);
+}
+
+/* Keep interaction feedback independent from component transform animations. */
+@media (hover: hover) and (pointer: fine) {
+  #app :where(button, a[href], [role="button"]):not(:disabled) {
+    transition-duration: var(--motion-base);
+    transition-timing-function: var(--motion-enter);
+  }
+
+  #app :where(
+    [class$="-card"],
+    [class*="-card "]
+  )[href]:hover {
+    translate: 0 -3px;
+  }
+}
+
+#app :where(button, a[href], [role="button"]):not(:disabled):active {
+  scale: var(--motion-press-scale);
+  translate: 0 1px;
+}
+
+#app :where(button, a[href], input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid rgba(16, 185, 129, 0.24);
+  outline-offset: 3px;
+}
+
+@media (max-width: 768px) {
+  .motion-toast-enter-from,
+  .motion-toast-leave-to {
+    transform: translate3d(0, 14px, 0) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  #app *,
+  #app *::before,
+  #app *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
