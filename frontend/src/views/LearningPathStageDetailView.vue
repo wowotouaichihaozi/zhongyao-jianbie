@@ -9,7 +9,6 @@
         'has-active-node': compactMap && isWeekOverview && Boolean(activeNode),
         'has-path-notice': Boolean(profileSwitchNotice),
       }"
-      :style="compactViewportStyle"
       :aria-label="isWeekOverview ? '学习周次地图' : stageTitle"
     >
       <button
@@ -122,28 +121,17 @@
           class="map-dot"
           :class="node.state"
           :data-active="activeNode?.id === node.id ? 'true' : undefined"
-          :style="{
-            left: `${node.x}px`,
-            top: `${node.y}px`,
-            '--academy-enter-index': node.academyEnterIndex,
-          }"
-          :aria-label="`${node.label} ${node.mapTitle}：${node.title}`"
+          :style="{ left: `${node.x}px`, top: `${node.y}px` }"
+          :aria-label="`${node.label} ${node.title}`"
           @pointerdown.stop
           @pointerup.stop="selectNode(node)"
           @click.stop="selectNode(node)"
         >
-          <LearningPathAcademyNode
-            v-if="isWeekOverview"
-            :stage="node.academyStage"
-            :growth="node.academyGrowth"
-            :label="node.label"
-            :state="node.state"
-          />
-          <span v-else class="dot-core">
+          <span class="dot-core">
             <CheckCircle2 v-if="node.state === 'done'" :size="31" stroke-width="2.6" aria-hidden="true" />
             <span v-else>{{ node.label }}</span>
           </span>
-          <b class="dot-title">{{ isWeekOverview ? node.mapTitle : node.title }}</b>
+          <b class="dot-title">{{ node.title }}</b>
           <small class="dot-state">{{ node.statusText }}</small>
         </button>
 
@@ -284,7 +272,6 @@ import {
   X,
 } from 'lucide-vue-next'
 import { getLearningPathConfig, getLearningPathStage, getLearningProfiles } from '../services/api.js'
-import LearningPathAcademyNode from '../components/LearningPathAcademyNode.vue'
 import { cloneLearningPathConfig } from '../config/learningPathDefaults.js'
 import {
   generateFirstLearningPath,
@@ -547,25 +534,15 @@ const loadingMessage = computed(() => (
       : '正在加载学习路径'
 ))
 
-const academyMapTitles = [
-  '本草基原与药用部位',
-  '药材性状观察与记录',
-  '真伪药材对比鉴别',
-  '显微与理化鉴别进阶',
-  '炮制品与易混品辨析',
-  '综合中药鉴别实践',
-]
-
 const sortedNodes = computed(() => {
   cacheVersion.value
   const nodes = Array.isArray(stageConfig.value?.nodes) ? stageConfig.value.nodes : []
-  const visibleNodes = nodes.filter((node) => {
+  return nodes
+    .filter((node) => {
       const type = String(node?.resourceType || '').toLowerCase()
       const routePath = String(node?.actionRoute || '').toLowerCase()
       return !['mcu', 'simulator'].includes(type) && !routePath.includes('mcu-simulator')
     })
-  const lastIndex = Math.max(visibleNodes.length - 1, 1)
-  return visibleNodes
     .map((node, index) => {
       const cacheKey = String(node.cacheKey || '').trim()
       const cache = getNodeCache(cacheKey)
@@ -576,7 +553,6 @@ const sortedNodes = computed(() => {
             y: 292 + Math.floor(index / 2) * 164,
           }
         : null
-      const academyStage = Math.min(6, Math.max(1, Math.round(1 + (index / lastIndex) * 5)))
       return {
         id: String(node.id || node.label || index + 1),
         cacheKey,
@@ -594,19 +570,14 @@ const sortedNodes = computed(() => {
         actionRoute: String(node.actionRoute || ''),
         stageId: String(node.stageId || ''),
         order: safeNumber(node.order, index + 1),
-        academyGrowth: index / lastIndex,
-        academyStage,
-        mapTitle: academyMapTitles[academyStage - 1],
       }
     })
     .sort((left, right) => left.order - right.order)
-    .map((node, academyEnterIndex) => ({ ...node, academyEnterIndex }))
 })
 
 const boardSize = computed(() => {
   if (compactMap.value && isWeekOverview.value) {
-    const maxNodeY = Math.max(...sortedNodes.value.map((node) => node.y), 0)
-    return { width: 360, height: Math.max(720, maxNodeY + 170) }
+    return { width: 360, height: 720 }
   }
   const configuredWidth = safeNumber(boardConfig.value.width, 1440)
   const configuredHeight = safeNumber(boardConfig.value.height, 640)
@@ -656,7 +627,7 @@ const popoverStyle = computed(() => {
     return { left: '180px', top: '104px' }
   }
   const left = activeNode.value.x
-  const top = activeNode.value.y - (isWeekOverview.value ? 112 : 70)
+  const top = activeNode.value.y - 70
   return { left: `${left}px`, top: `${top}px` }
 })
 
@@ -665,12 +636,6 @@ const boardStyle = computed(() => ({
   height: `${boardSize.value.height}px`,
   transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${scale.value})`,
 }))
-
-const compactViewportStyle = computed(() => (
-  compactMap.value && isWeekOverview.value
-    ? { height: `${boardSize.value.height + 280}px` }
-    : undefined
-))
 
 onMounted(() => {
   window.addEventListener('resize', resetViewport)
@@ -1367,19 +1332,6 @@ function resetViewport() {
   compactMap.value = rect.width <= 600
   const horizontalPadding = rect.width < 900 ? 28 : 72
   const verticalPadding = rect.height < 700 ? 28 : 52
-  if (compactMap.value && isWeekOverview.value) {
-    const configuredScale = clamp(boardConfig.value.initialScale, 0.35, 2.5)
-    scale.value = clamp(
-      Math.min(configuredScale, (rect.width - horizontalPadding) / boardSize.value.width),
-      0.35,
-      2.5,
-    )
-    offset.value = {
-      x: Math.round((rect.width - boardSize.value.width * scale.value) / 2),
-      y: 140,
-    }
-    return
-  }
   const fitScale = Math.min(
     (rect.width - horizontalPadding) / boardSize.value.width,
     (rect.height - verticalPadding) / boardSize.value.height,
@@ -1401,7 +1353,7 @@ function resetViewport() {
   color: #172033;
   background:
     linear-gradient(180deg, rgba(248, 251, 253, 0.04), rgba(242, 243, 245, 0.12)),
-    url("/learning-path-academy-background-v1.png") center center / cover no-repeat,
+    url("/learning-path-map-background.png") center center / cover no-repeat,
     #f2f3f5;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
@@ -1422,7 +1374,7 @@ function resetViewport() {
   z-index: 0;
   background:
     linear-gradient(180deg, rgba(248, 251, 253, 0.04), rgba(242, 243, 245, 0.12)),
-    url("/learning-path-academy-background-v1.png") center center / cover no-repeat,
+    url("/learning-path-map-background.png") center center / cover no-repeat,
     #f2f3f5;
   content: "";
   pointer-events: none;
@@ -1483,10 +1435,6 @@ function resetViewport() {
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 16px 38px rgba(15, 23, 42, 0.09);
   backdrop-filter: blur(14px);
-}
-
-.week-overview-map .current-profile-path-switcher {
-  animation: academy-path-card-right-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) 35ms backwards;
 }
 
 .profile-path-switcher-head {
@@ -1593,24 +1541,6 @@ function resetViewport() {
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(14px);
-}
-
-.week-overview-map .stage-overview {
-  animation: academy-path-card-left-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-@keyframes academy-path-card-left-enter {
-  from {
-    opacity: 0;
-    transform: translate(-16px, 14px);
-  }
-}
-
-@keyframes academy-path-card-right-enter {
-  from {
-    opacity: 0;
-    transform: translate(16px, 14px);
-  }
 }
 
 .stage-overview strong {
@@ -2498,15 +2428,6 @@ function resetViewport() {
 }
 
 @media (max-width: 600px) {
-  .clean-map-page {
-    height: auto;
-    overflow: visible;
-  }
-
-  .clean-map-viewport {
-    min-height: calc(100vh - 64px);
-  }
-
   .current-profile-path-switcher {
     top: 16px;
     right: 16px;
@@ -2816,56 +2737,5 @@ function resetViewport() {
 :global(#app .clean-map-viewport .map-board .map-dot .dot-mark),
 :global(#app .clean-map-viewport .map-board .map-dot .dot-lock) {
   display: none !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .week-overview-map .current-profile-path-switcher,
-  .week-overview-map .stage-overview {
-    animation: none;
-  }
-}
-
-/* Week milestones grow from a study house into a complete academy campus. */
-.week-overview-map .map-dot {
-  width: 280px;
-  height: 264px;
-}
-
-.week-overview-map .dot-title {
-  top: calc(50% + 112px);
-  width: 230px;
-  color: #203d35;
-  font-size: 15px;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.92);
-}
-
-.week-overview-map .dot-state {
-  top: calc(50% + 153px);
-  padding: 4px 9px;
-  border: 1px solid rgba(45, 100, 81, 0.12);
-  border-radius: 4px;
-  background: rgba(247, 251, 247, 0.86) !important;
-  backdrop-filter: blur(5px);
-}
-
-.week-overview-map .route-pending {
-  stroke: rgba(72, 124, 105, 0.52);
-  stroke-dasharray: 7 13;
-  stroke-width: 3;
-}
-
-.week-overview-map .route-done {
-  stroke-width: 4;
-}
-
-@media (max-width: 600px) {
-  .compact-week-map .map-dot {
-    width: 184px;
-    height: 204px;
-  }
-
-  .compact-week-map .dot-title {
-    top: calc(50% + 82px);
-  }
 }
 </style>

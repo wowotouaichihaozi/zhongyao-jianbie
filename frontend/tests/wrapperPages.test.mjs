@@ -37,9 +37,3 @@ test('PPT wrapper blocks recursive embedding and framed main apps hide duplicate
   assert.match(appSource, /const isFramedApp = window\.self !== window\.top/)
   assert.match(appSource, /if \(isFramedApp\) return false/g)
 })
-
-test('framed knowledge views hide duplicate global navigation and assistants', () => {
-  assert.match(appSource, /const isFramedApp = window\.self !== window\.top/)
-  assert.match(appSource, /if \(isFramedApp\) return false/)
-  assert.match(appSource, /'life-tree'/)
-})

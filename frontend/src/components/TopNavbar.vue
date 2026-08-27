@@ -201,7 +201,7 @@ async function logout() {
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
-  transition: color var(--motion-base, 0.26s) var(--motion-enter, ease);
+  transition: color 0.2s ease;
 }
 
 .nav-links a:hover,
@@ -249,7 +249,7 @@ async function logout() {
   color: #2563eb;
 }
 
-.nav-links a::after {
+.nav-links a.active::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -258,18 +258,7 @@ async function logout() {
   height: 2px;
   border-radius: 0;
   background: #111313;
-  opacity: 0;
-  transform: translateX(-50%) scaleX(0.3);
-  transform-origin: center;
-  transition:
-    opacity var(--motion-fast, 0.16s) ease,
-    transform var(--motion-base, 0.26s) var(--motion-enter, ease);
-}
-
-.nav-links a:hover::after,
-.nav-links a.active::after {
-  opacity: 1;
-  transform: translateX(-50%) scaleX(1);
+  transform: translateX(-50%);
 }
 
 .nav-right {
@@ -347,71 +336,6 @@ async function logout() {
 
 .logout-button:hover {
   color: #111313;
-}
-
-@media (min-width: 769px) and (max-width: 1500px) {
-  .topnavbar {
-    grid-template-columns: 180px minmax(0, 1fr) 180px;
-  }
-
-  .brand {
-    width: 180px;
-    gap: 8px;
-    padding-left: 14px;
-  }
-
-  .brand img {
-    width: 40px;
-    height: 40px;
-  }
-
-  .brand-copy strong {
-    font-size: 15px;
-  }
-
-  .nav-links {
-    justify-content: safe center;
-    gap: 10px;
-  }
-
-  .nav-links a {
-    gap: 5px;
-    font-size: 13px;
-  }
-
-  .nav-item-logo {
-    width: 17px;
-    height: 17px;
-    flex-basis: 17px;
-  }
-
-  .nav-right {
-    gap: 10px;
-    padding-right: 14px;
-  }
-
-  .logout-button {
-    gap: 5px;
-    font-size: 13px;
-  }
-}
-
-@media (min-width: 769px) and (max-width: 1120px) {
-  .topnavbar {
-    grid-template-columns: 150px minmax(0, 1fr) 156px;
-  }
-
-  .brand {
-    width: 150px;
-  }
-
-  .brand-copy small {
-    display: none;
-  }
-
-  .nav-links {
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 768px) and (orientation: portrait) {

@@ -13,7 +13,6 @@
       <span v-if="runningTaskCount" class="task-dot">{{ runningTaskCount }}</span>
     </button>
 
-    <Transition name="motion-pop">
     <section v-if="isOpen" class="xiaozhi-window" :class="windowPlacement" :style="windowStyle" @pointerdown.stop>
       <header class="window-head">
         <div class="title-block">
@@ -42,8 +41,7 @@
         </button>
       </div>
 
-      <Transition name="motion-panel" mode="out-in">
-      <form v-if="showRuntimeSettings" key="settings" class="runtime-settings-panel" @submit.prevent="saveRuntimeSettings">
+      <form v-if="showRuntimeSettings" class="runtime-settings-panel" @submit.prevent="saveRuntimeSettings">
         <header class="runtime-settings-head">
           <div>
             <span>Agent Harness</span>
@@ -110,7 +108,7 @@
         </footer>
       </form>
 
-      <div v-else-if="activeTab === 'chat'" key="chat" class="chat-panel">
+      <div v-if="!showRuntimeSettings && activeTab === 'chat'" class="chat-panel">
         <div ref="messageListRef" class="chat-scroll-area">
           <div class="message-list">
           <div v-if="messages.length === 0" class="empty-chat">
@@ -225,7 +223,7 @@
         </form>
       </div>
 
-      <div v-else key="status" class="status-panel">
+      <div v-else-if="!showRuntimeSettings" class="status-panel">
         <div class="status-toolbar">
           <div>
             <strong>智能体连接状态</strong>
@@ -282,9 +280,7 @@
           </div>
         </section>
       </div>
-      </Transition>
     </section>
-    </Transition>
   </div>
 </template>
 
