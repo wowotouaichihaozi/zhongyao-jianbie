@@ -412,8 +412,8 @@
               <div class="chat-messages portrait-chat-messages" ref="chatMessagesRef">
                 <div v-for="(m, mi) in displayChatMessages" :key="m.id || mi" :class="['chat-message-row', m.role]">
                   <span :class="['message-avatar', m.role]" aria-hidden="true">
-                    <img v-if="m.role === 'bot'" :src="'/botlogo.png'" alt="" />
-                    <img v-else src="/userlogo.png" alt="" />
+                    <img v-if="m.role === 'bot'" :src="BOT_AVATAR_URL" alt="" />
+                    <img v-else :src="USER_AVATAR_URL" alt="" />
                   </span>
                   <div :class="['chat-bubble', m.role]">
                     <span>{{ m.text }}</span>
@@ -846,6 +846,8 @@ import {
 } from '../utils/learningProfileChat.js'
 
 const LS_KEY = 'learningProfileData'
+const BOT_AVATAR_URL = '/botlogo.png'
+const USER_AVATAR_URL = '/userlogo.png'
 const router = useRouter()
 const route = useRoute()
 const { addLog, setSection } = useGlobalDebug()
