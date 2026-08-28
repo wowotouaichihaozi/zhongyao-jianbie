@@ -920,6 +920,7 @@ import {
   createLearningProfileDeveloperFixture,
   isLearningProfileDeveloperShortcut,
 } from '../utils/learningProfileDeveloperTools.js'
+import { dispatchXiaoZhiWorkflowProgress } from '../utils/xiaozhiWorkflowProgress.js'
 
 const LS_KEY = 'learningProfileData'
 const BOT_AVATAR_URL = '/botlogo.png'
@@ -2401,44 +2402,73 @@ async function callAIAnalysis(profileOverride = null) {
     scaleQuestions: scaleQuestions.map(q => ({ text: q.text, short: q.short })),
   }
   let report = null
+  const workflowId = `learning-profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   analysisStreamEvents.value = []
   analysisStreamMessage.value = '画像分析智能体启动中...'
   analysisStreamStartedAt.value = Date.now()
-
-  await analyzeLearningProfileStream(payload, async ({ event, data }) => {
-    const receivedAt = Date.now()
-    const message = data?.message || data?.detail || data?.stage || event
-    const elapsedMs = Number.isFinite(Number(data?.elapsedMs))
-      ? Number(data.elapsedMs)
-      : Math.max(0, receivedAt - analysisStreamStartedAt.value)
-    const streamEvent = {
-      ...(data && typeof data === 'object' ? data : {}),
-      id: `${data?.runId || 'profile'}-${data?.sequence || analysisStreamEvents.value.length + 1}-${receivedAt}`,
-      event,
-      stage: data?.stage || '',
-      status: data?.status || (event === 'error' ? 'failed' : ['result', 'done'].includes(event) ? 'complete' : 'running'),
-      progress: Number.isFinite(Number(data?.progress)) ? Number(data.progress) : null,
-      message,
-      elapsedMs,
-      time: new Date(data?.time || receivedAt).toLocaleTimeString('zh-CN', { hour12: false }),
-    }
-    streamEvent.details = buildAnalysisEventDetails(streamEvent)
-    analysisStreamMessage.value = message
-    analysisStreamEvents.value = [...analysisStreamEvents.value, streamEvent].slice(-160)
-    addLog({ event, data }, event === 'error' ? 'error' : 'info', '学习画像分析')
-    await nextTick()
-    if (analysisLogRef.value) {
-      analysisLogRef.value.scrollTop = analysisLogRef.value.scrollHeight
-    }
-    if (event === 'result' && data?.report) {
-      report = data?.learningPathTask
-        ? { ...data.report, learningPathTask: data.learningPathTask }
-        : data.report
-    }
-    if (event === 'error') {
-      throw new Error(data?.detail || data?.message || data?.error || 'AI analysis failed')
-    }
+  dispatchXiaoZhiWorkflowProgress({
+    workflow: 'learning-profile',
+    workflowId,
+    stage: 'load_context',
+    status: 'running',
+    message: '学情诊断 Agent 正在汇总十维画像证据',
   })
+
+  try {
+    await analyzeLearningProfileStream(payload, async ({ event, data }) => {
+      const receivedAt = Date.now()
+      const message = data?.message || data?.detail || data?.stage || event
+      const elapsedMs = Number.isFinite(Number(data?.elapsedMs))
+        ? Number(data.elapsedMs)
+        : Math.max(0, receivedAt - analysisStreamStartedAt.value)
+      const streamEvent = {
+        ...(data && typeof data === 'object' ? data : {}),
+        id: `${data?.runId || 'profile'}-${data?.sequence || analysisStreamEvents.value.length + 1}-${receivedAt}`,
+        event,
+        stage: data?.stage || '',
+        status: data?.status || (event === 'error' ? 'failed' : ['result', 'done'].includes(event) ? 'complete' : 'running'),
+        progress: Number.isFinite(Number(data?.progress)) ? Number(data.progress) : null,
+        message,
+        elapsedMs,
+        time: new Date(data?.time || receivedAt).toLocaleTimeString('zh-CN', { hour12: false }),
+      }
+      streamEvent.details = buildAnalysisEventDetails(streamEvent)
+      analysisStreamMessage.value = message
+      analysisStreamEvents.value = [...analysisStreamEvents.value, streamEvent].slice(-160)
+      dispatchXiaoZhiWorkflowProgress({
+        workflow: 'learning-profile',
+        workflowId,
+        stage: streamEvent.stage || event,
+        status: streamEvent.status,
+        progress: streamEvent.progress,
+        message: streamEvent.message,
+        task: data?.learningPathTask || null,
+      })
+      addLog({ event, data }, event === 'error' ? 'error' : 'info', '学习画像分析')
+      await nextTick()
+      if (analysisLogRef.value) {
+        analysisLogRef.value.scrollTop = analysisLogRef.value.scrollHeight
+      }
+      if (event === 'result' && data?.report) {
+        report = data?.learningPathTask
+          ? { ...data.report, learningPathTask: data.learningPathTask }
+          : data.report
+      }
+      if (event === 'error') {
+        throw new Error(data?.detail || data?.message || data?.error || 'AI analysis failed')
+      }
+    })
+  } catch (error) {
+    dispatchXiaoZhiWorkflowProgress({
+      workflow: 'learning-profile',
+      workflowId,
+      stage: 'error',
+      status: 'failed',
+      progress: 100,
+      message: error?.message || '学习画像多智能体分析失败',
+    })
+    throw error
+  }
 
   const analysis = report?.aiAnalysis
   if (!analysis || !analysis.learningStyle || !Array.isArray(analysis.strengths) || !Array.isArray(analysis.weaknesses) || !Array.isArray(analysis.recommendations)) {
@@ -3058,6 +3088,13 @@ async function sendChat() {
       updatePortraitFromAgent(workflow, String(workflow.reply || workflow.question || ''))
       if (result?.report) {
         await loadHistoryReports()
+        if (result?.learningPathTask?.taskId) {
+          dispatchXiaoZhiWorkflowProgress({
+            workflow: 'learning-path',
+            workflowId: `learning-profile-session-${activeProfileSessionId.value || Date.now()}`,
+            task: result.learningPathTask,
+          })
+        }
         const pathTaskStatus = String(result?.learningPathTask?.status || '')
         showToast(
           ['queued', 'running'].includes(pathTaskStatus)

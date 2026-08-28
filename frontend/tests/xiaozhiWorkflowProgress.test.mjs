@@ -1,0 +1,99 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import test from 'node:test'
+
+import {
+  clampWorkflowProgress,
+  learningPathProgress,
+  profileProgress,
+  profileStageIndex,
+  workflowStatus,
+} from '../src/utils/xiaozhiWorkflowProgress.js'
+
+const appSource = fs.readFileSync(new URL('../src/App.vue', import.meta.url), 'utf8')
+const cardSource = fs.readFileSync(new URL('../src/components/ResourceTaskStatusBanner.vue', import.meta.url), 'utf8')
+const launcherSource = fs.readFileSync(new URL('../src/components/FloatingLogoLauncher.vue', import.meta.url), 'utf8')
+const profileSource = fs.readFileSync(new URL('../src/views/LearningProfileView.vue', import.meta.url), 'utf8')
+const resourceDetailSource = fs.readFileSync(new URL('../src/views/ResourceDetailView.vue', import.meta.url), 'utf8')
+const pathSource = fs.readFileSync(new URL('../src/views/LearningPathView.vue', import.meta.url), 'utf8')
+const pptSource = fs.readFileSync(new URL('../src/views/PptGeneratingView.vue', import.meta.url), 'utf8')
+const animationSource = fs.readFileSync(new URL('../src/views/LearningAnimationView.vue', import.meta.url), 'utf8')
+
+test('workflow progress is clamped and normalizes server terminal states', () => {
+  assert.equal(clampWorkflowProgress(-5), 0)
+  assert.equal(clampWorkflowProgress(52.7), 53)
+  assert.equal(clampWorkflowProgress(120), 100)
+  assert.equal(workflowStatus('done'), 'complete')
+  assert.equal(workflowStatus('error'), 'failed')
+})
+
+test('profile stages follow real analysis events without timer-driven progress', () => {
+  assert.equal(profileStageIndex('load_context'), 0)
+  assert.equal(profileStageIndex('retrieve_knowledge'), 1)
+  assert.equal(profileStageIndex('quality_review'), 2)
+  assert.equal(profileStageIndex('quality_review', true), 3)
+  assert.equal(profileProgress({ stage: 'retrieve_knowledge', progress: 41 }), 41)
+  assert.equal(profileProgress({ stage: 'quality_review' }), 62)
+})
+
+test('learning path progress uses persisted task progress and week counts', () => {
+  assert.equal(learningPathProgress({ result: { progress: 47, completedWeeks: 2, totalWeeks: 6 } }), 47)
+  assert.equal(learningPathProgress({ result: { completedWeeks: 3, totalWeeks: 6 } }), 50)
+  assert.equal(learningPathProgress({ result: { completedWeeks: 6, totalWeeks: 6 } }), 100)
+  assert.equal(learningPathProgress({ status: 'complete', result: {} }), 100)
+})
+
+test('the assistant mounts exactly one embedded progress card and the app has no separate card', () => {
+  const appMounts = appSource.match(/<ResourceTaskStatusBanner/g) || []
+  const assistantMounts = launcherSource.match(/<ResourceTaskStatusBanner/g) || []
+  assert.equal(appMounts.length, 0)
+  assert.equal(assistantMounts.length, 1)
+  assert.match(launcherSource, /<ResourceTaskStatusBanner embedded \/>/)
+  assert.match(cardSource, /class="xz-workflow-card"/)
+  assert.match(cardSource, /\{ embedded \}/)
+})
+
+test('profile SSE hands the returned learning-path task to the assistant card', () => {
+  assert.match(profileSource, /dispatchXiaoZhiWorkflowProgress\(\{/)
+  assert.match(profileSource, /workflow: 'learning-profile'/)
+  assert.match(profileSource, /task: data\?\.learningPathTask \|\| null/)
+  assert.match(profileSource, /task: result\.learningPathTask/)
+})
+
+test('the card persists one active task and polls only its real backend status', () => {
+  assert.match(cardSource, /XIAOZHI_WORKFLOW_EVENT/)
+  assert.match(cardSource, /sessionStorage\.setItem\(XIAOZHI_ACTIVE_TASK_KEY/)
+  assert.match(cardSource, /getXiaoZhiTask\(trackedTaskId\.value\)/)
+  assert.match(cardSource, /result\.completedWeeks/)
+  assert.match(cardSource, /result\.totalWeeks/)
+  assert.match(cardSource, /查看学习路径/)
+})
+
+test('a new workflow opens the companion chat and reveals the embedded card once', () => {
+  assert.match(launcherSource, /window\.addEventListener\(XIAOZHI_WORKFLOW_EVENT, handleWorkflowCardOpen\)/)
+  assert.match(launcherSource, /workflowId === lastWorkflowCardId/)
+  assert.match(launcherSource, /activeTab\.value = 'chat'/)
+  assert.match(launcherSource, /isOpen\.value = true/)
+  assert.doesNotMatch(launcherSource, /handleWorkflowCardOpen[\s\S]{0,320}isOpen\.value = false/)
+})
+
+test('task detail pages keep learning content primary and move audit metadata into the assistant card', () => {
+  assert.doesNotMatch(resourceDetailSource, /class="evidence-column"/)
+  assert.doesNotMatch(resourceDetailSource, /<h2>智能体协作<\/h2>/)
+  assert.doesNotMatch(pptSource, /class="progress-band"/)
+  assert.doesNotMatch(pptSource, /class="detail-panel"/)
+  assert.doesNotMatch(animationSource, /class="task-progress"/)
+  assert.doesNotMatch(animationSource, /<h2>知识依据<\/h2>/)
+  assert.doesNotMatch(animationSource, /<h2>质量评价<\/h2>/)
+  assert.match(animationSource, /<h2>学习检查<\/h2>/)
+  assert.match(resourceDetailSource, /dispatchXiaoZhiWorkflowProgress\(\{/)
+  assert.match(animationSource, /dispatchXiaoZhiWorkflowProgress\(\{ task \}\)/)
+  assert.match(cardSource, /class="audit-drawer"/)
+  assert.match(cardSource, /生成依据/)
+})
+
+test('weekly task details show one week heading and no duplicate task rail', () => {
+  assert.match(pathSource, /eyebrow: ''/)
+  assert.match(pathSource, /hasActiveLearningProfile && !isWeekTaskPage/)
+  assert.doesNotMatch(pathSource, /\$\{weekLabel\}具体学习任务/)
+})

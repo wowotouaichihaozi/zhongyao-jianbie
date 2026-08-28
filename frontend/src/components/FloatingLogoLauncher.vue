@@ -179,6 +179,8 @@
             </article>
           </template>
 
+          <ResourceTaskStatusBanner embedded />
+
           <article v-if="isSending" class="message assistant pending">
             <div class="bubble">
               <LoaderCircle :size="16" class="spin" />
@@ -315,6 +317,7 @@ import {
   Video,
   X,
 } from 'lucide-vue-next'
+import ResourceTaskStatusBanner from './ResourceTaskStatusBanner.vue'
 import {
   chatWithXiaoZhi,
   getXiaoZhiHistory,
@@ -326,6 +329,7 @@ import {
   uploadMultimodalInputs,
 } from '../services/api.js'
 import { useGlobalDebug } from '../stores/globalDebug.js'
+import { XIAOZHI_WORKFLOW_EVENT } from '../utils/xiaozhiWorkflowProgress.js'
 
 const STORAGE_KEY = 'qianxiaozhiFloatingPosition:v2'
 const DESKTOP_ORB_SIZE = 66
@@ -368,6 +372,7 @@ const position = reactive(loadPosition())
 let pointerState = null
 let statusTimer = null
 let recognition = null
+let lastWorkflowCardId = ''
 
 const iconMap = {
   learning_background: markRaw(MessageCircle),
@@ -611,6 +616,16 @@ function handleResize() {
 function openStatusTab() {
   activeTab.value = 'status'
   loadStatus()
+}
+
+function handleWorkflowCardOpen(event) {
+  const workflowId = String(event?.detail?.workflowId || event?.detail?.task?.taskId || '')
+  if (!workflowId || workflowId === lastWorkflowCardId) return
+  lastWorkflowCardId = workflowId
+  showRuntimeSettings.value = false
+  activeTab.value = 'chat'
+  isOpen.value = true
+  nextTick(scrollToBottom)
 }
 
 async function loadHistory() {
@@ -1126,6 +1141,7 @@ function compactTaskTitle(task) {
 onMounted(() => {
   window.addEventListener('resize', handleResize)
   window.addEventListener('xiaozhi-task-updated', handleExternalTaskUpdate)
+  window.addEventListener(XIAOZHI_WORKFLOW_EVENT, handleWorkflowCardOpen)
   handleResize()
   loadStatus()
 })
@@ -1133,6 +1149,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('xiaozhi-task-updated', handleExternalTaskUpdate)
+  window.removeEventListener(XIAOZHI_WORKFLOW_EVENT, handleWorkflowCardOpen)
   window.removeEventListener('pointermove', handlePointerMove)
   window.removeEventListener('pointerup', handlePointerUp)
   stopStatusPolling()

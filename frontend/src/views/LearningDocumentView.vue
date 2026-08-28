@@ -35,31 +35,9 @@
       </button>
     </section>
 
-    <section v-if="generating || taskStatus" class="task-progress" :class="taskStatus">
-      <div>
-        <LoaderCircle v-if="generating" :size="20" class="spin" />
-        <CheckCircle2 v-else-if="taskStatus === 'complete'" :size="20" />
-        <AlertTriangle v-else-if="taskStatus === 'failed'" :size="20" />
-        <FileText v-else :size="20" />
-        <span>
-          <strong>{{ taskMessage }}</strong>
-          <small v-if="taskId">任务 {{ taskId }}</small>
-        </span>
-      </div>
-      <div class="progress-track"><i :style="{ width: `${taskProgress}%` }"></i></div>
-      <button v-if="taskStatus === 'failed'" type="button" @click="startGeneration"><RefreshCw :size="16" />重试</button>
-    </section>
-
     <section v-if="error" class="error-band" role="alert"><AlertTriangle :size="18" />{{ error }}</section>
 
     <template v-if="activeDocument">
-      <section class="document-meta-band">
-        <div><span>画像版本</span><strong>#{{ activeRecord?.profileReportId || activeDocument.profile?.profileReportId || '--' }}</strong></div>
-        <div><span>生成来源</span><strong>{{ sourceLabel(activeRecord?.source || activeDocument.source) }}</strong></div>
-        <div><span>知识引用</span><strong>{{ activeQuality.citationCount || activeDocument.references?.length || 0 }} 条</strong></div>
-        <div class="quality-score"><span>内容质量</span><strong>{{ activeQuality.score || 0 }}</strong><em>/ 100</em></div>
-      </section>
-
       <LearningFeedbackActions
         v-if="feedbackTask"
         class="document-feedback"
@@ -108,25 +86,7 @@
           </div>
         </section>
 
-        <footer class="document-evidence">
-          <div>
-            <BookOpen :size="18" />
-            <span><strong>课程知识库来源</strong><small>关键事实可追溯</small></span>
-          </div>
-          <ol v-if="activeDocument.references?.length">
-            <li v-for="item in activeDocument.references" :key="item.id"><b>[{{ item.id }}]</b>{{ item.title }} · {{ item.locator }}</li>
-          </ol>
-          <p v-else>未命中直接来源，文中硬件事实均应按“需进一步核验”处理。</p>
-        </footer>
       </article>
-
-      <section class="quality-band">
-        <header><ShieldCheck :size="19" /><strong>资源质量评价</strong><span :class="{ passed: activeQuality.passed }">{{ activeQuality.passed ? '通过' : '需核验' }}</span></header>
-        <div class="quality-grid">
-          <div v-for="item in qualityCriteria" :key="item.label"><span>{{ item.label }}</span><strong>{{ item.value }}</strong></div>
-        </div>
-        <p v-for="item in activeQuality.issues || []" :key="item"><AlertTriangle :size="14" />{{ item }}</p>
-      </section>
     </template>
 
     <section v-else-if="!generating" class="empty-document">
@@ -140,7 +100,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { AlertTriangle, BookOpen, CheckCircle2, Download, FileText, History, LoaderCircle, Printer, RefreshCw, ShieldCheck, WandSparkles } from 'lucide-vue-next'
+import { AlertTriangle, CheckCircle2, Download, FileText, History, LoaderCircle, Printer, RefreshCw, WandSparkles } from 'lucide-vue-next'
 import LearningFeedbackActions from '../components/LearningFeedbackActions.vue'
 import { getLearningDocument, getLearningDocuments, getXiaoZhiTask, startPersonalizedResourceAgentTask } from '../services/api.js'
 

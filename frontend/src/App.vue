@@ -4,7 +4,6 @@
     <RouterView v-slot="{ Component, route }">
       <component :is="Component" :key="route.fullPath" />
     </RouterView>
-    <ResourceTaskStatusBanner v-if="showFloatingAssistant && route.query.xzTask" />
     <FloatingLogoLauncher v-if="showFloatingAssistant" />
     <GlobalDebugPanel v-if="showFloatingAssistant" />
   </div>
@@ -15,7 +14,6 @@ import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import FloatingLogoLauncher from './components/FloatingLogoLauncher.vue'
 import GlobalDebugPanel from './components/GlobalDebugPanel.vue'
-import ResourceTaskStatusBanner from './components/ResourceTaskStatusBanner.vue'
 import TopNavbar from './components/TopNavbar.vue'
 import { logXiaoZhiEvent, pulseLearningActivity } from './services/api.js'
 

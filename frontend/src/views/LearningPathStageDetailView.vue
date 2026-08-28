@@ -191,6 +191,19 @@
         </button>
       </div>
 
+      <div v-if="!loading && !pathLoadError && generationError" class="path-load-error" role="alert">
+        <CircleAlert :size="24" stroke-width="2.2" aria-hidden="true" />
+        <span>
+          <strong>学习路径生成失败</strong>
+          <small>{{ generationError.message }}</small>
+          <small v-if="generationError.detail">{{ generationError.detail }}</small>
+        </span>
+        <button type="button" :disabled="generationIsRunning" @click="retryLearningPathGeneration">
+          <RotateCcw :size="15" aria-hidden="true" />
+          继续生成
+        </button>
+      </div>
+
       <div v-if="!loading && !pathLoadError && !generationError && (!hasActiveLearningProfile || !sortedNodes.length)" class="empty-path-state" role="status">
         <strong>{{ hasActiveLearningProfile ? '尚未生成学习路径' : '当前没有学习画像' }}</strong>
         <span>{{ hasActiveLearningProfile ? '岐小智会按你的目标、薄弱点和资源偏好生成周学习计划。' : '请先完成学习画像后再生成个性化周任务。' }}</span>
@@ -199,67 +212,6 @@
         </button>
       </div>
 
-      <aside
-        v-if="generationConsoleVisible"
-        class="generation-console"
-        :class="{ expanded: generationConsoleExpanded, failed: Boolean(generationError) }"
-        aria-label="学习路径生成详细输出"
-        @pointerdown.stop
-      >
-        <button
-          class="generation-console-summary"
-          type="button"
-          :aria-expanded="generationConsoleExpanded"
-          @click="generationConsoleExpanded = !generationConsoleExpanded"
-        >
-          <span class="generation-console-icon" :class="generationConsoleState">
-            <span v-if="generationIsRunning" class="generation-spinner" aria-hidden="true"></span>
-            <CircleAlert v-else-if="generationError" :size="17" aria-hidden="true" />
-            <SquareTerminal v-else :size="17" aria-hidden="true" />
-          </span>
-          <span class="generation-console-copy">
-            <strong>{{ generationConsoleTitle }}</strong>
-            <small>{{ generationConsoleSubtitle }}</small>
-          </span>
-          <b>{{ generationProgress }}%</b>
-          <ChevronUp v-if="generationConsoleExpanded" :size="17" aria-hidden="true" />
-          <ChevronDown v-else :size="17" aria-hidden="true" />
-        </button>
-
-        <div class="generation-console-progress" aria-hidden="true">
-          <span :style="{ width: `${generationProgress}%` }"></span>
-        </div>
-
-        <div v-if="generationConsoleExpanded" class="generation-console-detail">
-          <dl class="generation-console-meta">
-            <div><dt>当前智能体</dt><dd>{{ generationAgent }}</dd></div>
-            <div><dt>执行阶段</dt><dd>{{ generationStage }}</dd></div>
-            <div><dt>生成尝试</dt><dd>第 {{ generationAttempt }} 次</dd></div>
-            <div><dt>质量审核</dt><dd>{{ generationReview }}</dd></div>
-            <div v-if="generationRunId"><dt>运行 ID</dt><dd>{{ generationRunId }}</dd></div>
-          </dl>
-
-          <ol ref="traceLogRef" class="generation-trace-list" aria-live="polite">
-            <li v-for="event in generationTrace" :key="event.id" :class="event.status || event.event">
-              <time>{{ formatTraceTime(event.receivedAt || event.time) }}</time>
-              <span>{{ event.agentName || event.agentId || event.agent || '系统' }}</span>
-              <p>{{ event.message || event.detail || event.stage }}</p>
-            </li>
-          </ol>
-
-          <div v-if="generationError" class="generation-error" role="alert">
-            <span>
-              <strong>{{ generationError.message }}</strong>
-              <small v-if="generationError.detail">{{ generationError.detail }}</small>
-              <small v-if="generationError.code">错误码：{{ generationError.code }}</small>
-            </span>
-            <button type="button" :disabled="generationIsRunning" @click="retryLearningPathGeneration">
-              <RotateCcw :size="15" aria-hidden="true" />
-              继续生成
-            </button>
-          </div>
-        </div>
-      </aside>
       <div v-if="loading" class="map-loading" aria-live="polite">{{ loadingMessage }}</div>
     </section>
   </main>
@@ -273,13 +225,10 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   CircleAlert,
   LockKeyhole,
   RefreshCcw,
   RotateCcw,
-  SquareTerminal,
   UserRoundCheck,
   X,
 } from 'lucide-vue-next'
@@ -299,6 +248,7 @@ import {
   markNodeCacheComplete,
   markNodeCacheStarted,
 } from '../services/learningPathNodeCache.js'
+import { dispatchXiaoZhiWorkflowProgress } from '../utils/xiaozhiWorkflowProgress.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -426,19 +376,17 @@ const offset = ref({ x: 0, y: 0 })
 const mapViewportRef = ref(null)
 const cacheVersion = ref(0)
 const compactMap = ref(typeof window !== 'undefined' && window.innerWidth <= 600)
-const generationTrace = ref([])
 const generationError = ref(null)
-const generationConsoleExpanded = ref(true)
 const profileSwitchNotice = ref('')
 const activeProfileSummary = ref(null)
 const profileSummaryLoading = ref(false)
 const profilePathSwitching = ref(false)
 const profilePathSwitchError = ref('')
-const traceLogRef = ref(null)
 let unsubscribeLearningPathProgress = () => {}
 let unsubscribeLearningPathTrace = () => {}
 let backgroundPathPollTimer = null
 let profileSummaryPromise = null
+let pathWorkflowId = ''
 
 const stageTitle = computed(() => stageConfig.value?.title || '学习路径')
 const boardConfig = computed(() => stageConfig.value?.board || {})
@@ -478,66 +426,6 @@ const activeProfilePathStatus = computed(() => {
 const profilePathSwitchButtonLabel = computed(() => {
   if (profilePathSwitching.value) return '正在检查路径'
   return activeProfilePathMatches.value ? '加载已保存路径' : '切换到当前画像路径'
-})
-const generationConsoleVisible = computed(() => (
-  isWeekOverview.value
-  && (generationIsRunning.value || Boolean(generationError.value) || generationTrace.value.length > 0)
-))
-const latestGenerationEvent = computed(() => (
-  [...generationTrace.value].reverse().find((event) => event?.message || event?.stage) || {}
-))
-const latestProgressEvent = computed(() => (
-  [...generationTrace.value].reverse().find((event) => Number.isFinite(Number(event?.progress))) || {}
-))
-const generationProgress = computed(() => {
-  const progress = Number(latestProgressEvent.value?.progress)
-  if (Number.isFinite(progress)) return Math.max(0, Math.min(100, Math.round(progress)))
-  const backgroundProgress = Number(backgroundPathGeneration.value.progress)
-  return Number.isFinite(backgroundProgress)
-    ? Math.max(0, Math.min(100, Math.round(backgroundProgress)))
-    : 0
-})
-const generationConsoleState = computed(() => (
-  generationError.value ? 'failed' : generationIsRunning.value ? 'running' : 'complete'
-))
-const generationConsoleTitle = computed(() => {
-  if (generationError.value) return '学习路径生成失败'
-  if (generationIsRunning.value) return latestGenerationEvent.value?.message || '岐小智正在生成学习路径'
-  return '学习路径生成完成'
-})
-const generationConsoleSubtitle = computed(() => {
-  const event = latestGenerationEvent.value
-  if (!event.stage && backgroundPathIsRunning.value) {
-    const completed = Number(backgroundPathGeneration.value.completedWeeks || 0)
-    const total = Number(backgroundPathGeneration.value.totalWeeks || 6)
-    return `后台规划任务 · 已保存 ${completed} / ${total} 周`
-  }
-  const agent = event.agentName || event.agentId || event.agent || '岐小智'
-  return `${agent} · ${formatGenerationStage(event.stage)}`
-})
-const generationAgent = computed(() => {
-  const event = [...generationTrace.value].reverse().find((item) => item?.agentName || item?.agentId || item?.agent) || {}
-  const name = event.agentName || event.agent || event.agentId || '岐小智'
-  const id = event.agentId && event.agentId !== name ? ` (${event.agentId})` : ''
-  return `${name}${id}`
-})
-const generationStage = computed(() => formatGenerationStage(latestGenerationEvent.value?.stage))
-const generationAttempt = computed(() => {
-  const event = [...generationTrace.value].reverse().find((item) => (
-    Number(item?.attempt || item?.payload?.attempt || item?.payload?.payload?.attempt) > 0
-  )) || {}
-  return Number(event.attempt || event.payload?.attempt || event.payload?.payload?.attempt) || 1
-})
-const generationRunId = computed(() => {
-  const event = [...generationTrace.value].reverse().find((item) => item?.runId)
-  return String(event?.runId || '')
-})
-const generationReview = computed(() => {
-  const event = [...generationTrace.value].reverse().find((item) => item?.stage === 'quality_review')
-  if (!event) return generationIsRunning.value ? '等待审核' : generationError.value ? '未通过' : '已通过'
-  const score = Number(event.payload?.score)
-  const status = event.status === 'complete' ? '已通过' : '需修订'
-  return Number.isFinite(score) ? `${status} · ${score} 分` : status
 })
 const loadingMessage = computed(() => (
   backgroundPathIsRunning.value
@@ -757,6 +645,7 @@ async function loadStage(stageId) {
 async function loadWeekOverview() {
   let config = normalizePathConfig(await getLearningPathConfig())
   pathMeta.value = config.meta || {}
+  publishBackgroundPathTask(config)
   applyActiveProfileSummary(config)
   if (!hasActiveLearningProfile.value && Number(config?.meta?.activeProfileReportId || 0) > 0) {
     await loadActiveProfileSummary({ throwOnError: true })
@@ -995,33 +884,59 @@ async function handleLearningPathProgress(config) {
   const normalized = normalizePathConfig(config)
   pathMeta.value = normalized.meta || {}
   stageConfig.value = createWeekOverviewStage(normalized)
+  const completedWeeks = visiblePathWeeks(normalized).length
+  const totalWeeks = Math.max(1, Number(normalized?.meta?.totalWeeks) || 6)
+  const complete = normalized?.meta?.generationState === 'complete' || completedWeeks >= totalWeeks
+  ensurePathWorkflowId()
+  dispatchXiaoZhiWorkflowProgress({
+    workflow: 'learning-path',
+    workflowId: pathWorkflowId,
+    stage: complete ? 'complete' : 'path_planning',
+    status: complete ? 'complete' : 'running',
+    progress: complete ? 100 : Math.min(96, Math.round((completedWeeks / totalWeeks) * 94)),
+    completedWeeks,
+    totalWeeks,
+    route: '/learning-path/stage/overview',
+    message: complete ? '个性化学习路径已生成并保存' : `第 ${completedWeeks} 周路径已保存`,
+  })
   await nextTick()
   resetViewport()
 }
 
-function handleLearningPathTrace(event, history = []) {
+function handleLearningPathTrace(event) {
   if (event?.event === 'reset') {
-    generationTrace.value = []
     generationError.value = null
-    generationConsoleExpanded.value = true
+    ensurePathWorkflowId()
+    dispatchXiaoZhiWorkflowProgress({
+      workflow: 'learning-path',
+      workflowId: pathWorkflowId,
+      stage: 'request_start',
+      status: 'running',
+      progress: 1,
+      route: '/learning-path/stage/overview',
+      message: '学习路径 Agent 正在读取画像并启动规划',
+    })
     return
   }
-  generationTrace.value = Array.isArray(history) && history.length
-    ? history
-    : [...generationTrace.value, event].filter(Boolean).slice(-160)
+  ensurePathWorkflowId(event?.runId)
+  dispatchXiaoZhiWorkflowProgress({
+    workflow: 'learning-path',
+    workflowId: pathWorkflowId,
+    stage: event?.stage || event?.event || 'path_planning',
+    status: event?.event === 'error' ? 'failed' : 'running',
+    progress: Number.isFinite(Number(event?.progress)) ? Number(event.progress) : null,
+    completedWeeks: Number(event?.completedWeeks || backgroundPathGeneration.value.completedWeeks || 0),
+    totalWeeks: Number(backgroundPathGeneration.value.totalWeeks || pathMeta.value?.totalWeeks || 6),
+    route: '/learning-path/stage/overview',
+    message: event?.message || event?.detail || formatGenerationStage(event?.stage),
+  })
   if (event?.event === 'error') {
     generationError.value = {
       code: String(event.errorCode || ''),
       message: String(event.message || event.detail || '学习路径生成失败'),
       detail: String(event.detail || ''),
     }
-    generationConsoleExpanded.value = true
   }
-  nextTick(() => {
-    if (traceLogRef.value) {
-      traceLogRef.value.scrollTop = traceLogRef.value.scrollHeight
-    }
-  })
 }
 
 function setGenerationFailure(error) {
@@ -1036,7 +951,16 @@ function setGenerationFailure(error) {
       : rawMessage,
     detail: String(error?.details?.detail || ''),
   }
-  generationConsoleExpanded.value = true
+  ensurePathWorkflowId()
+  dispatchXiaoZhiWorkflowProgress({
+    workflow: 'learning-path',
+    workflowId: pathWorkflowId,
+    stage: 'error',
+    status: 'failed',
+    progress: 100,
+    route: '/learning-path/stage/overview',
+    message: generationError.value.message,
+  })
 }
 
 function setPathLoadFailure(error, fallbackMessage) {
@@ -1062,6 +986,7 @@ function retryLearningPathLoad() {
 async function retryLearningPathGeneration() {
   if (generationIsRunning.value) return
   generationError.value = null
+  pathWorkflowId = ''
   loading.value = true
   try {
     if (pathMeta.value?.canGeneratePersonalized !== false) {
@@ -1076,6 +1001,36 @@ async function retryLearningPathGeneration() {
     planningRemaining.value = false
     loading.value = false
   }
+}
+
+function ensurePathWorkflowId(runId = '') {
+  if (!pathWorkflowId) {
+    pathWorkflowId = String(runId || `learning-path-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+  }
+}
+
+function publishBackgroundPathTask(config) {
+  const background = config?.meta?.backgroundGeneration
+  if (!background || !background.taskId) return
+  dispatchXiaoZhiWorkflowProgress({
+    workflow: 'learning-path',
+    workflowId: `learning-path-background-${background.taskId}`,
+    task: {
+      taskId: background.taskId,
+      taskType: 'learning_path',
+      title: '当前画像 · 学习路径后台规划',
+      status: background.status || 'running',
+      route: background.route || '/learning-path/stage/overview',
+      error: background.error || '',
+      result: {
+        progress: background.progress,
+        currentStage: background.currentStage,
+        completedWeeks: background.completedWeeks,
+        totalWeeks: background.totalWeeks,
+        message: background.message,
+      },
+    },
+  })
 }
 
 function formatGenerationStage(stage) {
@@ -1106,12 +1061,6 @@ function formatGenerationStage(stage) {
     error: '生成失败',
   }
   return labels[String(stage || '')] || String(stage || '等待执行')
-}
-
-function formatTraceTime(value) {
-  const date = new Date(value || Date.now())
-  if (Number.isNaN(date.getTime())) return '--:--:--'
-  return date.toLocaleTimeString('zh-CN', { hour12: false })
 }
 
 function normalizePathConfig(config) {

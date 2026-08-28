@@ -7,8 +7,6 @@
       <div class="header-copy">
         <div class="header-meta">
           <span v-if="resource.id" class="type-tag">{{ resourceTypeName(resource.type) }}</span>
-          <span v-if="sourceMode === 'task'" class="source-tag"><Database :size="14" />任务记录</span>
-          <span v-else-if="sourceMode === 'legacy'" class="source-tag legacy"><HardDrive :size="14" />本机历史</span>
         </div>
         <h1>{{ resource.title || stateTitle }}</h1>
         <p v-if="resource.description">{{ resource.description }}</p>
@@ -21,7 +19,7 @@
     <section v-if="viewState === 'loading'" class="state-panel" aria-live="polite">
       <LoaderCircle class="spin" :size="28" aria-hidden="true" />
       <h2>正在恢复资源记录</h2>
-      <p>正在读取对应任务及其审核证据。</p>
+      <p>正在读取本次学习内容。</p>
     </section>
 
     <section v-else-if="viewState === 'error'" class="state-panel error-state" role="alert">
@@ -211,74 +209,6 @@
           </section>
         </section>
 
-        <aside class="evidence-column" aria-label="生成依据与可信度">
-          <section class="evidence-panel">
-            <div class="section-heading compact-heading">
-              <div>
-                <span class="eyebrow">EVIDENCE</span>
-                <h2>生成依据</h2>
-              </div>
-              <span v-if="Number.isFinite(resource.matchScore)" class="score-badge">匹配 {{ resource.matchScore }}%</span>
-            </div>
-            <dl class="evidence-list">
-              <div><dt>画像版本</dt><dd>{{ profileReportLabel }}</dd></div>
-              <div><dt>目标薄弱点</dt><dd>{{ weakPoints.length ? weakPoints.join('、') : '未返回' }}</dd></div>
-              <div><dt>生成策略</dt><dd>{{ plannerStrategy || '未返回' }}</dd></div>
-            </dl>
-          </section>
-
-          <section class="evidence-panel">
-            <div class="section-heading compact-heading">
-              <div>
-                <span class="eyebrow">ORCHESTRATION</span>
-                <h2>智能体协作</h2>
-              </div>
-              <span class="count-badge">{{ handoffLabel }}</span>
-            </div>
-            <dl class="evidence-list">
-              <div><dt>总控智能体</dt><dd>{{ rootAgentLabel }}</dd></div>
-              <div><dt>资源智能体</dt><dd>{{ specialistAgentLabel }}</dd></div>
-              <div><dt>运行编号</dt><dd class="mono">{{ runId || '未返回' }}</dd></div>
-              <div><dt>Skill</dt><dd>{{ harness.skillId || '未返回' }}</dd></div>
-              <div><dt>MCP</dt><dd>{{ mcpLabel }}</dd></div>
-            </dl>
-          </section>
-
-          <section :class="['evidence-panel', 'quality-panel', { warning: verificationRequired || reviewFailed }]">
-            <div class="section-heading compact-heading">
-              <div>
-                <span class="eyebrow">QUALITY</span>
-                <h2>质量与核验</h2>
-              </div>
-              <span :class="['review-badge', reviewTone]">{{ reviewLabel }}</span>
-            </div>
-            <div v-if="qualityScore !== null" class="quality-score"><strong>{{ qualityScore }}</strong><span>/ 100</span></div>
-            <dl class="criteria-list">
-              <div v-for="criterion in qualityCriteria" :key="criterion.name">
-                <dt>{{ criterionLabel(criterion.name) }}</dt><dd>{{ criterion.value }}</dd>
-              </div>
-              <div v-if="!qualityCriteria.length"><dt>评价明细</dt><dd>未返回</dd></div>
-            </dl>
-            <p v-if="verificationRequired" class="verification-warning"><TriangleAlert :size="17" />部分内容缺少直接依据，请结合经典医籍、教材或课程资料核验。</p>
-          </section>
-
-          <section class="evidence-panel sources-panel">
-            <div class="section-heading compact-heading">
-              <div>
-                <span class="eyebrow">GROUNDING</span>
-                <h2>知识来源</h2>
-              </div>
-              <span class="count-badge">{{ knowledgeSources.length }} 条</span>
-            </div>
-            <ol v-if="knowledgeSources.length" class="source-list">
-              <li v-for="(source, index) in knowledgeSources" :key="source.id || source.source || index">
-                <span>{{ index + 1 }}</span>
-                <div><strong>{{ source.title || source.name || source.source || `来源 ${index + 1}` }}</strong><small>{{ sourceLocator(source) }}</small></div>
-              </li>
-            </ol>
-            <p v-else class="evidence-empty">任务未返回可展示的知识来源，当前内容标记为待核验。</p>
-          </section>
-        </aside>
       </div>
     </template>
   </main>
@@ -294,9 +224,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleAlert,
-  Database,
   FileQuestion,
-  HardDrive,
   Info,
   Library,
   LoaderCircle,
@@ -318,6 +246,7 @@ import {
   taskIdFromResourceId,
 } from '../utils/personalizedResourceHistory.js'
 import { buildSandboxedHtmlDocument, mermaidMindmapSource, renderSafeMarkdown, safeResourceHref } from '../utils/resourceMarkdown.js'
+import { dispatchXiaoZhiWorkflowProgress } from '../utils/xiaozhiWorkflowProgress.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -476,6 +405,15 @@ async function loadResource() {
       resource.value = restored
       orchestrationRuns.value = listValue(response?.data?.orchestrationRuns)
       sourceMode.value = 'task'
+      dispatchXiaoZhiWorkflowProgress({
+        workflow: 'resource-task',
+        workflowId: `resource-detail-${taskId}`,
+        task: {
+          ...task,
+          focusedResource: restored,
+          orchestrationRuns: orchestrationRuns.value,
+        },
+      })
       viewState.value = 'ready'
       await loadEvaluation()
       await renderMindmap()
@@ -693,7 +631,7 @@ button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 3px sol
 .error-state > svg { color: #b6533f; }
 .legacy-notice { display: flex; align-items: center; gap: 9px; max-width: 1380px; margin: 0 auto 18px; padding: 10px 13px; border: 1px solid #ead7aa; border-radius: 6px; background: #fffbef; color: #795a1f; font-size: 13px; }
 
-.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); gap: 22px; align-items: start; max-width: 1380px; margin: 0 auto; }
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-items: start; max-width: 1180px; margin: 0 auto; }
 .artifact-column, .evidence-column { min-width: 0; }
 .artifact-column { display: grid; gap: 20px; }
 .evidence-column { display: grid; gap: 14px; position: sticky; top: 88px; }

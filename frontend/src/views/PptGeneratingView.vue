@@ -10,12 +10,6 @@
       </div>
 
       <div class="toolbar-actions">
-        <span class="status-chip" :class="statusClass">
-          <Loader2 v-if="isRunning" :size="15" class="spin-icon" aria-hidden="true" />
-          <CircleCheck v-else-if="taskStatus === 'complete'" :size="15" aria-hidden="true" />
-          <CircleAlert v-else :size="15" aria-hidden="true" />
-          {{ statusLabel }}
-        </span>
         <button type="button" title="PPT 历史记录" @click="openHistory">
           <History :size="18" aria-hidden="true" />
           <span>历史记录</span>
@@ -56,19 +50,6 @@
 
     <main v-else class="task-workspace">
       <section class="preview-column">
-        <div v-if="isRunning" class="progress-band">
-          <div class="progress-copy">
-            <div>
-              <Loader2 :size="18" class="spin-icon" aria-hidden="true" />
-              <strong>{{ currentMessage }}</strong>
-            </div>
-            <span>{{ progress }}%</span>
-          </div>
-          <div class="progress-track" role="progressbar" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100">
-            <span :style="{ width: `${progress}%` }"></span>
-          </div>
-        </div>
-
         <div
           ref="stageRef"
           class="slide-stage"
@@ -121,74 +102,6 @@
         </div>
       </section>
 
-      <aside class="detail-panel">
-        <header class="detail-heading">
-          <div>
-            <span>任务追踪</span>
-            <h2>详细信息</h2>
-          </div>
-          <button type="button" title="刷新状态" :disabled="loading" @click="loadTask">
-            <RefreshCw :size="17" :class="{ 'spin-icon': loading }" aria-hidden="true" />
-          </button>
-        </header>
-
-        <dl class="task-facts">
-          <div><dt>生成引擎</dt><dd>{{ engineLabel }}</dd></div>
-          <div><dt>运行模型</dt><dd>{{ modelLabel }}</dd></div>
-          <div><dt>画像版本</dt><dd>{{ profileReportId ? `#${profileReportId}` : '绑定中' }}</dd></div>
-          <div><dt>任务编号</dt><dd :title="taskId">{{ compactTaskId }}</dd></div>
-        </dl>
-
-        <section v-if="agentRuns.length" class="detail-section">
-          <h3>智能体执行</h3>
-          <ol class="agent-list">
-            <li v-for="agent in agentRuns" :key="agent.id || agent.name" :class="agentStatusClass(agent.status)">
-              <span class="agent-dot"></span>
-              <div>
-                <strong>{{ agent.name || agent.id }}</strong>
-                <small>{{ agent.detail || agent.status }}</small>
-              </div>
-            </li>
-          </ol>
-        </section>
-
-        <section class="detail-section">
-          <h3>执行记录</h3>
-          <ol v-if="logs.length" class="log-list">
-            <li v-for="(log, index) in logs" :key="`${log.time || ''}-${log.stage || ''}-${index}`">
-              <time>{{ formatLogTime(log.time) }}</time>
-              <div>
-                <strong>{{ stageLabel(log.stage) }}</strong>
-                <span>{{ log.message || '状态已更新' }}</span>
-              </div>
-              <b>{{ Number(log.progress || 0) }}%</b>
-            </li>
-          </ol>
-          <div v-else class="empty-detail">等待首条执行记录</div>
-        </section>
-
-        <section v-if="latestRun" class="detail-section review-section">
-          <h3>Harness 审核</h3>
-          <div class="review-row">
-            <span>Root Agent</span>
-            <strong>{{ latestRun.rootAgent || '岐小智' }}</strong>
-          </div>
-          <div class="review-row">
-            <span>Skill / MCP</span>
-            <strong>{{ latestRun.harness?.skillId || '--' }} · {{ latestRun.harness?.mcpTool || '--' }}</strong>
-          </div>
-          <div class="review-row">
-            <span>质量与安全</span>
-            <strong>{{ reviewLabel }}</strong>
-          </div>
-          <div class="review-row">
-            <span>Run ID</span>
-            <strong :title="latestRun.runId">{{ compactRunId }}</strong>
-          </div>
-        </section>
-
-        <p v-if="pollError" class="poll-warning">{{ pollError }}</p>
-      </aside>
     </main>
   </div>
 </template>
@@ -200,7 +113,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleAlert,
-  CircleCheck,
   History,
   Loader2,
   Maximize2,
@@ -827,7 +739,7 @@ button:disabled {
   margin: 0 auto;
   padding: 18px 22px 28px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 350px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
 }
 

@@ -222,30 +222,31 @@ async function openIsolatedContext(viewport) {
   return { context, page, state }
 }
 
-async function assertRecoveredEvidence(page) {
+async function assertRecoveredContent(page) {
   await page.getByRole('heading', { name: 'GPIO 输入模式个性化讲义' }).waitFor()
-  const pageText = await page.locator('body').innerText()
+  const detailText = await page.locator('.resource-detail-page').innerText()
 
-  for (const evidence of [
-    '任务记录',
-    '匹配 94%',
-    '报告 #17',
+  for (const learningContent of [
     'GPIO 输入模式',
+    '课程正文用于验证安全 Markdown 渲染',
+    '学习验证',
+  ]) {
+    assert.equal(detailText.includes(learningContent), true, `页面应优先展示学习内容：${learningContent}`)
+  }
+
+  for (const foldedAuditText of [
+    '报告 #17',
     strategy,
-    'xiaozhi-companion-agent',
-    '讲义智能体',
     'run-demo-1',
     'resource-detail-evidence',
     'knowledge.retrieve / gpio-course',
-    '88',
-    '已通过',
-    'GPIO 课程资料',
     'KB-1 · 第 12 页',
   ]) {
-    assert.equal(pageText.includes(evidence), true, `页面应展示真实证据文本：${evidence}`)
+    assert.equal(detailText.includes(foldedAuditText), false, `详情正文不应重复铺开展示审计信息：${foldedAuditText}`)
   }
 
-  assert.equal(pageText.includes(rawScript), true, '原始脚本文本应作为安全文本可检查')
+  assert.equal(await page.locator('.evidence-column').count(), 0, '详情页不应保留独立审计侧栏')
+  assert.equal(detailText.includes(rawScript), true, '原始脚本文本应作为安全文本可检查')
   assert.equal(await page.locator('.artifact-surface.markdown-content script').count(), 0, '原始脚本不能成为 DOM 标签')
   assert.equal(await page.evaluate(() => globalThis.__resourceDetailInjected), undefined, '原始脚本不能执行')
 
@@ -307,7 +308,7 @@ async function runViewportContract(viewport) {
     assert.equal(state.taskRequests, 1, '首次 URL 恢复应发起一次任务读取')
 
     await page.getByRole('button', { name: '重试' }).click()
-    await assertRecoveredEvidence(page)
+    await assertRecoveredContent(page)
     assert.equal(state.taskRequests, 2, '404 后点击重试应重新读取任务')
     assert.deepEqual(state.feedbackQueries.at(-1), { cacheKey: feedbackCacheKey, limit: '1' })
 
@@ -321,7 +322,7 @@ async function runViewportContract(viewport) {
     await submitAndAssert(page, state, 'completed')
     await page.evaluate(() => localStorage.removeItem('resourceEvaluations'))
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await assertRecoveredEvidence(page)
+    await assertRecoveredContent(page)
     await submitAndAssert(page, state, 'needs_review')
 
     assert.deepEqual(state.feedbackPosts.map(payload => payload.outcome), ['completed', 'needs_review'])

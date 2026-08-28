@@ -18,9 +18,9 @@
           <span></span>
         </div>
         <div v-else>
-          <p>{{ displayMeta.eyebrow }}</p>
+          <p v-if="displayMeta.eyebrow">{{ displayMeta.eyebrow }}</p>
           <h1>{{ displayMeta.title }}</h1>
-          <span>{{ pageSubtitle }}</span>
+          <span v-if="pageSubtitle">{{ pageSubtitle }}</span>
         </div>
         <aside class="path-progress-card" :class="{ 'path-progress-skeleton': loading }" aria-label="学习路径总进度">
           <div class="progress-card-head">
@@ -86,11 +86,6 @@
             <button type="button" @click="router.push('/learning-profile')">完成学习画像</button>
           </div>
 
-          <div v-if="hasActiveLearningProfile && planningRemaining" class="path-generation-status" role="status">
-            <Activity :size="16" stroke-width="2.4" aria-hidden="true" />
-            <span>第一周已生成，正在根据学习画像补全后续周任务与资源...</span>
-          </div>
-
           <div v-if="hasActiveLearningProfile && isWeekTaskPage && pathNotice" class="path-context-state" role="status">
             <CircleAlert :size="17" stroke-width="2.3" aria-hidden="true" />
             <span>{{ pathNotice }}</span>
@@ -98,20 +93,19 @@
           </div>
 
           <div
-            v-if="hasActiveLearningProfile && isWeekTaskPage && (resourcePreparing || resourcePrepareError)"
+            v-if="hasActiveLearningProfile && isWeekTaskPage && resourcePrepareError"
             class="resource-generation-state"
             :class="{ failed: resourcePrepareError }"
             role="status"
           >
-            <CircleAlert v-if="resourcePrepareError" :size="17" stroke-width="2.3" aria-hidden="true" />
-            <LoaderCircle v-else :size="17" stroke-width="2.3" aria-hidden="true" />
-            <span>{{ resourcePrepareError || resourcePreparationText }}</span>
-            <button v-if="resourcePrepareError" type="button" @click="prepareWeekResources(String(route.params.stageId || ''))">
+            <CircleAlert :size="17" stroke-width="2.3" aria-hidden="true" />
+            <span>{{ resourcePrepareError }}</span>
+            <button type="button" @click="prepareWeekResources(String(route.params.stageId || ''))">
               重试
             </button>
           </div>
 
-          <div v-if="hasActiveLearningProfile" class="week-rail" :aria-label="isWeekTaskPage ? '本周任务进度' : '周学习进度'">
+          <div v-if="hasActiveLearningProfile && !isWeekTaskPage" class="week-rail" aria-label="周学习进度">
             <i :style="{ width: `${railProgressPercent}%` }"></i>
             <component
               v-for="(week, weekIndex) in visibleWeeks"
@@ -237,6 +231,7 @@ import {
   prepareLearningPathStageResources,
 } from '../services/api.js'
 import { cloneLearningPathConfig, defaultLearningPathConfig } from '../config/learningPathDefaults.js'
+import { dispatchXiaoZhiWorkflowProgress } from '../utils/xiaozhiWorkflowProgress.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -251,6 +246,7 @@ const resourcePreparing = ref(false)
 const resourcePrepareError = ref('')
 let resourcePollTimer = null
 let resourcePreparationRun = 0
+let foregroundPathWorkflowId = ''
 const hiddenStageIds = new Set(['profile-diagnosis'])
 const weekNumberLabels = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
 
@@ -325,19 +321,22 @@ const displayMeta = computed(() => {
   if (!isWeekTaskPage.value) return pageMeta.value
   const stage = taskStage.value || {}
   const weekLabel = String(stage.weekLabel || findWeekLabel(route.params.stageId) || '本周')
+  const rawTitle = String(stage.title || '').trim()
+  const compactTitle = rawTitle
+    .replace(/^第(?:[一二三四五六七八九十百]+|\d+)周\s*[：:\-·]?\s*/, '')
+    .trim()
+  const hasSpecificTitle = compactTitle && !['学习路径', '具体学习任务', '学习任务'].includes(compactTitle)
   return {
     ...pageMeta.value,
-    eyebrow: weekLabel,
-    title: `${weekLabel}具体学习任务`,
+    eyebrow: '',
+    title: hasSpecificTitle ? `${weekLabel} · ${compactTitle}` : `${weekLabel}学习任务`,
     placeholderTitle: '',
     placeholderWeekLabel: '',
   }
 })
 
 const pageSubtitle = computed(() => {
-  if (isWeekTaskPage.value) {
-    return String(taskStage.value?.hint || '按顺序完成本周任务，并进入对应资源完成学习与验证。')
-  }
+  if (isWeekTaskPage.value) return ''
   return pathConfig.value?.meta?.subtitle || '循序渐进，按周推进你的学习进度。'
 })
 
@@ -464,6 +463,7 @@ async function loadLearningPathConfig() {
     if (shouldAutoPlan(normalizedConfig)) {
       planning.value = true
       const totalWeeks = Math.max(4, Math.min(8, Number(normalizedConfig?.meta?.totalWeeks) || 6))
+      startForegroundPathWorkflow(totalWeeks)
       const result = await generateLearningPath({
         persist: true,
         useLatestProfile: true,
@@ -477,6 +477,13 @@ async function loadLearningPathConfig() {
         normalizedConfig = normalizeConfig(result.config)
       }
       pathConfig.value = normalizedConfig
+      publishForegroundPathProgress({
+        status: 'running',
+        progress: Math.max(5, Math.round((visiblePathWeekCount(normalizedConfig) / totalWeeks) * 92)),
+        completedWeeks: visiblePathWeekCount(normalizedConfig),
+        totalWeeks,
+        message: '第一周路径已保存，正在继续规划后续周次',
+      })
       loading.value = false
       planning.value = false
       await generateRemainingWeeks(normalizedConfig, totalWeeks)
@@ -485,6 +492,13 @@ async function loadLearningPathConfig() {
     }
   } catch (error) {
     console.warn('Failed to load learning path config, using fallback data.', error)
+    if (foregroundPathWorkflowId) {
+      publishForegroundPathProgress({
+        status: 'failed',
+        progress: 100,
+        message: error?.message || '学习路径生成失败',
+      })
+    }
     pathConfig.value = cloneLearningPathConfig()
     if (isWeekTaskPage.value) {
       taskStage.value = pathConfig.value.stages?.[String(route.params.stageId)] || null
@@ -647,13 +661,63 @@ async function generateRemainingWeeks(firstWeekConfig, totalWeeks) {
       if (result?.config) {
         currentConfig = normalizeConfig(result.config)
         pathConfig.value = currentConfig
+        const completedWeeks = visiblePathWeekCount(currentConfig)
+        publishForegroundPathProgress({
+          status: 'running',
+          progress: Math.min(96, Math.round((completedWeeks / totalWeeks) * 94)),
+          completedWeeks,
+          totalWeeks,
+          message: `第 ${completedWeeks} 周路径已保存`,
+        })
       }
     }
+    publishForegroundPathProgress({
+      status: 'complete',
+      progress: 100,
+      completedWeeks: visiblePathWeekCount(currentConfig),
+      totalWeeks,
+      message: '个性化学习路径已生成并保存',
+    })
   } catch (error) {
     console.warn('Failed to generate remaining learning-path weeks.', error)
+    publishForegroundPathProgress({
+      status: 'failed',
+      progress: 100,
+      completedWeeks: visiblePathWeekCount(currentConfig),
+      totalWeeks,
+      message: error?.message || '学习路径生成失败',
+    })
   } finally {
     planningRemaining.value = false
   }
+}
+
+function visiblePathWeekCount(config) {
+  return (Array.isArray(config?.weeks) ? config.weeks : [])
+    .filter(week => week && week.enabled !== false && !week.placeholder && !hiddenStageIds.has(String(week.id || '')))
+    .length
+}
+
+function startForegroundPathWorkflow(totalWeeks) {
+  foregroundPathWorkflowId = `learning-path-page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  publishForegroundPathProgress({
+    status: 'running',
+    progress: 2,
+    completedWeeks: 0,
+    totalWeeks,
+    message: '学习路径 Agent 正在读取当前画像并规划第一周',
+  })
+}
+
+function publishForegroundPathProgress(detail = {}) {
+  if (!foregroundPathWorkflowId) return
+  dispatchXiaoZhiWorkflowProgress({
+    workflow: 'learning-path',
+    workflowId: foregroundPathWorkflowId,
+    stage: detail.status === 'complete' ? 'complete' : detail.status === 'failed' ? 'error' : 'path_planning',
+    route: '/learning-path',
+    ...detail,
+  })
 }
 
 function normalizeConfig(config) {

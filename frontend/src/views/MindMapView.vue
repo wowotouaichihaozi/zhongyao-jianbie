@@ -14,23 +14,12 @@
           </span>
           <h1>{{ mapTitle }}</h1>
           <p>{{ mapDescription }}</p>
-          <div v-if="!isTaskPending && !taskError" class="map-evidence-strip">
-            <span>质量 <strong>{{ mapQuality.score || 0 }} / 100</strong></span>
-            <span>知识引用 <strong>{{ mapCitationCount }} 条</strong></span>
-            <span :class="{ passed: mapQuality.passed }">{{ mapQuality.passed ? '质量评价通过' : '需要进一步核验' }}</span>
-          </div>
         </div>
         <div class="task-header-actions">
           <button type="button" class="history-nav-button" @click="openHistory">
             <History :size="16" stroke-width="2.2" aria-hidden="true" />
             历史记录
           </button>
-          <span class="task-state" :class="taskStateClass">
-            <LoaderCircle v-if="isTaskPending" :size="16" class="spin" aria-hidden="true" />
-            <CircleAlert v-else-if="taskError" :size="16" aria-hidden="true" />
-            <CheckCircle2 v-else :size="16" aria-hidden="true" />
-            {{ taskStatusText }}
-          </span>
         </div>
       </header>
 
@@ -44,10 +33,8 @@
 
       <div v-if="isTaskPending" class="task-map-loading">
         <span class="loading-rings" aria-hidden="true"><i></i><i></i><i></i></span>
-        <strong>{{ taskStatusText }}</strong>
-        <p>页面会持续同步后台任务，导图生成完成后自动显示。</p>
-        <div class="loading-track"><span :style="{ width: `${taskProgress}%` }"></span></div>
-        <small>{{ taskProgress }}%</small>
+        <strong>正在准备思维导图画布</strong>
+        <p>生成完成后将在这里直接显示导图。</p>
       </div>
 
       <div v-else-if="taskError" class="task-map-error">

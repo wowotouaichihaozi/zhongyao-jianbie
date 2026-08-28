@@ -4,17 +4,10 @@
       <div>
         <span><BrainCircuit :size="18" />SMART TUTOR</span>
         <h1>{{ tutor.question || task?.title || '个性化智能辅导' }}</h1>
-        <p v-if="task?.taskId">任务 {{ task.taskId }}</p>
-      </div>
-      <div v-if="task" class="task-state" :class="task.status">
-        <LoaderCircle v-if="isRunning" :size="17" class="spin" />
-        <CheckCircle2 v-else-if="task.status === 'complete'" :size="17" />
-        <AlertTriangle v-else :size="17" />
-        {{ taskStateText }}
       </div>
     </header>
 
-    <section v-if="isRunning" class="progress-band" role="status">
+    <section v-if="isRunning && isEmbedded" class="progress-band" role="status">
       <div>
         <strong>{{ result.message || '岐小智正在编排智能辅导任务' }}</strong>
         <span>{{ result.currentStage || 'supervisor_dispatch' }}</span>
@@ -30,14 +23,6 @@
     </section>
 
     <template v-if="tutor.answer">
-      <section class="evidence-strip">
-        <div><span>当前画像</span><strong>#{{ profileReportId || '--' }}</strong></div>
-        <div><span>模型</span><strong>{{ modelName || '平台统一模型' }}</strong></div>
-        <div><span>知识引用</span><strong>{{ tutor.references?.length || 0 }} 条</strong></div>
-        <div><span>内容质量</span><strong>{{ tutor.qualityEvaluation?.score || review.score || 0 }} / 100</strong></div>
-        <div><span>Harness</span><strong>{{ review.passed ? '审核通过' : '待核验' }}</strong></div>
-      </section>
-
       <form class="follow-up-band" @submit.prevent="submitFollowUp">
         <div>
           <MessagesSquare :size="18" />

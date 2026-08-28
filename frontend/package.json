@@ -12,6 +12,8 @@
     "test:interview-fail-open": "node tests/interviewFailOpen.playwright.mjs",
     "test:learning-profile-chat": "node --test tests/learningProfileChat.test.mjs",
     "test:learning-profile-developer-tools": "node --test tests/learningProfileDeveloperTools.test.mjs",
+    "test:xiaozhi-workflow-progress": "node --test tests/xiaozhiWorkflowProgress.test.mjs",
+    "test:xiaozhi-workflow-progress:e2e": "node tests/xiaozhiWorkflowProgress.e2e.mjs",
     "test:learning-profile-developer-tools:e2e": "node tests/learningProfileDeveloperTools.e2e.mjs",
     "test:learning-path-academy:e2e": "node tests/learningPathAcademy.e2e.mjs",
     "test:question-exam-session": "node --test tests/questionExamSession.test.mjs",
