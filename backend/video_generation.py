@@ -611,6 +611,64 @@ def _download(url: str, destination: Path) -> None:
     temporary.replace(destination)
 
 
+def _cover_subject_focus(prompt: str, fallback: str) -> str:
+    """Extract a concise subject focus for the cover from the learning-path prompt."""
+    text = re.sub(r"\s+", " ", str(prompt or "")).strip()
+    key_marks = ("专项测评", "训练", "测试", "练习", "讲解", "对比", "鉴别", "辨证", "模拟", "第", "周")
+    focused: list[str] = []
+    for phrase in re.findall(r"[“\"]([^”\"]{2,60})[”\"]", text):
+        cleaned = phrase.strip()
+        if len(cleaned) >= 2 and cleaned not in focused and any(mark in cleaned for mark in key_marks):
+            focused.append(cleaned)
+        if len(focused) >= 3:
+            break
+    subject = " · ".join(focused) if focused else str(fallback)
+    return subject[:120]
+
+
+def generate_generated_video_cover(
+    task_id: str,
+    user_id: int,
+    topic: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Generate the poster-only cover for the video card.
+
+    The cover is derived from the learning-path agent prompt and never feeds into
+    segment or video generation; it stays a standalone poster for the card.
+    """
+    if not _image_api_token():
+        raise VideoGenerationError("视频封面生成配置缺失：SEEDREAM_API_KEY/VIDEO_IMAGE_API_KEY/IMAGE2_API_KEY")
+
+    options = dict(params or {})
+    clean_topic = re.sub(r"\s+", " ", str(topic or "中医药学习")).strip()[:120]
+    learning_prompt = re.sub(
+        r"\s+",
+        " ",
+        str(options.get("prompt") or options.get("userMessage") or options.get("topic") or clean_topic),
+    ).strip()
+    style = re.sub(r"\s+", " ", str(options.get("style") or "简洁写实的中医药科普视觉")).strip()[:80]
+    focus = _cover_subject_focus(learning_prompt, clean_topic)
+    prompt = (
+        f"16:9 educational video cover for a traditional Chinese medicine lesson. "
+        f"Lesson topic: {clean_topic}. "
+        f"Lesson focus: {focus}. "
+        f"Visual style: {style}. "
+        "Use one clear focal subject such as authentic Chinese herbs, a materia medica specimen, "
+        "or a restrained clinical or study scene that reflects the lesson above. Clean editorial "
+        "composition, natural soft light, muted botanical green and warm paper colors, generous "
+        "negative space, high visual fidelity, no people posing, no futuristic interface, no neon "
+        "glow, no gradients, no logos, no watermark, no text, no letters."
+    )
+    poster_url = _retry("视频封面", lambda: _create_image(prompt), lambda _note: None)
+    poster_path = media_file(user_id, task_id, "poster.jpg")
+    _retry("视频封面下载", lambda: _download(poster_url, poster_path), lambda _note: None)
+    return {
+        "posterUrl": f"/api/personalized-resources/generated-videos/{task_id}/poster",
+        "prompt": prompt,
+    }
+
+
 def _fit_narration(text: str, seconds: int) -> str:
     normalized = re.sub(r"\s+", " ", str(text or "")).strip()
     limit = max(8, int((seconds - 0.6) * 4))

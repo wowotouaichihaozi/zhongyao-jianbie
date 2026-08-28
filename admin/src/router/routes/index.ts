@@ -68,13 +68,23 @@ const adminRoutes = [
     }
   },
   {
+    name: 'digital-twin',
+    path: '/digital-twin',
+    component: 'layout.base$view.digital-twin',
+    meta: {
+      title: '数字孪生',
+      icon: 'lucide:orbit',
+      order: 5
+    }
+  },
+  {
     name: 'logs',
     path: '/logs',
     component: 'layout.base$view.logs',
     meta: {
       title: '运行监控',
       icon: 'mdi:server-outline',
-      order: 5
+      order: 6
     }
   }
 ] as unknown as ElegantRoute[];

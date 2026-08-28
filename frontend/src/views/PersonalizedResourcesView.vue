@@ -20,76 +20,89 @@
       <button class="banner-btn" @click="$router.push('/learning-profile')">前往评估</button>
     </div>
 
-    <!-- 资源列表 -->
-    <section class="resource-tools-section" aria-label="资源生成工具">
-      <div class="resource-tools-grid">
+    <section class="resource-launchers" aria-labelledby="resource-tools-title">
+      <div class="section-line-heading">
+        <h2 id="resource-tools-title">资源工具</h2>
+      </div>
+      <nav class="resource-launcher-grid" aria-label="资源生成工具">
         <RouterLink
           v-for="tool in resourceTools"
           :key="tool.to"
-          class="resource-tool-card"
-          :class="tool.tone"
+          class="resource-launcher"
           :to="tool.to"
           target="_blank"
           rel="noopener noreferrer"
         >
-          <span class="resource-tool-icon">
-            <component :is="tool.icon" :size="28" :stroke-width="2.2" aria-hidden="true" />
-          </span>
-          <span class="resource-tool-copy">
+          <span class="launcher-icon"><component :is="tool.icon" :size="22" :stroke-width="1.8" aria-hidden="true" /></span>
+          <span class="launcher-copy">
             <strong>{{ tool.title }}</strong>
-            <em>{{ tool.description }}</em>
+            <small>{{ tool.description }}</small>
           </span>
-          <ArrowRight :size="20" :stroke-width="2.2" aria-hidden="true" />
+          <ArrowRight :size="17" aria-hidden="true" />
         </RouterLink>
-      </div>
+      </nav>
     </section>
 
-    <div class="resources-content">
-      <div class="history-resources-head">
-        <h2>历史资源</h2>
-        <button
-          type="button"
-          class="history-refresh-btn"
-          :disabled="resourcesLoading"
-          aria-label="刷新历史资源"
-          @click="loadResources"
-        >
-          <RefreshCw :size="16" :class="{ spin: resourcesLoading }" aria-hidden="true" />
-          {{ resourcesLoading ? '加载中' : '刷新' }}
-        </button>
+    <section class="resource-archive" aria-labelledby="resource-archive-title">
+      <div class="archive-heading">
+        <div>
+          <h2 id="resource-archive-title">历史资源</h2>
+          <span>{{ resourcesLoading ? '正在同步' : `共 ${visibleResourceCount} 项` }}</span>
+        </div>
+        <div class="archive-actions">
+          <button
+            type="button"
+            class="history-refresh-btn"
+            :disabled="resourcesLoading"
+            title="刷新资源"
+            aria-label="刷新资源"
+            @click="loadResources"
+          >
+            <RefreshCw :size="16" :class="{ spin: resourcesLoading }" aria-hidden="true" />
+          </button>
+          <button class="generate-btn" @click="generateNewResource" :disabled="generating || !hasProfile">
+            <Plus v-if="!generating" :size="17" aria-hidden="true" />
+            <span v-if="generating" class="loading-spinner"></span>
+            {{ generating ? '生成中...' : '生成资源' }}
+          </button>
+        </div>
       </div>
+
       <div v-if="resourcesWarning" class="history-status warning" role="status">
         <TriangleAlert :size="18" aria-hidden="true" />
         <span>{{ resourcesWarning }}</span>
         <button type="button" @click="loadResources">重新加载</button>
       </div>
-      <!-- 分类标签栏 -->
-      <div class="category-tabs">
-        <button
-          v-for="cat in categories"
-          :key="cat.key"
-          :class="['tab-btn', { active: activeCategory === cat.key }]"
-          @click="activeCategory = cat.key"
-        >
-          {{ cat.label }}
-        </button>
+
+      <div class="archive-toolbar">
+        <label class="history-search">
+          <Search :size="17" aria-hidden="true" />
+          <input
+            v-model="searchQuery"
+            type="search"
+            inputmode="search"
+            autocomplete="off"
+            aria-label="搜索历史资源"
+            placeholder="搜索资源名称或内容"
+            @keydown.esc="clearSearch"
+          />
+          <button v-if="searchQuery" type="button" title="清除搜索" aria-label="清除搜索" @click="clearSearch">
+            <X :size="15" aria-hidden="true" />
+          </button>
+        </label>
+        <label class="type-filter">
+          <span>类型</span>
+          <select v-model="activeCategory" aria-label="按资源类型筛选">
+            <option v-for="cat in categories" :key="cat.key" :value="cat.key">{{ cat.label }}</option>
+          </select>
+        </label>
       </div>
 
-      <!-- 操作栏 -->
-      <div class="action-bar">
-        <span class="resource-count">
-          {{ resourcesLoading ? '正在同步历史资源' : `共 ${filteredResources.length} 个资源` }}
-        </span>
-        <button class="generate-btn" @click="generateNewResource" :disabled="generating || !hasProfile">
-          <svg v-if="!generating" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span v-if="generating" class="loading-spinner"></span>
-          {{ generating ? '生成中...' : '生成新资源' }}
-        </button>
+      <div class="archive-result-line" aria-live="polite">
+        <span>{{ resourcesLoading ? '正在读取资源记录' : resultSummary }}</span>
+        <span v-if="filteredResources.length">第 {{ currentPage }} / {{ totalPages }} 页</span>
       </div>
 
-      <!-- 资源卡片网格 -->
       <div v-if="resourcesLoading && !resources.length" class="history-loading" role="status" aria-live="polite">
         <LoaderCircle :size="28" class="spin" aria-hidden="true" />
         <strong>正在同步真实资源记录</strong>
@@ -101,110 +114,108 @@
         <span>{{ resourcesError }}</span>
         <button type="button" @click="loadResources">重试</button>
       </div>
-      <div v-else class="resources-grid">
-        <button
-          v-for="resource in filteredResources"
+      <div v-else-if="filteredResources.length" class="resource-gallery" aria-label="历史资源">
+        <article
+          v-for="resource in paginatedResources"
           :key="resource.id"
-          type="button"
-          class="resource-card"
+          class="resource-cover-card"
+          role="link"
+          tabindex="0"
           @click="openResource(resource)"
+          @keydown.enter="openResource(resource)"
+          @keydown.space.prevent="openResource(resource)"
         >
-          <div
-            class="card-icon"
-            :style="{
-              background: getTypeColor(resource.type),
-              color: getTypeIconColor(resource.type),
-            }"
-          >
-            <svg v-if="resource.type === 'mindmap'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M4 6h16M4 12h10m-10 6h16" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <svg v-else-if="resource.type === 'ppt'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l9-4 9 4M3 7l9 4 9-4" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <svg v-else-if="resource.type === 'video' || resource.type === 'generated_video'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <svg v-else-if="resource.type === 'animation'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="3" y="5" width="18" height="14" rx="2" />
-              <path d="m10 9 5 3-5 3V9Z" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M7 3v2m10-2v2M7 19v2m10-2v2" stroke-linecap="round" />
-            </svg>
-            <svg v-else-if="resource.type === 'code'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <svg v-else-if="resource.type === 'simulator'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M9 3h6v3h3a2 2 0 012 2v8a2 2 0 01-2 2h-3v3H9v-3H6a2 2 0 01-2-2V8a2 2 0 012-2h3V3zM8 11h2m4 0h2M8 15h8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <ScanSearch v-else-if="resource.type === 'herb_model'" :size="30" aria-hidden="true" />
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="card-content">
-            <h3>{{ resource.title }}</h3>
-            <p class="card-desc">{{ resource.description }}</p>
-            <div class="card-footer">
-              <span class="type-tag">{{ getTypeName(resource.type) }}</span>
-              <time v-if="resource.createdAt" class="history-time" :datetime="resource.createdAt">
-                {{ formatResourceTime(resource.createdAt) }}
-              </time>
-              <span v-if="Number.isFinite(resource.matchScore)" class="match-score" :style="{ color: getMatchColor(resource.matchScore) }">
-                匹配度 {{ resource.matchScore }}%
-              </span>
-              <span v-if="resourceQuality(resource).score" class="quality-badge">
-                质量 {{ resourceQuality(resource).score }}
-              </span>
-              <span v-if="resourceCitationCount(resource)" class="citation-badge">
-                引用 {{ resourceCitationCount(resource) }}
-              </span>
-              <span v-if="getEvaluation(resource.id)" class="learned-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                已学习
-                <span class="badge-stars">
-                  <svg v-for="s in 5" :key="s" viewBox="0 0 24 24" :fill="s <= getEvaluation(resource.id).rating ? '#f59e0b' : 'none'" :stroke="s <= getEvaluation(resource.id).rating ? '#f59e0b' : '#cbd5e1'" stroke-width="2" class="mini-star">
-                    <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
-                  </svg>
-                </span>
-              </span>
+          <div class="resource-cover-frame">
+            <div class="cover-loading" :class="{ hidden: isPreviewLoaded(resource.id) }" aria-hidden="true">
+              <component :is="getResourceIcon(resource.type)" :size="28" :stroke-width="1.5" />
+              <span>{{ resource.type === 'generated_video' ? staticCoverLabel(resource) : '正在读取封面' }}</span>
             </div>
+            <img
+              v-if="usesStaticCover(resource)"
+              class="resource-static-cover"
+              :class="{ loaded: isPreviewLoaded(resource.id) }"
+              :src="getResourceCoverImage(resource)"
+              :alt="`${resource.title}封面`"
+              loading="lazy"
+              @load="markPreviewLoaded(resource.id)"
+              @error="retryStaticCover(resource)"
+            />
+            <iframe
+              v-else
+              class="resource-live-cover"
+              :class="{ loaded: isPreviewLoaded(resource.id) }"
+              :src="getResourcePreviewUrl(resource)"
+              :title="`${resource.title}页面封面`"
+              tabindex="-1"
+              loading="lazy"
+              scrolling="no"
+              aria-hidden="true"
+              @load="markPreviewLoaded(resource.id)"
+            ></iframe>
           </div>
-          <div class="card-arrow">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+          <div class="resource-cover-copy">
+            <h3>{{ resource.title }}</h3>
+            <footer>
+              <span>质量 {{ resourceQualityScore(resource) }}</span>
+              <span>{{ getTypeName(resource.type) }}</span>
+              <time :datetime="resource.createdAt || undefined">{{ resource.createdAt ? formatResourceTime(resource.createdAt) : '--' }}</time>
+            </footer>
           </div>
-        </button>
+        </article>
       </div>
 
-      <!-- 空状态 -->
       <div v-if="!resourcesLoading && !resourcesError && filteredResources.length === 0" class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <p>该分类暂无资源，点击"生成新资源"创建</p>
+        <Search :size="30" aria-hidden="true" />
+        <p>{{ searchQuery ? `没有找到与“${searchQuery}”相关的资源` : '当前类型暂无资源' }}</p>
+        <button v-if="searchQuery" type="button" @click="clearSearch">清除搜索</button>
       </div>
-    </div>
+
+      <nav v-if="!resourcesLoading && totalPages > 1" class="history-pagination" aria-label="历史资源分页">
+        <button type="button" class="page-nav-btn" :disabled="currentPage === 1" title="上一页" aria-label="上一页" @click="goToPage(currentPage - 1)">
+          <ChevronLeft :size="17" aria-hidden="true" />
+        </button>
+        <template v-for="item in paginationItems" :key="item">
+          <span v-if="typeof item === 'string'" class="page-ellipsis" aria-hidden="true">...</span>
+          <button
+            v-else
+            type="button"
+            class="page-number-btn"
+            :class="{ active: item === currentPage }"
+            :aria-current="item === currentPage ? 'page' : undefined"
+            :aria-label="`第 ${item} 页`"
+            @click="goToPage(item)"
+          >
+            {{ item }}
+          </button>
+        </template>
+        <button type="button" class="page-nav-btn" :disabled="currentPage === totalPages" title="下一页" aria-label="下一页" @click="goToPage(currentPage + 1)">
+          <ChevronRight :size="17" aria-hidden="true" />
+        </button>
+      </nav>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, markRaw, onMounted } from 'vue'
+import { ref, computed, markRaw, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowRight,
   BookOpenCheck,
+  ChevronLeft,
+  ChevronRight,
+  CirclePlay,
   Clapperboard,
+  FileText,
   LoaderCircle,
+  Plus,
   Presentation,
   RefreshCw,
   Search,
   ScanSearch,
   Share2,
   TriangleAlert,
+  X,
 } from 'lucide-vue-next'
 import {
   getLearningProfiles,
@@ -280,8 +291,13 @@ const categories = [
 
 const requestedCategory = String(route.query.category || '')
 const activeCategory = ref(categories.some(item => item.key === requestedCategory) ? requestedCategory : 'all')
+const searchQuery = ref('')
+const currentPage = ref(1)
+const pageSize = 9
 const generating = ref(false)
 const resources = ref([])
+const loadedResourcePreviews = ref(new Set())
+const staticCoverFailed = ref(new Set())
 const hasProfile = ref(false)
 const profileData = ref(null)
 const evaluations = ref([])
@@ -321,7 +337,7 @@ async function loadResources() {
   resourcesWarning.value = ''
   const [historyResult, videoResult] = await Promise.allSettled([
     getXiaoZhiHistory(100),
-    loadAllCompletedGeneratedVideos(),
+    loadAllGeneratedVideos(),
   ])
   try {
     const response = historyResult.status === 'fulfilled' ? historyResult.value : {}
@@ -364,11 +380,11 @@ async function loadResources() {
   }
 }
 
-async function loadAllCompletedGeneratedVideos() {
+async function loadAllGeneratedVideos() {
   const tasks = []
   let offset = 0
   while (true) {
-    const page = await getGeneratedVideoTaskHistory({ status: 'complete', limit: 100, offset })
+    const page = await getGeneratedVideoTaskHistory({ limit: 100, offset })
     const pageTasks = Array.isArray(page?.tasks) ? page.tasks : []
     tasks.push(...pageTasks)
     if (!page?.hasMore || pageTasks.length === 0) break
@@ -561,9 +577,197 @@ D. 不需要学习方剂
 
 const filteredResources = computed(() => {
   const visibleResources = resources.value.filter(r => !hiddenResourceTypes.has(String(r?.type || '')))
-  if (activeCategory.value === 'all') return visibleResources
-  return visibleResources.filter(r => r.type === activeCategory.value)
+  const categoryResources = activeCategory.value === 'all'
+    ? visibleResources
+    : visibleResources.filter(r => r.type === activeCategory.value)
+  const query = searchQuery.value.trim().toLocaleLowerCase('zh-CN')
+  if (!query) return categoryResources
+  return categoryResources.filter(resource => [
+    resource?.title,
+    resource?.description,
+    getTypeName(resource?.type),
+  ].some(value => String(value || '').toLocaleLowerCase('zh-CN').includes(query)))
 })
+
+const visibleResourceCount = computed(() => (
+  resources.value.filter(resource => !hiddenResourceTypes.has(String(resource?.type || ''))).length
+))
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredResources.value.length / pageSize)))
+
+const paginatedResources = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return filteredResources.value.slice(start, start + pageSize)
+})
+
+const resultSummary = computed(() => {
+  if (searchQuery.value.trim() || activeCategory.value !== 'all') {
+    return `找到 ${filteredResources.value.length} 项，共 ${visibleResourceCount.value} 项`
+  }
+  return `共 ${visibleResourceCount.value} 项`
+})
+
+const paginationItems = computed(() => {
+  const total = totalPages.value
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1)
+  const items = [1]
+  const start = Math.max(2, currentPage.value - 1)
+  const end = Math.min(total - 1, currentPage.value + 1)
+  if (start > 2) items.push('before')
+  for (let page = start; page <= end; page += 1) items.push(page)
+  if (end < total - 1) items.push('after')
+  items.push(total)
+  return items
+})
+
+watch([activeCategory, searchQuery], () => {
+  currentPage.value = 1
+})
+
+watch(totalPages, total => {
+  if (currentPage.value > total) currentPage.value = total
+})
+
+function clearSearch() {
+  searchQuery.value = ''
+}
+
+function goToPage(page) {
+  currentPage.value = Math.min(Math.max(1, Number(page) || 1), totalPages.value)
+  document.querySelector('.archive-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function getResourceIcon(type) {
+  return {
+    mindmap: Share2,
+    ppt: Presentation,
+    video: CirclePlay,
+    generated_video: Clapperboard,
+    quiz: BookOpenCheck,
+    herb_model: ScanSearch,
+  }[type] || FileText
+}
+
+function previewResourceKey(resourceId) {
+  return String(resourceId || '')
+}
+
+function isPreviewLoaded(resourceId) {
+  return loadedResourcePreviews.value.has(previewResourceKey(resourceId))
+}
+
+function markPreviewLoaded(resourceId) {
+  const next = new Set(loadedResourcePreviews.value)
+  next.add(previewResourceKey(resourceId))
+  loadedResourcePreviews.value = next
+}
+
+const staticCoverRetries = new Map()
+
+function usesStaticCover(resource) {
+  return ['video', 'generated_video'].includes(String(resource?.type || ''))
+}
+
+function proxiedCoverUrl(value) {
+  const cover = String(value || '').trim()
+  if (!cover) return ''
+  return /^https?:\/\//i.test(cover) ? `/api-cover?url=${encodeURIComponent(cover)}` : cover
+}
+
+function getResourceCoverImage(resource) {
+  const attempt = staticCoverRetries.get(previewResourceKey(resource?.id)) || 0
+  const metadata = (resource?.metadata && typeof resource.metadata === 'object') ? resource.metadata : {}
+  const content = (resource?.content && typeof resource.content === 'object') ? resource.content : {}
+  let cover = ''
+  if (resource?.type === 'video') {
+    cover = metadata?.results?.[0]?.cover
+      || content?.results?.[0]?.cover
+      || content?.cover
+      || metadata?.cover
+      || content?.thumbnailUrl
+      || metadata?.thumbnailUrl
+      || ''
+  } else if (resource?.type === 'generated_video') {
+    const taskId = String(resource?.metadata?.taskId || resource?.taskId || '')
+    cover = content?.posterUrl
+      || metadata?.posterUrl
+      || content?.cover
+      || metadata?.cover
+      || content?.thumbnailUrl
+      || metadata?.thumbnailUrl
+      || (taskId ? `/api/personalized-resources/generated-videos/${encodeURIComponent(taskId)}/poster` : '')
+  }
+  const url = proxiedCoverUrl(cover)
+  if (!url || !attempt) return url
+  return `${url}${url.includes('?') ? '&' : '?'}coverAttempt=${attempt}`
+}
+
+function retryStaticCover(resource) {
+  const key = previewResourceKey(resource?.id)
+  const attempt = staticCoverRetries.get(key) || 0
+  if (resource?.type !== 'generated_video') return
+  if (attempt >= 5) {
+    const next = new Set(staticCoverFailed.value)
+    next.add(key)
+    staticCoverFailed.value = next
+    return
+  }
+  window.setTimeout(() => {
+    staticCoverRetries.set(key, attempt + 1)
+    resources.value = [...resources.value]
+  }, 2000)
+}
+
+function staticCoverLabel(resource) {
+  return staticCoverFailed.value.has(previewResourceKey(resource?.id))
+    ? '首图待生成'
+    : '首图生成中'
+}
+
+function getResourcePreviewUrl(resource) {
+  const target = String(resource?.route || '').trim()
+  const canUseActualRoute = target
+    && !/^https?:\/\//i.test(target)
+    && target !== '/personalized-resources'
+    && (
+      (resource?.type === 'ppt' && target.includes('/ppt-generator/generating/'))
+      || resource?.type === 'herb_model'
+      || resource?.type === 'mindmap'
+    )
+
+  if (canUseActualRoute) {
+    try {
+      const resolved = router.resolve(target)
+      return router.resolve({
+        path: resolved.path,
+        query: { ...resolved.query, resourcePreview: 'cover' },
+        hash: resolved.hash,
+      }).href
+    } catch {}
+  }
+
+  return router.resolve({
+    name: 'resource-detail',
+    query: {
+      id: String(resource?.id || ''),
+      resourcePreview: 'cover',
+    },
+  }).href
+}
+
+function resourceQualityScore(resource) {
+  const score = Number(resourceQuality(resource).score)
+  if (Number.isFinite(score)) return score
+  if (Number.isFinite(resource?.matchScore)) return resource.matchScore
+  return '--'
+}
+
+function hasResourceQuality(resource) {
+  return Number.isFinite(resource?.matchScore)
+    || Boolean(resourceQuality(resource).score)
+    || Boolean(resourceCitationCount(resource))
+    || Boolean(getEvaluation(resource?.id))
+}
 
 function getTypeName(type) {
   const names = {
@@ -1934,6 +2138,1097 @@ function formatResourceTime(value) {
 
   .history-resources-head {
     padding-right: 148px;
+  }
+}
+
+/* History browsing uses a quiet utility layout instead of decorative AI-dashboard chrome. */
+.history-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-head-actions .history-refresh-btn,
+.history-head-actions .generate-btn {
+  min-height: 38px;
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+.history-head-actions .generate-btn {
+  padding: 0 14px;
+  font-size: 14px;
+  background: #176b50;
+}
+
+.history-head-actions .generate-btn::after {
+  display: none;
+}
+
+.history-head-actions .generate-btn:hover:not(:disabled) {
+  transform: none;
+  background: #115640;
+  box-shadow: none;
+}
+
+.history-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 18px 0 12px;
+}
+
+.history-controls .category-tabs {
+  min-width: 0;
+  margin: 0;
+  gap: 6px;
+}
+
+.history-controls .tab-btn {
+  min-height: 38px;
+  padding: 0 13px;
+  border-color: transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #55615e;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.history-controls .tab-btn:hover {
+  transform: none;
+  border-color: transparent;
+  background: #f1f4f3;
+  color: #1c4f40;
+}
+
+.history-controls .tab-btn.active {
+  border-color: transparent;
+  background: #e8f1ed;
+  color: #165d47;
+  font-weight: 700;
+}
+
+.history-search {
+  flex: 0 1 320px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 28px;
+  align-items: center;
+  min-width: 240px;
+  min-height: 40px;
+  padding: 0 7px 0 11px;
+  border: 1px solid #d8dfdc;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #68736f;
+}
+
+.history-search:focus-within {
+  border-color: #6da58f;
+  box-shadow: 0 0 0 3px rgba(23, 107, 80, 0.1);
+}
+
+.history-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 0 8px;
+  color: #1b2522;
+  font: inherit;
+  font-size: 13px;
+}
+
+.history-search input::placeholder {
+  color: #8b9491;
+}
+
+.history-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.history-search button {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #6f7976;
+  cursor: pointer;
+}
+
+.history-search button:hover {
+  background: #eef2f0;
+  color: #244c40;
+}
+
+.history-result-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+  margin-bottom: 12px;
+  border-top: 1px solid #edf0ef;
+  color: #6b7572;
+  font-size: 12px;
+}
+
+.history-result-bar .resource-count {
+  display: inline;
+  color: inherit;
+  font-size: inherit;
+}
+
+.page-summary {
+  white-space: nowrap;
+}
+
+.resource-tool-card[class*="tool-"] {
+  min-height: 108px;
+  border-color: #e4e8e6;
+  background: #ffffff;
+}
+
+.resource-tools-section {
+  padding: 0 0 28px;
+}
+
+.resource-tools-grid {
+  gap: 0;
+  border-top: 1px solid #e4e8e6;
+  border-bottom: 1px solid #e4e8e6;
+}
+
+.resource-tool-card {
+  min-height: 68px;
+  padding: 10px 14px;
+  grid-template-columns: 34px minmax(0, 1fr) 16px;
+  gap: 9px;
+  border: 0;
+  border-right: 1px solid #e8ecea;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.resource-tool-card:last-child {
+  border-right: 0;
+}
+
+.resource-tool-card .resource-tool-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: #edf3f0;
+  color: #2b6c57;
+}
+
+.resource-tool-card .resource-tool-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.resource-tool-copy {
+  display: block;
+}
+
+.resource-tool-copy strong {
+  font-size: 14px;
+}
+
+.resource-tool-card:hover {
+  transform: none;
+  border-color: #e8ecea;
+  background: #f6f8f7;
+  box-shadow: none;
+}
+
+.resource-tool-card[class*="tool-"] .resource-tool-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 5px;
+  background: #edf3f0;
+  color: #2b6c57;
+}
+
+.resource-tool-card[class*="tool-"] > svg {
+  color: #75807c;
+}
+
+.resource-tool-card[class*="tool-"]:hover {
+  transform: none;
+  border-color: #9cbcaf;
+  background: #fbfcfc;
+  box-shadow: none;
+}
+
+.resource-tool-card:hover .resource-tool-icon,
+.resource-tool-card:hover > svg {
+  transform: none;
+}
+
+.resource-card {
+  min-height: 146px;
+  padding: 18px 8px 18px 0;
+  border: 0;
+  border-top: 1px solid #e1e6e4;
+  border-radius: 0;
+}
+
+.resource-card:hover {
+  transform: none;
+  border-color: #c9d5d0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.resource-card .card-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 4px;
+  background: transparent !important;
+  color: #356957 !important;
+}
+
+.resource-card .card-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.resource-card:hover .card-icon,
+.resource-card:hover .card-arrow {
+  transform: none;
+}
+
+.card-content h3 {
+  margin-bottom: 6px;
+  font-weight: 650;
+}
+
+.card-footer {
+  gap: 7px 10px;
+}
+
+.type-tag,
+.quality-badge,
+.citation-badge,
+.learned-badge {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #68736f;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.match-score {
+  color: #68736f !important;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #edf0ef;
+}
+
+.page-nav-btn,
+.page-number-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #4f5b57;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.page-nav-btn:hover:not(:disabled),
+.page-number-btn:hover {
+  background: #f0f3f2;
+  color: #174f3e;
+}
+
+.page-number-btn.active {
+  border-color: #9bbcaf;
+  background: #e9f1ee;
+  color: #165d47;
+  font-weight: 700;
+}
+
+.page-nav-btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.page-ellipsis {
+  width: 24px;
+  color: #909895;
+  text-align: center;
+}
+
+.empty-state button {
+  margin-top: 12px;
+  border: 0;
+  background: transparent;
+  color: #176b50;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+@media (max-width: 1100px) {
+  .history-controls {
+    align-items: stretch;
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+
+  .history-search {
+    flex-basis: auto;
+    width: min(100%, 420px);
+  }
+}
+
+@media (max-width: 720px) {
+  .history-resources-head {
+    align-items: flex-start;
+    padding-right: 0;
+  }
+
+  .history-head-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .history-controls .category-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .history-controls .tab-btn {
+    flex: 0 0 auto;
+  }
+
+  .history-search {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* Archive workspace: document-first navigation and stable table rows. */
+.resources-page {
+  padding: 34px 52px 64px;
+  background: #fbfcfb;
+}
+
+.resources-page button {
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+.resources-header {
+  margin: 0 0 28px;
+  padding: 0 0 18px;
+}
+
+.resources-header h1 {
+  font-size: 25px;
+  line-height: 1.25;
+}
+
+.resource-workspace {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  align-items: start;
+  gap: 32px;
+}
+
+.resource-tool-sidebar {
+  position: sticky;
+  top: 94px;
+  min-width: 0;
+  padding-right: 24px;
+  border-right: 1px solid #dfe5e2;
+}
+
+.sidebar-heading,
+.archive-heading,
+.archive-heading > div,
+.archive-actions,
+.archive-result-line {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-heading {
+  justify-content: space-between;
+  min-height: 42px;
+  margin-bottom: 8px;
+}
+
+.sidebar-heading h2,
+.archive-heading h2 {
+  margin: 0;
+  color: #18211e;
+  letter-spacing: 0;
+}
+
+.sidebar-heading h2 {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sidebar-heading > span {
+  color: #89918e;
+  font-size: 12px;
+}
+
+.resource-tool-list {
+  display: grid;
+  gap: 2px;
+}
+
+.resource-tool-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 8px;
+  border-radius: 4px;
+  color: #3f4c47;
+  text-decoration: none;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.resource-tool-row > svg:first-child {
+  color: #477565;
+}
+
+.resource-tool-row > svg:last-child {
+  color: #9aa29f;
+}
+
+.resource-tool-row span {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-tool-row:hover {
+  background: #edf2ef;
+  color: #164f3d;
+}
+
+.resource-archive {
+  min-width: 0;
+}
+
+.archive-heading {
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 50px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #dfe5e2;
+}
+
+.archive-heading > div:first-child {
+  gap: 10px;
+}
+
+.archive-heading h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.archive-heading > div:first-child > span {
+  color: #7b8581;
+  font-size: 12px;
+}
+
+.archive-actions {
+  gap: 8px;
+}
+
+.archive-actions .history-refresh-btn {
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-color: #d7dfdc !important;
+  border-radius: 4px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  color: #52615c !important;
+  font-weight: 500;
+}
+
+.archive-actions .history-refresh-btn:hover:not(:disabled) {
+  border-color: #b8c7c1 !important;
+  background: #f3f6f5 !important;
+  color: #244c40 !important;
+}
+
+.archive-actions .generate-btn {
+  min-height: 36px;
+  padding: 0 13px;
+  border-color: #176b50 !important;
+  border-radius: 4px !important;
+  background: #176b50 !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  font-size: 13px;
+}
+
+.archive-actions .generate-btn::after {
+  display: none;
+}
+
+.archive-actions .generate-btn:hover:not(:disabled) {
+  transform: none;
+  border-color: #115640 !important;
+  background: #115640 !important;
+  box-shadow: none !important;
+}
+
+.archive-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 190px;
+  gap: 12px;
+  margin: 18px 0 10px;
+}
+
+.archive-toolbar .history-search {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  min-height: 38px;
+  border-radius: 4px;
+}
+
+.archive-toolbar .history-search input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.archive-toolbar .history-search button {
+  border: 0 !important;
+  border-radius: 3px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #6f7976 !important;
+}
+
+.archive-toolbar .history-search button:hover {
+  background: #eef2f0 !important;
+  color: #244c40 !important;
+}
+
+.type-filter {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 0 9px 0 11px;
+  border: 1px solid #d8dfdc;
+  border-radius: 4px;
+  background: #fff;
+  color: #77817d;
+  font-size: 12px;
+}
+
+.type-filter select {
+  min-width: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #29332f;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.archive-result-line {
+  justify-content: space-between;
+  min-height: 34px;
+  color: #78817e;
+  font-size: 11px;
+}
+
+.resource-table {
+  border-top: 1px solid #dfe5e2;
+}
+
+.resource-table-head,
+.resource-table-row {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) 108px 116px minmax(145px, 0.6fr) 24px;
+  align-items: center;
+  gap: 18px;
+}
+
+.resource-table-head {
+  min-height: 38px;
+  padding: 0 10px;
+  border-bottom: 1px solid #dfe5e2;
+  color: #737d79;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.resource-table-row {
+  width: 100%;
+  min-height: 82px;
+  padding: 10px;
+  border: 0;
+  border-bottom: 1px solid #e6ebe9;
+  border-radius: 0 !important;
+  background: transparent;
+  box-shadow: none !important;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline: 0;
+  transition: background-color 140ms ease;
+}
+
+.resource-table-row:hover {
+  transform: none !important;
+  background: #f2f5f3;
+  box-shadow: none !important;
+}
+
+.resource-table-row:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid #6fa18f;
+  outline-offset: -2px;
+}
+
+.resource-name-cell {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.resource-row-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dce5e1;
+  border-radius: 4px;
+  color: #356957;
+  background: #f7f9f8;
+}
+
+.resource-name-cell > span:last-child {
+  min-width: 0;
+}
+
+.resource-name-cell strong,
+.resource-name-cell em {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-name-cell strong {
+  color: #1e2824;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.resource-name-cell em {
+  margin-top: 4px;
+  color: #818a87;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.resource-type-cell,
+.resource-time-cell {
+  overflow: hidden;
+  color: #66716d;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-quality-cell {
+  display: flex;
+  align-items: center;
+  gap: 5px 10px;
+  min-width: 0;
+  flex-wrap: wrap;
+  color: #68736f;
+  font-size: 11px;
+}
+
+.resource-open-icon {
+  color: #929b97;
+}
+
+.resource-table-row:hover .resource-open-icon {
+  color: #1f6950;
+}
+
+.resource-archive .history-loading,
+.resource-archive .history-error,
+.resource-archive .empty-state {
+  min-height: 360px;
+  border-bottom: 1px solid #e1e6e4;
+}
+
+.resource-archive .history-pagination {
+  margin-top: 16px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.resource-archive .page-nav-btn,
+.resource-archive .page-number-btn {
+  border-color: transparent !important;
+  border-radius: 3px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #4f5b57 !important;
+}
+
+.resource-archive .page-nav-btn:hover:not(:disabled),
+.resource-archive .page-number-btn:hover {
+  background: #f0f3f2 !important;
+  color: #174f3e !important;
+}
+
+.resource-archive .page-number-btn.active {
+  border-color: #9bbcaf !important;
+  background: #e9f1ee !important;
+  color: #165d47 !important;
+}
+
+@media (max-width: 1180px) {
+  .resource-workspace {
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .resource-table-head,
+  .resource-table-row {
+    grid-template-columns: minmax(260px, 1fr) 92px 104px minmax(120px, 0.5fr) 20px;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .resources-page {
+    padding: 28px 24px 52px;
+  }
+
+  .resource-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .resource-tool-sidebar {
+    position: static;
+    padding: 0 0 18px;
+    border-right: 0;
+    border-bottom: 1px solid #dfe5e2;
+  }
+
+  .resource-tool-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .resource-table-head {
+    display: none;
+  }
+
+  .resource-table-row {
+    grid-template-columns: minmax(0, 1fr) 24px;
+    gap: 10px;
+  }
+
+  .resource-type-cell,
+  .resource-time-cell,
+  .resource-quality-cell {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .archive-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .resource-tool-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Resource portfolio: real page previews with restrained editorial cards. */
+.resource-launchers {
+  margin-bottom: 34px;
+}
+
+.section-line-heading {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  margin-bottom: 10px;
+}
+
+.section-line-heading h2 {
+  margin: 0;
+  color: #1d2723;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.resource-launcher-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.resource-launcher {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 10px;
+  min-height: 104px;
+  padding: 14px;
+  border: 1px solid #dfe5e2;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #25312d;
+  text-decoration: none;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.resource-launcher:hover {
+  border-color: #a9c3b8;
+  background: #f8faf9;
+}
+
+.resource-launcher:focus-visible,
+.resource-cover-card:focus-visible {
+  outline: 2px solid #6fa18f;
+  outline-offset: 2px;
+}
+
+.launcher-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dce6e1;
+  border-radius: 5px;
+  background: #edf5f1;
+  color: #246b53;
+}
+
+.launcher-copy {
+  min-width: 0;
+}
+
+.launcher-copy strong,
+.launcher-copy small {
+  display: block;
+}
+
+.launcher-copy strong {
+  color: #202b27;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.launcher-copy small {
+  display: -webkit-box;
+  margin-top: 5px;
+  overflow: hidden;
+  color: #76807c;
+  font-size: 11px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.resource-launcher > svg {
+  color: #929d98;
+}
+
+.resource-archive {
+  min-width: 0;
+}
+
+.resource-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.resource-cover-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #dfe4e2;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.resource-cover-card:hover {
+  transform: translateY(-2px);
+  border-color: #a9beb5;
+  box-shadow: 0 8px 22px rgba(31, 55, 46, 0.08);
+}
+
+.resource-cover-frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 2 / 1;
+  border-bottom: 1px solid #e1e6e4;
+  background: #f1f4f2;
+  isolation: isolate;
+}
+
+.resource-live-cover {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 1;
+  width: 300%;
+  height: 300%;
+  border: 0;
+  opacity: 0;
+  background: #f7f9f8;
+  pointer-events: none;
+  transform: scale(0.333333);
+  transform-origin: 0 0;
+  transition: opacity 180ms ease;
+}
+
+.resource-live-cover.loaded {
+  opacity: 1;
+}
+
+.resource-static-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+  opacity: 0;
+  background: #eef2ef;
+  transition: opacity 180ms ease;
+}
+
+.resource-static-cover.loaded {
+  opacity: 1;
+}
+
+.cover-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 9px;
+  color: #6f7d77;
+  font-size: 11px;
+}
+
+.cover-loading.hidden {
+  visibility: hidden;
+}
+
+.resource-cover-copy {
+  padding: 12px 14px 11px;
+}
+
+.resource-cover-copy h3 {
+  margin: 0;
+  overflow: hidden;
+  color: #1c2723;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-cover-copy footer {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  margin-top: 7px;
+  color: #7b8581;
+  font-size: 10px;
+}
+
+.resource-cover-copy footer time {
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-cover-copy footer span {
+  white-space: nowrap;
+}
+
+@media (max-width: 1280px) {
+  .resource-launcher-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .resource-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .resource-launcher-grid,
+  .resource-gallery {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -6,6 +6,7 @@ import {
   findTaskResource,
   resourceContentText,
   resourceCitationCount,
+  resourceQuizQuestions,
   taskIdFromResourceId,
 } from '../src/utils/personalizedResourceHistory.js'
 import {
@@ -90,8 +91,46 @@ test('normalizes structured content and isolates HTML PPT documents', () => {
   assert.match(document, /<article><script>alert\(1\)<\/script><\/article>/)
 })
 
-test('uses Mermaid only for explicit mindmap syntax and keeps heading maps as Markdown', () => {
-  assert.equal(mermaidMindmapSource('# GPIO\n\n## 输入模式'), '')
+test('arranges nested structured question banks and keeps waiting AI videos in history', () => {
+  const questions = resourceQuizQuestions({
+    type: 'quiz',
+    content: {
+      questionGenerator: {
+        question_bank: {
+          questions: [{
+            stem: '黄芪的主要功效是？',
+            options: ['A. 补气升阳', 'B. 清热泻火'],
+            answer: 'A',
+            analysis: '黄芪以补气升阳、固表止汗见长。',
+          }],
+        },
+      },
+    },
+  })
+  assert.deepEqual(questions, [{
+    id: '1',
+    type: '',
+    stem: '黄芪的主要功效是？',
+    options: ['A. 补气升阳', 'B. 清热泻火'],
+    answer: 'A',
+    analysis: '黄芪以补气升阳、固表止汗见长。',
+  }])
+
+  const [waitingVideo] = extractTaskResources({
+    taskId: 'video-waiting-1',
+    taskType: 'generated_video',
+    title: '黄芪辨识讲解',
+    status: 'waiting',
+    result: { currentStage: 'waiting_for_user', coverStatus: 'queued' },
+  })
+  assert.equal(waitingVideo.type, 'generated_video')
+  assert.equal(waitingVideo.content.videoUrl, '')
+  assert.match(waitingVideo.content.posterUrl, /video-waiting-1\/poster$/)
+  assert.equal(waitingVideo.metadata.taskStatus, 'waiting')
+})
+
+test('converts heading Markdown into a Mermaid mindmap and keeps explicit mindmap syntax', () => {
+  assert.equal(mermaidMindmapSource('# GPIO\n\n## 输入模式'), 'mindmap\n  root((GPIO))\n    输入模式')
   assert.equal(
     mermaidMindmapSource('```mermaid\nmindmap\n  root((GPIO))\n```'),
     'mindmap\n  root((GPIO))',

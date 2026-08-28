@@ -41,6 +41,7 @@ declare module "@elegant-router/types" {
     "alova_request": "/alova/request";
     "alova_scenes": "/alova/scenes";
     "dashboard": "/dashboard";
+    "digital-twin": "/digital-twin";
     "function": "/function";
     "function_hide-child": "/function/hide-child";
     "function_hide-child_one": "/function/hide-child/one";
@@ -153,6 +154,7 @@ declare module "@elegant-router/types" {
     | "agents"
     | "alova"
     | "dashboard"
+    | "digital-twin"
     | "function"
     | "home"
     | "iframe-page"
@@ -192,6 +194,7 @@ declare module "@elegant-router/types" {
     | "alova_request"
     | "alova_scenes"
     | "dashboard"
+    | "digital-twin"
     | "function_hide-child_one"
     | "function_hide-child_three"
     | "function_hide-child_two"

@@ -219,7 +219,9 @@ class LearningProfileApiTests(unittest.TestCase):
         self.assertEqual(created["status"], "waiting")
         self.assertTrue(created["result"]["params"]["deferred"])
         self.assertEqual(created["result"]["currentStage"], "waiting_for_user")
-        initial_submit.assert_not_called()
+        initial_submit.assert_called_once()
+        self.assertIs(initial_submit.call_args.args[0], app_module.xiaozhi_generate_generated_video_cover)
+        self.assertEqual(initial_submit.call_args.args[1:3], (created["taskId"], 101))
         execute_video.assert_not_called()
 
         with (
@@ -294,7 +296,8 @@ class LearningProfileApiTests(unittest.TestCase):
                             {"prompt": f"生成参数校验视频 {label}"},
                         )
                         task_ids.append(created["taskId"])
-                        submit.assert_not_called()
+                        self.assertEqual(submit.call_count, 1)
+                        self.assertIs(submit.call_args.args[0], app_module.xiaozhi_generate_generated_video_cover)
 
                         response = self.client.post(
                             f"/api/personalized-resources/generated-videos/{created['taskId']}/start",
@@ -306,7 +309,7 @@ class LearningProfileApiTests(unittest.TestCase):
                     params = response.get_json()["data"]["task"]["result"]["params"]
                     self.assertEqual(params["videoEngine"], expected_engine)
                     self.assertEqual(params["resolution"], expected_resolution)
-                    submit.assert_called_once()
+                    self.assertEqual(submit.call_count, 2)
                     submitted_params = submit.call_args.args[5]
                     self.assertEqual(submitted_params["videoEngine"], expected_engine)
                     self.assertEqual(submitted_params["resolution"], expected_resolution)
@@ -314,6 +317,55 @@ class LearningProfileApiTests(unittest.TestCase):
         finally:
             with app_module.auth_db() as conn:
                 for task_id in task_ids:
+                    conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
+                    conn.execute(
+                        "DELETE FROM xiaozhi_events WHERE user_id = ? AND payload_json LIKE ?",
+                        (101, f'%{task_id}%'),
+                    )
+
+    def test_generated_video_cover_completes_without_starting_video_pipeline(self) -> None:
+        task_id = ""
+        try:
+            with patch.object(app_module.VIDEO_RESOURCE_EXECUTOR, "submit"):
+                created = app_module.xiaozhi_create_resource_agent_task(
+                    101,
+                    "generated_video",
+                    "黄芪性状辨识",
+                    {"prompt": "讲解黄芪性状辨识"},
+                )
+            task_id = str(created["taskId"])
+            with (
+                patch.object(
+                    app_module,
+                    "generate_generated_video_cover",
+                    return_value={
+                        "posterUrl": f"/api/personalized-resources/generated-videos/{task_id}/poster",
+                        "prompt": "cover only",
+                    },
+                ) as generate_cover,
+                patch.object(app_module, "execute_generated_video_task") as execute_video,
+            ):
+                app_module.xiaozhi_generate_generated_video_cover(
+                    task_id,
+                    101,
+                    "黄芪性状辨识",
+                    created["result"]["params"],
+                )
+
+            with app_module.auth_db() as conn:
+                row = conn.execute(
+                    "SELECT status, result_json FROM xiaozhi_tasks WHERE task_id = ?",
+                    (task_id,),
+                ).fetchone()
+            result = json.loads(row["result_json"])
+            self.assertEqual(row["status"], "waiting")
+            self.assertEqual(result["coverStatus"], "complete")
+            self.assertTrue(result["selectedResource"]["content"]["posterUrl"].endswith("/poster"))
+            generate_cover.assert_called_once()
+            execute_video.assert_not_called()
+        finally:
+            if task_id:
+                with app_module.auth_db() as conn:
                     conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
                     conn.execute(
                         "DELETE FROM xiaozhi_events WHERE user_id = ? AND payload_json LIKE ?",
@@ -347,7 +399,8 @@ class LearningProfileApiTests(unittest.TestCase):
             self.assertEqual(task["result"]["currentStage"], "waiting_for_user")
             self.assertTrue(task["result"]["params"]["deferred"])
             self.assertIn("等待用户确认", payload["msg"])
-            submit.assert_not_called()
+            submit.assert_called_once()
+            self.assertIs(submit.call_args.args[0], app_module.xiaozhi_generate_generated_video_cover)
             execute_video.assert_not_called()
         finally:
             if task_id:
@@ -380,7 +433,7 @@ class LearningProfileApiTests(unittest.TestCase):
                     "其他用户的视频",
                     {"prompt": "不应返回给用户 101"},
                 )
-            submit.assert_not_called()
+            self.assertEqual(submit.call_count, 3)
             task_ids = [first["taskId"], second["taskId"], other["taskId"]]
             for created in (first, second, other):
                 task_id = str(created["taskId"])
@@ -3636,7 +3689,7 @@ class LearningProfileApiTests(unittest.TestCase):
             self.assertEqual(tasks_by_node["01"]["status"], "queued")
             self.assertEqual(tasks_by_node["02"]["status"], "waiting")
             self.assertEqual(submit.call_count, 1)
-            self.assertEqual(video_submit.call_count, 0)
+            self.assertEqual(video_submit.call_count, 1)
             execute_video.assert_not_called()
             orchestrate.assert_not_called()
 
@@ -3758,7 +3811,7 @@ class LearningProfileApiTests(unittest.TestCase):
             self.assertEqual(result["submittedCount"], 1)
             self.assertTrue(result["allEntrypointsReady"])
             self.assertEqual(submit.call_count, 0)
-            self.assertEqual(video_submit.call_count, 0)
+            self.assertEqual(video_submit.call_count, 1)
             orchestrate.assert_not_called()
             generated_task = next(task for task in result["tasks"] if task["nodeId"] == "02")
             self.assertEqual(generated_task["status"], "waiting")
@@ -3930,7 +3983,7 @@ class LearningProfileApiTests(unittest.TestCase):
             self.assertEqual(orchestrate.call_count, 6)
             self.assertEqual(submit.call_count, 4)
             self.assertEqual(ppt_submit.call_count, 1)
-            self.assertEqual(video_submit.call_count, 0)
+            self.assertEqual(video_submit.call_count, 1)
             self.assertEqual(len(created_task_ids), 6)
             self.assertEqual(result["preparation"]["status"], "complete")
             self.assertEqual(len(result["planners"]), 6)

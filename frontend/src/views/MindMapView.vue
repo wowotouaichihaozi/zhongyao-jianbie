@@ -1,5 +1,5 @@
 <template>
-  <main class="mind-map-page" :class="{ standalone: isResourceToolPage, 'task-backed': isTaskBackedMap }">
+  <main class="mind-map-page" :class="{ standalone: isResourceToolPage, 'task-backed': isTaskBackedMap, 'cover-preview': isCoverPreview }">
     <button v-if="isResourceToolPage" type="button" class="resource-back-button" @click="goBackToResources">
       <ArrowLeft :size="18" :stroke-width="2.2" aria-hidden="true" />
       <span>返回个性化资源</span>
@@ -174,6 +174,7 @@ const suggestedTopics = [
 ]
 
 const isResourceToolPage = computed(() => route.meta?.resourceTool === true || route.path.startsWith('/personalized-resources/'))
+const isCoverPreview = computed(() => route.query.resourcePreview === 'cover')
 const taskId = computed(() => String(route.query.xzTask || '').trim())
 const isTaskBackedMap = computed(() => Boolean(taskId.value))
 const taskRuntimeStatus = computed(() => String(task.value?.status || (taskId.value ? 'loading' : 'complete')))
@@ -226,7 +227,7 @@ watch(taskId, () => {
 }, { immediate: true })
 
 onMounted(() => {
-  void loadMindMapHistory()
+  if (!isCoverPreview.value) void loadMindMapHistory()
   if (!taskId.value && route.query.autostart === '1' && topic.value && !autostartConsumed) {
     autostartConsumed = true
     void startGeneration()
@@ -800,6 +801,53 @@ function markTaskCacheError(error) {
 .standalone .task-map-shell {
   min-height: calc(100vh - 104px);
   padding-top: 4px;
+}
+
+.mind-map-page.cover-preview {
+  height: 100vh;
+  overflow: hidden;
+  background: #f4f8f6;
+}
+
+.mind-map-page.cover-preview .resource-back-button,
+.mind-map-page.cover-preview .task-map-header,
+.mind-map-page.cover-preview .task-map-feedback,
+.mind-map-page.cover-preview .task-map-loading,
+.mind-map-page.cover-preview .task-map-error {
+  display: none;
+}
+
+.mind-map-page.cover-preview .task-map-shell {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.mind-map-page.cover-preview .mind-map-canvas {
+  min-height: 100vh;
+  padding: 0;
+}
+
+.mind-map-page.cover-preview :deep(.mindmap-wizard-shell) {
+  display: block;
+  min-height: 100vh;
+  height: 100vh;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.mind-map-page.cover-preview :deep(.mindmap-toolbar) {
+  display: none;
+}
+
+.mind-map-page.cover-preview :deep(.mindmap-viewport),
+.mind-map-page.cover-preview :deep(.mindmap-frame) {
+  width: 100%;
+  min-height: 100vh;
+  height: 100vh;
 }
 
 .task-map-header {

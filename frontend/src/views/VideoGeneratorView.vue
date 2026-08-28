@@ -24,7 +24,7 @@ import {
   Sparkles,
   Volume2,
 } from 'lucide-vue-next'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import VideoWorkflowNode from '../components/video/VideoWorkflowNode.vue'
 import {
   getXiaoZhiTask,
@@ -33,6 +33,7 @@ import {
 } from '../services/api.js'
 
 const route = useRoute()
+const router = useRouter()
 const WORKFLOW_STEPS = [
   { id: 'request', label: '需求与成本校验', hint: '等待用户确认参数' },
   { id: 'planning', label: '画像与脚本规划', hint: '生成分镜和旁白脚本' },
@@ -344,11 +345,11 @@ async function startGeneration() {
       const createdTask = extractTask(createdResponse)
       if (!createdTask?.taskId) throw new Error('未获得 AI 视频任务 ID')
       applyTask(createdTask)
-      response = await startGeneratedVideoTask(createdTask.taskId, {
-        prompt: form.prompt.trim(),
-        params,
+      await router.replace({
+        query: { ...route.query, xzTask: createdTask.taskId },
       })
-      addLocalLog('用户已确认参数，视频工作流开始运行')
+      addLocalLog('AI 视频任务已提交：正在生成首图；确认参数后点击运行视频')
+      response = createdResponse
     }
     applyTask(extractTask(response))
     await refreshTask()
@@ -449,7 +450,7 @@ onBeforeUnmount(clearRefreshTimer)
         <button v-if="!task || isWaiting" class="studio-primary" type="button" :disabled="!canStart" @click="startGeneration">
           <LoaderCircle v-if="busy || isActive" :size="17" class="spin" />
           <Play v-else :size="17" fill="currentColor" />
-          {{ busy ? '正在提交' : isActive ? '后台生成中' : '运行视频工作流' }}
+          {{ busy ? '正在提交' : isActive ? '后台生成中' : (!task ? '提交任务并生成首图' : '运行视频工作流') }}
         </button>
         <button v-else-if="isTerminal" class="studio-secondary" type="button" @click="resetWorkspace"><RotateCcw :size="16" />新建任务</button>
       </aside>

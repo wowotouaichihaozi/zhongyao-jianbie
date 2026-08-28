@@ -72,10 +72,12 @@ export function taskIdFromResourceId(resourceId) {
 }
 
 export function extractTaskResources(task) {
-  if (!task || task.status !== 'complete') return []
+  if (!task) return []
+  const taskType = String(task.taskType || '')
+  const taskStatus = String(task.status || '')
+  if (taskStatus !== 'complete' && taskType !== 'generated_video') return []
 
   const result = objectValue(task.result)
-  const taskType = String(task.taskType || '')
   const workflow = objectValue(result.workflow)
   const orchestration = objectValue(result.orchestration)
   const review = objectValue(orchestration.review)
@@ -91,13 +93,19 @@ export function extractTaskResources(task) {
     items = [{
       type: 'generated_video',
       title: task.title,
-      description: result.message || 'AI 讲解视频已生成并保存',
+       description: result.message || 'AI 视频任务已创建',
       content: {
         ...content,
-        videoUrl: content.videoUrl || `/api/personalized-resources/generated-videos/${encodeURIComponent(task.taskId)}/file`,
-        posterUrl: content.posterUrl || `/api/personalized-resources/generated-videos/${encodeURIComponent(task.taskId)}/poster`,
-      },
-      metadata: { taskId: task.taskId },
+         videoUrl: taskStatus === 'complete'
+           ? (content.videoUrl || `/api/personalized-resources/generated-videos/${encodeURIComponent(task.taskId)}/file`)
+           : '',
+         posterUrl: content.posterUrl || `/api/personalized-resources/generated-videos/${encodeURIComponent(task.taskId)}/poster`,
+       },
+       metadata: {
+         taskId: task.taskId,
+         generationState: result.currentStage || taskStatus,
+         coverStatus: result.coverStatus || '',
+       },
     }]
   } else {
     const payloadByType = {
@@ -171,9 +179,59 @@ export function extractTaskResources(task) {
         agentRuns: listValue(orchestration.agentRuns),
         planner,
         grounded: itemMetadata.grounded ?? workflow.grounded ?? Boolean(knowledgeSources.length),
+        taskStatus,
+        generationState: itemMetadata.generationState || result.currentStage || taskStatus,
+        coverStatus: itemMetadata.coverStatus || result.coverStatus || '',
       },
     }
   })
+}
+
+function findQuizQuestionArray(value, depth = 0, visited = new Set()) {
+  if (!value || typeof value !== 'object' || depth > 6 || visited.has(value)) return []
+  visited.add(value)
+  if (Array.isArray(value)) {
+    const questions = value.filter(item => item && typeof item === 'object' && !Array.isArray(item))
+    if (questions.some(item => item.stem || item.question || item.prompt || item.title || item.body)) return questions
+    for (const item of questions) {
+      const nested = findQuizQuestionArray(item, depth + 1, visited)
+      if (nested.length) return nested
+    }
+    return []
+  }
+  for (const key of ['questions', 'questionList', 'question_list', 'items']) {
+    const nested = findQuizQuestionArray(value[key], depth + 1, visited)
+    if (nested.length) return nested
+  }
+  for (const key of ['question_bank', 'questionBank', 'questionGenerator', 'payload', 'data', 'result', 'content']) {
+    const nested = findQuizQuestionArray(value[key], depth + 1, visited)
+    if (nested.length) return nested
+  }
+  return []
+}
+
+function normalizeQuizOptions(value) {
+  if (!Array.isArray(value)) return []
+  return value.map((option, index) => {
+    if (option && typeof option === 'object') {
+      const label = String(option.label || option.key || option.id || String.fromCharCode(65 + index)).trim()
+      const text = String(option.text || option.content || option.value || option.title || '').trim()
+      return text ? `${label}. ${text}` : label
+    }
+    return String(option || '').trim()
+  }).filter(Boolean)
+}
+
+export function resourceQuizQuestions(resource) {
+  if (String(resource?.type || '') !== 'quiz') return []
+  return findQuizQuestionArray(resource?.content).map((item, index) => ({
+    id: String(item.id || item.questionId || index + 1),
+    type: String(item.type || item.questionType || item.question_type || '').trim(),
+    stem: String(item.stem || item.question || item.prompt || item.title || item.body || '').trim(),
+    options: normalizeQuizOptions(item.options || item.choices || item.answers),
+    answer: String(item.answer ?? item.correctAnswer ?? item.correct_answer ?? item.referenceAnswer ?? '').trim(),
+    analysis: String(item.analysis || item.explanation || item.solution || item.rationale || '').trim(),
+  })).filter(item => item.stem)
 }
 
 export function findTaskResource(task, resourceId) {

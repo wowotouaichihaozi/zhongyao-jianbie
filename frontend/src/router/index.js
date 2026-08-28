@@ -30,7 +30,6 @@ const KnowledgeBaseView = () => import('../views/KnowledgeBaseView.vue')
 const HerbModelRecognitionView = () => import('../views/HerbModelRecognitionView.vue')
 const KnowledgeNetworkView = () => import('../views/KnowledgeNetworkOriginalEmbedView.vue')
 const LifeTreeView = () => import('../views/LifeTreeView.vue')
-const AgentDigitalTwinView = () => import('../views/AgentDigitalTwinView.vue')
 
 const CODEX_PREVIEW_AUTH_KEY = 'codexPreviewAuth'
 
@@ -211,9 +210,7 @@ const routes = [
   },
   {
     path: '/agent-digital-twin',
-    name: 'agent-digital-twin',
-    component: AgentDigitalTwinView,
-    meta: { requiresAuth: true },
+    redirect: '/personalized-resources',
   },
   {
     path: '/ai-coding',

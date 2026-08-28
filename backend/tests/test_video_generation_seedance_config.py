@@ -61,6 +61,35 @@ def test_video_first_frame_uses_seedream_45_contract(monkeypatch):
     }
 
 
+def test_waiting_video_cover_only_generates_and_downloads_one_image(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(video_generation, "ROOT", tmp_path)
+    monkeypatch.setattr(video_generation, "_image_api_token", lambda: "image-key")
+    monkeypatch.setattr(
+        video_generation,
+        "_create_image",
+        lambda prompt: calls.append(("image", prompt)) or "https://media.example/cover.jpg",
+    )
+
+    def fake_download(url, destination):
+        calls.append(("download", url, destination))
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(b"poster")
+
+    monkeypatch.setattr(video_generation, "_download", fake_download)
+    result = video_generation.generate_generated_video_cover(
+        "video-cover-1",
+        101,
+        "黄芪性状辨识",
+        {"style": "本草图鉴"},
+    )
+
+    assert result["posterUrl"].endswith("/video-cover-1/poster")
+    assert [call[0] for call in calls] == ["image", "download"]
+    assert "黄芪性状辨识" in calls[0][1]
+    assert video_generation.media_file(101, "video-cover-1", "poster.jpg").read_bytes() == b"poster"
+
+
 def test_seedance_15_uses_dedicated_workflow_credentials(monkeypatch):
     settings = {
         "COZE_SEEDANCE_15_API_BASE_URL": "https://workflow.example/v1/",

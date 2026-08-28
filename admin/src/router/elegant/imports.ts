@@ -25,6 +25,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   alova_request: () => import("@/views/alova/request/index.vue"),
   alova_scenes: () => import("@/views/alova/scenes/index.vue"),
   dashboard: () => import("@/views/dashboard/index.vue"),
+  "digital-twin": () => import("@/views/digital-twin/index.vue"),
   "function_hide-child_one": () => import("@/views/function/hide-child/one/index.vue"),
   "function_hide-child_three": () => import("@/views/function/hide-child/three/index.vue"),
   "function_hide-child_two": () => import("@/views/function/hide-child/two/index.vue"),

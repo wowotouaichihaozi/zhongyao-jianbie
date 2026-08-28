@@ -1,5 +1,5 @@
 <template>
-  <main class="resource-detail-page">
+  <main :class="['resource-detail-page', { 'cover-preview-mode': isCoverPreview }]">
     <header class="detail-header">
       <button type="button" class="icon-button back-button" aria-label="返回个性化资源" title="返回个性化资源" @click="goBack">
         <ArrowLeft :size="20" aria-hidden="true" />
@@ -94,6 +94,7 @@
               <div class="video-main">
                 <div v-if="currentVideo" class="video-frame-wrap">
                   <iframe
+                    v-if="playingVideoIndex === currentVideoIndex"
                     class="video-frame"
                     :src="currentVideo.embedUrl || currentVideo.url"
                     :title="currentVideo.title || '学习视频'"
@@ -101,6 +102,17 @@
                     allow="fullscreen"
                     allowfullscreen
                   ></iframe>
+                  <button
+                    v-else
+                    type="button"
+                    class="video-poster-button"
+                    :aria-label="`播放${currentVideo.title || '学习视频'}`"
+                    @click="playingVideoIndex = currentVideoIndex"
+                  >
+                    <img v-if="currentVideo.cover" :src="currentVideo.cover" :alt="`${currentVideo.title || '学习视频'}封面`" referrerpolicy="no-referrer" />
+                    <span v-else class="video-poster-fallback"><VideoOff :size="32" />暂无视频封面</span>
+                    <i><CirclePlay :size="42" fill="currentColor" />播放视频</i>
+                  </button>
                 </div>
                 <div v-else class="content-empty compact">
                   <VideoOff :size="28" />
@@ -118,7 +130,7 @@
                   type="button"
                   :class="['playlist-item', { active: index === currentVideoIndex }]"
                   :aria-pressed="index === currentVideoIndex"
-                  @click="currentVideoIndex = index"
+                  @click="selectVideo(index)"
                 >
                   <span>{{ index + 1 }}</span>
                   <span><strong>{{ video.title }}</strong><small>{{ [video.author, video.duration].filter(Boolean).join(' · ') }}</small></span>
@@ -128,10 +140,28 @@
             <div class="markdown-content video-notes" v-html="renderedContent"></div>
           </div>
 
-          <div v-else-if="resource.type === 'generated_video' && generatedVideoUrl" class="artifact-surface generated-video-surface">
-            <video :src="generatedVideoUrl" :poster="generatedVideoPoster" controls preload="metadata">
+          <div v-else-if="resource.type === 'generated_video' && (generatedVideoPoster || generatedVideoUrl)" class="artifact-surface generated-video-surface">
+            <img v-if="isCoverPreview || !generatedVideoUrl" :src="generatedVideoPoster" :alt="`${resource.title}封面`" />
+            <video v-else :src="generatedVideoUrl" :poster="generatedVideoPoster" controls preload="none">
               当前浏览器无法播放该视频。
             </video>
+          </div>
+
+          <div v-else-if="resource.type === 'quiz' && quizQuestions.length" class="artifact-surface quiz-surface">
+            <article v-for="(question, index) in quizQuestions" :key="question.id || index" class="quiz-question">
+              <header>
+                <span>{{ String(index + 1).padStart(2, '0') }}</span>
+                <em v-if="question.type">{{ question.type }}</em>
+              </header>
+              <h2>{{ question.stem }}</h2>
+              <ol v-if="question.options.length" class="quiz-options">
+                <li v-for="option in question.options" :key="option">{{ option }}</li>
+              </ol>
+              <dl v-if="question.answer || question.analysis" class="quiz-solution">
+                <div v-if="question.answer"><dt>答案</dt><dd>{{ question.answer }}</dd></div>
+                <div v-if="question.analysis"><dt>解析</dt><dd>{{ question.analysis }}</dd></div>
+              </dl>
+            </article>
           </div>
 
           <div v-else class="artifact-surface markdown-content" v-html="renderedContent"></div>
@@ -224,6 +254,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleAlert,
+  CirclePlay,
   FileQuestion,
   Info,
   Library,
@@ -242,6 +273,7 @@ import {
   resourceContentText,
   resourceKnowledgeSources,
   resourceQuality,
+  resourceQuizQuestions,
   resourceTypeName,
   taskIdFromResourceId,
 } from '../utils/personalizedResourceHistory.js'
@@ -250,8 +282,10 @@ import { dispatchXiaoZhiWorkflowProgress } from '../utils/xiaozhiWorkflowProgres
 
 const route = useRoute()
 const router = useRouter()
+const isCoverPreview = computed(() => route.query.resourcePreview === 'cover')
 const currentSlide = ref(0)
 const currentVideoIndex = ref(0)
+const playingVideoIndex = ref(-1)
 const evaluationSaving = ref(false)
 const evaluationError = ref('')
 const feedbackOutcome = ref('completed')
@@ -272,7 +306,7 @@ const resource = ref({ id: '', title: '', description: '', type: '', content: ''
 const ratingLabels = ['完全不会', '初步了解', '基本掌握', '熟练掌握', '融会贯通']
 const feedbackCacheKey = computed(() => `resource-detail:${String(resource.value.id || '').trim()}`)
 const contentText = computed(() => resourceContentText(resource.value))
-const hasRenderableContent = computed(() => Boolean(contentText.value.trim()) || Boolean(generatedVideoUrl.value))
+const hasRenderableContent = computed(() => Boolean(contentText.value.trim()) || Boolean(generatedVideoUrl.value) || Boolean(generatedVideoPoster.value) || quizQuestions.value.length > 0)
 const renderedContent = computed(() => renderSafeMarkdown(contentText.value))
 const mermaidSource = computed(() => resource.value.type === 'mindmap' ? mermaidMindmapSource(contentText.value) : '')
 const isHtmlPpt = computed(() => resource.value.type === 'ppt' && /^\s*</.test(contentText.value))
@@ -352,6 +386,7 @@ const videoList = computed(() => {
   }).filter(item => item.embedUrl)
 })
 const currentVideo = computed(() => videoList.value[currentVideoIndex.value] || null)
+const quizQuestions = computed(() => resourceQuizQuestions(resource.value))
 const generatedVideoContent = computed(() => objectValue(resource.value.content))
 const generatedVideoUrl = computed(() => safeResourceHref(generatedVideoContent.value.videoUrl || metadata.value.videoUrl || ''))
 const generatedVideoPoster = computed(() => safeResourceHref(generatedVideoContent.value.posterUrl || metadata.value.posterUrl || ''))
@@ -373,6 +408,11 @@ function safeVideoUrl(value) {
   } catch {
     return ''
   }
+}
+
+function selectVideo(index) {
+  currentVideoIndex.value = index
+  playingVideoIndex.value = -1
 }
 
 function loadLegacyResource(requestedId) {
@@ -585,6 +625,7 @@ watch(() => route.query.id, loadResource)
 watch(contentText, () => {
   currentSlide.value = 0
   currentVideoIndex.value = 0
+  playingVideoIndex.value = -1
   renderMindmap()
 })
 onMounted(loadResource)
@@ -596,6 +637,39 @@ onMounted(loadResource)
   padding: 30px clamp(18px, 4vw, 56px) 64px;
   background: #f7f9f8;
   color: #1d2825;
+}
+
+.resource-detail-page.cover-preview-mode {
+  min-height: 100vh;
+  padding: 0;
+  overflow: hidden;
+  background: #f5f7f6;
+}
+
+.cover-preview-mode .detail-header,
+.cover-preview-mode .legacy-notice,
+.cover-preview-mode .feedback-panel,
+.cover-preview-mode .evidence-column {
+  display: none;
+}
+
+.cover-preview-mode .detail-layout {
+  display: block;
+  max-width: none;
+  margin: 0;
+}
+
+.cover-preview-mode .artifact-column {
+  display: block;
+}
+
+.cover-preview-mode .artifact-surface,
+.cover-preview-mode .content-empty,
+.cover-preview-mode .state-panel {
+  min-height: 100vh;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
 }
 
 .detail-header {
@@ -665,6 +739,10 @@ button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 3px sol
 .video-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; }
 .video-frame-wrap { overflow: hidden; aspect-ratio: 16 / 9; border-radius: 6px; background: #0d1211; }
 .video-frame { width: 100%; height: 100%; border: 0; }
+.video-poster-button { position: relative; width: 100%; height: 100%; display: grid; place-items: center; padding: 0; overflow: hidden; border: 0; background: #111816; color: #fff; cursor: pointer; }
+.video-poster-button > img { width: 100%; height: 100%; object-fit: cover; }
+.video-poster-button > i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; background: rgba(8, 16, 13, .28); font-size: 14px; font-style: normal; font-weight: 800; text-shadow: 0 1px 4px rgba(0, 0, 0, .5); }
+.video-poster-fallback { display: grid; place-items: center; gap: 8px; color: #bdc8c3; font-size: 12px; }
 .video-title { margin: 15px 0 4px; font-size: 18px; }
 .video-meta { margin: 0; color: #74807c; font-size: 13px; }
 .video-playlist { display: grid; align-content: start; gap: 4px; max-height: 520px; overflow-y: auto; }
@@ -675,7 +753,21 @@ button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 3px sol
 .playlist-item strong { line-height: 1.4; }
 .playlist-item small { margin-top: 4px; color: #78847f; }
 .video-notes { margin-top: 24px; padding-top: 22px; border-top: 1px solid #e4e9e7; }
-.generated-video-surface video { display: block; width: 100%; max-height: 72vh; background: #0f1513; }
+.generated-video-surface video,
+.generated-video-surface > img { display: block; width: 100%; max-height: 72vh; aspect-ratio: 16 / 9; object-fit: cover; background: #0f1513; }
+
+.quiz-surface { display: grid; gap: 16px; background: #f5f7f6; }
+.quiz-question { padding: 22px 24px; border: 1px solid #dde4e1; border-radius: 6px; background: #fff; }
+.quiz-question > header { display: flex; align-items: center; gap: 9px; }
+.quiz-question > header span { display: grid; width: 34px; height: 26px; place-items: center; background: #e7f1ec; color: #176f4b; font-size: 11px; font-weight: 800; }
+.quiz-question > header em { color: #75817d; font-size: 11px; font-style: normal; }
+.quiz-question h2 { margin: 14px 0 0; color: #26332f; font-size: 16px; line-height: 1.7; }
+.quiz-options { display: grid; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
+.quiz-options li { padding: 10px 12px; border: 1px solid #e2e7e5; background: #fafbfa; color: #43524d; font-size: 13px; line-height: 1.55; }
+.quiz-solution { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid #e3e8e6; }
+.quiz-solution > div { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 10px; padding: 5px 0; }
+.quiz-solution dt { color: #176f4b; font-size: 12px; font-weight: 800; }
+.quiz-solution dd { margin: 0; color: #53615c; font-size: 13px; line-height: 1.65; }
 
 .markdown-content { color: #33423d; line-height: 1.75; overflow-wrap: anywhere; }
 .markdown-content :deep(h1) { margin: 0 0 24px; font-size: 28px; color: #1d2c27; }

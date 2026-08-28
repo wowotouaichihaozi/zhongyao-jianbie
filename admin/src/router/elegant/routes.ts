@@ -103,6 +103,15 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'digital-twin',
+    path: '/digital-twin',
+    component: 'layout.base$view.digital-twin',
+    meta: {
+      title: 'digital-twin',
+      i18nKey: 'route.digital-twin'
+    }
+  },
+  {
     name: 'function',
     path: '/function',
     component: 'layout.base',

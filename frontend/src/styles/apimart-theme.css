@@ -1113,3 +1113,12 @@ body,
   color: #d4dce8 !important;
   box-shadow: none !important;
 }
+
+/* Personalized resources owns its compact archive controls. */
+#app .resources-page .archive-toolbar .history-search input,
+#app .resources-page .archive-toolbar .type-filter select {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}

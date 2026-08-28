@@ -227,6 +227,7 @@ const local: App.I18n.Schema = {
     'iframe-page': '外链页面',
     home: '首页',
     dashboard: '数据大屏',
+    'digital-twin': '数字孪生',
     agents: '智能体监控',
     tasks: '资源任务记录',
     logs: '系统日志',

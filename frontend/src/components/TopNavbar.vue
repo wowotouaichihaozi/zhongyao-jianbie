@@ -56,7 +56,6 @@ import {
   FlaskConical,
   LogOut,
   Network,
-  Orbit,
   Route as RouteIcon,
   ScanSearch,
   Share2,
@@ -80,7 +79,6 @@ const navItems = [
   { to: '/herb-recognition', label: '药材识别', mobileLabel: '识别', icon: ScanSearch, active: () => route.path.startsWith('/herb-recognition') },
   { to: '/knowledge-network', label: '知识网络', mobileLabel: '知识', icon: Share2, active: () => route.path.startsWith('/knowledge-network') },
   { to: '/life-tree', label: '生命树', mobileLabel: '生命树', icon: TreePine, active: () => route.path.startsWith('/life-tree') },
-  { to: '/agent-digital-twin', label: '数字孪生', mobileLabel: '孪生', icon: Orbit, active: () => route.path.startsWith('/agent-digital-twin') },
   { to: '/effect-assessment', label: '效果评估', mobileLabel: '评估', icon: Gauge, active: () => route.path.startsWith('/effect-assessment') },
   { to: '/digital-human-interview', label: '学习访谈', mobileLabel: '访谈', icon: ChartNoAxesCombined, active: () => route.path.startsWith('/digital-human-interview') },
 ]

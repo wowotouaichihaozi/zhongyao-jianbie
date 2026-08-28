@@ -231,6 +231,7 @@ const local: App.I18n.Schema = {
     'iframe-page': 'Iframe',
     home: 'Home',
     dashboard: 'Data Screen',
+    'digital-twin': 'Digital Twin',
     agents: 'Agent Monitor',
     tasks: 'Resource Tasks',
     logs: 'System Logs',

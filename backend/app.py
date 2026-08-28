@@ -35,9 +35,9 @@ except ImportError:  # pragma: no cover - package import fallback
     from .system_monitor import SystemMonitor
 
 try:
-    from video_generation import execute_generated_video_task, media_file
+    from video_generation import execute_generated_video_task, generate_generated_video_cover, media_file
 except ImportError:  # pragma: no cover - package import fallback
-    from .video_generation import execute_generated_video_task, media_file
+    from .video_generation import execute_generated_video_task, generate_generated_video_cover, media_file
 
 try:
     from herb_recognition import HerbRecognitionError, recognize_herb_image, recognize_herb_image_with_deepseek
@@ -9312,6 +9312,64 @@ def xiaozhi_update_task(task_id: str, **fields) -> None:
         conn.execute(f"UPDATE xiaozhi_tasks SET {', '.join(updates)} WHERE task_id = ?", values)
 
 
+def xiaozhi_generate_generated_video_cover(
+    task_id: str,
+    user_id: int,
+    topic: str,
+    params: dict | None = None,
+) -> None:
+    """Generate a poster while leaving the full video task in its waiting state."""
+    cover_result: dict = {}
+    cover_error = ""
+    try:
+        cover_result = generate_generated_video_cover(
+            str(task_id),
+            int(user_id),
+            str(topic),
+            params if isinstance(params, dict) else {},
+        )
+    except Exception as exc:
+        cover_error = str(exc) or "AI 视频封面生成失败"
+
+    with auth_db() as conn:
+        row = conn.execute(
+            "SELECT status, result_json FROM xiaozhi_tasks WHERE user_id = ? AND task_id = ? LIMIT 1",
+            (int(user_id), str(task_id)),
+        ).fetchone()
+        if not row or str(row["status"] or "") not in {"waiting", "waiting_for_user"}:
+            return
+        current = json_loads_safe(row["result_json"], {})
+        if not isinstance(current, dict):
+            current = {}
+        selected = current.get("selectedResource") if isinstance(current.get("selectedResource"), dict) else {}
+        content = selected.get("content") if isinstance(selected.get("content"), dict) else {}
+        metadata = selected.get("metadata") if isinstance(selected.get("metadata"), dict) else {}
+        if cover_error:
+            current.update({"coverStatus": "failed", "coverError": cover_error})
+            metadata.update({"coverStatus": "failed"})
+        else:
+            poster_url = str(cover_result.get("posterUrl") or "")
+            current.update({"coverStatus": "complete", "coverError": ""})
+            content.update({"posterUrl": poster_url})
+            metadata.update({"coverStatus": "complete", "posterUrl": poster_url})
+        if selected:
+            selected.update({"content": content, "metadata": metadata})
+            current["selectedResource"] = selected
+        conn.execute(
+            """
+            UPDATE xiaozhi_tasks
+            SET result_json = ?, updated_at = ?
+            WHERE user_id = ? AND task_id = ? AND status IN ('waiting', 'waiting_for_user')
+            """,
+            (
+                json.dumps(current, ensure_ascii=False),
+                now_iso(),
+                int(user_id),
+                str(task_id),
+            ),
+        )
+
+
 def xiaozhi_create_resource_agent_task(
     user_id: int,
     task_type: str,
@@ -9367,6 +9425,33 @@ def xiaozhi_create_resource_agent_task(
         "params": params,
         "progress": 0,
     }
+    if normalized_type == "generated_video":
+        poster_url = f"/api/personalized-resources/generated-videos/{task_id}/poster"
+        initial_result.update(
+            {
+                "message": "AI 视频首图正在生成；完整视频需在工作台手动确认后生成。",
+                "currentStage": "waiting_for_user",
+                "coverStatus": "queued",
+                "selectedResource": {
+                    "id": f"generated-video:{task_id}",
+                    "type": "generated_video",
+                    "title": task_topic,
+                    "description": "首图封面自动生成，完整视频仅在手动确认后开始生成。",
+                    "route": xiaozhi_route_with_task(route_to, task_id),
+                    "content": {
+                        "posterUrl": poster_url,
+                        "videoUrl": "",
+                    },
+                    "metadata": {
+                        "taskId": task_id,
+                        "generationState": "waiting_for_user",
+                        "coverStatus": "queued",
+                        "posterUrl": poster_url,
+                        "profileReportId": params.get("profileReportId") or 0,
+                    },
+                },
+            }
+        )
     if normalized_type == "ppt":
         try:
             page_count = max(1, min(20, int(params.get("pageCount") or params.get("pages") or params.get("page_count") or 6)))
@@ -9455,11 +9540,16 @@ def xiaozhi_create_resource_agent_task(
         else (PPT_RESOURCE_EXECUTOR if normalized_type == "ppt" else RESOURCE_AGENT_EXECUTOR)
     )
     if normalized_type == "generated_video":
-        initial_result["message"] = "AI 视频提示词已保存；打开工作台并确认参数后才会调用视频模型。"
-        initial_result["currentStage"] = "waiting_for_user"
         xiaozhi_update_task(task_id, status="waiting", result_json=initial_result)
         task["status"] = "waiting"
         task["result"] = initial_result
+        executor.submit(
+            xiaozhi_generate_generated_video_cover,
+            task_id,
+            int(user_id),
+            task_topic,
+            params,
+        )
         return task
     executor.submit(
         xiaozhi_run_resource_task,
