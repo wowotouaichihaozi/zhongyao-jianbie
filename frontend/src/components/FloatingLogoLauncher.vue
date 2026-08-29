@@ -1055,11 +1055,6 @@ function handleResize() {
   persistPosition()
 }
 
-function openStatusTab() {
-  activeTab.value = 'status'
-  loadStatus()
-}
-
 function handleWorkflowCardOpen(event) {
   const workflowId = String(event?.detail?.workflowId || event?.detail?.task?.taskId || '')
   if (!workflowId || workflowId === lastWorkflowCardId) return
@@ -2942,36 +2937,35 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 4;
   flex: 0 0 auto;
-  padding: 10px;
-  border: 1px solid #d9eee8;
-  border-radius: 18px;
-  background: #fff;
+  padding: 8px 0 0;
+  border: 0;
+  background: transparent;
 }
 
 .resource-command-strip {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 4px;
-  margin-bottom: 6px;
+  gap: 0;
+  margin-bottom: 0;
+  border: 0;
 }
 
 .resource-tool {
   width: 100%;
-  height: 28px;
+  height: 34px;
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid #e3ece8;
-  border-radius: 6px;
-  background: #f9fbfa;
-  color: #55706a;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #6d7d78;
   cursor: pointer;
 }
 
 .resource-tool:hover,
 .resource-tool:focus-visible {
-  border-color: #cce9df;
-  background: #edf9f4;
+  background: rgba(237, 249, 244, .8);
   color: #0e9f6e;
   outline: none;
 }
@@ -2999,19 +2993,28 @@ onBeforeUnmount(() => {
 
 .composer textarea {
   width: 100%;
-  min-height: 58px;
+  min-height: 52px;
   resize: none;
-  border: 0;
+  border: 1px solid #e1eae6;
+  border-radius: 12px;
+  padding: 9px 10px;
+  box-sizing: border-box;
   outline: 0;
   color: #213a39;
   font-size: 14px;
   line-height: 1.55;
 }
 
+.composer textarea:focus {
+  border-color: #b7d9ca;
+}
+
 .composer-actions {
   justify-content: space-between;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
+  border-top: 1px solid #eef3f0;
+  padding-top: 6px;
 }
 
 .composer-input-tools {
@@ -3026,7 +3029,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: 6px;
   background: transparent;
   color: #55706a;
