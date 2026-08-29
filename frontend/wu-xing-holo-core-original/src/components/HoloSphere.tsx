@@ -191,7 +191,7 @@ function FocusCamera({ selectedId, activeDomain, focusToken = 0 }: { selectedId:
     pendingFocus.current = true;
   }, [activeDomain, focusToken, selectedId]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const orbit = controls.current;
     if (!orbit) return;
 
@@ -217,7 +217,7 @@ function FocusCamera({ selectedId, activeDomain, focusToken = 0 }: { selectedId:
     }
 
     if (animating.current) {
-      progress.current = Math.min(1, progress.current + 0.08);
+      progress.current = Math.min(1, progress.current + delta / 0.7);
       const eased = progress.current * progress.current * (3 - 2 * progress.current);
       camera.position.lerpVectors(startCamera.current, destination.current, eased);
       orbit.target.lerpVectors(startTarget.current, target.current, eased);
