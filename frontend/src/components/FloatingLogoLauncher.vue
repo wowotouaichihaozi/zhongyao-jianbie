@@ -392,7 +392,7 @@
             <section class="harness-flow-section" aria-label="Agent Harness 智能体协作流程">
               <header>
                 <strong>真实协作流程</strong>
-                <span>点击节点查看运行详情</span>
+                <span>点击节点查看详情 · 含审核回退与学习反馈闭环</span>
               </header>
 
               <div class="harness-flow-canvas" role="list">
@@ -420,6 +420,17 @@
                     <i class="harness-node-light" aria-hidden="true"></i>
                   </button>
                 </template>
+              </div>
+
+              <div class="harness-loop-rail">
+                <button type="button" class="harness-loop-edge review" @click="openHarnessNodeDetail(harnessLoopEdges.reviewRevision.from)">
+                  <RotateCcw :size="13" />
+                  <span>未通过 · 携带问题回退生成</span>
+                </button>
+                <button type="button" class="harness-loop-edge assessment" @click="openHarnessNodeDetail(harnessLoopEdges.assessmentFeedback.from)">
+                  <RefreshCw :size="13" />
+                  <span>评估反馈 · 更新画像后重新调度</span>
+                </button>
               </div>
             </section>
 
@@ -505,6 +516,7 @@ import {
   Paperclip,
   Presentation,
   RefreshCw,
+  RotateCcw,
   Search,
   SendHorizontal,
   Settings,
@@ -800,6 +812,24 @@ const harnessFlowNodes = computed(() => {
   })
   return nodes
 })
+const harnessLoopEdges = computed(() => ({
+  reviewRevision: {
+    from: harnessFlowNodes.value.find(node => node.id === 'quality-review-agent') || null,
+    to: harnessFlowNodes.value.find(node => node.id === 'personalized-resource-workflow') || null,
+    label: '质量回退闭环',
+    detail: selectedRunHandoffs.value.some(handoff => handoff.artifactType === 'revision_request')
+      ? '本次已保存审核修订交接，未通过内容会携带问题回退资源生成。'
+      : '审核未通过时，质量审核智能体会携带问题回退资源生成智能体重新处理。',
+  },
+  assessmentFeedback: {
+    from: harnessFlowNodes.value.find(node => node.id === 'learning-effect-assessment-agent') || null,
+    to: harnessFlowNodes.value.find(node => node.id === 'xiaozhi-companion-agent') || null,
+    label: '学习反馈闭环',
+    detail: selectedRunHandoffs.value.some(handoff => ['feedback_summary', 'learner_context'].includes(handoff.artifactType))
+      ? '本次已保存学习反馈/上下文交接，评估结论会更新画像并进入下一轮调度。'
+      : '学习完成后，效果评估智能体会把成绩、行为与薄弱点写回画像，再由总控智能体调整后续任务。',
+  },
+}))
 const latestHarnessArtifact = computed(() => {
   for (const handoff of [...selectedRunHandoffs.value].reverse()) {
     if (handoff.artifactType) return handoffArtifactLabel(handoff.artifactType)
@@ -4012,6 +4042,47 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.harness-loop-rail {
+  display: flex;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed #d7e5de;
+}
+
+.harness-loop-edge {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 27px;
+  padding: 4px 7px;
+  border: 1px solid #d9c48f;
+  border-radius: 999px;
+  background: #fffaf0;
+  color: #7a5d22;
+  cursor: pointer;
+}
+
+.harness-loop-edge.assessment {
+  border-color: #9ec5dd;
+  background: #f5fbff;
+  color: #38607a;
+}
+
+.harness-loop-edge span {
+  overflow: hidden;
+  font-size: 8px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.harness-loop-edge:hover {
+  filter: brightness(.985);
+}
+
 .harness-runtime-brief {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4296,6 +4367,10 @@ onBeforeUnmount(() => {
 
   .harness-flow-link span {
     display: none;
+  }
+
+  .harness-loop-rail {
+    flex-direction: column;
   }
 
   .harness-runtime-brief {
