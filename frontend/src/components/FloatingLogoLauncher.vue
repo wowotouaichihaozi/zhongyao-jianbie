@@ -23,9 +23,7 @@
     <section v-if="isOpen" class="xiaozhi-window" :class="[windowPlacement, { wide: activeTab === 'status' }]" :style="windowStyle" @pointerdown.stop>
       <header class="window-head">
         <div class="title-block">
-          <span class="eyebrow">Learning Companion</span>
           <strong>岐小智</strong>
-          <p>陪你研读经典、辨析方药的中医学习伙伴</p>
         </div>
         <div class="window-head-actions">
           <button type="button" class="icon-btn" aria-label="智能体运行设置" title="智能体运行设置" @click.stop="openRuntimeSettings">
@@ -110,23 +108,12 @@
           <div v-if="messages.length === 0 && agentConversationGroups.length === 0 && !agentConversation?.summary" class="empty-chat">
             <Sparkles :size="22" />
             <strong>你好，我是岐小智</strong>
-            <p>我会记录你的学习画像、答题和研读状态。你也可以直接让我生成 PPT、思维导图、视频或题库。</p>
           </div>
 
           <section
             class="agent-group-chat"
             aria-label="当前学习画像的多智能体群聊"
           >
-            <header class="agent-group-chat-head">
-              <span><Network :size="15" />画像协同群聊</span>
-              <small>{{ agentConversation?.messageCount || 0 }} 条记录</small>
-            </header>
-
-            <article v-if="!agentConversationGroups.length && !agentConversation?.summary" class="agent-conversation-empty">
-              <strong>暂无协同记录</strong>
-              <span>发送消息、生成学习路径或创建资源后，岐小智和各专家智能体的动作会写入这里。</span>
-            </article>
-
             <article v-if="agentConversation?.summary" class="agent-conversation-card compacted-history">
               <button type="button" class="agent-conversation-main" @click="toggleConversationGroup('compacted-summary')">
                 <span class="agent-conversation-icon"><Archive :size="15" /></span>
@@ -1977,8 +1964,8 @@ onBeforeUnmount(() => {
 
 .window-head {
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .window-head-actions {
@@ -1987,27 +1974,11 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 
-.title-block .eyebrow {
-  display: block;
-  margin-bottom: 2px;
-  color: #10b981;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .title-block strong {
   display: block;
   color: #172033;
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1.1;
-}
-
-.title-block p {
-  margin: 5px 0 0;
-  color: #667a77;
-  font-size: 13px;
 }
 
 .runtime-settings-panel {
@@ -2265,10 +2236,7 @@ onBeforeUnmount(() => {
 }
 
 .empty-chat {
-  padding: 22px;
-  border: 1px solid #e3f2ee;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #f5fffb, #ffffff);
+  padding: 16px;
   text-align: center;
 }
 
@@ -2278,15 +2246,8 @@ onBeforeUnmount(() => {
 
 .empty-chat strong {
   display: block;
-  margin-top: 8px;
+  margin-top: 6px;
   color: #172033;
-}
-
-.empty-chat p {
-  margin: 8px 0 0;
-  color: #667a77;
-  font-size: 13px;
-  line-height: 1.6;
 }
 
 .agent-group-chat {
