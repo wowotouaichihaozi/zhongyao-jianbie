@@ -16,7 +16,7 @@
         <img class="xiaozhi-orb-logo" src="/qihuang-zhijing-mark-512.png" alt="岐小智" draggable="false" decoding="async" />
       </picture>
       <span class="orb-pulse" aria-hidden="true"></span>
-      <span v-if="runningTaskCount" class="task-dot">{{ runningTaskCount }}</span>
+      <span v-if="unreadCount" class="task-dot" :aria-label="`${unreadCount} 条未读动态`">{{ unreadBadgeText }}</span>
     </button>
 
     <Transition name="motion-pop">
@@ -66,10 +66,8 @@
               :class="['agent-conversation-card', group.status]"
             >
               <button type="button" class="agent-conversation-main" @click="toggleConversationGroup(group.key)">
-                <span class="agent-conversation-icon">
-                  <LoaderCircle v-if="group.status === 'running'" class="spin" :size="15" />
-                  <CircleAlert v-else-if="group.status === 'failed'" :size="15" />
-                  <Network v-else :size="15" />
+                <span class="agent-conversation-icon" :style="agentAvatarStyle(group.primaryAgentId)">
+                  <component :is="agentVisual(group.primaryAgentId).icon" :size="15" />
                 </span>
                 <span class="agent-conversation-copy">
                   <small>{{ group.flowLabel }}</small>
@@ -102,7 +100,13 @@
               <div v-if="isConversationGroupExpanded(group.key)" class="agent-conversation-details">
                 <ol>
                   <li v-for="entry in group.messages" :key="entry.id || `${group.key}-${entry.sequence}`">
-                    <span class="conversation-entry-marker"></span>
+                    <span
+                      class="conversation-entry-avatar"
+                      :style="agentAvatarStyle(entry.agentId)"
+                      :title="compactAgentName(entry.agentName, entry.agentId)"
+                    >
+                      <component :is="agentVisual(entry.agentId).icon" :size="13" />
+                    </span>
                     <div>
                       <header>
                         <strong>{{ entry.agentName || entry.agentId }}</strong>
@@ -139,8 +143,25 @@
 
           <template v-for="(message, index) in messages" :key="`${message.createdAt || index}-${index}`">
             <article class="message" :class="message.role">
+              <span
+                class="message-avatar"
+                :class="{ learner: message.role === 'user' }"
+                :style="messageAvatarStyle(message)"
+                :title="messageAgentVisual(message).name"
+              >
+                <img
+                  v-if="message.role === 'user'"
+                  :src="learnerAvatar"
+                  alt="我的头像"
+                  @error="resetLearnerAvatar"
+                />
+                <component v-else :is="messageAgentVisual(message).icon" :size="16" />
+              </span>
               <div class="bubble">
-                <p>{{ message.content }}</p>
+                <p v-if="message.content">{{ message.content }}</p>
+                <p v-else-if="message.streaming" class="typing-ellipsis" aria-label="正在回复">
+                  <span></span><span></span><span></span>
+                </p>
                 <div v-if="message.attachments?.length" class="message-attachments">
                   <a
                     v-for="attachment in message.attachments"
@@ -199,12 +220,6 @@
 
           <ResourceTaskStatusBanner embedded />
 
-          <article v-if="isSending" class="message assistant pending">
-            <div class="bubble">
-              <LoaderCircle :size="16" class="spin" />
-              <p>岐小智正在分析你的学习上下文...</p>
-            </div>
-          </article>
           </div>
         </div>
 
@@ -219,26 +234,35 @@
           <input ref="assistantImageInputRef" type="file" accept="image/*" multiple hidden @change="queueAssistantAttachments" />
           <input ref="assistantVideoInputRef" type="file" accept="video/*" multiple hidden @change="queueAssistantAttachments" />
           <input ref="assistantFileInputRef" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md" multiple hidden @change="queueAssistantAttachments" />
-          <div class="resource-command-strip" aria-label="资源生成命令">
-            <button
-              v-for="command in resourceCommands"
-              :key="command.type"
-              type="button"
-              class="resource-tool"
-              :title="`调用岐小智生成${command.label}`"
-              :aria-label="`调用岐小智生成${command.label}`"
-              @click="sendResourceCommand(command)"
-            >
-              <component :is="resourceIcon(command.type)" :size="17" />
-            </button>
-          </div>
           <textarea
             ref="composerInputRef"
             v-model="draft"
             rows="2"
-            placeholder="告诉岐小智你的学习情况，或说：生成八纲辨证课程的 PPT..."
+            placeholder="输入 @ 选择智能体；不点名时由岐小智回复"
+            @input="updateMentionContext"
+            @click="updateMentionContext"
+            @select="updateMentionContext"
+            @blur="closeMentionMenu"
             @keydown="handleComposerKeydown"
           ></textarea>
+          <div v-if="mentionMenuOpen" class="agent-mention-menu" role="listbox" aria-label="选择智能体">
+            <button
+              v-for="(agent, index) in filteredMentionAgents"
+              :key="agent.id"
+              type="button"
+              class="agent-mention-option"
+              role="option"
+              :aria-selected="index === mentionSelectionIndex"
+              :class="{ active: index === mentionSelectionIndex }"
+              @mouseenter="mentionSelectionIndex = index"
+              @mousedown.prevent="completeAgentMention(agent)"
+            >
+              <span class="mention-agent-avatar" :style="agentAvatarStyle(agent.id)">
+                <component :is="agent.icon" :size="15" />
+              </span>
+              <strong>{{ agent.name }}</strong>
+            </button>
+          </div>
           <p v-if="sendError" class="composer-error" role="alert">
             <CircleAlert :size="15" />
             <span>{{ sendError }}</span>
@@ -439,6 +463,7 @@ import {
   ShieldCheck,
   Sparkles,
   Video,
+  UserRound,
   X,
 } from 'lucide-vue-next'
 import ResourceTaskStatusBanner from './ResourceTaskStatusBanner.vue'
@@ -450,7 +475,9 @@ import {
   uploadMultimodalInputs,
 } from '../services/api.js'
 import { useGlobalDebug } from '../stores/globalDebug.js'
+import { readCurrentUser } from '../stores/auth.js'
 import { XIAOZHI_WORKFLOW_EVENT } from '../utils/xiaozhiWorkflowProgress.js'
+import { XIAOZHI_PROFILE_CONTEXT_EVENT } from '../utils/profileContextEvents.js'
 
 const STORAGE_KEY = 'qianxiaozhiFloatingPosition:v2'
 const DESKTOP_ORB_SIZE = 66
@@ -473,6 +500,9 @@ const assistantImageInputRef = ref(null)
 const assistantVideoInputRef = ref(null)
 const assistantFileInputRef = ref(null)
 const composerInputRef = ref(null)
+const mentionCaretPosition = ref(0)
+const mentionSelectionIndex = ref(0)
+const activeMention = ref(null)
 const messages = ref([])
 const agentConversation = ref(null)
 const expandedConversationGroups = ref(new Set())
@@ -489,6 +519,13 @@ let statusTimer = null
 let recognition = null
 let lastWorkflowCardId = ''
 let suppressOrbClickUntil = 0
+let profileRequestEpoch = 0
+let activeChatController = null
+const activeProfileReportId = ref(0)
+const unreadCount = ref(0)
+const pendingTargetAgentId = ref('xiaozhi-companion-agent')
+const DEFAULT_USER_AVATAR = '/userlogo.png'
+const learnerAvatar = ref(DEFAULT_USER_AVATAR)
 
 const iconMap = {
   learning_background: markRaw(MessageCircle),
@@ -544,15 +581,6 @@ const handoffArtifactLabels = {
   feedback_summary: '反馈摘要',
 }
 
-const resourceCommands = [
-  { type: 'ppt', label: 'PPT', prompt: '请根据当前学习画像，生成一份关于当前学习重点的 PPT 课件。' },
-  { type: 'mindmap', label: '思维导图', prompt: '请根据当前学习画像，生成一份当前学习重点的思维导图。' },
-  { type: 'question_bank', label: '题库', prompt: '请根据当前学习画像，生成一套当前学习重点的练习题。' },
-  { type: 'document', label: '讲义', prompt: '请根据当前学习画像，生成一份当前学习重点的课程讲义。' },
-  { type: 'generated_video', label: 'AI 视频', prompt: '请根据当前学习画像，创建当前学习重点的 AI 视频任务并先生成封面。' },
-  { type: 'herb_model', label: '药材模型', prompt: '请根据当前学习画像，创建一项药材模型辨识任务。' },
-]
-
 const companionTaskTypes = new Set(
   Object.keys(resourceLabels).filter(type => !['profile_management', 'learning_feedback', 'mcu'].includes(type)),
 )
@@ -584,6 +612,71 @@ const agentNameAliases = {
   'qwen-multimodal-evidence-agent': '多模态证据智能体',
   'document-text-extraction-agent': '文档解析智能体',
   'spark-text-reasoning-agent': '文本推理智能体',
+}
+
+const mentionableAgents = [
+  { id: 'xiaozhi-companion-agent', name: '岐小智', taskType: '', icon: markRaw(Sparkles), color: '#17684f', background: '#dcece5' },
+  { id: 'learning-background-dialogue-agent', name: '学习背景智能体', taskType: 'learning_background', icon: markRaw(MessageCircle), color: '#3b6f9b', background: '#dce8f0' },
+  { id: 'learning-profile-agent', name: '学习画像智能体', taskType: 'profile_update', icon: markRaw(BrainCircuit), color: '#7a5c9e', background: '#e8e1ef' },
+  { id: 'learning-route-agent', name: '学习路径智能体', taskType: 'learning_path', icon: markRaw(MapIcon), color: '#9a672f', background: '#eee4d5' },
+  { id: 'learning-path-stage-agent', name: '周任务规划智能体', taskType: 'learning_path_stage', icon: markRaw(MoveRight), color: '#397965', background: '#dcece6' },
+  { id: 'personalized-resource-workflow', name: '个性化资源智能体', taskType: 'personalized_resources', icon: markRaw(Network), color: '#386d87', background: '#dce9ee' },
+  { id: 'question-generator-workflow', name: '题库生成智能体', taskType: 'question_bank', icon: markRaw(BookOpenCheck), color: '#946338', background: '#efe3d8' },
+  { id: 'ppt-agent', name: 'PPT生成智能体', taskType: 'ppt', icon: markRaw(Presentation), color: '#a14f52', background: '#f0dddd' },
+  { id: 'learning-document-agent', name: '课程讲义智能体', taskType: 'document', icon: markRaw(FileText), color: '#586f43', background: '#e4eadc' },
+  { id: 'mindmap-agent', name: '思维导图智能体', taskType: 'mindmap', icon: markRaw(Network), color: '#75649a', background: '#e6e1ef' },
+  { id: 'video-search-agent', name: '视频检索智能体', taskType: 'video', icon: markRaw(Search), color: '#3e7194', background: '#dce8ef' },
+  { id: 'generated-video-agent', name: 'AI视频生成智能体', taskType: 'generated_video', icon: markRaw(Film), color: '#9b5d73', background: '#eedde3' },
+  { id: 'interview-agent', name: '学习访谈智能体', taskType: 'interview', icon: markRaw(Mic), color: '#47796f', background: '#dceae6' },
+  { id: 'smart-tutor-agent', name: '智能辅导智能体', taskType: 'smart_tutor', icon: markRaw(BrainCircuit), color: '#6b659d', background: '#e4e2ef' },
+  { id: 'learning-effect-assessment-agent', name: '效果评估智能体', taskType: 'effect_assessment', icon: markRaw(Activity), color: '#9a6a35', background: '#eee4d6' },
+  { id: 'learning-feedback-agent', name: '学习反馈智能体', taskType: 'learning_feedback', icon: markRaw(RefreshCw), color: '#447b58', background: '#dce9df' },
+  { id: 'private-knowledge-agent', name: '私有知识库智能体', taskType: 'knowledge_base', icon: markRaw(Archive), color: '#4e6b85', background: '#dfe6ec' },
+]
+
+const agentVisualsById = new Map(mentionableAgents.map(agent => [agent.id, agent]))
+const learnerVisual = {
+  id: 'learner',
+  name: '我',
+  icon: markRaw(UserRound),
+  color: '#ffffff',
+  background: '#17684f',
+}
+
+function normalizeLearnerAvatar(value) {
+  const avatar = String(value || '').trim()
+  if (!avatar || avatar.startsWith('data:image/svg+xml')) return DEFAULT_USER_AVATAR
+  return avatar
+}
+
+function syncLearnerAvatar() {
+  const user = readCurrentUser()
+  learnerAvatar.value = normalizeLearnerAvatar(user.avatar || user.avatarUrl)
+}
+
+function resetLearnerAvatar() {
+  learnerAvatar.value = DEFAULT_USER_AVATAR
+}
+
+function agentVisual(agentId) {
+  return agentVisualsById.get(String(agentId || '')) || mentionableAgents[0]
+}
+
+function agentAvatarStyle(agentId) {
+  const visual = agentVisual(agentId)
+  return { color: visual.color, background: visual.background }
+}
+
+function messageAgentVisual(message) {
+  if (message?.role === 'user') return learnerVisual
+  const target = message?.targetAgent || message?.intent?.targetAgent || {}
+  return agentVisual(target.id)
+}
+
+function messageAvatarStyle(message) {
+  if (message?.role === 'user') return {}
+  const visual = messageAgentVisual(message)
+  return { color: visual.color, background: visual.background }
 }
 
 const floatStyle = computed(() => ({
@@ -636,7 +729,19 @@ const windowStyle = computed(() => {
 })
 
 const runningTaskCount = computed(() => tasks.value.filter(task => ['queued', 'running'].includes(task.status)).length)
+const unreadBadgeText = computed(() => unreadCount.value > 99 ? '99+' : String(unreadCount.value))
 const canSendMessage = computed(() => !isSending.value && Boolean(draft.value.trim() || pendingAttachments.value.length))
+const filteredMentionAgents = computed(() => {
+  if (!activeMention.value) return []
+  const query = activeMention.value.query
+  return mentionableAgents
+    .filter(agent => !query || `${agent.name} ${agent.taskType}`.toLowerCase().includes(query))
+})
+const mentionMenuOpen = computed(() => {
+  if (!activeMention.value || !filteredMentionAgents.value.length) return false
+  const caret = Math.max(0, Math.min(Number(mentionCaretPosition.value || 0), draft.value.length))
+  return /(^|\s)@([^\s@]*)$/.test(draft.value.slice(0, caret))
+})
 const hiddenAgentIds = computed(() => new Set(
   agents.value.filter(agent => agent.hidden).map(agent => String(agent.id || '')),
 ))
@@ -822,6 +927,7 @@ const agentConversationGroups = computed(() => {
       || '智能体协同任务'
     return {
       ...group,
+      primaryAgentId: String(lastMessage.agentId || 'xiaozhi-companion-agent'),
       status,
       progress,
       agentNames: names.slice(0, 2).join('、') + (names.length > 2 ? ` 等 ${names.length} 个智能体` : ''),
@@ -957,7 +1063,9 @@ function removePointerListeners() {
 function handleOrbClick() {
   if (Date.now() < suppressOrbClickUntil) return
   activeTab.value = 'chat'
-  isOpen.value = !isOpen.value
+  const opening = !isOpen.value
+  isOpen.value = opening
+  if (opening) unreadCount.value = 0
 }
 
 function handleResize() {
@@ -973,14 +1081,49 @@ function handleWorkflowCardOpen(event) {
   const workflowId = String(event?.detail?.workflowId || event?.detail?.task?.taskId || '')
   if (!workflowId || workflowId === lastWorkflowCardId) return
   lastWorkflowCardId = workflowId
-  activeTab.value = 'chat'
-  isOpen.value = true
-  nextTick(scrollToBottom)
+  if (!isOpen.value) unreadCount.value += 1
+}
+
+function acceptsProfileResponse(response, requestEpoch) {
+  if (requestEpoch !== profileRequestEpoch) return false
+  const responseProfileId = Number(response?.data?.profileReportId || 0)
+  if (!activeProfileReportId.value && responseProfileId) {
+    activeProfileReportId.value = responseProfileId
+  }
+  return responseProfileId === Number(activeProfileReportId.value || 0)
+}
+
+function clearProfileAssistantState() {
+  messages.value = []
+  tasks.value = []
+  agents.value = []
+  agentConversation.value = null
+  orchestrationRuns.value = []
+  selectedRunId.value = ''
+  selectedHarnessNodeId.value = ''
+  expandedConversationGroups.value = new Set()
+  harnessStatus.value = null
+  sendError.value = ''
+  unreadCount.value = 0
+}
+
+async function handleProfileContextChanged(event) {
+  activeChatController?.abort()
+  activeChatController = null
+  profileRequestEpoch += 1
+  activeProfileReportId.value = Number(event?.detail?.profileReportId || 0)
+  isSending.value = false
+  pendingTargetAgentId.value = 'xiaozhi-companion-agent'
+  clearProfileAssistantState()
+  await Promise.all([loadHistory(), loadStatus()])
+  if (isOpen.value) await scrollToBottom()
 }
 
 async function loadHistory() {
+  const requestEpoch = profileRequestEpoch
   try {
     const response = await getXiaoZhiHistory()
+    if (!acceptsProfileResponse(response, requestEpoch)) return
     messages.value = response?.data?.messages || []
     tasks.value = response?.data?.tasks || []
     agentConversation.value = response?.data?.agentConversation || agentConversation.value
@@ -991,8 +1134,10 @@ async function loadHistory() {
 }
 
 async function loadStatus() {
+  const requestEpoch = profileRequestEpoch
   try {
     const response = await getXiaoZhiStatus()
+    if (!acceptsProfileResponse(response, requestEpoch)) return
     agents.value = response?.data?.agents || []
     tasks.value = response?.data?.tasks || tasks.value
     harnessStatus.value = response?.data?.architecture || null
@@ -1178,16 +1323,6 @@ async function openConversationRoute(group) {
   isOpen.value = false
 }
 
-async function sendResourceCommand(command) {
-  if (isSending.value) return
-  const topic = draft.value.trim()
-  draft.value = topic
-    ? `请根据当前学习画像，生成一份关于“${topic}”的${command.label}资源。`
-    : command.prompt
-  await nextTick()
-  await sendMessage()
-}
-
 function startStatusPolling() {
   stopStatusPolling()
   statusTimer = window.setInterval(loadStatus, runningTaskCount.value ? 2000 : 5000)
@@ -1328,10 +1463,70 @@ function fallbackTaskRoute(task) {
 }
 
 function handleComposerKeydown(event) {
+  if (mentionMenuOpen.value) {
+    if (event.key === 'Tab' || event.key === 'Enter') {
+      event.preventDefault()
+      completeAgentMention(filteredMentionAgents.value[mentionSelectionIndex.value] || filteredMentionAgents.value[0])
+      return
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      const direction = event.key === 'ArrowDown' ? 1 : -1
+      const total = filteredMentionAgents.value.length
+      mentionSelectionIndex.value = (mentionSelectionIndex.value + direction + total) % total
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      activeMention.value = null
+      return
+    }
+  }
   if (event.key !== 'Enter' || event.shiftKey) return
   if (event.isComposing || event.keyCode === 229) return
   event.preventDefault()
   sendMessage()
+}
+
+function updateMentionContext(event) {
+  const inputValue = String(event?.target?.value ?? draft.value)
+  const caret = Math.max(0, Math.min(Number(event?.target?.selectionStart ?? inputValue.length), inputValue.length))
+  mentionCaretPosition.value = caret
+  mentionSelectionIndex.value = 0
+  const match = inputValue.slice(0, caret).match(/(^|\s)@([^\s@]*)$/)
+  activeMention.value = match
+    ? {
+        query: String(match[2] || '').toLowerCase(),
+        start: match.index + String(match[1] || '').length,
+        end: caret,
+      }
+    : null
+}
+
+function closeMentionMenu() {
+  activeMention.value = null
+  mentionSelectionIndex.value = 0
+}
+
+function completeAgentMention(agent) {
+  if (!agent || !activeMention.value) return
+  const mention = activeMention.value
+  const insertion = `@${agent.name} `
+  draft.value = `${draft.value.slice(0, mention.start)}${insertion}${draft.value.slice(mention.end)}`
+  const nextCaret = mention.start + insertion.length
+  mentionCaretPosition.value = nextCaret
+  mentionSelectionIndex.value = 0
+  activeMention.value = null
+  nextTick(() => {
+    composerInputRef.value?.focus()
+    composerInputRef.value?.setSelectionRange?.(nextCaret, nextCaret)
+  })
+}
+
+function mentionedAgent(content) {
+  const match = String(content || '').match(/(^|\s)@([^\s，,：:]+)/)
+  const name = String(match?.[2] || '').toLowerCase()
+  return mentionableAgents.find(agent => agent.name.toLowerCase() === name) || mentionableAgents[0]
 }
 
 async function sendMessage() {
@@ -1339,6 +1534,13 @@ async function sendMessage() {
   const queuedFiles = pendingAttachments.value.slice()
   if ((!content && !queuedFiles.length) || isSending.value) return
   const displayContent = content || '请分析我上传的学习材料。'
+  const targetAgent = mentionedAgent(displayContent)
+  const sendEpoch = profileRequestEpoch
+  const sendProfileReportId = Number(activeProfileReportId.value || 0)
+  const chatController = new AbortController()
+  activeChatController?.abort()
+  activeChatController = chatController
+  pendingTargetAgentId.value = targetAgent.id
   sendError.value = ''
   const userMessage = {
     role: 'user',
@@ -1358,18 +1560,25 @@ async function sendMessage() {
       : []
     userMessage.attachments = attachments
 
-    const assistantMessage = {
+    const assistantMessage = reactive({
       role: 'assistant',
       content: '',
       cards: [],
       intent: {},
       createdAt: new Date().toISOString(),
       streaming: true,
-    }
+      targetAgent,
+    })
     messages.value.push(assistantMessage)
     await scrollToBottom()
 
-    await streamXiaoZhiChat({ message: displayContent, attachments, route: route.fullPath }, async ({ event, data }) => {
+    await streamXiaoZhiChat({
+      message: displayContent,
+      attachments,
+      route: route.fullPath,
+      profileReportId: sendProfileReportId,
+    }, async ({ event, data }) => {
+      if (sendEpoch !== profileRequestEpoch || chatController.signal.aborted) return
       if (event === 'delta') {
         assistantMessage.content += String(data?.text || '')
         await scrollToBottom()
@@ -1377,16 +1586,24 @@ async function sendMessage() {
       }
       if (event === 'result') {
         const result = data?.data || data || {}
+        if (Number(result.profileReportId || 0) !== Number(activeProfileReportId.value || 0)) return
         if (result.agentConversation) agentConversation.value = result.agentConversation
         assistantMessage.cards = result.cards || []
         assistantMessage.intent = result.intent || {}
+        assistantMessage.targetAgent = result.targetAgent || targetAgent
         if (!assistantMessage.content && result.reply) assistantMessage.content = result.reply
         return
       }
       if (event === 'error') {
+        const serverProfileId = data?.data?.profileReportId
+        if (serverProfileId !== undefined && Number(serverProfileId) !== Number(activeProfileReportId.value || 0)) {
+          await handleProfileContextChanged({ detail: { profileReportId: Number(serverProfileId || 0) } })
+          return
+        }
         throw new Error(data?.message || data?.error || '岐小智智能体调用失败')
       }
-    })
+    }, { signal: chatController.signal })
+    if (sendEpoch !== profileRequestEpoch || chatController.signal.aborted) return
     assistantMessage.streaming = false
     if (!assistantMessage.content.trim()) {
       throw new Error('岐小智智能体没有返回有效回复')
@@ -1395,6 +1612,7 @@ async function sendMessage() {
     if (runningTaskCount.value) startStatusPolling()
     await scrollToBottom()
   } catch (error) {
+    if (chatController.signal.aborted || sendEpoch !== profileRequestEpoch || error?.name === 'AbortError') return
     const errorMessage = error?.response?.data?.msg || error?.message || '岐小智暂时连接失败，请稍后再试。'
     sendError.value = errorMessage
     if (!draft.value.trim()) draft.value = content
@@ -1412,7 +1630,11 @@ async function sendMessage() {
     else messages.value.push(errorPayload)
     addLog(error?.message || '岐小智对话失败', 'error', '岐小智')
   } finally {
-    isSending.value = false
+    if (activeChatController === chatController) {
+      activeChatController = null
+      isSending.value = false
+      pendingTargetAgentId.value = 'xiaozhi-companion-agent'
+    }
   }
 }
 
@@ -1694,18 +1916,24 @@ function compactTaskTitle(task) {
 }
 
 onMounted(() => {
+  syncLearnerAvatar()
   window.addEventListener('resize', handleResize)
+  window.addEventListener('current-user-change', syncLearnerAvatar)
   window.addEventListener('xiaozhi-task-updated', handleExternalTaskUpdate)
   window.addEventListener(XIAOZHI_WORKFLOW_EVENT, handleWorkflowCardOpen)
+  window.addEventListener(XIAOZHI_PROFILE_CONTEXT_EVENT, handleProfileContextChanged)
   handleResize()
   loadStatus()
 })
 
 onBeforeUnmount(() => {
+  activeChatController?.abort()
   removePointerListeners()
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('current-user-change', syncLearnerAvatar)
   window.removeEventListener('xiaozhi-task-updated', handleExternalTaskUpdate)
   window.removeEventListener(XIAOZHI_WORKFLOW_EVENT, handleWorkflowCardOpen)
+  window.removeEventListener(XIAOZHI_PROFILE_CONTEXT_EVENT, handleProfileContextChanged)
   stopStatusPolling()
   recognition?.stop?.()
 })
@@ -2486,11 +2714,58 @@ onBeforeUnmount(() => {
 
 .message {
   display: flex;
+  align-items: flex-end;
+  gap: 8px;
   margin: 10px 0;
 }
 
 .message.user {
   justify-content: flex-end;
+}
+
+.message.user .message-avatar {
+  order: 2;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.message-avatar,
+.conversation-entry-avatar,
+.mention-agent-avatar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(39, 76, 65, 0.09);
+  border-radius: 50%;
+}
+
+.message-avatar {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 2px;
+  box-shadow: 0 4px 12px rgba(31, 72, 66, 0.08);
+}
+
+.message-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.conversation-entry-avatar {
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
+}
+
+.mention-agent-avatar {
+  width: 30px;
+  height: 30px;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .message.assistant {
@@ -2553,11 +2828,42 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-.message.pending .bubble {
+.typing-ellipsis {
+  min-width: 32px;
+  min-height: 22px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 4px;
   color: #536b68;
+}
+
+.typing-ellipsis span {
+  width: 5px;
+  height: 5px;
+  display: block;
+  border-radius: 50%;
+  background: currentColor;
+  animation: xiaozhiTypingDot 1.05s infinite ease-in-out both;
+}
+
+.typing-ellipsis span:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.typing-ellipsis span:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+@keyframes xiaozhiTypingDot {
+  0%, 60%, 100% {
+    transform: translateY(0) scale(.72);
+    opacity: .35;
+  }
+  30% {
+    transform: translateY(-4px) scale(1);
+    opacity: 1;
+  }
 }
 
 .spin {
@@ -2813,32 +3119,55 @@ onBeforeUnmount(() => {
   background: transparent;
 }
 
-.resource-command-strip {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0;
-  margin-bottom: 0;
-  border: 0;
+.agent-mention-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 94px;
+  z-index: 12;
+  max-height: 278px;
+  overflow-y: auto;
+  padding: 4px 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #eef2f0;
+  box-shadow: none !important;
 }
 
-.resource-tool {
+.agent-mention-menu > button {
   width: 100%;
-  height: 34px;
+  min-height: 42px;
   display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #6d7d78;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #31443e;
+  text-align: left;
   cursor: pointer;
 }
 
-.resource-tool:hover,
-.resource-tool:focus-visible {
-  background: rgba(237, 249, 244, .8);
-  color: #0e9f6e;
-  outline: none;
+.agent-mention-menu > button.active,
+.agent-mention-menu > button:hover {
+  border: 0 !important;
+  outline: 0 !important;
+  background: #dfe8e3 !important;
+  box-shadow: none !important;
+}
+
+.agent-mention-menu > button > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #31423d;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pending-attachments {

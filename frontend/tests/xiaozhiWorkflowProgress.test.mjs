@@ -70,12 +70,13 @@ test('the card persists one active task and polls only its real backend status',
   assert.match(cardSource, /查看学习路径/)
 })
 
-test('a new workflow opens the companion chat and reveals the embedded card once', () => {
+test('a new workflow keeps the companion closed and increments the unread badge once', () => {
   assert.match(launcherSource, /window\.addEventListener\(XIAOZHI_WORKFLOW_EVENT, handleWorkflowCardOpen\)/)
   assert.match(launcherSource, /workflowId === lastWorkflowCardId/)
-  assert.match(launcherSource, /activeTab\.value = 'chat'/)
-  assert.match(launcherSource, /isOpen\.value = true/)
-  assert.doesNotMatch(launcherSource, /handleWorkflowCardOpen[\s\S]{0,320}isOpen\.value = false/)
+  assert.match(launcherSource, /if \(!isOpen\.value\) unreadCount\.value \+= 1/)
+  assert.doesNotMatch(launcherSource, /handleWorkflowCardOpen[\s\S]{0,320}isOpen\.value = true/)
+  assert.match(launcherSource, /if \(opening\) unreadCount\.value = 0/)
+  assert.match(launcherSource, /v-if="unreadCount" class="task-dot"/)
 })
 
 test('task detail pages keep learning content primary and move audit metadata into the assistant card', () => {
@@ -127,19 +128,67 @@ test('the companion shows profile-scoped agent messages as expandable resource c
   assert.match(launcherSource, /conversationCitations\(entry\)/)
   assert.match(launcherSource, /waiting: '待用户确认'/)
   assert.doesNotMatch(launcherSource, /findLast\(/)
-  assert.match(launcherSource, /streamXiaoZhiChat\(\{ message: displayContent/)
+  assert.match(launcherSource, /streamXiaoZhiChat\(\{[\s\S]{0,240}message: displayContent/)
   assert.doesNotMatch(launcherSource, /chatWithXiaoZhi\(\{ message: displayContent/)
 })
 
-test('the companion exposes direct resource commands inside the same group chat composer', () => {
-  assert.match(launcherSource, /class="resource-command-strip"/)
-  assert.match(launcherSource, /class="resource-tool"/)
-  assert.match(launcherSource, /sendResourceCommand\(command\)/)
-  assert.match(launcherSource, /await sendMessage\(\)/)
-  assert.match(launcherSource, /type: 'ppt'/)
-  assert.match(launcherSource, /type: 'question_bank'/)
-  assert.match(launcherSource, /type: 'generated_video'/)
-  assert.match(launcherSource, /type: 'herb_model'/)
+test('profile switching resets the group chat and stale requests cannot cross profiles', () => {
+  assert.match(profileSource, /profile-switch-dialog/)
+  assert.match(profileSource, /岐小智群聊记录、学习路径和相关资源会一并切换/)
+  assert.match(profileSource, /dispatchXiaoZhiProfileContextChanged\(profile\)/)
+  assert.match(launcherSource, /XIAOZHI_PROFILE_CONTEXT_EVENT/)
+  assert.match(launcherSource, /activeChatController\?\.abort\(\)/)
+  assert.match(launcherSource, /profileRequestEpoch \+= 1/)
+  assert.match(launcherSource, /clearProfileAssistantState\(\)/)
+  assert.match(launcherSource, /profileReportId: sendProfileReportId/)
+  assert.match(launcherSource, /sendEpoch !== profileRequestEpoch/)
+})
+
+test('the group composer supports agent mentions, Tab completion, and distinct avatars', () => {
+  assert.match(launcherSource, /const mentionableAgents = \[/)
+  assert.match(launcherSource, /name: 'PPT生成智能体'/)
+  assert.doesNotMatch(launcherSource, /name: '单片机/)
+  assert.match(launcherSource, /event\.key === 'Tab'/)
+  assert.match(launcherSource, /completeAgentMention\(filteredMentionAgents/)
+  assert.match(launcherSource, /class="agent-mention-menu"/)
+  assert.match(launcherSource, /class="message-avatar"/)
+  assert.match(launcherSource, /const learnerVisual = \{/)
+  assert.match(launcherSource, /icon: markRaw\(UserRound\)/)
+  assert.match(launcherSource, /agentAvatarStyle\(entry\.agentId\)/)
+  assert.doesNotMatch(launcherSource, /agent\.description/)
+  assert.doesNotMatch(launcherSource, /<kbd v-if="index === mentionSelectionIndex">/)
+  assert.match(launcherSource, /background: #eef2f0/)
+  assert.match(launcherSource, /\.agent-mention-menu \{[\s\S]{0,300}border: 0/)
+  assert.doesNotMatch(launcherSource, /filteredMentionAgents[\s\S]{0,260}\.slice\(0, 8\)/)
+})
+
+test('chat uses the signed-in avatar, one streaming bubble, and reloadable server history', () => {
+  assert.match(launcherSource, /import \{ readCurrentUser \} from '\.\.\/stores\/auth\.js'/)
+  assert.match(launcherSource, /:src="learnerAvatar"/)
+  assert.match(launcherSource, /window\.addEventListener\('current-user-change', syncLearnerAvatar\)/)
+  assert.match(launcherSource, /if \(message\?\.role === 'user'\) return \{\}/)
+  assert.match(launcherSource, /\.message\.user \.message-avatar \{[\s\S]{0,160}background: transparent;/)
+  assert.match(launcherSource, /v-else-if="message\.streaming" class="typing-ellipsis"/)
+  assert.match(launcherSource, /class="typing-ellipsis"[\s\S]{0,100}<span><\/span><span><\/span><span><\/span>/)
+  assert.match(launcherSource, /@keyframes xiaozhiTypingDot/)
+  assert.match(launcherSource, /const assistantMessage = reactive\(\{/)
+  assert.doesNotMatch(launcherSource, /<article v-if="isSending" class="message assistant pending">/)
+  assert.doesNotMatch(launcherSource, /岐小智正在分析你的学习上下文/)
+  assert.match(launcherSource, /await loadHistory\(\)/)
+})
+
+test('the embedded workflow card clears global task cache when the profile changes', () => {
+  assert.match(cardSource, /XIAOZHI_PROFILE_CONTEXT_EVENT/)
+  assert.match(cardSource, /function handleProfileContextChanged\(\)/)
+  assert.match(cardSource, /sessionStorage\.removeItem\(XIAOZHI_ACTIVE_TASK_KEY\)/)
+  assert.match(cardSource, /task\.value = null/)
+  assert.doesNotMatch(cardSource, /route\.query\.xzTask \|\| restoredTaskId\(\)/)
+})
+
+test('the group chat composer keeps resource shortcuts out of the message field', () => {
+  assert.doesNotMatch(launcherSource, /class="resource-command-strip"/)
+  assert.doesNotMatch(launcherSource, /class="resource-tool"/)
+  assert.doesNotMatch(launcherSource, /sendResourceCommand\(command\)/)
 })
 
 test('the harness panel renders persisted runs and handoffs instead of a static fake topology', () => {

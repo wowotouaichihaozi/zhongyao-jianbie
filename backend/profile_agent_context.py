@@ -21,9 +21,9 @@ from typing import Any, Iterable
 
 SUPERVISOR_AGENT_ID = "xiaozhi-companion-agent"
 SUPERVISOR_AGENT_NAME = "岐小智总控智能体"
-DEFAULT_CONTEXT_TOKEN_LIMIT = 24000
-DEFAULT_COMPACTION_RATIO = 0.78
-DEFAULT_RECENT_MESSAGE_LIMIT = 36
+DEFAULT_CONTEXT_TOKEN_LIMIT = 128_000_000
+DEFAULT_COMPACTION_RATIO = 0.9
+DEFAULT_RECENT_MESSAGE_LIMIT = 4096
 DEFAULT_SUMMARY_CHAR_LIMIT = 12000
 
 
@@ -591,6 +591,51 @@ class ProfileAgentContextStore:
             )
         return True
 
+    def restore_compacted_messages_if_budget_allows(self, user_id: int, profile_report_id: int) -> bool:
+        token_limit = _positive_int_setting(
+            "PROFILE_AGENT_CONTEXT_MAX_TOKENS",
+            DEFAULT_CONTEXT_TOKEN_LIMIT,
+            2000,
+        )
+        threshold = int(token_limit * _compaction_ratio())
+        with closing(self._connect()) as conn, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conversation = self._conversation_row(
+                conn,
+                int(user_id),
+                int(profile_report_id),
+                create=False,
+            )
+            if conversation is None or not int(conversation["summary_version"] or 0):
+                return False
+            totals = conn.execute(
+                """
+                SELECT COUNT(*) AS message_count,
+                       COALESCE(SUM(estimated_tokens), 0) AS total_tokens
+                FROM profile_agent_messages
+                WHERE conversation_id = ?
+                """,
+                (int(conversation["id"]),),
+            ).fetchone()
+            total_tokens = int(totals["total_tokens"] or 0)
+            if total_tokens >= threshold:
+                return False
+            timestamp = _now_iso()
+            conn.execute(
+                "UPDATE profile_agent_messages SET compacted = 0 WHERE conversation_id = ?",
+                (int(conversation["id"]),),
+            )
+            conn.execute(
+                """
+                UPDATE profile_agent_conversations
+                SET summary_text = '', summary_version = 0,
+                    compacted_through_sequence = 0, estimated_tokens = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (total_tokens, timestamp, int(conversation["id"])),
+            )
+        return True
+
     def context(
         self,
         user_id: int,
@@ -600,11 +645,12 @@ class ProfileAgentContextStore:
     ) -> dict[str, Any]:
         if int(user_id or 0) <= 0 or int(profile_report_id or 0) <= 0:
             return self.empty_context(profile_report_id)
+        self.restore_compacted_messages_if_budget_allows(user_id, profile_report_id)
         self.compact_if_needed(user_id, profile_report_id)
         limit = max(
             8,
             min(
-                100,
+                200_000,
                 int(
                     recent_limit
                     or _positive_int_setting(

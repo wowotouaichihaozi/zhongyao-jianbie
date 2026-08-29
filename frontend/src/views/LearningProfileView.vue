@@ -81,6 +81,38 @@
       </Transition>
     </Teleport>
 
+    <Teleport to="body">
+      <Transition name="profile-switch-dialog">
+        <div
+          v-if="profileSwitchDialog.open"
+          class="profile-switch-backdrop"
+          role="presentation"
+          @click.self="resolveProfileSwitch(false)"
+        >
+          <section
+            class="profile-switch-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="profile-switch-title"
+            aria-describedby="profile-switch-description"
+          >
+            <span class="profile-switch-icon" aria-hidden="true"><Repeat2 :size="21" /></span>
+            <div class="profile-switch-copy">
+              <p>切换学习上下文</p>
+              <h2 id="profile-switch-title">切换到“{{ profileSwitchDialog.profile?.profileName || '学习画像' }}”吗？</h2>
+              <p id="profile-switch-description">
+                切换后，岐小智群聊记录、学习路径和相关资源会一并切换。之后切回原画像，即可恢复原来的聊天与学习状态。
+              </p>
+            </div>
+            <div class="profile-switch-actions">
+              <button type="button" class="secondary" @click="resolveProfileSwitch(false)">取消</button>
+              <button type="button" class="primary" @click="resolveProfileSwitch(true)">确认切换</button>
+            </div>
+          </section>
+        </div>
+      </Transition>
+    </Teleport>
+
     <aside class="lp-sidebar">
       <nav class="sidebar-nav">
         <button
@@ -486,8 +518,11 @@
                     <img v-if="m.role === 'bot'" :src="BOT_AVATAR_URL" alt="" />
                     <img v-else :src="USER_AVATAR_URL" alt="" />
                   </span>
-                  <div :class="['chat-bubble', m.role]">
-                    <span>{{ m.text }}</span>
+                  <div :class="['chat-bubble', m.role, { 'typing-indicator': isPendingProfileReply(m) }]">
+                    <template v-if="isPendingProfileReply(m)">
+                      <span class="profile-typing-dots" aria-hidden="true"></span>
+                    </template>
+                    <span v-else>{{ m.text }}</span>
                     <div v-if="m.attachments?.length" class="profile-message-attachments">
                       <a
                         v-for="attachment in m.attachments"
@@ -501,7 +536,7 @@
                         <b>{{ attachment.name }}</b>
                       </a>
                     </div>
-                    <small>{{ m.time }}</small>
+                    <small v-if="!isPendingProfileReply(m)">{{ m.time }}</small>
                   </div>
                 </div>
                 <div
@@ -514,7 +549,7 @@
                     <img src="/botlogo.png" alt="" />
                   </span>
                   <div class="chat-bubble bot typing-indicator" aria-hidden="true">
-                    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                    <span class="profile-typing-dots"></span>
                   </div>
                 </div>
               </div>
@@ -930,6 +965,7 @@ import {
   isLearningProfileDeveloperShortcut,
 } from '../utils/learningProfileDeveloperTools.js'
 import { dispatchXiaoZhiWorkflowProgress } from '../utils/xiaozhiWorkflowProgress.js'
+import { dispatchXiaoZhiProfileContextChanged } from '../utils/profileContextEvents.js'
 
 const LS_KEY = 'learningProfileData'
 const BOT_AVATAR_URL = '/botlogo.png'
@@ -1167,6 +1203,28 @@ const historyReports = ref([])
 const viewingHistory = ref(null) // ?????????
 const profileActionBusy = ref('')
 const profileHistoryLoaded = ref(false)
+const profileSwitchDialog = reactive({ open: false, profile: null, resolve: null })
+
+function requestProfileSwitchConfirmation(profile) {
+  if (!profile?.id || profile.isActive) return Promise.resolve(true)
+  profileSwitchDialog.profile = profile
+  profileSwitchDialog.open = true
+  return new Promise((resolve) => { profileSwitchDialog.resolve = resolve })
+}
+
+function isPendingProfileReply(message) {
+  return message?.role === 'bot'
+    && message?.source === 'llm-streaming'
+    && !String(message?.text || '').trim()
+}
+
+function resolveProfileSwitch(confirmed) {
+  const resolve = profileSwitchDialog.resolve
+  profileSwitchDialog.open = false
+  profileSwitchDialog.profile = null
+  profileSwitchDialog.resolve = null
+  resolve?.(Boolean(confirmed))
+}
 
 function isGeneratedProfileReport(report) {
   const analysis = report?.aiAnalysis
@@ -1240,12 +1298,13 @@ async function openHistoryChat(report) {
 
 async function activateProfileVersion(report) {
   if (!report?.id || profileActionBusy.value) return
+  if (!await requestProfileSwitchConfirmation(report)) return
   profileActionBusy.value = `activate-${report.id}`
   try {
     const data = await activateLearningProfile(report.id)
     const profile = data?.profile || report
     replaceProfile(profile)
-    if (data?.pathSwitched) notifyLearningPathProfileSwitched(profile)
+    notifyLearningPathProfileSwitched(profile)
     await loadHistoryReports()
     viewingHistory.value = historyReports.value.find(item => item.id === profile.id) || profile
     activeMenu.value = 'report'
@@ -1259,6 +1318,7 @@ async function activateProfileVersion(report) {
 
 async function openProfilePath(report) {
   if (!report?.id || profileActionBusy.value) return
+  if (!report.isActive && !await requestProfileSwitchConfirmation(report)) return
   profileActionBusy.value = `path-${report.id}`
   try {
     let profile = report
@@ -1282,6 +1342,7 @@ async function createNewLearningProfile() {
   profileActionBusy.value = 'create'
   try {
     await resetLearningProfile()
+    dispatchXiaoZhiProfileContextChanged({ id: 0, profileName: '待创建画像', version: 1 })
     localStorage.removeItem(LS_KEY)
     localStorage.removeItem('learning-profile-switched')
     profileData.value = {}
@@ -1322,6 +1383,7 @@ function notifyLearningPathProfileSwitched(profile) {
       switchedAt: Date.now(),
     }))
   } catch {}
+  dispatchXiaoZhiProfileContextChanged(profile)
 }
 
 async function refreshProfileVersion(report) {
@@ -1372,8 +1434,13 @@ async function deleteProfileVersion(report) {
         ? { ...session, reportId: null }
         : session
     ))
-    if (data?.activeProfile) replaceProfile(data.activeProfile)
-    else if (report.isActive) clearProfileCache()
+    if (data?.activeProfile) {
+      replaceProfile(data.activeProfile)
+      if (report.isActive) notifyLearningPathProfileSwitched(data.activeProfile)
+    } else if (report.isActive) {
+      clearProfileCache()
+      dispatchXiaoZhiProfileContextChanged({ id: 0, profileName: '待创建画像', version: 1 })
+    }
     await loadHistoryReports()
     showToast(data?.activeProfile
       ? `已删除 ${profileName}，当前切换为 ${data.activeProfile.profileName || '学习画像'}`
@@ -3491,6 +3558,96 @@ onBeforeUnmount(() => {
 .toast-leave-active { animation: toastOut 0.3s ease; }
 @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-16px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 @keyframes toastOut { from { opacity: 1; transform: translateX(-50%) translateY(0); } to { opacity: 0; transform: translateX(-50%) translateY(-16px); } }
+
+.profile-switch-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(24, 34, 31, 0.38);
+  backdrop-filter: blur(4px);
+}
+
+.profile-switch-dialog {
+  width: min(440px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid #d7e4df;
+  border-radius: 8px;
+  background: #fff;
+  color: #24342f;
+  box-shadow: 0 24px 70px rgba(20, 45, 37, 0.2);
+}
+
+.profile-switch-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8f4ef;
+  color: #17674f;
+}
+
+.profile-switch-copy > p:first-child {
+  margin: 1px 0 5px;
+  color: #798984;
+  font-size: 12px;
+}
+
+.profile-switch-copy h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.profile-switch-copy > p:last-child {
+  margin: 10px 0 0;
+  color: #66756f;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.profile-switch-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 4px;
+}
+
+.profile-switch-actions button {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-switch-actions .secondary {
+  border: 1px solid #d4dfdb;
+  background: #fff;
+  color: #52625d;
+}
+
+.profile-switch-actions .primary {
+  border: 1px solid #17674f;
+  background: #17674f;
+  color: #fff;
+}
+
+.profile-switch-dialog-enter-active,
+.profile-switch-dialog-leave-active { transition: opacity 0.16s ease; }
+.profile-switch-dialog-enter-active .profile-switch-dialog,
+.profile-switch-dialog-leave-active .profile-switch-dialog { transition: transform 0.16s ease, opacity 0.16s ease; }
+.profile-switch-dialog-enter-from,
+.profile-switch-dialog-leave-to { opacity: 0; }
+.profile-switch-dialog-enter-from .profile-switch-dialog,
+.profile-switch-dialog-leave-to .profile-switch-dialog { opacity: 0; transform: translateY(8px); }
 
 .profile-developer-backdrop {
   position: fixed;
@@ -6694,23 +6851,6 @@ onBeforeUnmount(() => {
   .report-actions {
     flex-wrap: wrap;
   }
-}
-
-.typing-indicator .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #94a3b8;
-  animation: typingBounce 1.4s infinite ease-in-out;
-}
-
-.typing-indicator .dot:nth-child(1) { animation-delay: 0s; }
-.typing-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes typingBounce {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-  40% { transform: scale(1); opacity: 1; }
 }
 
 /* 鎻愪氦鎸夐挳 */
@@ -10881,45 +11021,37 @@ onBeforeUnmount(() => {
   flex-direction: row !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 7px !important;
-  width: auto !important;
-  min-width: 76px !important;
-  max-width: none !important;
-  min-height: 52px !important;
+  gap: 0 !important;
+  width: 48px !important;
+  min-width: 48px !important;
+  max-width: 48px !important;
+  min-height: 34px !important;
   margin: 0 auto 0 0 !important;
-  padding: 15px 20px !important;
+  padding: 8px 10px !important;
 }
 
-#app .lp-page.lp-page .portrait-chat-messages .typing-indicator .dot {
-  flex: 0 0 7px !important;
-  width: 7px !important;
-  height: 7px !important;
-  background: #176f4b !important;
-  will-change: transform, opacity;
-  animation: agentThinkingJump 1.08s infinite ease-in-out both !important;
+#app .lp-page.lp-page .portrait-chat-messages .profile-typing-dots {
+  width: 1.55em;
+  display: inline-block;
+  color: #111111;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  text-align: left;
+  white-space: nowrap;
 }
 
-#app .lp-page.lp-page .portrait-chat-messages .typing-indicator .dot:nth-child(1) {
-  animation-delay: 0s !important;
+#app .lp-page.lp-page .portrait-chat-messages .profile-typing-dots::after {
+  content: '.';
+  animation: profileTypingCycle 1.05s step-end infinite;
 }
 
-#app .lp-page.lp-page .portrait-chat-messages .typing-indicator .dot:nth-child(2) {
-  animation-delay: 0.16s !important;
-}
-
-#app .lp-page.lp-page .portrait-chat-messages .typing-indicator .dot:nth-child(3) {
-  animation-delay: 0.32s !important;
-}
-
-@keyframes agentThinkingJump {
-  0%, 60%, 100% {
-    transform: translateY(0) scale(0.76);
-    opacity: 0.35;
-  }
-  30% {
-    transform: translateY(-6px) scale(1);
-    opacity: 1;
-  }
+@keyframes profileTypingCycle {
+  0%, 24% { content: '\00a0\00a0\00a0'; }
+  25%, 49% { content: '.'; }
+  50%, 74% { content: '..'; }
+  75%, 100% { content: '...'; }
 }
 
 #app .lp-page.lp-page .profile-pending-attachments,

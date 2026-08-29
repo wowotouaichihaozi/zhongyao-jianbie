@@ -263,6 +263,49 @@ class ProfileAgentContextStoreTests(unittest.TestCase):
         self.assertGreater(snapshot_count, 0)
         self.assertGreater(compacted_count, 0)
 
+    def test_compacted_messages_are_restored_after_budget_increases(self):
+        compact_settings = {
+            "PROFILE_AGENT_CONTEXT_MAX_TOKENS": "2000",
+            "PROFILE_AGENT_CONTEXT_COMPACTION_RATIO": "0.5",
+            "PROFILE_AGENT_CONTEXT_RECENT_MESSAGES": "8",
+        }
+        with patch.dict(os.environ, compact_settings, clear=False):
+            for index in range(24):
+                self.store.append(
+                    1,
+                    11,
+                    agent_id="course-knowledge-retrieval-agent",
+                    agent_name="知识检索智能体",
+                    message_type="agent_event",
+                    status="complete",
+                    content=f"第 {index + 1} 次检索完成：" + ("本草证据与引用片段。" * 32),
+                    run_id=f"restore-run-{index}",
+                    dedupe_key=f"restore-message-{index}",
+                )
+            compacted_context = self.store.context(1, 11)
+
+        self.assertGreater(compacted_context["summaryVersion"], 0)
+        self.assertLessEqual(len(compacted_context["recentMessages"]), 8)
+
+        expanded_settings = {
+            "PROFILE_AGENT_CONTEXT_MAX_TOKENS": "128000000",
+            "PROFILE_AGENT_CONTEXT_COMPACTION_RATIO": "0.90",
+            "PROFILE_AGENT_CONTEXT_RECENT_MESSAGES": "4096",
+        }
+        with patch.dict(os.environ, expanded_settings, clear=False):
+            restored_context = self.store.context(1, 11)
+
+        self.assertEqual(restored_context["summaryVersion"], 0)
+        self.assertEqual(restored_context["compactedThroughSequence"], 0)
+        self.assertEqual(restored_context["summary"], "")
+        self.assertEqual(len(restored_context["recentMessages"]), 24)
+        self.assertEqual(restored_context["contextBudget"]["maxTokens"], 128_000_000)
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            compacted_count = conn.execute(
+                "SELECT COUNT(*) FROM profile_agent_messages WHERE compacted = 1"
+            ).fetchone()[0]
+        self.assertEqual(compacted_count, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

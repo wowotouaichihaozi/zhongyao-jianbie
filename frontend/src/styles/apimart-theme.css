@@ -72,6 +72,27 @@ body,
   transform: none !important;
 }
 
+#app .xiaozhi-window .agent-mention-menu > .agent-mention-option,
+#app .xiaozhi-window .agent-mention-menu > .agent-mention-option:hover:not(:disabled),
+#app .xiaozhi-window .agent-mention-menu > .agent-mention-option:focus,
+#app .xiaozhi-window .agent-mention-menu > .agent-mention-option:focus-visible,
+#app .xiaozhi-window .agent-mention-menu > .agent-mention-option:active {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#app .xiaozhi-window .agent-mention-menu > .agent-mention-option {
+  background: transparent !important;
+}
+
+#app .xiaozhi-window .agent-mention-menu > .agent-mention-option.active,
+#app .xiaozhi-window .agent-mention-menu > .agent-mention-option:hover:not(:disabled) {
+  background: #dfe8e3 !important;
+}
+
 /* Password visibility is an inline icon control, not a themed action button. */
 #app .auth-page .password-field .password-visibility-toggle,
 #app .auth-page .password-field .password-visibility-toggle:hover,
