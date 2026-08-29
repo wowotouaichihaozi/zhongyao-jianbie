@@ -81,7 +81,7 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
             "mindmap": "生成 GPIO 思维导图",
             "video": "查找 GPIO 讲解视频",
             "animation": "生成 GPIO H5 动画",
-            "mcu": "启动 GPIO 单片机实验",
+            "mcu": "查看 GPIO 单片机实验",
             "interview": "开始 STM32 模拟面试",
             "smart_tutor": "辅导我理解 GPIO 中断",
             "effect_assessment": "评估我的学习效果",
@@ -103,8 +103,13 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
             for expected_type, message in routing_cases.items():
                 with self.subTest(task_type=expected_type):
                     routed = app_module.xiaozhi_detect_intent(message, {})
-                    self.assertEqual(routed["resourceType"], expected_type)
-                    self.assertEqual(routed["routingSource"], "deterministic")
+                    expected_route = "document" if expected_type == "mcu" else expected_type
+                    self.assertEqual(routed["resourceType"], expected_route)
+                    if expected_type == "mcu":
+                        self.assertEqual(routed["resourceType"], "document")
+                        self.assertIn("中医医案辨析讲义", routed["reply"])
+                    else:
+                        self.assertEqual(routed["routingSource"], "deterministic")
 
         repo_root = Path(__file__).resolve().parents[2]
         router_source = (repo_root / "frontend" / "src" / "router" / "index.js").read_text(encoding="utf-8")
@@ -217,6 +222,7 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
                 "LLM_PROTOCOL": "openai",
                 "OPENAI_BASE_URL": "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2",
                 "ANTHROPIC_MODEL": "astron-code-latest",
+                "VISION_LLM_MODEL": "qwen3-vl-plus",
             },
         )
         trace = result["orchestration"]
