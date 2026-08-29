@@ -26,83 +26,13 @@
           <strong>岐小智</strong>
         </div>
         <div class="window-head-actions">
-          <button type="button" class="icon-btn" aria-label="智能体运行设置" title="智能体运行设置" @click.stop="openRuntimeSettings">
-            <Settings :size="18" />
-          </button>
           <button type="button" class="icon-btn" aria-label="关闭岐小智" @click.stop="isOpen = false">
             <X :size="18" />
           </button>
         </div>
       </header>
 
-      <form v-if="showRuntimeSettings" key="settings" class="runtime-settings-panel" @submit.prevent="saveRuntimeSettings">
-        <header class="runtime-settings-head">
-          <div>
-            <span>Model Runtime</span>
-            <strong>智能体运行设置</strong>
-          </div>
-          <button type="button" class="icon-btn" aria-label="关闭设置" @click="showRuntimeSettings = false">
-            <X :size="17" />
-          </button>
-        </header>
-
-        <label class="runtime-toggle">
-          <span>
-            <strong>使用自定义模型配置</strong>
-            <small>关闭后使用平台统一配置</small>
-          </span>
-          <input v-model="runtimeSettings.enabled" type="checkbox" />
-        </label>
-
-        <label>
-          <span>调用协议</span>
-          <select v-model="runtimeSettings.protocol" :disabled="!runtimeSettings.enabled">
-            <option value="openai">讯飞 OpenAI 兼容接口</option>
-            <option value="anthropic">讯飞 Anthropic 兼容接口</option>
-          </select>
-        </label>
-
-        <label>
-          <span>API 地址</span>
-          <input
-            v-model.trim="runtimeSettings.baseUrl"
-            type="url"
-            :disabled="!runtimeSettings.enabled"
-            placeholder="https://maas-coding-api.cn-huabei-1.xf-yun.com/v2"
-          />
-        </label>
-
-        <label>
-          <span>模型名</span>
-          <input
-            v-model.trim="runtimeSettings.model"
-            type="text"
-            :disabled="!runtimeSettings.enabled"
-            placeholder="astron-code-latest"
-          />
-        </label>
-
-        <div class="runtime-security-note">
-          <ShieldCheck :size="16" />
-          <span>沿用平台服务端凭据；API 地址必须位于安全白名单，不会在浏览器保存密钥。</span>
-        </div>
-
-        <p v-if="runtimeSettingsMessage" :class="['runtime-settings-message', runtimeSettingsState]">
-          {{ runtimeSettingsMessage }}
-        </p>
-
-        <footer class="runtime-settings-actions">
-          <button type="button" class="ghost-btn" @click="usePlatformRuntime">平台默认</button>
-          <button type="button" class="ghost-btn" :disabled="testingRuntime" @click="testRuntimeSettings">
-            {{ testingRuntime ? '测试中' : '测试连接' }}
-          </button>
-          <button class="send-btn" type="submit" :disabled="savingRuntime || testingRuntime">
-            {{ savingRuntime ? (runtimeSettings.enabled ? '测试并保存中' : '保存中') : (runtimeSettings.enabled ? '测试并保存' : '保存设置') }}
-          </button>
-        </footer>
-      </form>
-
-      <div v-else-if="activeTab === 'chat'" key="chat" class="chat-panel">
+      <div v-if="activeTab === 'chat'" key="chat" class="chat-panel">
         <div ref="messageListRef" class="chat-scroll-area">
           <div class="message-list">
           <div v-if="messages.length === 0 && agentConversationGroups.length === 0 && !agentConversation?.summary" class="empty-chat">
@@ -295,9 +225,9 @@
               :key="command.type"
               type="button"
               class="resource-tool"
-              :title="`准备${command.label}生成指令`"
-              :aria-label="`准备${command.label}生成指令`"
-              @click="prepareResourceCommand(command)"
+              :title="`调用岐小智生成${command.label}`"
+              :aria-label="`调用岐小智生成${command.label}`"
+              @click="sendResourceCommand(command)"
             >
               <component :is="resourceIcon(command.type)" :size="17" />
             </button>
@@ -506,7 +436,6 @@ import {
   RotateCcw,
   Search,
   SendHorizontal,
-  Settings,
   ShieldCheck,
   Sparkles,
   Video,
@@ -514,13 +443,10 @@ import {
 } from 'lucide-vue-next'
 import ResourceTaskStatusBanner from './ResourceTaskStatusBanner.vue'
 import {
-  chatWithXiaoZhi,
   getXiaoZhiHistory,
-  getXiaoZhiRuntimeSettings,
   getXiaoZhiStatus,
   logXiaoZhiEvent,
-  saveXiaoZhiRuntimeSettings,
-  testXiaoZhiRuntimeSettings,
+  streamXiaoZhiChat,
   uploadMultimodalInputs,
 } from '../services/api.js'
 import { useGlobalDebug } from '../stores/globalDebug.js'
@@ -555,17 +481,6 @@ const agents = ref([])
 const orchestrationRuns = ref([])
 const selectedRunId = ref('')
 const harnessStatus = ref(null)
-const showRuntimeSettings = ref(false)
-const savingRuntime = ref(false)
-const testingRuntime = ref(false)
-const runtimeSettingsMessage = ref('')
-const runtimeSettingsState = ref('info')
-const runtimeSettings = reactive({
-  enabled: false,
-  protocol: 'openai',
-  baseUrl: 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2',
-  model: 'astron-code-latest',
-})
 const messageListRef = ref(null)
 const viewport = reactive({ width: window.innerWidth, height: window.innerHeight })
 const position = reactive(loadPosition())
@@ -1041,7 +956,6 @@ function removePointerListeners() {
 
 function handleOrbClick() {
   if (Date.now() < suppressOrbClickUntil) return
-  showRuntimeSettings.value = false
   activeTab.value = 'chat'
   isOpen.value = !isOpen.value
 }
@@ -1059,7 +973,6 @@ function handleWorkflowCardOpen(event) {
   const workflowId = String(event?.detail?.workflowId || event?.detail?.task?.taskId || '')
   if (!workflowId || workflowId === lastWorkflowCardId) return
   lastWorkflowCardId = workflowId
-  showRuntimeSettings.value = false
   activeTab.value = 'chat'
   isOpen.value = true
   nextTick(scrollToBottom)
@@ -1265,85 +1178,14 @@ async function openConversationRoute(group) {
   isOpen.value = false
 }
 
-function prepareResourceCommand(command) {
+async function sendResourceCommand(command) {
+  if (isSending.value) return
   const topic = draft.value.trim()
   draft.value = topic
     ? `请根据当前学习画像，生成一份关于“${topic}”的${command.label}资源。`
     : command.prompt
-  nextTick(() => composerInputRef.value?.focus())
-}
-
-async function openRuntimeSettings() {
-  showRuntimeSettings.value = true
-  runtimeSettingsMessage.value = ''
-  try {
-    const response = await getXiaoZhiRuntimeSettings()
-    const settings = response?.data?.settings || {}
-    runtimeSettings.enabled = Boolean(settings.enabled)
-    runtimeSettings.protocol = settings.protocol || 'openai'
-    runtimeSettings.baseUrl = settings.baseUrl || 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2'
-    runtimeSettings.model = settings.model || 'astron-code-latest'
-  } catch (error) {
-    runtimeSettingsState.value = 'error'
-    runtimeSettingsMessage.value = error?.response?.data?.msg || error?.message || '运行配置加载失败'
-  }
-}
-
-function runtimeSettingsPayload() {
-  return {
-    enabled: runtimeSettings.enabled,
-    protocol: runtimeSettings.protocol,
-    baseUrl: runtimeSettings.baseUrl,
-    model: runtimeSettings.model,
-  }
-}
-
-function usePlatformRuntime() {
-  runtimeSettings.enabled = false
-  runtimeSettingsState.value = 'info'
-  runtimeSettingsMessage.value = '保存后将恢复平台统一模型配置。'
-}
-
-async function testRuntimeSettings() {
-  testingRuntime.value = true
-  runtimeSettingsMessage.value = ''
-  try {
-    const response = await testXiaoZhiRuntimeSettings(runtimeSettingsPayload())
-    const result = response?.data || {}
-    runtimeSettingsState.value = 'success'
-    runtimeSettingsMessage.value = `${result.message || '连接成功'} · ${result.model || runtimeSettings.model} · ${result.elapsedMs || 0}ms`
-  } catch (error) {
-    runtimeSettingsState.value = 'error'
-    runtimeSettingsMessage.value = error?.response?.data?.msg || error?.response?.data?.data?.error || error?.message || '模型连接失败'
-  } finally {
-    testingRuntime.value = false
-  }
-}
-
-async function saveRuntimeSettings() {
-  savingRuntime.value = true
-  runtimeSettingsMessage.value = ''
-  try {
-    const response = await saveXiaoZhiRuntimeSettings(runtimeSettingsPayload())
-    const settings = response?.data?.settings || {}
-    const connection = response?.data?.connection || null
-    runtimeSettings.enabled = Boolean(settings.enabled)
-    runtimeSettings.protocol = settings.protocol || runtimeSettings.protocol
-    runtimeSettings.baseUrl = settings.baseUrl || runtimeSettings.baseUrl
-    runtimeSettings.model = settings.model || runtimeSettings.model
-    runtimeSettingsState.value = 'success'
-    runtimeSettingsMessage.value = connection
-      ? `连接通过并已保存 · ${connection.model || runtimeSettings.model} · ${connection.elapsedMs || 0}ms`
-      : (response?.msg || '智能体运行配置已保存')
-    await loadStatus()
-  } catch (error) {
-    runtimeSettingsState.value = 'error'
-    const message = error?.response?.data?.msg || error?.message || '保存失败'
-    const detail = error?.response?.data?.data?.error || ''
-    runtimeSettingsMessage.value = detail ? `${message}：${detail}` : message
-  } finally {
-    savingRuntime.value = false
-  }
+  await nextTick()
+  await sendMessage()
 }
 
 function startStatusPolling() {
@@ -1515,16 +1357,40 @@ async function sendMessage() {
       ? await uploadMultimodalInputs(queuedFiles, 'xiaozhi', route.fullPath)
       : []
     userMessage.attachments = attachments
-    const response = await chatWithXiaoZhi({ message: displayContent, attachments, route: route.fullPath })
-    const data = response?.data || {}
-    if (data.agentConversation) agentConversation.value = data.agentConversation
-    messages.value.push({
+
+    const assistantMessage = {
       role: 'assistant',
-      content: data.reply || '我已经收到，会继续跟进你的学习状态。',
-      cards: data.cards || [],
-      intent: data.intent || {},
+      content: '',
+      cards: [],
+      intent: {},
       createdAt: new Date().toISOString(),
+      streaming: true,
+    }
+    messages.value.push(assistantMessage)
+    await scrollToBottom()
+
+    await streamXiaoZhiChat({ message: displayContent, attachments, route: route.fullPath }, async ({ event, data }) => {
+      if (event === 'delta') {
+        assistantMessage.content += String(data?.text || '')
+        await scrollToBottom()
+        return
+      }
+      if (event === 'result') {
+        const result = data?.data || data || {}
+        if (result.agentConversation) agentConversation.value = result.agentConversation
+        assistantMessage.cards = result.cards || []
+        assistantMessage.intent = result.intent || {}
+        if (!assistantMessage.content && result.reply) assistantMessage.content = result.reply
+        return
+      }
+      if (event === 'error') {
+        throw new Error(data?.message || data?.error || '岐小智智能体调用失败')
+      }
     })
+    assistantMessage.streaming = false
+    if (!assistantMessage.content.trim()) {
+      throw new Error('岐小智智能体没有返回有效回复')
+    }
     await loadStatus()
     if (runningTaskCount.value) startStatusPolling()
     await scrollToBottom()
@@ -1533,12 +1399,17 @@ async function sendMessage() {
     sendError.value = errorMessage
     if (!draft.value.trim()) draft.value = content
     if (queuedFiles.length) pendingAttachments.value = queuedFiles
-    messages.value.push({
+    const lastMessage = messages.value[messages.value.length - 1]
+    const failedAssistantMessage = lastMessage?.role === 'assistant' && lastMessage.streaming ? lastMessage : null
+    const errorPayload = {
       role: 'assistant',
       content: errorMessage,
       cards: [],
       createdAt: new Date().toISOString(),
-    })
+      streaming: false,
+    }
+    if (failedAssistantMessage) Object.assign(failedAssistantMessage, errorPayload)
+    else messages.value.push(errorPayload)
     addLog(error?.message || '岐小智对话失败', 'error', '岐小智')
   } finally {
     isSending.value = false

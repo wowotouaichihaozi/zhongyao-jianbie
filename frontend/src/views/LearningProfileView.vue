@@ -914,7 +914,6 @@ import {
   refreshLearningProfile,
   renameLearningProfile,
   resetLearningProfile,
-  requestLearningProfileBackgroundChat,
   resetLearningProfileBackgroundChat,
   createLearningProfileSession,
   sendLearningProfileSessionMessage,
@@ -2996,16 +2995,7 @@ async function requestLlmChatTurn(messages, botMessage, attachments = []) {
       }
     }, { signal: controller.signal })
 
-    if (!reply.trim() && !agentResult) {
-      agentResult = await requestLearningProfileBackgroundChat({ messages, attachments }, { signal: controller.signal })
-      assertLlmSource('result', agentResult)
-      reply = String(agentResult?.reply || agentResult?.question || '').trim()
-      if (reply) {
-        setChatBotMessage(botMessage, reply, 'llm')
-        updatePortraitFromAgent(agentResult, reply)
-        await scrollChatToBottom()
-      }
-    }
+    if (!reply.trim() && !agentResult) throw new Error('学习背景对话流未返回可显示内容')
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error('LLM 响应超时，请检查后端模型服务是否正常。')

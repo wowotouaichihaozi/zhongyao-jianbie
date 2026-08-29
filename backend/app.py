@@ -13179,7 +13179,7 @@ def xiaozhi_detect_intent(message: str, context: dict, runtime_settings: dict[st
             "feedbackDifficulty": str(fallback.get("feedbackDifficulty") or "").strip(),
             "feedbackHelpful": fallback.get("feedbackHelpful"),
             "topic": resolved_topic,
-            "reply": str((fallback.get("reply") if deterministic_fallback else data.get("reply")) or fallback["reply"]).strip(),
+            "reply": str((fallback.get("reply") if deterministic_fallback else data.get("reply") or (fallback["reply"] if intent != "chat" else ""))).strip(),
             "weakPointSummary": str(data.get("weakPointSummary") or "").strip(),
             "suggestions": data.get("suggestions") if isinstance(data.get("suggestions"), list) else [],
             "selectedAction": selected_action,
@@ -14951,6 +14951,12 @@ def xiaozhi_chat():
         context,
         xiaozhi_runtime_setting_overrides(int(user["id"])),
     )
+    if intent.get("intent") == "chat" and intent.get("source") == "fallback":
+        return jsonify({
+            "code": 502,
+            "msg": "岐小智智能体未返回可用回复，请检查模型服务后重试",
+            "data": {"intent": intent},
+        }), 502
     intent["attachments"] = public_attachments
     cards = []
     if intent["intent"] == "profile_management":
@@ -15154,6 +15160,108 @@ def xiaozhi_chat():
             "agentConversation": agent_conversation,
         },
     })
+
+
+@app.post("/api/xiaozhi/chat-stream")
+def xiaozhi_chat_stream():
+    @stream_with_context
+    def generate_events():
+        yield _sse_event("start", {
+            "agent": XIAOZHI_MASTER_AGENT_ID,
+            "stage": "start",
+            "message": "岐小智总控智能体已启动",
+        })
+        try:
+            yield _sse_event("progress", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "route_intent",
+                "message": "正在调用岐小智智能体识别意图并调度任务",
+            })
+            raw_response = xiaozhi_chat()
+            status_code = 200
+            response = raw_response
+            if isinstance(raw_response, tuple):
+                response = raw_response[0]
+                if len(raw_response) > 1:
+                    try:
+                        status_code = int(raw_response[1])
+                    except (TypeError, ValueError):
+                        status_code = 500
+            payload = {}
+            try:
+                payload = json.loads(response.get_data(as_text=True))
+            except Exception:
+                payload = {}
+            if status_code >= 400:
+                yield _sse_event("error", {
+                    "agent": XIAOZHI_MASTER_AGENT_ID,
+                    "stage": "failed",
+                    "message": payload.get("msg") or payload.get("message") or "岐小智智能体调用失败",
+                    "data": payload.get("data") or {},
+                })
+                yield _sse_event("done", {
+                    "agent": XIAOZHI_MASTER_AGENT_ID,
+                    "stage": "done",
+                    "status": "failed",
+                })
+                return
+            data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+            intent = data.get("intent") if isinstance(data.get("intent"), dict) else {}
+            reply = str(data.get("reply") or "")
+            if intent.get("intent") == "chat" and intent.get("source") == "fallback":
+                yield _sse_event("error", {
+                    "agent": XIAOZHI_MASTER_AGENT_ID,
+                    "stage": "llm_required",
+                    "message": "岐小智聊天必须调用真实智能体，已禁止本地兜底回复",
+                    "data": intent,
+                })
+                yield _sse_event("done", {
+                    "agent": XIAOZHI_MASTER_AGENT_ID,
+                    "stage": "done",
+                    "status": "failed",
+                })
+                return
+            yield _sse_event("progress", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "stream_reply",
+                "message": "岐小智智能体已返回，正在流式输出",
+                "intent": intent.get("intent") or "",
+                "source": intent.get("source") or "",
+                "routingSource": intent.get("routingSource") or "",
+            })
+            for index in range(0, len(reply), 4):
+                yield _sse_event("delta", {
+                    "agent": XIAOZHI_MASTER_AGENT_ID,
+                    "text": reply[index:index + 4],
+                    "source": intent.get("source") or "",
+                })
+                time.sleep(0.035)
+            yield _sse_event("result", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "complete",
+                "message": "岐小智本轮回复完成",
+                "data": data,
+            })
+            yield _sse_event("done", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "done",
+                "message": "岐小智对话流已结束",
+            })
+        except Exception as exc:
+            app.logger.exception("xiaozhi chat stream failed")
+            yield _sse_event("error", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "failed",
+                "message": "岐小智智能体调用失败，请检查模型服务后重试。",
+                "error": str(exc),
+            })
+            yield _sse_event("done", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "done",
+                "status": "failed",
+            })
+
+    return Response(generate_events(), mimetype="text/event-stream")
 
 
 @app.post("/api/xiaozhi/tutor")
