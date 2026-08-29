@@ -289,6 +289,19 @@
           <input ref="assistantImageInputRef" type="file" accept="image/*" multiple hidden @change="queueAssistantAttachments" />
           <input ref="assistantVideoInputRef" type="file" accept="video/*" multiple hidden @change="queueAssistantAttachments" />
           <input ref="assistantFileInputRef" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md" multiple hidden @change="queueAssistantAttachments" />
+          <div class="resource-command-strip" aria-label="资源生成命令">
+            <button
+              v-for="command in resourceCommands"
+              :key="command.type"
+              type="button"
+              class="resource-tool"
+              :title="`准备${command.label}生成指令`"
+              :aria-label="`准备${command.label}生成指令`"
+              @click="prepareResourceCommand(command)"
+            >
+              <component :is="resourceIcon(command.type)" :size="17" />
+            </button>
+          </div>
           <textarea
             ref="composerInputRef"
             v-model="draft"
@@ -302,18 +315,6 @@
           </p>
           <div class="composer-actions">
             <div class="composer-input-tools">
-              <button
-                v-for="command in resourceCommands"
-                :key="command.type"
-                type="button"
-                class="composer-tool resource-tool"
-                :title="`准备${command.label}生成指令`"
-                :aria-label="`准备${command.label}生成指令`"
-                @click="prepareResourceCommand(command)"
-              >
-                <component :is="resourceIcon(command.type)" :size="17" />
-              </button>
-              <i class="composer-tool-divider" aria-hidden="true"></i>
               <button type="button" class="composer-tool" title="添加图片" aria-label="添加图片" @click="assistantImageInputRef?.click()"><ImagePlus :size="17" /></button>
               <button type="button" class="composer-tool" title="添加视频" aria-label="添加视频" @click="assistantVideoInputRef?.click()"><Video :size="17" /></button>
               <button type="button" class="composer-tool" title="添加文件" aria-label="添加文件" @click="assistantFileInputRef?.click()"><Paperclip :size="17" /></button>
@@ -2947,6 +2948,34 @@ onBeforeUnmount(() => {
   background: #fff;
 }
 
+.resource-command-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.resource-tool {
+  width: 100%;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #e3ece8;
+  border-radius: 6px;
+  background: #f9fbfa;
+  color: #55706a;
+  cursor: pointer;
+}
+
+.resource-tool:hover,
+.resource-tool:focus-visible {
+  border-color: #cce9df;
+  background: #edf9f4;
+  color: #0e9f6e;
+  outline: none;
+}
+
 .pending-attachments {
   margin-bottom: 7px;
 }
@@ -2988,9 +3017,7 @@ onBeforeUnmount(() => {
 .composer-input-tools {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 1px;
-  max-width: 280px;
+  gap: 4px;
 }
 
 .composer-tool {
@@ -3010,13 +3037,6 @@ onBeforeUnmount(() => {
   border-color: #cce9df;
   background: #edf9f4;
   color: #0e9f6e;
-}
-
-.composer-tool-divider {
-  width: 1px;
-  height: 17px;
-  margin: 0 3px;
-  background: #dbe7e2;
 }
 
 .ghost-btn,
