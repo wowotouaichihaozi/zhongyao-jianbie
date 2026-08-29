@@ -62,7 +62,7 @@ test('runner keeps navigation and classifications outside the original sphere', 
   assert.match(originalSphere, /minDistance=\{2\}/)
   assert.match(originalSphere, /function FocusCamera/)
   assert.match(originalSphere, /startCamera = useRef\(new THREE\.Vector3\(\)\)/)
-  assert.match(originalSphere, /progress\.current = Math\.min\(1, progress\.current \+ delta \/ 0\.7\)/)
+  assert.match(originalSphere, /progress\.current = Math\.min\(1, progress\.current \+ delta \/ 0\.4\)/)
   assert.match(originalSphere, /camera\.position\.lerpVectors\(startCamera\.current, destination\.current, eased\)/)
   assert.doesNotMatch(originalSphere, /camera\.position\.distanceTo\(destination\.current\) < 0\.03/)
   assert.match(originalSphere, /function focusedNodeIds/)

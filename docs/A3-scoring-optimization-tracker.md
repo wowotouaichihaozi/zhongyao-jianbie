@@ -1,5 +1,7 @@
 # A3 Scoring Optimization Tracker
 
+- [x] 2026-08-29：知识网络镜头速度二次微调：将聚焦过渡从约 0.7 秒调整为约 0.4 秒，保留缓入缓出拉镜效果。验证：runner 非清理构建通过（2238 modules）；`node --test frontend/tests/knowledgeNetworkRunner.test.mjs` 3/3；`node frontend/tests/knowledgeNetworkRunner.e2e.mjs` 桌面/移动通过。
+
 - [x] 2026-08-29：知识网络镜头速度微调：将聚焦过渡放慢到约 0.7 秒，保留缓入缓出拉镜效果，避免镜头切换过快。验证：runner 非清理构建通过（2238 modules）；`node --test frontend/tests/knowledgeNetworkRunner.test.mjs` 3/3；`node frontend/tests/knowledgeNetworkRunner.e2e.mjs` 桌面/移动通过。
 
 - [x] 2026-08-29：知识网络镜头平滑修复：将相机位置与 OrbitControls 目标点改为同一时间轴的缓动插值，移除结束时的硬跳定位，避免“先拉近一段再闪现到目标”。验证：runner 非清理构建通过（2238 modules）；`node --test frontend/tests/knowledgeNetworkRunner.test.mjs` 3/3；`node frontend/tests/knowledgeNetworkRunner.e2e.mjs` 桌面/移动通过。
