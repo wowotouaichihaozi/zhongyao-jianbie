@@ -135,9 +135,9 @@ npm.cmd run build -- --emptyOutDir=false
 
 后端生成链路统一通过 `backend/hybrid_knowledge.py` 执行 `QA + Document + Graph RAG` 混合检索。当前只读语料包含 `101,968` 条去重 QA、`31,668` 个文档切片和 `1,601` 个图谱节点；文档切片完整纳入 SylvanL 的 `12,889` 条中医预训练资料，并叠加中医基础理论、中药学、方剂学、伤寒论教材及原有用户私有文档。大语料只服务后端检索与生成依据，不在前端重复绘制；已有知识网络继续承担可视化浏览。
 
-路由器先抽取问题主体与所问属性，再执行实体标题精确检索、FTS5 候选召回、路由内重排和跨路由融合。结构化 QA 适合定义与固定问答，文档切片提供原文上下文，图谱处理关系与多跳语义；同一图谱派生的 QA/文档不会被重复计算为独立证据。只有至少两类独立路由命中且语义一致度达到阈值时，`crossValidation.decision` 才返回 `allow_grounded_generation`；单源、低一致度或无证据结果统一返回 `mark_for_verification`，并由 `grounded_prompt_block` 要求生成智能体标注“需进一步核验”。
+公共知识入口先运行 `knowledge-retrieval-agent-v1`：从用户任务中提取中药/方剂/证候实体、所问属性和检索意图，再拆成最多 4 个可审计子查询。每个子查询分别执行 QA、文档和图谱节点检索，合并时按实体覆盖去重重排；例如比较麻黄与桂枝时，会分别检索两味药的性味归经和功效，不允许用黄连问答或麻黄同名前缀方剂凑数。结构化 QA 适合定义与固定问答，文档切片提供原文上下文，当前图谱索引提供层级节点与关系语义；同一图谱派生的 QA/文档不会被重复计算为独立证据。只有至少两类独立路由命中且语义一致度达到阈值时，`crossValidation.decision` 才返回 `allow_grounded_generation`；单源、低一致度或无证据结果统一返回 `mark_for_verification`，并由 `grounded_prompt_block` 要求生成智能体标注“需进一步核验”。
 
-`POST /api/knowledge/retrieve` 返回 `routing.routes`、`routing.crossValidation`、逐条引用和数据集 revision/许可证；混合知识库页面只展示检索命中和审核状态，不展示或加载全部大语料。多智能体运行时把 `knowledgeRouting` 和 `knowledgeVerification` 一并交给资源专员，避免审核结论在智能体交接时丢失。压缩 SQLite 语料位于 `backend/data/tcm_hybrid_corpus.db.gz`，运行时按清单校验并解压为只读缓存；压缩 SHA-256 为 `894B2F2866B6F2E30B7D0218588320690C9BEE895F4DA2827340AC2389715E52`，解压 SHA-256 为 `3FB25E8CFBFEE7C7F9C39451EA57BBF640687A0D140C9D0FD894788A3BA854FB`。
+`POST /api/knowledge/retrieve` 返回 `retrievalAgent`、`routing.subQueryRuns`、`routing.routes`、`routing.crossValidation` 和逐条引用。引用会持久保留 `excerpt`、命中的子查询、数据集 revision 与许可证，资源生成智能体收到的是完整证据片段，不只是来源标题。混合知识库页面只展示检索命中和审核状态，不展示或加载全部大语料。个性化资源工作流在资源专员之前明确记录 `knowledge-retrieval-agent` 节点，并把检索计划、引用片段和审核结论一并交给 PPT、题库、导图、讲义和视频资源生成器。压缩 SQLite 语料位于 `backend/data/tcm_hybrid_corpus.db.gz`，运行时按清单校验并解压为只读缓存；压缩 SHA-256 为 `894B2F2866B6F2E30B7D0218588320690C9BEE895F4DA2827340AC2389715E52`，解压 SHA-256 为 `3FB25E8CFBFEE7C7F9C39451EA57BBF640687A0D140C9D0FD894788A3BA854FB`。
 
 固定数据集 revision、许可证和输入文件 SHA-256 记录在 `backend/data/tcm_hybrid_corpus_manifest.json` 与 `THIRD_PARTY_NOTICES.md`。语料重建和验证命令：
 
@@ -292,6 +292,8 @@ cd backend && python -m unittest tests.test_multimodal_inputs -v
 首页“真实模型能力”区通过 `GET /api/model-capabilities` 读取服务端实际文本主控模型，不再把源码默认值冒充为生产配置；该公开接口只返回模型名称、ID 与输入输出类型，不返回地址或凭据。阿里云百炼 Qwen3-VL-Plus（`qwen3-vl-plus`）与 Qwen3-Omni-Flash（`qwen3-omni-flash`）分别负责视觉和音频证据预处理；国产 Seedance 模型负责视频生成，默认通过 Coze 工作流调用 Seedance 1.5，并提供 `doubao-seedance-2.0-mini` 与 `doubao-seedance-2.0` 可选引擎。学习画像插画、视频首帧和 PPT 配图统一使用豆包 Seedream 4.5（固定模型 ID `seedream-4-5`，通过 APIMart 服务通道接入）；视频旁白默认使用讯飞超拟人语音合成 WebSocket 服务，发音人由 `XFYUN_TTS_VOICE` 指定。讯飞数字人播报属于数字人 SDK 能力，`x4_yezi` 是服务端配置音色，不计作独立大模型。首页不展示密钥、工作流 ID 或服务端地址。
 
 多模型由 `XiaoZhiAgentHarness` 统一封装，运行时架构标识为 `agent-harness-supervisor-blackboard`：Supervisor 与共享黑板接收画像、任务和学习证据；`model_routing.py` 按模态选择文本、视觉或本地文档提取链路；版本化 Skill 通过 Skill Registry、MCP Tool Gateway 与 Handler Registry 调用真实执行器；输入输出经过 JSON 契约校验，并进入质量审核、安全审核、检查点持久化和可观察执行轨迹。该架构说明同步展示在首页模型区。
+
+Harness 的长期协作上下文按 `(userId, profileReportId)` 隔离：同一学习画像下的岐小智总控、路径规划、知识检索、资源生成和审核智能体共享一条有序群聊消息流，事件、Handoff、审核结论及任务/资源/引用 ID 都会持久化。每次运行先注入历史压缩摘要和近期消息；活动上下文达到预算阈值时，旧消息自动写入版本化摘要快照并退出模型提示，原始记录仍可审计。`GET /api/xiaozhi/profile-conversation?profileReportId=<id>` 可恢复当前画像的群聊状态，具体协议见 `docs/agent.md`。验证命令：`python -m unittest backend.tests.test_profile_agent_context -v`。
 
 ## PPT H5 集成说明
 

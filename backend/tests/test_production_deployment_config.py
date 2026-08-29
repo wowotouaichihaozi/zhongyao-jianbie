@@ -32,6 +32,8 @@ def test_production_script_is_tuned_for_the_low_memory_host():
     assert '"$SOURCE_DIR/backend/data/course_knowledge_index.json"' in deploy_script
     assert '"$BACKEND_DIR/data/course_knowledge_index.json"' in deploy_script
     assert 'rsync -a --checksum "$SOURCE_DIR/frontend/dist/"' in deploy_script
+    assert 'rsync -a --checksum --delete "$SOURCE_DIR/frontend/dist/"' not in deploy_script
+    assert "Preserve prior chunks while clients revalidate" in deploy_script
     assert 'rsync -a --checksum --delete "$SOURCE_DIR/ppth5/dist-web/"' in deploy_script
 
 

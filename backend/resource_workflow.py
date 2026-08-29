@@ -140,6 +140,7 @@ def generate_resource_workflow(
             "strategy": "先用知识库讲义建立可追溯基础，再用导图和 HTML PPT 组织重点，配合视频学习与题库验证，最后通过医案分析完成复盘。",
             "nodes": [
                 "profile_topic_extractor",
+                "knowledge-retrieval-agent",
                 *[
                     str((item.get("metadata") or {}).get("workflowNode") or "resource_specialist")
                     for item in resources
@@ -151,11 +152,13 @@ def generate_resource_workflow(
                 "pptStyle": "lewislulu/html-ppt-skill: static HTML/CSS slide deck style",
                 "questionSheets": len(context.question_sheets),
                 "knowledgeBase": context.knowledge.get("stats") or {},
+                "knowledgeRetrieval": context.knowledge.get("retrievalAgent") or {},
             },
         },
         "resources": resources,
         "grounded": bool(context.knowledge.get("grounded")),
         "knowledgeSources": context.knowledge.get("citations") or [],
+        "knowledgeRetrieval": context.knowledge.get("retrievalAgent") or {},
     }
 
 

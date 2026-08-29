@@ -40,7 +40,7 @@ ROOT = Path(__file__).resolve().parent / "generated" / "video"
 DEFAULT_VIDEO_ENGINE = "seedance_1_5_coze"
 DEFAULT_VIDEO_RESOLUTION = "720p"
 VIDEO_OUTPUT_SIZE = "16:9"
-SEEDREAM_MODEL = "seedream-4-5"
+DEFAULT_IMAGE_MODEL = "z-image-turbo"
 SEEDREAM_RESOLUTION = "2K"
 DEFAULT_TTS_PROVIDER = "xfyun"
 DEFAULT_XFYUN_TTS_URL = "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6"
@@ -138,6 +138,14 @@ def _image_api_token() -> str:
         _setting("SEEDREAM_API_KEY", "")
         or _setting("VIDEO_IMAGE_API_KEY", "")
         or _setting("IMAGE2_API_KEY", "")
+    )
+
+
+def _image_model() -> str:
+    return (
+        _setting("VIDEO_IMAGE_MODEL", "")
+        or _setting("IMAGE2_MODEL", "")
+        or DEFAULT_IMAGE_MODEL
     )
 
 
@@ -323,7 +331,7 @@ def _create_image(prompt: str) -> str:
         f"{base_url.rstrip('/')}/images/generations",
         headers=_headers(token),
         json={
-            "model": SEEDREAM_MODEL,
+            "model": _image_model(),
             "prompt": prompt,
             "size": VIDEO_OUTPUT_SIZE,
             "resolution": SEEDREAM_RESOLUTION,
@@ -333,11 +341,20 @@ def _create_image(prompt: str) -> str:
         timeout=60,
     )
     payload = _json_response(response)
-    first = (payload.get("data") or [{}])[0]
-    task_id = str(first.get("task_id") or first.get("id") or "")
+    direct_url = _first_url(payload)
+    if direct_url:
+        return direct_url
+    data = payload.get("data") or payload
+    first = data[0] if isinstance(data, list) and data else data
+    if not isinstance(first, dict):
+        first = {}
+    task_id = str(first.get("task_id") or first.get("taskId") or first.get("id") or "")
     if not task_id:
         raise VideoGenerationError("图片服务未返回任务 ID")
-    return _first_url((_wait_media_task(base_url, token, task_id).get("result") or {}).get("images"))
+    image_url = _first_url(_wait_media_task(base_url, token, task_id))
+    if not image_url:
+        raise VideoGenerationError("图片服务未返回有效图片地址")
+    return image_url
 
 
 def _xfyun_tts_signed_url(base_url: str, api_key: str, api_secret: str, *, date: str | None = None) -> str:
@@ -666,6 +683,8 @@ def generate_generated_video_cover(
     return {
         "posterUrl": f"/api/personalized-resources/generated-videos/{task_id}/poster",
         "prompt": prompt,
+        "model": _image_model(),
+        "imagePath": str(poster_path),
     }
 
 

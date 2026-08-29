@@ -69,8 +69,10 @@ test('wires the shared redirect contract into the guard, 401 handler, and active
   assert.match(apiSource, /window\.location\.href = buildLoginRedirectPath\(redirectTarget\)/)
   assert.match(authSource, /ref\(safeInternalRedirect\(route\.query\.redirect\)\)/)
   assert.match(authSource, /if \(pendingRoute\.value\) openAuth\('login'\)/)
+  assert.match(authSource, /window\.location\.replace\(target\)/)
   assert.equal(
-    authSource.match(/router\.replace\(pendingRoute\.value \|\| DEFAULT_AUTHENTICATED_PATH\)/g)?.length,
+    authSource.match(/redirectAfterAuthentication\(pendingRoute\.value \|\| DEFAULT_AUTHENTICATED_PATH\)/g)?.length,
     2,
   )
+  assert.doesNotMatch(authSource, /router\.replace\(pendingRoute\.value \|\| DEFAULT_AUTHENTICATED_PATH\)/)
 })

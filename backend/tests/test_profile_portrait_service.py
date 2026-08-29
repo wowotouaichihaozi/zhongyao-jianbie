@@ -58,7 +58,7 @@ class ProfilePortraitServiceTests(unittest.TestCase):
 
         request = urlopen.call_args.args[0]
         payload = json.loads(request.data.decode("utf-8"))
-        self.assertEqual(payload["model"], "seedream-4-5")
+        self.assertEqual(payload["model"], "z-image-turbo")
         self.assertEqual(payload["size"], "1:1")
         self.assertEqual(payload["resolution"], "2K")
         self.assertEqual(payload["watermark"], False)

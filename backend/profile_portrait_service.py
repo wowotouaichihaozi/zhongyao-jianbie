@@ -1,4 +1,4 @@
-"""Server-side Seedream portraits for learning-profile reports."""
+"""Server-side generated portraits for learning-profile reports."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from typing import Any
 PORTRAIT_DIR = Path(__file__).resolve().parent / "data" / "profile_portraits"
 RETRYABLE_HTTP_CODES = {408, 429, 500, 502, 503, 504, 524}
 DEFAULT_SEEDREAM_BASE_URL = "https://api.apimart.ai/v1"
-SEEDREAM_MODEL = "seedream-4-5"
+DEFAULT_IMAGE_MODEL = "z-image-turbo"
 FAILED_TASK_STATUSES = {"failed", "failure", "error", "cancelled", "canceled"}
 
 
@@ -27,7 +27,12 @@ def _image2_settings() -> tuple[str, str, str]:
         or DEFAULT_SEEDREAM_BASE_URL
     )
     api_key = os.getenv("SEEDREAM_API_KEY", "").strip() or os.getenv("IMAGE2_API_KEY", "").strip()
-    return base_url, api_key, SEEDREAM_MODEL
+    model = (
+        os.getenv("PROFILE_IMAGE_MODEL", "").strip()
+        or os.getenv("IMAGE2_MODEL", "").strip()
+        or DEFAULT_IMAGE_MODEL
+    )
+    return base_url, api_key, model
 
 
 def _max_request_attempts() -> int:

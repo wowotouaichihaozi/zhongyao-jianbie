@@ -27,6 +27,11 @@ try:
 except ImportError:  # pragma: no cover - package-style import fallback
     from .hybrid_knowledge import route_hybrid_knowledge
 
+try:
+    from knowledge_retrieval_agent import plan_knowledge_retrieval
+except ImportError:  # pragma: no cover - package-style import fallback
+    from .knowledge_retrieval_agent import plan_knowledge_retrieval
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CORPUS_DIR = Path(os.environ.get("COURSE_KNOWLEDGE_CORPUS_DIR") or (PROJECT_ROOT / "rag文档")).resolve()
@@ -429,7 +434,7 @@ def _merge_knowledge_results(
     }
 
 
-def retrieve_course_knowledge(
+def _retrieve_course_knowledge_once(
     query: str,
     top_k: int = 6,
     max_context_chars: int = 9000,
@@ -466,6 +471,362 @@ def retrieve_course_knowledge(
     )
 
 
+def _retrieval_hit_key(hit: dict[str, Any]) -> tuple[str, ...]:
+    route = str(hit.get("route") or "document")
+    if route == "qa":
+        return (route, str(hit.get("qaId") or hit.get("dataset") or ""), str(hit.get("title") or ""))
+    if route == "graph":
+        return (route, str(hit.get("nodeId") or ""), str(hit.get("path") or hit.get("title") or ""))
+    return (
+        route,
+        str(hit.get("scope") or "built-in"),
+        str(hit.get("documentId") or hit.get("chunkId") or hit.get("source") or ""),
+        str(hit.get("page") or hit.get("section") or ""),
+        str(hit.get("title") or ""),
+    )
+
+
+def _retrieval_hit_score(hit: dict[str, Any]) -> float:
+    try:
+        base = float(hit.get("fusionScore") or hit.get("score") or 0)
+    except (TypeError, ValueError):
+        base = 0.0
+    query_count = len(hit.get("matchedSubQueries") or [])
+    return base + max(0, query_count - 1) * 0.04
+
+
+def _agent_relevance_score(hit: dict[str, Any], plan: dict[str, Any]) -> float:
+    text = re.sub(
+        r"\s+",
+        "",
+        f"{hit.get('title') or ''}{hit.get('path') or ''}{hit.get('excerpt') or ''}",
+    ).lower()
+    entities = [
+        re.sub(r"\s+", "", str(item or "")).lower()
+        for item in (plan.get("entities") or [])
+        if len(re.sub(r"\s+", "", str(item or ""))) >= 2
+    ]
+    aspects = [
+        re.sub(r"\s+", "", str(item or "")).lower()
+        for item in (plan.get("aspects") or [])
+        if len(re.sub(r"\s+", "", str(item or ""))) >= 2
+    ]
+    entity_matches = sum(1 for item in entities if item in text)
+    aspect_matches = sum(1 for item in aspects if item in text)
+    score = min(0.16, aspect_matches * 0.04)
+    if entities:
+        score += 0.8 * (entity_matches / len(entities))
+        if entity_matches == 0:
+            score -= 0.7
+    return score
+
+
+def _entity_match_count(hit: dict[str, Any], plan: dict[str, Any]) -> int:
+    text = re.sub(
+        r"\s+",
+        "",
+        f"{hit.get('title') or ''}{hit.get('path') or ''}{hit.get('excerpt') or ''}",
+    ).lower()
+    return sum(
+        1
+        for raw in (plan.get("entities") or [])
+        if len(re.sub(r"\s+", "", str(raw or ""))) >= 2
+        and re.sub(r"\s+", "", str(raw or "")).lower() in text
+    )
+
+
+def _qa_matches_target_entity(hit: dict[str, Any], plan: dict[str, Any]) -> bool:
+    if str(hit.get("route") or "") != "qa":
+        return True
+    entities = [
+        re.sub(r"\s+", "", str(item or ""))
+        for item in (plan.get("entities") or [])
+        if len(re.sub(r"\s+", "", str(item or ""))) >= 2
+    ]
+    if not entities:
+        return True
+    title = re.sub(r"\s+", "", str(hit.get("title") or ""))
+    for entity in entities:
+        if re.search(rf"(?:^|[生炙制]){re.escape(entity)}(?:的|是|有何|有哪些|如何|主治|功效|性味|归经|来源|性状)", title):
+            return True
+    return False
+
+
+def _assign_citation_ids(hits: list[dict[str, Any]]) -> None:
+    counters: Counter[str] = Counter()
+    for hit in hits:
+        route = str(hit.get("route") or "document")
+        if route == "qa":
+            prefix = "QA"
+        elif route == "graph":
+            prefix = "KG"
+        elif hit.get("scope") == "private":
+            prefix = "PKB"
+        else:
+            prefix = "KB"
+        counters[prefix] += 1
+        hit["citationId"] = f"{prefix}{counters[prefix]}"
+
+
+def _agent_hit_block(hit: dict[str, Any]) -> str:
+    citation_id = str(hit.get("citationId") or "KB")
+    route = str(hit.get("route") or "document")
+    excerpt = str(hit.get("excerpt") or "")[:1600]
+    if route == "qa":
+        return f"[{citation_id}][QA] {hit.get('title') or '课程问答'}\n{excerpt}"
+    if route == "graph":
+        path = hit.get("path") or hit.get("title") or "中医知识节点"
+        return f"[{citation_id}][知识图谱] {path}\n{excerpt}"
+    locator = f"第 {hit['page']} 页" if hit.get("page") else f"第 {hit.get('section') or 1} 节"
+    private_label = "[我的知识库] " if hit.get("scope") == "private" else ""
+    return (
+        f"[{citation_id}]{private_label}{hit.get('title') or hit.get('source') or '课程资料'}"
+        f"（{hit.get('source') or '未知来源'}，{locator}）\n{excerpt}"
+    )
+
+
+def _merge_agent_retrievals(
+    query: str,
+    plan: dict[str, Any],
+    runs: list[tuple[dict[str, Any], dict[str, Any]]],
+    *,
+    top_k: int,
+    max_context_chars: int,
+) -> dict[str, Any]:
+    merged: dict[tuple[str, ...], dict[str, Any]] = {}
+    run_summaries: list[dict[str, Any]] = []
+    for subquery, result in runs:
+        subquery_id = str(subquery.get("id") or "SQ")
+        subquery_text = str(subquery.get("query") or "")
+        route_counts: Counter[str] = Counter()
+        for raw_hit in result.get("hits") or []:
+            if not isinstance(raw_hit, dict):
+                continue
+            hit = dict(raw_hit)
+            route_counts[str(hit.get("route") or "document")] += 1
+            key = _retrieval_hit_key(hit)
+            existing = merged.get(key)
+            if existing is None:
+                hit["matchedSubQueries"] = [subquery_id]
+                hit["matchedQueries"] = [subquery_text]
+                merged[key] = hit
+                continue
+            existing["matchedSubQueries"] = _dedupe_strings(
+                [*(existing.get("matchedSubQueries") or []), subquery_id]
+            )
+            existing["matchedQueries"] = _dedupe_strings(
+                [*(existing.get("matchedQueries") or []), subquery_text]
+            )
+            if _retrieval_hit_score(hit) > _retrieval_hit_score(existing):
+                for key_name, value in hit.items():
+                    if key_name not in {"matchedSubQueries", "matchedQueries", "citationId"}:
+                        existing[key_name] = value
+        run_summaries.append(
+            {
+                "id": subquery_id,
+                "query": subquery_text,
+                "matched": len(result.get("hits") or []),
+                "routes": dict(route_counts),
+            }
+        )
+
+    eligible = [item for item in merged.values() if _qa_matches_target_entity(item, plan)]
+    if plan.get("entities"):
+        entity_routes = {
+            str(item.get("route") or "document")
+            for item in eligible
+            if _entity_match_count(item, plan) > 0
+        }
+        eligible = [
+            item
+            for item in eligible
+            if str(item.get("route") or "document") not in entity_routes
+            or _entity_match_count(item, plan) > 0
+        ]
+    ranked = sorted(
+        eligible,
+        key=lambda item: _retrieval_hit_score(item) + _agent_relevance_score(item, plan),
+        reverse=True,
+    )
+    limit = max(1, min(int(top_k), 12))
+    selected: list[dict[str, Any]] = []
+    if limit >= 3:
+        for route in ("qa", "document", "graph"):
+            candidate = next((item for item in ranked if str(item.get("route") or "document") == route), None)
+            if candidate is not None and candidate not in selected:
+                selected.append(candidate)
+    for raw_entity in plan.get("entities") or []:
+        entity = re.sub(r"\s+", "", str(raw_entity or "")).lower()
+        if len(entity) < 2:
+            continue
+        document_candidates = [
+            item
+            for item in ranked
+            if str(item.get("route") or "document") == "document"
+            and entity
+            in re.sub(
+                r"\s+",
+                "",
+                f"{item.get('title') or ''}{item.get('excerpt') or ''}",
+            ).lower()
+        ]
+        candidate = next(
+            (
+                item
+                for item in document_candidates
+                if re.sub(r"\s+", "", str(item.get("title") or "")).lower() == entity
+            ),
+            document_candidates[0] if document_candidates else None,
+        )
+        if candidate is not None and candidate not in selected:
+            selected.append(candidate)
+    for candidate in ranked:
+        if candidate not in selected:
+            selected.append(candidate)
+        if len(selected) >= limit:
+            break
+    selected = selected[:limit]
+    _assign_citation_ids(selected)
+
+    accepted: list[dict[str, Any]] = []
+    context_parts: list[str] = []
+    context_length = 0
+    for hit in selected:
+        block = _agent_hit_block(hit)
+        if context_parts and context_length + len(block) > max_context_chars:
+            continue
+        accepted.append(hit)
+        context_parts.append(block)
+        context_length += len(block)
+
+    route_counts = Counter(str(item.get("route") or "document") for item in accepted)
+    evidence_routes = [route for route in ("qa", "document", "graph") if route_counts[route]]
+    agreement_scores = [
+        float((((result.get("routing") or {}).get("crossValidation") or {}).get("agreementScore") or 0))
+        for _, result in runs
+    ]
+    agreement_score = max(agreement_scores, default=0.0)
+    corroborated = len(evidence_routes) >= 2 and agreement_score >= 0.015
+    verification = {
+        "status": "corroborated" if corroborated else ("low_agreement" if len(evidence_routes) >= 2 else "single_source" if accepted else "insufficient"),
+        "evidenceRoutes": evidence_routes,
+        "agreementScore": round(agreement_score, 4),
+        "decision": "allow_grounded_generation" if corroborated else "mark_for_verification",
+        "verificationRequired": not corroborated,
+        "rule": "至少两类独立知识源命中且语义一致度达标后允许按证据生成；重复来源、低一致度、单源或无命中内容必须标记为需进一步核验。",
+    }
+
+    citations: list[dict[str, Any]] = []
+    citation_keys = (
+        "scope", "sourceType", "route", "title", "source", "page", "section",
+        "collectionId", "collectionName", "documentId", "qaId", "nodeId", "chunkId",
+        "path", "domain", "dataset", "sourceRevision", "sourceLicense", "safety",
+        "score", "fusionScore", "excerpt", "matchedSubQueries", "matchedQueries",
+    )
+    for hit in accepted:
+        citation = {"id": hit.get("citationId")}
+        for key in citation_keys:
+            if hit.get(key) is not None:
+                citation[key] = hit.get(key)
+        citations.append(citation)
+
+    stats_list = [result.get("stats") or {} for _, result in runs]
+    stats = {
+        key: max((int(item.get(key) or 0) for item in stats_list), default=0)
+        for key in (
+            "corpusFiles", "indexedChunks", "builtInMatchedChunks", "privateMatchedChunks",
+            "privateCollections", "privateDocuments", "privateIndexedChunks", "qaPairs",
+            "documentCorpusChunks", "graphNodes",
+        )
+    }
+    stats.update(
+        {
+            "retrievalStrategy": "agentic-multi-query-hybrid-v1",
+            "subQueryCount": len(runs),
+            "qaMatched": route_counts["qa"],
+            "documentMatched": route_counts["document"],
+            "graphMatched": route_counts["graph"],
+            "matchedChunks": len(accepted),
+        }
+    )
+    active_collection = next(
+        (result.get("activePrivateCollection") for _, result in runs if result.get("activePrivateCollection") is not None),
+        None,
+    )
+    return {
+        "query": query,
+        "grounded": bool(accepted),
+        "context": "\n\n".join(context_parts),
+        "hits": accepted,
+        "chunks": accepted,
+        "citations": citations,
+        "retrievalAgent": plan,
+        "activePrivateCollection": active_collection,
+        "routing": {
+            "strategy": "hybrid-routing-v1",
+            "mode": "agentic-multi-query",
+            "queryType": plan.get("intent") or "concept",
+            "routes": [
+                {"id": "qa", "label": "QA 精确问答", "matched": route_counts["qa"]},
+                {"id": "document", "label": "文档切块", "matched": route_counts["document"]},
+                {"id": "graph", "label": "知识图谱", "matched": route_counts["graph"]},
+            ],
+            "subQueryRuns": run_summaries,
+            "crossValidation": verification,
+        },
+        "stats": stats,
+    }
+
+
+def _dedupe_strings(values: list[object]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw or "").strip()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
+def retrieve_course_knowledge(
+    query: str,
+    top_k: int = 6,
+    max_context_chars: int = 9000,
+    *,
+    user_id: int | None = None,
+    db_path: str | Path | None = None,
+    private_collection_id: int | None = None,
+    include_private: bool = True,
+) -> dict[str, Any]:
+    plan = plan_knowledge_retrieval(query, max_subqueries=4)
+    subqueries = plan.get("subQueries") or [{"id": "SQ1", "query": query}]
+    runs: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    per_query_top_k = 12
+    for subquery in subqueries:
+        subquery_text = str(subquery.get("query") or "").strip()
+        if not subquery_text:
+            continue
+        result = _retrieve_course_knowledge_once(
+            subquery_text,
+            top_k=per_query_top_k,
+            max_context_chars=max_context_chars,
+            user_id=user_id,
+            db_path=db_path,
+            private_collection_id=private_collection_id,
+            include_private=include_private,
+        )
+        runs.append((subquery, result))
+    return _merge_agent_retrievals(
+        query,
+        plan,
+        runs,
+        top_k=top_k,
+        max_context_chars=max_context_chars,
+    )
+
+
 def grounded_prompt_block(
     query: str,
     top_k: int = 6,
@@ -494,12 +855,21 @@ def grounded_prompt_block(
         f"决策：{verification.get('decision') or 'mark_for_verification'}；"
         f"证据路由：{', '.join(verification.get('evidenceRoutes') or []) or '无'}。"
     )
+    retrieval_agent = result.get("retrievalAgent") or {}
+    keywords = "、".join(retrieval_agent.get("keywords") or []) or "未提取"
+    subqueries = "；".join(
+        str(item.get("query") or "")
+        for item in (retrieval_agent.get("subQueries") or [])
+        if isinstance(item, dict) and str(item.get("query") or "").strip()
+    ) or query
+    retrieval_note = f"知识检索智能体关键词：{keywords}。执行子查询：{subqueries}。"
     prompt = (
-        "以下内容由混合知识路由器从结构化 QA、课程文档切块、当前用户私有文档和中医知识图谱中检索，"
+        "以下内容先由知识检索智能体拆分关键词和子查询，再由混合知识路由器从结构化 QA、"
+        "课程文档切块、当前用户私有文档和中医知识图谱中检索，"
         "并完成多源证据交叉验证。涉及定义、辨证依据、方药、步骤、参数和结论时必须优先依据这些证据；"
         "无法由证据支持或仅有单一来源支持的事实要明确标注为“需进一步核验”。"
         "输出中使用 [QA1] 标注 QA 对、[KB1] 标注文档、[PKB1] 标注用户私有资料、[KG1] 标注图谱节点。\n"
-        f"{verification_note}\n\n"
+        f"{retrieval_note}\n{verification_note}\n\n"
         f"{result['context']}"
     )
     return prompt, result["citations"]

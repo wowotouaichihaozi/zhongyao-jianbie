@@ -2843,7 +2843,7 @@ def generate_learning_path(payload: Dict[str, Any]) -> Dict[str, Any]:
     profile = payload.get("profile") or payload.get("studentProfile") or payload
     profile_context = build_learning_profile_context(profile)
     week_start = max(1, int(payload.get("weekStart") or 1))
-    week_count = max(1, min(12, int(payload.get("weekCount") or 6)))
+    week_count = max(1, min(12, int(payload.get("weekCount") or 1)))
     total_weeks = max(week_start + week_count - 1, min(12, int(payload.get("totalWeeks") or 6)))
     existing_config = payload.get("existingConfig") if isinstance(payload.get("existingConfig"), dict) else None
     config_options = {

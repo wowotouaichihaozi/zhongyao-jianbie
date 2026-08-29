@@ -29,6 +29,7 @@
           v-for="tool in resourceTools"
           :key="tool.to"
           class="resource-launcher"
+          :class="tool.tone"
           :to="tool.to"
           target="_blank"
           rel="noopener noreferrer"
@@ -36,7 +37,6 @@
           <span class="launcher-icon"><component :is="tool.icon" :size="22" :stroke-width="1.8" aria-hidden="true" /></span>
           <span class="launcher-copy">
             <strong>{{ tool.title }}</strong>
-            <small>{{ tool.description }}</small>
           </span>
           <ArrowRight :size="17" aria-hidden="true" />
         </RouterLink>
@@ -45,11 +45,32 @@
 
     <section class="resource-archive" aria-labelledby="resource-archive-title">
       <div class="archive-heading">
-        <div>
+        <div class="archive-title">
           <h2 id="resource-archive-title">历史资源</h2>
           <span>{{ resourcesLoading ? '正在同步' : `共 ${visibleResourceCount} 项` }}</span>
         </div>
         <div class="archive-actions">
+          <label class="history-search archive-search">
+            <Search :size="17" aria-hidden="true" />
+            <input
+              v-model="searchQuery"
+              type="search"
+              inputmode="search"
+              autocomplete="off"
+              aria-label="搜索历史资源"
+              placeholder="搜索资源"
+              @keydown.esc="clearSearch"
+            />
+            <button v-if="searchQuery" type="button" title="清除搜索" aria-label="清除搜索" @click="clearSearch">
+              <X :size="15" aria-hidden="true" />
+            </button>
+          </label>
+          <label class="type-filter">
+            <span>类型</span>
+            <select v-model="activeCategory" aria-label="按资源类型筛选">
+              <option v-for="cat in categories" :key="cat.key" :value="cat.key">{{ cat.label }}</option>
+            </select>
+          </label>
           <button
             type="button"
             class="history-refresh-btn"
@@ -74,32 +95,10 @@
         <button type="button" @click="loadResources">重新加载</button>
       </div>
 
-      <div class="archive-toolbar">
-        <label class="history-search">
-          <Search :size="17" aria-hidden="true" />
-          <input
-            v-model="searchQuery"
-            type="search"
-            inputmode="search"
-            autocomplete="off"
-            aria-label="搜索历史资源"
-            placeholder="搜索资源名称或内容"
-            @keydown.esc="clearSearch"
-          />
-          <button v-if="searchQuery" type="button" title="清除搜索" aria-label="清除搜索" @click="clearSearch">
-            <X :size="15" aria-hidden="true" />
-          </button>
-        </label>
-        <label class="type-filter">
-          <span>类型</span>
-          <select v-model="activeCategory" aria-label="按资源类型筛选">
-            <option v-for="cat in categories" :key="cat.key" :value="cat.key">{{ cat.label }}</option>
-          </select>
-        </label>
-      </div>
-
       <div class="archive-result-line" aria-live="polite">
-        <span>{{ resourcesLoading ? '正在读取资源记录' : resultSummary }}</span>
+        <span v-if="resourcesLoading || searchQuery.trim() || activeCategory !== 'all'">
+          {{ resourcesLoading ? '正在读取资源记录' : resultSummary }}
+        </span>
         <span v-if="filteredResources.length">第 {{ currentPage }} / {{ totalPages }} 页</span>
       </div>
 
@@ -197,24 +196,24 @@
 </template>
 
 <script setup>
-import { ref, computed, markRaw, onMounted, watch } from 'vue'
+import { ref, computed, markRaw, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowRight,
-  BookOpenCheck,
+  Box,
   ChevronLeft,
   ChevronRight,
   CirclePlay,
-  Clapperboard,
+  Film,
   FileText,
+  ListChecks,
   LoaderCircle,
+  PanelsTopLeft,
   Plus,
-  Presentation,
   RefreshCw,
   Search,
-  ScanSearch,
-  Share2,
   TriangleAlert,
+  Workflow,
   X,
 } from 'lucide-vue-next'
 import {
@@ -237,45 +236,39 @@ const route = useRoute()
 const resourceTools = [
   {
     title: 'AI 视频课程',
-    description: '按学习画像生成讲解视频，自动配音、字幕与服务端剪辑。',
     to: '/personalized-resources/video-generator',
-    icon: markRaw(Clapperboard),
-    tone: 'tool-teal',
+    icon: markRaw(Film),
+    tone: 'launcher-teal',
   },
   {
     title: '题库生成',
-    description: '按章节和难度快速生成练习题单与考试。',
     to: '/personalized-resources/question-bank',
-    icon: markRaw(BookOpenCheck),
-    tone: 'tool-green',
+    icon: markRaw(ListChecks),
+    tone: 'launcher-amber',
   },
   {
     title: 'PPT生成',
-    description: '根据主题和材料生成课程演示文稿。',
     to: '/personalized-resources/ppt',
-    icon: markRaw(Presentation),
-    tone: 'tool-blue',
+    icon: markRaw(PanelsTopLeft),
+    tone: 'launcher-blue',
   },
   {
     title: '思维导图',
-    description: '把知识点整理成结构清晰的学习导图。',
     to: '/personalized-resources/mind-map',
-    icon: markRaw(Share2),
-    tone: 'tool-purple',
+    icon: markRaw(Workflow),
+    tone: 'launcher-violet',
   },
   {
     title: '药材模型识别',
-    description: '旋转观察三维药材，完成性状辨识与特征核对。',
     to: '/personalized-resources/herb-model',
-    icon: markRaw(ScanSearch),
-    tone: 'tool-red',
+    icon: markRaw(Box),
+    tone: 'launcher-coral',
   },
   {
     title: '视频查找',
-    description: '检索适合当前学习阶段的讲解视频。',
     to: '/personalized-resources/video-search',
     icon: markRaw(Search),
-    tone: 'tool-teal',
+    tone: 'launcher-cyan',
   },
 ]
 
@@ -297,7 +290,6 @@ const pageSize = 9
 const generating = ref(false)
 const resources = ref([])
 const loadedResourcePreviews = ref(new Set())
-const staticCoverFailed = ref(new Set())
 const hasProfile = ref(false)
 const profileData = ref(null)
 const evaluations = ref([])
@@ -639,12 +631,12 @@ function goToPage(page) {
 
 function getResourceIcon(type) {
   return {
-    mindmap: Share2,
-    ppt: Presentation,
+    mindmap: Workflow,
+    ppt: PanelsTopLeft,
     video: CirclePlay,
-    generated_video: Clapperboard,
-    quiz: BookOpenCheck,
-    herb_model: ScanSearch,
+    generated_video: Film,
+    quiz: ListChecks,
+    herb_model: Box,
   }[type] || FileText
 }
 
@@ -663,6 +655,7 @@ function markPreviewLoaded(resourceId) {
 }
 
 const staticCoverRetries = new Map()
+const staticCoverRetryTimers = new Map()
 
 function usesStaticCover(resource) {
   return ['video', 'generated_video'].includes(String(resource?.type || ''))
@@ -706,23 +699,23 @@ function retryStaticCover(resource) {
   const key = previewResourceKey(resource?.id)
   const attempt = staticCoverRetries.get(key) || 0
   if (resource?.type !== 'generated_video') return
-  if (attempt >= 5) {
-    const next = new Set(staticCoverFailed.value)
-    next.add(key)
-    staticCoverFailed.value = next
-    return
-  }
-  window.setTimeout(() => {
+  if (staticCoverRetryTimers.has(key)) return
+  const timer = window.setTimeout(() => {
+    staticCoverRetryTimers.delete(key)
     staticCoverRetries.set(key, attempt + 1)
     resources.value = [...resources.value]
-  }, 2000)
+  }, Math.min(10000, 2000 + attempt * 500))
+  staticCoverRetryTimers.set(key, timer)
 }
 
-function staticCoverLabel(resource) {
-  return staticCoverFailed.value.has(previewResourceKey(resource?.id))
-    ? '首图待生成'
-    : '首图生成中'
+function staticCoverLabel() {
+  return '首图生成中'
 }
+
+onUnmounted(() => {
+  for (const timer of staticCoverRetryTimers.values()) window.clearTimeout(timer)
+  staticCoverRetryTimers.clear()
+})
 
 function getResourcePreviewUrl(resource) {
   const target = String(resource?.route || '').trim()
@@ -2644,15 +2637,17 @@ function formatResourceTime(value) {
 }
 
 .archive-heading {
+  display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
   min-height: 50px;
   padding-bottom: 14px;
   border-bottom: 1px solid #dfe5e2;
 }
 
-.archive-heading > div:first-child {
+.archive-title {
   gap: 10px;
+  white-space: nowrap;
 }
 
 .archive-heading h2 {
@@ -2666,7 +2661,34 @@ function formatResourceTime(value) {
 }
 
 .archive-actions {
+  margin-left: auto;
   gap: 8px;
+  white-space: nowrap;
+}
+
+.archive-heading .archive-search {
+  width: 100%;
+  min-width: 220px;
+  max-width: 320px;
+  min-height: 36px;
+  border-radius: 4px;
+}
+
+.archive-heading .archive-search input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.archive-actions .type-filter {
+  width: 170px;
+  min-height: 36px;
+}
+
+.archive-actions .type-filter select {
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .archive-actions .history-refresh-btn {
@@ -2711,8 +2733,7 @@ function formatResourceTime(value) {
 
 .archive-toolbar {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) 190px;
-  gap: 12px;
+  grid-template-columns: minmax(280px, 1fr);
   margin: 18px 0 10px;
 }
 
@@ -2776,6 +2797,10 @@ function formatResourceTime(value) {
   min-height: 34px;
   color: #78817e;
   font-size: 11px;
+}
+
+.archive-result-line > span:last-child {
+  margin-left: auto;
 }
 
 .resource-table {
@@ -3018,27 +3043,32 @@ function formatResourceTime(value) {
 .resource-launcher-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .resource-launcher {
+  --launcher-accent: #168063;
+  --launcher-surface: #f5fbf8;
+  --launcher-icon-surface: #ddf3ea;
+  --launcher-border: #d7ebe2;
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) 16px;
+  grid-template-columns: 44px minmax(0, 1fr) 18px;
   align-items: center;
-  gap: 10px;
-  min-height: 104px;
-  padding: 14px;
-  border: 1px solid #dfe5e2;
+  gap: 13px;
+  min-height: 88px;
+  padding: 14px 15px;
+  border: 1px solid var(--launcher-border);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--launcher-surface);
   color: #25312d;
   text-decoration: none;
-  transition: border-color 150ms ease, background-color 150ms ease;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
 }
 
 .resource-launcher:hover {
-  border-color: #a9c3b8;
-  background: #f8faf9;
+  border-color: color-mix(in srgb, var(--launcher-accent) 42%, white);
+  background: color-mix(in srgb, var(--launcher-surface) 70%, white);
+  transform: translateY(-1px);
 }
 
 .resource-launcher:focus-visible,
@@ -3048,45 +3078,70 @@ function formatResourceTime(value) {
 }
 
 .launcher-icon {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #dce6e1;
+  border: 0;
   border-radius: 5px;
-  background: #edf5f1;
-  color: #246b53;
+  background: var(--launcher-icon-surface);
+  color: var(--launcher-accent);
 }
 
 .launcher-copy {
   min-width: 0;
 }
 
-.launcher-copy strong,
-.launcher-copy small {
+.launcher-copy strong {
   display: block;
 }
 
 .launcher-copy strong {
-  color: #202b27;
-  font-size: 14px;
-  line-height: 1.35;
-}
-
-.launcher-copy small {
-  display: -webkit-box;
-  margin-top: 5px;
-  overflow: hidden;
-  color: #76807c;
-  font-size: 11px;
-  line-height: 1.5;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  color: #17231f;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .resource-launcher > svg {
-  color: #929d98;
+  color: var(--launcher-accent);
+  opacity: 0.72;
+}
+
+.resource-launcher.launcher-amber {
+  --launcher-accent: #a86812;
+  --launcher-surface: #fffaf1;
+  --launcher-icon-surface: #ffedc9;
+  --launcher-border: #f1e2c3;
+}
+
+.resource-launcher.launcher-blue {
+  --launcher-accent: #356fc1;
+  --launcher-surface: #f5f8ff;
+  --launcher-icon-surface: #e2ebff;
+  --launcher-border: #dbe5f7;
+}
+
+.resource-launcher.launcher-violet {
+  --launcher-accent: #7650ae;
+  --launcher-surface: #faf7ff;
+  --launcher-icon-surface: #ece3fa;
+  --launcher-border: #e7def2;
+}
+
+.resource-launcher.launcher-coral {
+  --launcher-accent: #b75c47;
+  --launcher-surface: #fff8f6;
+  --launcher-icon-surface: #fde6df;
+  --launcher-border: #f1dfda;
+}
+
+.resource-launcher.launcher-cyan {
+  --launcher-accent: #147987;
+  --launcher-surface: #f3fbfc;
+  --launcher-icon-surface: #dcf2f4;
+  --launcher-border: #d5eaed;
 }
 
 .resource-archive {
@@ -3213,6 +3268,16 @@ function formatResourceTime(value) {
   white-space: nowrap;
 }
 
+@media (max-width: 1080px) {
+  .archive-heading {
+    gap: 12px;
+  }
+
+  .archive-actions .type-filter {
+    width: 150px;
+  }
+}
+
 @media (max-width: 1280px) {
   .resource-launcher-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3226,6 +3291,21 @@ function formatResourceTime(value) {
 }
 
 @media (max-width: 680px) {
+  .archive-heading {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .archive-heading .archive-search {
+    width: 100%;
+    max-width: none;
+  }
+
+  .archive-actions {
+    justify-content: space-between;
+  }
+
   .resource-launcher-grid,
   .resource-gallery {
     grid-template-columns: 1fr;

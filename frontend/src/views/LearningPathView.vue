@@ -191,6 +191,32 @@
               <LockKeyhole class="placeholder-lock" :size="16" stroke-width="2.2" aria-hidden="true" />
             </button>
           </TransitionGroup>
+
+          <div
+            v-if="hasActiveLearningProfile && !isWeekTaskPage && visibleWeeks.length"
+            class="path-continuation"
+            aria-label="后续学习路径"
+          >
+            <span>
+              <strong>已规划 {{ visibleWeeks.length }} / {{ totalWeekCount }} 周</strong>
+              <small>继续规划会使用当前画像；也可以先评估本周效果，再让新画像影响后续任务。</small>
+            </span>
+            <button
+              v-if="canGenerateNextWeek"
+              type="button"
+              class="next-week-button"
+              :disabled="planningRemaining"
+              @click="generateNextWeek"
+            >
+              <LoaderCircle v-if="planningRemaining" class="spin" :size="16" aria-hidden="true" />
+              <Rocket v-else :size="16" aria-hidden="true" />
+              {{ planningRemaining ? `正在规划第 ${nextWeekNumber} 周` : `生成第 ${nextWeekNumber} 周` }}
+            </button>
+            <button type="button" class="assessment-button" @click="router.push('/effect-assessment')">
+              <ClipboardCheck :size="16" aria-hidden="true" />
+              更新画像后再规划
+            </button>
+          </div>
         </template>
       </template>
     </section>
@@ -225,6 +251,7 @@ import {
 import { useRoute, useRouter } from 'vue-router'
 import {
   generateLearningPath,
+  generateNextLearningPathWeek,
   getLearningPathConfig,
   getLearningPathStage,
   getLearningPathStageResourceTasks,
@@ -270,6 +297,9 @@ const pageMeta = computed(() => ({
 
 const isWeekTaskPage = computed(() => Boolean(route.params.stageId) && route.name === 'learning-path-week-detail')
 const hasActiveLearningProfile = computed(() => Number(pathConfig.value?.meta?.activeProfileReportId || 0) > 0)
+const totalWeekCount = computed(() => Math.max(1, Number(pathConfig.value?.meta?.totalWeeks || 6)))
+const canGenerateNextWeek = computed(() => visibleWeeks.value.length < totalWeekCount.value)
+const nextWeekNumber = computed(() => visibleWeeks.value.length + 1)
 const resourcePreparation = computed(() => (
   taskStage.value?.resourcePreparation && typeof taskStage.value.resourcePreparation === 'object'
     ? taskStage.value.resourcePreparation
@@ -478,15 +508,14 @@ async function loadLearningPathConfig() {
       }
       pathConfig.value = normalizedConfig
       publishForegroundPathProgress({
-        status: 'running',
-        progress: Math.max(5, Math.round((visiblePathWeekCount(normalizedConfig) / totalWeeks) * 92)),
+        status: 'complete',
+        progress: 100,
         completedWeeks: visiblePathWeekCount(normalizedConfig),
         totalWeeks,
-        message: '第一周路径已保存，正在继续规划后续周次',
+        message: '第一周路径已保存；后续周次将在你确认后逐周规划',
       })
       loading.value = false
       planning.value = false
-      await generateRemainingWeeks(normalizedConfig, totalWeeks)
     } else {
       pathConfig.value = normalizedConfig
     }
@@ -640,56 +669,55 @@ function cancelResourcePreparation() {
   resourcePreparing.value = false
 }
 
-async function generateRemainingWeeks(firstWeekConfig, totalWeeks) {
-  if (totalWeeks <= 1) return
+async function generateNextWeek() {
+  if (planningRemaining.value || !canGenerateNextWeek.value) return
   planningRemaining.value = true
-  let currentConfig = firstWeekConfig
+  generationError.value = null
+  const requestedWeek = nextWeekNumber.value
+  const totalWeeks = totalWeekCount.value
+  startForegroundPathWorkflow(totalWeeks)
   try {
-    // Preserve visible progress: every planner call creates exactly one next week.
-    for (let week = 2; week <= totalWeeks; week += 1) {
-      await new Promise(resolve => requestAnimationFrame(resolve))
-      const result = await generateLearningPath({
-        persist: true,
-        useLatestProfile: true,
-        generationPhase: 'remaining-weeks',
-        weekStart: week,
-        weekCount: 1,
-        totalWeeks,
-        existingConfig: currentConfig,
-        useLLM: true,
-      })
-      if (result?.config) {
-        currentConfig = normalizeConfig(result.config)
-        pathConfig.value = currentConfig
-        const completedWeeks = visiblePathWeekCount(currentConfig)
-        publishForegroundPathProgress({
-          status: 'running',
-          progress: Math.min(96, Math.round((completedWeeks / totalWeeks) * 94)),
-          completedWeeks,
-          totalWeeks,
-          message: `第 ${completedWeeks} 周路径已保存`,
-        })
-      }
+    const result = await generateNextLearningPathWeek({
+      profileReportId: Number(pathConfig.value?.meta?.activeProfileReportId || 0),
+      totalWeeks,
+      useLLM: true,
+      prepareResources: true,
+    })
+    if (result?.config) {
+      pathConfig.value = normalizeConfig(result.config)
     }
     publishForegroundPathProgress({
       status: 'complete',
       progress: 100,
-      completedWeeks: visiblePathWeekCount(currentConfig),
+      completedWeeks: visiblePathWeekCount(pathConfig.value),
       totalWeeks,
-      message: '个性化学习路径已生成并保存',
+      message: `第 ${requestedWeek} 周路径已生成并保存`,
     })
   } catch (error) {
-    console.warn('Failed to generate remaining learning-path weeks.', error)
+    console.warn('Failed to generate next learning-path week.', error)
+    generationError.value = {
+      title: `第 ${requestedWeek} 周规划失败`,
+      message: error?.response?.data?.msg || error?.message || '学习路径生成失败',
+    }
     publishForegroundPathProgress({
       status: 'failed',
       progress: 100,
-      completedWeeks: visiblePathWeekCount(currentConfig),
+      completedWeeks: visiblePathWeekCount(pathConfig.value),
       totalWeeks,
-      message: error?.message || '学习路径生成失败',
+      message: generationError.value.message,
     })
   } finally {
     planningRemaining.value = false
   }
+}
+
+function retryLearningPathGeneration() {
+  if (visibleWeeks.value.length) {
+    void generateNextWeek()
+    return
+  }
+  generationError.value = null
+  void loadLearningPathConfig()
 }
 
 function visiblePathWeekCount(config) {
@@ -1820,6 +1848,68 @@ function shouldAutoPlan(config) {
   opacity: 0.92;
 }
 
+.path-continuation {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 16px 0 4px;
+  border-top: 1px solid #d8e1e5;
+}
+
+.path-continuation > span {
+  min-width: 0;
+  flex: 1;
+}
+
+.path-continuation strong,
+.path-continuation small {
+  display: block;
+}
+
+.path-continuation strong {
+  color: #23302e;
+  font-size: 14px;
+}
+
+.path-continuation small {
+  margin-top: 4px;
+  color: #6d7a77;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.path-continuation button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 13px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.next-week-button {
+  border: 1px solid #167b61;
+  color: #fff;
+  background: #167b61;
+}
+
+.assessment-button {
+  border: 1px solid #cbd6d2;
+  color: #3d514b;
+  background: #fff;
+}
+
+.path-continuation button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 @keyframes pathSkeleton {
   0% {
     background-position: 120% 0;
@@ -1894,6 +1984,11 @@ function shouldAutoPlan(config) {
 
   .week-copy strong {
     font-size: 23px;
+  }
+
+  .path-continuation {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

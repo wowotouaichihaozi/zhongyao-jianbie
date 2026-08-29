@@ -37,6 +37,24 @@ except ImportError:  # pragma: no cover - package-style import fallback
 
 XIAOZHI_ARCHITECTURE = "supervisor-shared-blackboard"
 
+RUNTIME_AGENT_DISPLAY_NAMES = {
+    "learner-context-agent": "学习上下文智能体",
+    "course-knowledge-retrieval-agent": "知识检索智能体",
+    "skill-registry-agent": "能力注册智能体",
+    "mcp-tool-gateway": "MCP 工具网关",
+    "quality-review-agent": "资源审核智能体",
+    "content-safety-agent": "内容安全智能体",
+    "learning-feedback-agent": "学习反馈智能体",
+}
+
+
+def _agent_name(agent_id: str) -> str:
+    return str(
+        (AGENT_CATALOG.get(agent_id) or {}).get("name")
+        or RUNTIME_AGENT_DISPLAY_NAMES.get(agent_id)
+        or agent_id
+    )
+
 
 TASK_TYPE_ALIASES = {
     "profile": "profile_update",
@@ -122,7 +140,7 @@ def _emit(
         "sequence": len(state.setdefault("events", [])) + 1,
         "time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "agentId": agent_id,
-        "agentName": AGENT_CATALOG.get(agent_id, {}).get("name") or agent_id,
+        "agentName": _agent_name(agent_id),
         "stage": stage,
         "status": status,
         "message": message,
@@ -152,9 +170,9 @@ def _handoff(
             "sequence": len(state["handoffs"]) + 1,
             "time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "fromAgent": from_agent,
-            "fromAgentName": AGENT_CATALOG.get(from_agent, {}).get("name") or from_agent,
+            "fromAgentName": _agent_name(from_agent),
             "toAgent": to_agent,
-            "toAgentName": AGENT_CATALOG.get(to_agent, {}).get("name") or to_agent,
+            "toAgentName": _agent_name(to_agent),
             "artifactType": artifact_type,
             "summary": summary,
             "payload": _json_safe(payload or {}, 4000),
@@ -282,7 +300,7 @@ def _plan_for_task(task_type: str, worker: str, use_knowledge: bool) -> list[dic
 def node_supervisor_plan(state: MultiAgentState) -> MultiAgentState:
     task_type = normalize_task_type(state.get("task_type"))
     if task_type not in TASK_POLICIES:
-        raise ValueError(f"嵌小智不支持的任务类型: {task_type}")
+        raise ValueError(f"岐小智不支持的任务类型: {task_type}")
     state["task_type"] = task_type
     policy = TASK_POLICIES[task_type]
     state["plan"] = _plan_for_task(task_type, policy["worker"], bool(policy.get("knowledge")))
@@ -294,6 +312,10 @@ def node_supervisor_plan(state: MultiAgentState) -> MultiAgentState:
         },
         "artifacts": {},
         "reviewHistory": [],
+        "profileConversation": _json_safe(
+            (state.get("platform_context") or {}).get("agentConversation") or {},
+            16000,
+        ),
     }
     state["status"] = "running"
     _emit(
@@ -301,7 +323,7 @@ def node_supervisor_plan(state: MultiAgentState) -> MultiAgentState:
         XIAOZHI_MASTER_AGENT_ID,
         "supervisor_plan",
         "complete",
-        f"嵌小智已规划 {len(state['plan'])} 个协作步骤",
+        f"岐小智已规划 {len(state['plan'])} 个协作步骤",
         8,
         {"taskType": task_type, "worker": policy["worker"], "plan": state["plan"]},
     )
@@ -327,6 +349,7 @@ def node_load_context(state: MultiAgentState) -> MultiAgentState:
         "mcuExperiments": context.get("mcuExperiments") or [],
         "recentEvents": context.get("recentEvents") or [],
         "recentTasks": context.get("recentTasks") or [],
+        "sharedAgentConversation": context.get("agentConversation") or {},
     }
     state["blackboard"]["learnerContext"] = learner_context
     state["blackboard"]["artifacts"]["learner_context"] = learner_context
@@ -448,6 +471,7 @@ def _specialist_payload(state: MultiAgentState) -> dict[str, Any]:
         "architecture": XIAOZHI_ARCHITECTURE,
         "attempt": state.get("attempt", 0) + 1,
         "reviewFeedback": (state.get("review") or {}).get("issues") or [],
+        "profileConversation": learner_context.get("sharedAgentConversation") or {},
     }
     return payload
 
@@ -461,7 +485,7 @@ def node_run_specialist(state: MultiAgentState) -> MultiAgentState:
         worker,
         "specialist_start",
         "running",
-        f"{AGENT_CATALOG[worker]['name']}开始执行第 {state['attempt']} 次生成",
+        f"{_agent_name(worker)}开始执行第 {state['attempt']} 次生成",
         38,
         {"attempt": state["attempt"]},
     )
@@ -496,7 +520,7 @@ def node_run_specialist(state: MultiAgentState) -> MultiAgentState:
         worker,
         "specialist_complete",
         "complete",
-        f"{AGENT_CATALOG[worker]['name']}已提交结构化产物",
+        f"{_agent_name(worker)}已提交结构化产物",
         73,
         {"outputKeys": list(output.keys())[:30], "attempt": state["attempt"]},
     )
@@ -1006,9 +1030,9 @@ def node_finalize(state: MultiAgentState) -> MultiAgentState:
         "runId": state.get("run_id"),
         "taskId": state.get("task_id") or "",
         "rootAgent": XIAOZHI_MASTER_AGENT_ID,
-        "rootAgentName": AGENT_CATALOG[XIAOZHI_MASTER_AGENT_ID]["name"],
+        "rootAgentName": _agent_name(XIAOZHI_MASTER_AGENT_ID),
         "architecture": XIAOZHI_ARCHITECTURE,
-        "coordinationMode": "structured-handoff-no-free-chat",
+        "coordinationMode": "profile-scoped-shared-conversation",
         "taskType": state["task_type"],
         "topic": state.get("topic") or "",
         "status": status,
@@ -1033,9 +1057,9 @@ def node_finalize(state: MultiAgentState) -> MultiAgentState:
         "supervisor_finalize",
         status,
         (
-            "嵌小智已完成结果收口并保存协作执行链"
+            "岐小智已完成结果收口并保存协作执行链"
             if status == "complete"
-            else "嵌小智已保存失败结果与审核问题，未将产物标记为完成"
+            else "岐小智已保存失败结果与审核问题，未将产物标记为完成"
         ),
         100,
         {"reviewScore": review.get("score"), "attempts": state.get("attempt", 0)},
@@ -1144,7 +1168,7 @@ def multi_agent_runtime_status() -> dict[str, Any]:
         "rootAgent": XIAOZHI_MASTER_AGENT_ID,
         "architecture": XIAOZHI_ARCHITECTURE,
         "framework": "LangGraph" if StateGraph is not None else "sequential-fallback",
-        "coordinationMode": "structured-handoff-no-free-chat",
+        "coordinationMode": "profile-scoped-shared-conversation",
         "agents": [
             {"id": agent_id, **metadata}
             for agent_id, metadata in AGENT_CATALOG.items()
@@ -1152,6 +1176,8 @@ def multi_agent_runtime_status() -> dict[str, Any]:
         "taskPolicies": TASK_POLICIES,
         "features": [
             "shared_blackboard",
+            "profile_scoped_shared_conversation",
+            "automatic_context_compaction",
             "structured_handoffs",
             "course_rag",
             "user_private_knowledge",

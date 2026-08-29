@@ -100,6 +100,7 @@ try:
         update_profile_report,
     )
     from profile_portrait_service import generate_profile_portrait
+    from profile_agent_context import ProfileAgentContextStore
     from learning_tutor import generate_learning_tutor
     from learning_document import generate_learning_document, get_learning_document, list_learning_documents, save_learning_document
     from learning_animation import generate_learning_animation
@@ -200,6 +201,7 @@ except ImportError:  # pragma: no cover - package-style import fallback
         update_profile_report,
     )
     from .profile_portrait_service import generate_profile_portrait
+    from .profile_agent_context import ProfileAgentContextStore
     from .learning_tutor import generate_learning_tutor
     from .learning_document import generate_learning_document, get_learning_document, list_learning_documents, save_learning_document
     from .learning_animation import generate_learning_animation
@@ -647,6 +649,8 @@ LEARNING_PATH_STAGE_RESOURCE_LOCKS: dict[tuple[int, str], threading.Lock] = {}
 LEARNING_PATH_STAGE_RESOURCE_LOCKS_GUARD = threading.Lock()
 LEARNING_PATH_CONFIG_WRITE_LOCKS: dict[int, threading.Lock] = {}
 LEARNING_PATH_CONFIG_WRITE_LOCKS_GUARD = threading.Lock()
+LEARNING_PATH_NEXT_WEEK_LOCKS: dict[tuple[int, int], threading.Lock] = {}
+LEARNING_PATH_NEXT_WEEK_LOCKS_GUARD = threading.Lock()
 LEARNING_PATH_TASK_RESOURCE_ALIASES = {
     "question_bank": "question-bank",
     "quiz": "question-bank",
@@ -7612,7 +7616,7 @@ def _run_learning_path_generation(
         result["generation"] = {
             "phase": generation_phase,
             "weekStart": int(payload.get("weekStart") or 1),
-            "weekCount": int(payload.get("weekCount") or 6),
+            "weekCount": int(payload.get("weekCount") or 1),
             "totalWeeks": int(meta.get("totalWeeks") or payload.get("totalWeeks") or 6),
             "state": meta.get("generationState") or "complete",
         }
@@ -7668,6 +7672,100 @@ def learning_path_generate():
         return learning_profile_required_response(str(exc))
     result = _run_learning_path_generation(int(user["id"]), payload, context)
     return jsonify({"code": 0, "msg": "ok", "data": result})
+
+
+@app.post("/api/learning-path/generate-next-week")
+def learning_path_generate_next_week():
+    user = g.get("current_user")
+    if not user:
+        return jsonify({"code": 401, "msg": "未登录"}), 401
+    user_id = int(user["id"])
+    request_payload = request.get_json(silent=True) or {}
+    try:
+        requested_profile_id = int(request_payload.get("profileReportId") or 0)
+    except (TypeError, ValueError):
+        return jsonify({"code": 400, "msg": "profileReportId 必须是整数"}), 400
+    with auth_db() as conn:
+        profile_report_id = requested_profile_id or _learning_path_active_profile_id(conn, user_id)
+        profile = get_profile_for_user(conn, user_id, profile_report_id) if profile_report_id else None
+    if not profile or profile.get("archived"):
+        return learning_profile_required_response("请先完成并激活学习画像")
+
+    lock_key = (user_id, int(profile_report_id))
+    with LEARNING_PATH_NEXT_WEEK_LOCKS_GUARD:
+        generation_lock = LEARNING_PATH_NEXT_WEEK_LOCKS.setdefault(lock_key, threading.Lock())
+    if not generation_lock.acquire(blocking=False):
+        return jsonify({"code": 409, "msg": "下一周正在规划中，请稍后查看"}), 409
+
+    try:
+        with auth_db() as conn:
+            existing_config = _read_profile_scoped_learning_path_config(
+                conn,
+                user_id,
+                int(profile_report_id),
+            )
+        visible_weeks = _visible_learning_path_weeks(existing_config)
+        next_week = max(
+            [int(week.get("order") or 0) for week in visible_weeks] or [0]
+        ) + 1
+        try:
+            requested_total = int(request_payload.get("totalWeeks") or 0)
+        except (TypeError, ValueError):
+            requested_total = 0
+        total_weeks = max(
+            4,
+            min(
+                8,
+                requested_total
+                or int((existing_config.get("meta") or {}).get("totalWeeks") or 6),
+            ),
+        )
+        if next_week > total_weeks:
+            return jsonify({
+                "code": 409,
+                "msg": "当前学习路径已完成全部周次规划",
+                "data": {
+                    "profileReportId": int(profile_report_id),
+                    "completedWeeks": len(visible_weeks),
+                    "totalWeeks": total_weeks,
+                },
+            }), 409
+        generation_request = {
+            "profileReportId": int(profile_report_id),
+            "persist": True,
+            "useLatestProfile": False,
+            "useLLM": request_payload.get("useLLM") is not False,
+            "prepareResources": request_payload.get("prepareResources") is not False,
+            "generationPhase": "first-week" if next_week == 1 else "next-week",
+            "weekStart": next_week,
+            "weekCount": 1,
+            "totalWeeks": total_weeks,
+        }
+        if visible_weeks:
+            generation_request["existingConfig"] = existing_config
+        payload, context = _prepare_learning_path_generation(user_id, generation_request)
+        result = _run_learning_path_generation(user_id, payload, context)
+        return jsonify({
+            "code": 0,
+            "msg": f"第 {next_week} 周学习路径已生成",
+            "data": {
+                **result,
+                "generatedWeek": next_week,
+                "profileReportId": int(profile_report_id),
+            },
+        })
+    except LearningProfileRequiredError as exc:
+        return learning_profile_required_response(str(exc))
+    except Exception as exc:
+        app.logger.exception(
+            "next learning-path week generation failed user=%s profile=%s",
+            user_id,
+            profile_report_id,
+        )
+        error_payload = _learning_path_stream_error(exc)
+        return jsonify({"code": 500, "msg": error_payload.get("message"), "error": error_payload}), 500
+    finally:
+        generation_lock.release()
 
 
 @app.post("/api/learning-path/generate-stream")
@@ -7728,7 +7826,7 @@ def learning_path_generate_stream():
             "message": "嵌小智已接收学习路径生成任务",
             "generationPhase": payload.get("generationPhase"),
             "weekStart": int(payload.get("weekStart") or 1),
-            "weekCount": int(payload.get("weekCount") or 6),
+            "weekCount": int(payload.get("weekCount") or 1),
             "modelRuntime": runtime,
         })
         while True:
@@ -8314,9 +8412,30 @@ def generated_video_poster(task_id: str):
     if error_response:
         return error_response
     with auth_db() as conn:
-        row = conn.execute("SELECT task_type FROM xiaozhi_tasks WHERE user_id = ? AND task_id = ? LIMIT 1", (int(user["id"]), str(task_id))).fetchone()
+        row = conn.execute(
+            """
+            SELECT task.task_type, cover.image_blob, cover.mime_type, cover.status
+            FROM xiaozhi_tasks AS task
+            LEFT JOIN generated_video_covers AS cover ON cover.task_id = task.task_id
+            WHERE task.user_id = ? AND task.task_id = ?
+            LIMIT 1
+            """,
+            (int(user["id"]), str(task_id)),
+        ).fetchone()
     if not row or row["task_type"] != "generated_video":
         return jsonify({"code": 404, "msg": "未找到视频任务"}), 404
+    image_blob = bytes(row["image_blob"] or b"")
+    if str(row["status"] or "") == "ready" and image_blob:
+        response = send_file(
+            io.BytesIO(image_blob),
+            mimetype=str(row["mime_type"] or "image/jpeg"),
+            conditional=False,
+            as_attachment=False,
+            download_name=f"{task_id}-poster",
+            max_age=0,
+        )
+        response.headers["Cache-Control"] = "private, no-store"
+        return response
     path = media_file(int(user["id"]), task_id, "poster.jpg")
     if not path.is_file():
         return jsonify({"code": 404, "msg": "视频封面尚未生成"}), 404
@@ -9254,6 +9373,32 @@ def xiaozhi_insert_message(user_id: int, role: str, content: str, intent=None, c
         return int(cursor.lastrowid)
 
 
+def xiaozhi_profile_agent_context(
+    user_id: int,
+    profile_report_id: int,
+    *,
+    backfill: bool = True,
+) -> dict:
+    store = ProfileAgentContextStore(AUTH_DB_PATH)
+    conversation = store.context(int(user_id), int(profile_report_id))
+    if (
+        backfill
+        and int(profile_report_id or 0) > 0
+        and int(conversation.get("messageCount") or 0) == 0
+    ):
+        try:
+            if store.backfill_from_orchestration(int(user_id), int(profile_report_id)):
+                conversation = store.context(int(user_id), int(profile_report_id))
+        except Exception as exc:
+            app.logger.warning(
+                "failed to backfill profile agent conversation user=%s profile=%s: %s",
+                user_id,
+                profile_report_id,
+                exc,
+            )
+    return conversation
+
+
 def xiaozhi_create_task(user_id: int, task_type: str, title: str, prompt: str, route: str) -> str:
     task_id = f"xz_{int(time.time() * 1000)}_{secrets.token_hex(4)}"
     timestamp = now_iso()
@@ -9312,6 +9457,59 @@ def xiaozhi_update_task(task_id: str, **fields) -> None:
         conn.execute(f"UPDATE xiaozhi_tasks SET {', '.join(updates)} WHERE task_id = ?", values)
 
 
+def _generated_video_cover_mime_type(image_bytes: bytes) -> str:
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if image_bytes.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/jpeg"
+
+
+def _upsert_generated_video_cover(
+    conn: sqlite3.Connection,
+    task_id: str,
+    user_id: int,
+    *,
+    status: str,
+    image_bytes: bytes | None = None,
+    mime_type: str = "image/jpeg",
+    model: str = "z-image-turbo",
+    prompt: str = "",
+    error: str = "",
+) -> None:
+    timestamp = now_iso()
+    conn.execute(
+        """
+        INSERT INTO generated_video_covers
+            (task_id, user_id, image_blob, mime_type, model, prompt, status, error, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(task_id) DO UPDATE SET
+            user_id = excluded.user_id,
+            image_blob = excluded.image_blob,
+            mime_type = excluded.mime_type,
+            model = excluded.model,
+            prompt = excluded.prompt,
+            status = excluded.status,
+            error = excluded.error,
+            updated_at = excluded.updated_at
+        """,
+        (
+            str(task_id),
+            int(user_id),
+            sqlite3.Binary(image_bytes) if image_bytes else None,
+            str(mime_type or "image/jpeg"),
+            str(model or "z-image-turbo"),
+            str(prompt or ""),
+            str(status),
+            str(error or "")[:1000],
+            timestamp,
+            timestamp,
+        ),
+    )
+
+
 def xiaozhi_generate_generated_video_cover(
     task_id: str,
     user_id: int,
@@ -9321,6 +9519,19 @@ def xiaozhi_generate_generated_video_cover(
     """Generate a poster while leaving the full video task in its waiting state."""
     cover_result: dict = {}
     cover_error = ""
+    with auth_db() as conn:
+        task_row = conn.execute(
+            "SELECT 1 FROM xiaozhi_tasks WHERE user_id = ? AND task_id = ? AND task_type = 'generated_video' LIMIT 1",
+            (int(user_id), str(task_id)),
+        ).fetchone()
+        if not task_row:
+            return
+        _upsert_generated_video_cover(
+            conn,
+            str(task_id),
+            int(user_id),
+            status="generating",
+        )
     try:
         cover_result = generate_generated_video_cover(
             str(task_id),
@@ -9328,8 +9539,34 @@ def xiaozhi_generate_generated_video_cover(
             str(topic),
             params if isinstance(params, dict) else {},
         )
+        image_path = Path(str(cover_result.get("imagePath") or media_file(int(user_id), str(task_id), "poster.jpg")))
+        image_bytes = image_path.read_bytes() if image_path.is_file() else b""
+        if not image_bytes:
+            raise RuntimeError("AI 视频封面生成结果为空")
+        mime_type = _generated_video_cover_mime_type(image_bytes)
+        with auth_db() as conn:
+            _upsert_generated_video_cover(
+                conn,
+                str(task_id),
+                int(user_id),
+                status="ready",
+                image_bytes=image_bytes,
+                mime_type=mime_type,
+                model=str(cover_result.get("model") or "z-image-turbo"),
+                prompt=str(cover_result.get("prompt") or ""),
+            )
     except Exception as exc:
         cover_error = str(exc) or "AI 视频封面生成失败"
+        with auth_db() as conn:
+            _upsert_generated_video_cover(
+                conn,
+                str(task_id),
+                int(user_id),
+                status="failed",
+                error=cover_error,
+                model=str(cover_result.get("model") or "z-image-turbo"),
+                prompt=str(cover_result.get("prompt") or ""),
+            )
 
     with auth_db() as conn:
         row = conn.execute(
@@ -9368,6 +9605,78 @@ def xiaozhi_generate_generated_video_cover(
                 str(task_id),
             ),
         )
+
+
+def _queue_waiting_generated_video_covers_after_restart() -> int:
+    """Backfill cover-only jobs for persisted videos still awaiting confirmation."""
+    pending: list[tuple[str, int, str, dict]] = []
+    with auth_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT task.task_id, task.user_id, task.title, task.prompt, task.route,
+                   task.result_json
+            FROM xiaozhi_tasks AS task
+            LEFT JOIN generated_video_covers AS cover ON cover.task_id = task.task_id
+            WHERE task.task_type = 'generated_video'
+              AND task.status IN ('waiting', 'waiting_for_user')
+              AND (cover.status IS NULL OR cover.status != 'ready' OR cover.image_blob IS NULL)
+            ORDER BY task.id
+            """
+        ).fetchall()
+        for row in rows:
+            task_id = str(row["task_id"])
+            user_id = int(row["user_id"])
+            current = json_loads_safe(row["result_json"], {})
+            if not isinstance(current, dict):
+                current = {}
+            params = current.get("params") if isinstance(current.get("params"), dict) else {}
+            topic = str(current.get("topic") or row["prompt"] or row["title"] or "中医药学习视频").strip()
+            poster_url = f"/api/personalized-resources/generated-videos/{task_id}/poster"
+            selected = current.get("selectedResource") if isinstance(current.get("selectedResource"), dict) else {}
+            content = selected.get("content") if isinstance(selected.get("content"), dict) else {}
+            metadata = selected.get("metadata") if isinstance(selected.get("metadata"), dict) else {}
+            content.update({"posterUrl": poster_url, "videoUrl": str(content.get("videoUrl") or "")})
+            metadata.update({
+                "taskId": task_id,
+                "generationState": "waiting_for_user",
+                "coverStatus": "queued",
+                "posterUrl": poster_url,
+            })
+            selected.update({
+                "id": str(selected.get("id") or f"generated-video:{task_id}"),
+                "type": "generated_video",
+                "title": str(selected.get("title") or topic),
+                "description": str(selected.get("description") or "首图封面自动生成，完整视频仅在手动确认后开始生成。"),
+                "route": str(selected.get("route") or row["route"] or ""),
+                "content": content,
+                "metadata": metadata,
+            })
+            current.update({
+                "message": "AI 视频首图正在生成；完整视频需在工作台手动确认后生成。",
+                "topic": topic,
+                "resourceType": "generated_video",
+                "params": params,
+                "currentStage": "waiting_for_user",
+                "coverStatus": "queued",
+                "coverError": "",
+                "selectedResource": selected,
+            })
+            conn.execute(
+                "UPDATE xiaozhi_tasks SET result_json = ?, updated_at = ? WHERE task_id = ?",
+                (json.dumps(current, ensure_ascii=False), now_iso(), task_id),
+            )
+            _upsert_generated_video_cover(conn, task_id, user_id, status="queued")
+            pending.append((task_id, user_id, topic, dict(params)))
+
+    for task_id, user_id, topic, params in pending:
+        VIDEO_RESOURCE_EXECUTOR.submit(
+            xiaozhi_generate_generated_video_cover,
+            task_id,
+            user_id,
+            topic,
+            params,
+        )
+    return len(pending)
 
 
 def xiaozhi_create_resource_agent_task(
@@ -9640,49 +9949,48 @@ def _run_profile_learning_path_generation_task(
             current_config = default_learning_path_config()
 
         completed_weeks = len(_visible_learning_path_weeks(current_config))
-        for week_number in range(completed_weeks + 1, total_weeks + 1):
-            phase = "first-week" if week_number == 1 else "remaining-weeks"
-            progress = max(2, min(94, round(((week_number - 1) / total_weeks) * 90) + 3))
-            progress_result = {
+        week_number = completed_weeks + 1
+        phase = "first-week" if week_number == 1 else "next-week"
+        progress_result = {
+            **base_result,
+            "progress": 12,
+            "currentStage": f"planning_week_{week_number}",
+            "completedWeeks": completed_weeks,
+            "message": f"学习路径智能体正在生成第 {week_number} 周任务",
+        }
+        xiaozhi_update_task(task_id, status="running", result_json=progress_result, error="")
+        generation_payload = {
+            **payload,
+            "generationPhase": phase,
+            "weekStart": week_number,
+            "weekCount": 1,
+            "totalWeeks": total_weeks,
+            "prepareResources": False,
+        }
+        if _visible_learning_path_weeks(current_config):
+            generation_payload["existingConfig"] = current_config
+        generated = _run_learning_path_generation(
+            int(user_id),
+            generation_payload,
+            context,
+            task_id=task_id,
+        )
+        if not isinstance(generated.get("config"), dict):
+            raise RuntimeError(f"第 {week_number} 周学习路径未返回可保存配置")
+        current_config = generated["config"]
+        completed_weeks = len(_visible_learning_path_weeks(current_config))
+        xiaozhi_update_task(
+            task_id,
+            status="running",
+            result_json={
                 **base_result,
-                "progress": progress,
-                "currentStage": f"planning_week_{week_number}",
-                "completedWeeks": week_number - 1,
-                "message": f"学习路径智能体正在生成第 {week_number} 周任务",
-            }
-            xiaozhi_update_task(task_id, status="running", result_json=progress_result, error="")
-            generation_payload = {
-                **payload,
-                "generationPhase": phase,
-                "weekStart": week_number,
-                "weekCount": 1,
-                "totalWeeks": total_weeks,
-                "prepareResources": False,
-            }
-            if _visible_learning_path_weeks(current_config):
-                generation_payload["existingConfig"] = current_config
-            generated = _run_learning_path_generation(
-                int(user_id),
-                generation_payload,
-                context,
-                task_id=task_id,
-            )
-            if not isinstance(generated.get("config"), dict):
-                raise RuntimeError(f"第 {week_number} 周学习路径未返回可保存配置")
-            current_config = generated["config"]
-            completed_weeks = len(_visible_learning_path_weeks(current_config))
-            xiaozhi_update_task(
-                task_id,
-                status="running",
-                result_json={
-                    **base_result,
-                    "progress": max(progress, min(95, round((completed_weeks / total_weeks) * 92) + 3)),
-                    "currentStage": f"week_{week_number}_saved",
-                    "completedWeeks": completed_weeks,
-                    "message": f"第 {week_number} 周路径已保存",
-                },
-                error="",
-            )
+                "progress": 95,
+                "currentStage": f"week_{week_number}_saved",
+                "completedWeeks": completed_weeks,
+                "message": f"第 {week_number} 周路径已保存",
+            },
+            error="",
+        )
 
         with auth_db() as conn:
             active_profile_id = _learning_path_active_profile_id(conn, int(user_id))
@@ -9695,16 +10003,16 @@ def _run_profile_learning_path_generation_task(
             "progress": 100,
             "currentStage": "complete",
             "completedWeeks": len(_visible_learning_path_weeks(current_config)),
-            "message": "学习路径已在后台生成并保存",
+            "message": f"第 {week_number} 周学习路径已在后台生成并保存",
             "resourcesQueued": resources_queued,
-            "generationState": str((current_config.get("meta") or {}).get("generationState") or "complete"),
+            "generationState": str((current_config.get("meta") or {}).get("generationState") or "partial"),
         }
         xiaozhi_update_task(task_id, status="complete", result_json=final_result, error="")
         xiaozhi_insert_event(
             int(user_id),
             "learning_path_background_complete",
             "/learning-path",
-            "画像对应学习路径已生成",
+            f"画像对应第 {week_number} 周学习路径已生成",
             final_result,
         )
     except Exception as exc:
@@ -9750,12 +10058,7 @@ def _schedule_profile_learning_path_generation(
             profile_report_id,
         )
         saved_weeks = _visible_learning_path_weeks(saved_config)
-        saved_total = max(1, int((saved_config.get("meta") or {}).get("totalWeeks") or total_weeks))
-        if (
-            saved_weeks
-            and len(saved_weeks) >= saved_total
-            and str((saved_config.get("meta") or {}).get("generationState") or "") == "complete"
-        ):
+        if saved_weeks:
             return None
 
         active_rows = conn.execute(
@@ -9796,7 +10099,7 @@ def _schedule_profile_learning_path_generation(
                 task_id,
                 user_id,
                 title,
-                "根据刚完成的学习画像自动生成六周个性化学习路径",
+                "根据刚完成的学习画像自动生成第一周个性化学习任务",
                 route,
                 json.dumps(initial_result, ensure_ascii=False),
                 timestamp,
@@ -9808,7 +10111,7 @@ def _schedule_profile_learning_path_generation(
         "taskId": task_id,
         "taskType": "learning_path",
         "title": title,
-        "prompt": "根据刚完成的学习画像自动生成六周个性化学习路径",
+        "prompt": "根据刚完成的学习画像自动生成第一周个性化学习任务",
         "status": "queued",
         "route": route,
         "result": initial_result,
@@ -10883,6 +11186,8 @@ def _recover_learning_path_resource_generation_after_restart() -> dict:
             """
         ).fetchall()
 
+    queued_video_covers = _queue_waiting_generated_video_covers_after_restart()
+
     queued_users = 0
     queued_stages = 0
     for row in user_rows:
@@ -10906,13 +11211,15 @@ def _recover_learning_path_resource_generation_after_restart() -> dict:
         "recoveredTasks": recovered_tasks,
         "queuedUsers": queued_users,
         "queuedStages": queued_stages,
+        "queuedVideoCovers": queued_video_covers,
     }
-    if recovered_tasks or queued_stages:
+    if recovered_tasks or queued_stages or queued_video_covers:
         app.logger.warning(
-            "Learning-path resource recovery finished: interrupted=%s users=%s stages=%s",
+            "Learning-path resource recovery finished: interrupted=%s users=%s stages=%s video-covers=%s",
             recovered_tasks,
             queued_users,
             queued_stages,
+            queued_video_covers,
         )
     return result
 
@@ -12109,13 +12416,43 @@ def xiaozhi_run_orchestrated(
 ) -> dict:
     managed_payload = dict(payload or {})
     managed_payload["_xiaozhi_managed"] = True
-    platform_context = context if isinstance(context, dict) else xiaozhi_latest_context(int(user_id))
+    platform_context = dict(
+        context if isinstance(context, dict) else xiaozhi_latest_context(int(user_id))
+    )
     profile_report_id = int(
         platform_context.get("profileReportId")
         or (platform_context.get("profile") or {}).get("id")
         or 0
     )
     managed_payload["_profileReportId"] = profile_report_id
+    profile_context_store = ProfileAgentContextStore(AUTH_DB_PATH)
+    if profile_report_id > 0:
+        try:
+            platform_context["agentConversation"] = profile_context_store.context(
+                int(user_id),
+                profile_report_id,
+            )
+        except Exception as exc:
+            app.logger.warning(
+                "[ProfileAgentContext] load failed user=%s profile=%s error=%s",
+                user_id,
+                profile_report_id,
+                exc,
+            )
+
+    def shared_conversation_event(event: dict) -> None:
+        if profile_report_id > 0 and isinstance(event, dict):
+            try:
+                profile_context_store.append_event(int(user_id), profile_report_id, event)
+            except Exception as exc:
+                app.logger.warning(
+                    "[ProfileAgentContext] append event failed user=%s profile=%s error=%s",
+                    user_id,
+                    profile_report_id,
+                    exc,
+                )
+        if callable(on_event):
+            on_event(event)
 
     def contract_specialist(arguments: dict, progress) -> dict:
         return xiaozhi_normalize_skill_output(
@@ -12132,7 +12469,7 @@ def xiaozhi_run_orchestrated(
         contract_specialist,
         user_id=int(user_id),
         task_id=task_id,
-        on_event=on_event,
+        on_event=shared_conversation_event,
         max_retries=max_retries,
         runtime_settings=xiaozhi_runtime_setting_overrides(int(user_id)),
     )
@@ -12148,6 +12485,36 @@ def xiaozhi_run_orchestrated(
         payload=managed_payload,
         task_id=task_id,
     )
+    if profile_report_id > 0:
+        try:
+            profile_context_store.record_trace(
+                int(user_id),
+                profile_report_id,
+                result,
+                task_id=task_id,
+            )
+            conversation_context = profile_context_store.context(
+                int(user_id),
+                profile_report_id,
+            )
+            result["agentConversation"] = conversation_context
+            if isinstance(result.get("harness"), dict):
+                result["harness"]["sharedConversation"] = {
+                    "conversationId": conversation_context.get("conversationId"),
+                    "profileReportId": profile_report_id,
+                    "messageCount": conversation_context.get("messageCount"),
+                    "summaryVersion": conversation_context.get("summaryVersion"),
+                    "automaticCompaction": True,
+                }
+            if isinstance(result.get("orchestration"), dict):
+                result["orchestration"]["conversationId"] = conversation_context.get("conversationId")
+        except Exception as exc:
+            app.logger.warning(
+                "[ProfileAgentContext] finalize failed user=%s profile=%s error=%s",
+                user_id,
+                profile_report_id,
+                exc,
+            )
     trace = result.get("orchestration") if isinstance(result.get("orchestration"), dict) else {}
     if str(trace.get("status") or "") != "complete":
         raise SkillReviewError(result)
@@ -13679,7 +14046,7 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
         try:
             context = xiaozhi_latest_context(user_id)
             knowledge_payload = retrieve_course_knowledge(topic, top_k=6, user_id=int(user_id), db_path=AUTH_DB_PATH)
-            knowledge_sources = knowledge_payload.get("sources") or knowledge_payload.get("items") or [] if isinstance(knowledge_payload, dict) else []
+            knowledge_sources = knowledge_payload.get("citations") or [] if isinstance(knowledge_payload, dict) else []
             if not isinstance(knowledge_sources, list):
                 knowledge_sources = []
             def update_video_task(**fields) -> None:
@@ -14110,12 +14477,23 @@ def xiaozhi_history():
     ]
     tasks = [xiaozhi_task_from_row(row) for row in task_rows]
     orchestration_runs = xiaozhi_recent_orchestration_runs(int(user["id"]), limit=20)
+    latest_context = xiaozhi_latest_context(int(user["id"]))
+    profile_report_id = int(
+        latest_context.get("profileReportId")
+        or (latest_context.get("profile") or {}).get("id")
+        or 0
+    )
+    agent_conversation = xiaozhi_profile_agent_context(
+        int(user["id"]),
+        profile_report_id,
+    )
     return jsonify({
         "code": 0,
         "data": {
             "messages": messages,
             "tasks": tasks,
             "orchestrationRuns": orchestration_runs,
+            "agentConversation": agent_conversation,
         },
     })
 
@@ -14136,7 +14514,7 @@ def xiaozhi_task_detail(task_id: str):
             (user["id"], task_id),
         ).fetchone()
     if not row:
-        return jsonify({"code": 404, "msg": "未找到嵌小智任务"}), 404
+        return jsonify({"code": 404, "msg": "未找到岐小智任务"}), 404
     return jsonify({
         "code": 0,
         "data": {
@@ -14298,10 +14676,33 @@ def xiaozhi_chat():
         user["id"],
         "assistant_message",
         route,
-        "用户向嵌小智提问",
+        "用户向岐小智提问",
         {"message": message, "attachmentIds": [item["id"] for item in public_attachments]},
     )
     context = xiaozhi_latest_context(user["id"])
+    profile_report_id = int(
+        context.get("profileReportId")
+        or (context.get("profile") or {}).get("id")
+        or 0
+    )
+    if profile_report_id > 0:
+        try:
+            ProfileAgentContextStore(AUTH_DB_PATH).append(
+                int(user["id"]),
+                profile_report_id,
+                agent_id="learner",
+                agent_name=str(user["display_name"] or user["username"] or "学习者"),
+                message_type="user_message",
+                status="complete",
+                content=message,
+                payload={
+                    "route": route,
+                    "attachments": public_attachments,
+                },
+                dedupe_key=f"chat:user:{user_message_id}",
+            )
+        except Exception as exc:
+            app.logger.warning("failed to append learner group-chat message: %s", exc)
     intent = xiaozhi_detect_intent(
         agent_message,
         context,
@@ -14355,7 +14756,7 @@ def xiaozhi_chat():
                 args=(task_id, user["id"], "profile_management", title_topic, task_params),
                 daemon=True,
             ).start()
-            intent["reply"] = intent.get("reply") or "画像管理任务已交给嵌小智执行。"
+            intent["reply"] = intent.get("reply") or "画像管理任务已交给岐小智执行。"
     elif intent["intent"] in {"generate_resource", "update_profile"}:
         if intent["intent"] == "generate_resource" and isinstance(intent.get("resourceTypes"), list) and intent.get("resourceTypes"):
             task_types = [task_type for task_type in intent["resourceTypes"] if task_type in XIAOZHI_RESOURCE_ROUTES]
@@ -14415,6 +14816,25 @@ def xiaozhi_chat():
             intent["reply"] = intent.get("reply") or f"我已创建 {len(cards)} 个资源任务，会在悬浮窗里分别显示小窗口预览。"
     assistant_reply = intent.get("reply") or ""
     assistant_message_id = xiaozhi_insert_message(user["id"], "assistant", assistant_reply, intent=intent, cards=cards)
+    if profile_report_id > 0 and assistant_reply:
+        try:
+            ProfileAgentContextStore(AUTH_DB_PATH).append(
+                int(user["id"]),
+                profile_report_id,
+                agent_id=XIAOZHI_MASTER_AGENT_ID,
+                agent_name="岐小智总控智能体",
+                message_type="supervisor_reply",
+                status="complete",
+                content=assistant_reply,
+                payload={
+                    "intent": intent.get("intent") or "chat",
+                    "topic": intent.get("topic") or "",
+                    "cards": cards,
+                },
+                dedupe_key=f"chat:assistant:{assistant_message_id}",
+            )
+        except Exception as exc:
+            app.logger.warning("failed to append supervisor group-chat reply: %s", exc)
     with auth_db() as conn:
         knowledge_growth.record_conversation_memory(
             conn,
@@ -14919,10 +15339,19 @@ def xiaozhi_status():
         xiaozhi_runtime = hermes_xiaozhi_runtime_status()
     orchestration_runtime = DEFAULT_AGENT_HARNESS.status()
     recent_runs = xiaozhi_recent_orchestration_runs(int(user["id"]), limit=12)
+    profile_report_id = int(
+        context.get("profileReportId")
+        or (context.get("profile") or {}).get("id")
+        or 0
+    )
+    agent_conversation = xiaozhi_profile_agent_context(
+        int(user["id"]),
+        profile_report_id,
+    )
     agents = [
         {
             "id": XIAOZHI_MASTER_AGENT_ID,
-            "name": "嵌小智总控智能体",
+            "name": "岐小智总控智能体",
             "status": "ready" if xiaozhi_runtime.get("hasToken") else "idle",
             "detail": (
                 f"总控编排 / {xiaozhi_runtime.get('model') or DEFAULT_TEXT_MODEL_ID} / "
@@ -14992,8 +15421,41 @@ def xiaozhi_status():
             "orchestrationRuns": recent_runs,
             "architecture": orchestration_runtime,
             "modelRuntime": user_runtime_settings,
+            "agentConversation": agent_conversation,
         },
     })
+
+
+@app.get("/api/xiaozhi/profile-conversation")
+def xiaozhi_profile_conversation():
+    user, error_response = xiaozhi_current_user()
+    if error_response:
+        return error_response
+    try:
+        requested_profile_id = int(request.args.get("profileReportId") or 0)
+    except (TypeError, ValueError):
+        return jsonify({"message": "profileReportId 必须是整数"}), 400
+    if requested_profile_id <= 0:
+        context = xiaozhi_latest_context(int(user["id"]))
+        requested_profile_id = int(
+            context.get("profileReportId")
+            or (context.get("profile") or {}).get("id")
+            or 0
+        )
+    if requested_profile_id <= 0:
+        return jsonify({
+            "code": 0,
+            "data": ProfileAgentContextStore.empty_context(),
+        })
+    with auth_db() as conn:
+        profile = get_profile_for_user(conn, int(user["id"]), requested_profile_id)
+    if not profile:
+        return jsonify({"message": "学习画像不存在"}), 404
+    conversation = xiaozhi_profile_agent_context(
+        int(user["id"]),
+        requested_profile_id,
+    )
+    return jsonify({"code": 0, "data": conversation})
 
 
 @app.get("/api/ai-config")

@@ -325,6 +325,9 @@ class LearningProfileApiTests(unittest.TestCase):
 
     def test_generated_video_cover_completes_without_starting_video_pipeline(self) -> None:
         task_id = ""
+        image_path = Path(self.tempdir.name) / "generated-video-cover.png"
+        image_bytes = b"\x89PNG\r\n\x1a\n" + (b"cover" * 128)
+        image_path.write_bytes(image_bytes)
         try:
             with patch.object(app_module.VIDEO_RESOURCE_EXECUTOR, "submit"):
                 created = app_module.xiaozhi_create_resource_agent_task(
@@ -341,6 +344,8 @@ class LearningProfileApiTests(unittest.TestCase):
                     return_value={
                         "posterUrl": f"/api/personalized-resources/generated-videos/{task_id}/poster",
                         "prompt": "cover only",
+                        "model": "z-image-turbo",
+                        "imagePath": str(image_path),
                     },
                 ) as generate_cover,
                 patch.object(app_module, "execute_generated_video_task") as execute_video,
@@ -357,12 +362,77 @@ class LearningProfileApiTests(unittest.TestCase):
                     "SELECT status, result_json FROM xiaozhi_tasks WHERE task_id = ?",
                     (task_id,),
                 ).fetchone()
+                cover = conn.execute(
+                    "SELECT status, image_blob, mime_type, model, prompt FROM generated_video_covers WHERE task_id = ?",
+                    (task_id,),
+                ).fetchone()
             result = json.loads(row["result_json"])
             self.assertEqual(row["status"], "waiting")
             self.assertEqual(result["coverStatus"], "complete")
             self.assertTrue(result["selectedResource"]["content"]["posterUrl"].endswith("/poster"))
+            self.assertEqual(cover["status"], "ready")
+            self.assertEqual(bytes(cover["image_blob"]), image_bytes)
+            self.assertEqual(cover["mime_type"], "image/png")
+            self.assertEqual(cover["model"], "z-image-turbo")
+            self.assertEqual(cover["prompt"], "cover only")
+            poster = self.client.get(
+                f"/api/personalized-resources/generated-videos/{task_id}/poster",
+                headers=self.headers,
+            )
+            self.assertEqual(poster.status_code, 200)
+            self.assertEqual(poster.data, image_bytes)
+            self.assertEqual(poster.mimetype, "image/png")
             generate_cover.assert_called_once()
             execute_video.assert_not_called()
+        finally:
+            if task_id:
+                with app_module.auth_db() as conn:
+                    conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
+                    conn.execute(
+                        "DELETE FROM xiaozhi_events WHERE user_id = ? AND payload_json LIKE ?",
+                        (101, f'%{task_id}%'),
+                    )
+
+    def test_startup_requeues_missing_waiting_video_cover(self) -> None:
+        task_id = ""
+        try:
+            with patch.object(app_module.VIDEO_RESOURCE_EXECUTOR, "submit"):
+                created = app_module.xiaozhi_create_resource_agent_task(
+                    101,
+                    "generated_video",
+                    "陈皮性状辨识",
+                    {"prompt": "讲解陈皮性状辨识"},
+                )
+            task_id = str(created["taskId"])
+            with app_module.auth_db() as conn:
+                conn.execute("DELETE FROM generated_video_covers WHERE task_id = ?", (task_id,))
+                conn.execute(
+                    "UPDATE xiaozhi_tasks SET result_json = ? WHERE task_id = ?",
+                    (json.dumps({"params": {"prompt": "讲解陈皮性状辨识"}}, ensure_ascii=False), task_id),
+                )
+
+            with patch.object(app_module.VIDEO_RESOURCE_EXECUTOR, "submit") as submit:
+                queued = app_module._queue_waiting_generated_video_covers_after_restart()
+
+            submitted = [call.args for call in submit.call_args_list if len(call.args) >= 2 and call.args[1] == task_id]
+            self.assertGreaterEqual(queued, 1)
+            self.assertEqual(len(submitted), 1)
+            self.assertIs(submitted[0][0], app_module.xiaozhi_generate_generated_video_cover)
+            with app_module.auth_db() as conn:
+                task_row = conn.execute(
+                    "SELECT status, result_json FROM xiaozhi_tasks WHERE task_id = ?",
+                    (task_id,),
+                ).fetchone()
+                cover_row = conn.execute(
+                    "SELECT status, image_blob FROM generated_video_covers WHERE task_id = ?",
+                    (task_id,),
+                ).fetchone()
+            result = json.loads(task_row["result_json"])
+            self.assertEqual(task_row["status"], "waiting")
+            self.assertEqual(result["coverStatus"], "queued")
+            self.assertEqual(result["selectedResource"]["metadata"]["coverStatus"], "queued")
+            self.assertEqual(cover_row["status"], "queued")
+            self.assertIsNone(cover_row["image_blob"])
         finally:
             if task_id:
                 with app_module.auth_db() as conn:
@@ -1000,7 +1070,7 @@ class LearningProfileApiTests(unittest.TestCase):
                         101,
                         profile_report_id=profile_id,
                     )
-                self.assertEqual(len(app_module._visible_learning_path_weeks(saved)), 6)
+                self.assertEqual(len(app_module._visible_learning_path_weeks(saved)), 1)
                 queue_resources.assert_called_once()
         finally:
             release_background.set()
@@ -1021,7 +1091,7 @@ class LearningProfileApiTests(unittest.TestCase):
                     app_module.activate_profile(conn, 101, original_active["id"])
                 app_module.write_learning_path_config(conn, original_config, 101)
 
-    def test_background_learning_path_generates_all_weeks_before_resource_queue(self) -> None:
+    def test_background_learning_path_generates_first_week_before_resource_queue(self) -> None:
         with app_module.auth_db() as conn:
             original_active = app_module.active_profile_for_user(conn, 101)
             app_module.activate_profile(conn, 101, self.profile_two["id"])
@@ -1071,21 +1141,98 @@ class LearningProfileApiTests(unittest.TestCase):
                     4,
                 )
 
-            self.assertEqual([item["weekStart"] for item in generated_payloads], [1, 2, 3, 4])
+            self.assertEqual([item["weekStart"] for item in generated_payloads], [1])
             self.assertTrue(all(item["prepareResources"] is False for item in generated_payloads))
             self.assertTrue(all(item["taskId"] == "path-background-test" for item in generated_payloads))
             queue_resources.assert_called_once()
             queued_config = queue_resources.call_args.args[1]
-            self.assertEqual(len(queued_config["weeks"]), 4)
+            self.assertEqual(len(queued_config["weeks"]), 1)
             final_updates = [
                 call.kwargs
                 for call in update_task.call_args_list
                 if call.kwargs.get("status") == "complete"
             ]
             self.assertEqual(len(final_updates), 1)
-            self.assertEqual(final_updates[0]["result_json"]["completedWeeks"], 4)
+            self.assertEqual(final_updates[0]["result_json"]["completedWeeks"], 1)
         finally:
             with app_module.auth_db() as conn:
+                if original_active:
+                    app_module.activate_profile(conn, 101, original_active["id"])
+
+    def test_generate_next_week_endpoint_plans_exactly_one_week(self) -> None:
+        profile_id = int(self.profile_one["id"])
+        stage_id = "week-1-next-endpoint"
+        existing = {
+            "version": 2,
+            "meta": {
+                "profileReportId": profile_id,
+                "totalWeeks": 6,
+                "generationState": "partial",
+            },
+            "weeks": [
+                {
+                    "id": stage_id,
+                    "order": 1,
+                    "weekLabel": "第一周",
+                    "title": "第一周任务",
+                    "enabled": True,
+                }
+            ],
+            "stages": {stage_id: {"id": stage_id, "nodes": []}},
+        }
+        generated = {
+            **existing,
+            "weeks": [
+                *existing["weeks"],
+                {
+                    "id": "week-2-next-endpoint",
+                    "order": 2,
+                    "weekLabel": "第二周",
+                    "title": "第二周任务",
+                    "enabled": True,
+                },
+            ],
+            "stages": {
+                **existing["stages"],
+                "week-2-next-endpoint": {"id": "week-2-next-endpoint", "nodes": []},
+            },
+        }
+        with app_module.auth_db() as conn:
+            original_active = app_module.active_profile_for_user(conn, 101)
+            original_config = app_module.read_learning_path_config(conn, 101)
+            app_module.activate_profile(conn, 101, profile_id)
+            app_module.write_learning_path_config(
+                conn,
+                existing,
+                101,
+                profile_report_id=profile_id,
+            )
+        captured = {}
+
+        def fake_generation(user_id, payload, context, **_kwargs):
+            captured.update({"userId": user_id, "payload": payload, "context": context})
+            return {"config": generated, "source": "test"}
+
+        try:
+            with patch.object(app_module, "_run_learning_path_generation", side_effect=fake_generation):
+                response = self.client.post(
+                    "/api/learning-path/generate-next-week",
+                    headers=self.headers,
+                    json={"profileReportId": profile_id, "totalWeeks": 6},
+                )
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()["data"]
+            self.assertEqual(data["generatedWeek"], 2)
+            self.assertEqual(captured["payload"]["weekStart"], 2)
+            self.assertEqual(captured["payload"]["weekCount"], 1)
+            self.assertEqual(len(captured["payload"]["existingConfig"]["weeks"]), 1)
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute(
+                    "DELETE FROM learning_path_profile_configs WHERE user_id = ? AND profile_report_id = ?",
+                    (101, profile_id),
+                )
+                app_module.write_learning_path_config(conn, original_config, 101)
                 if original_active:
                     app_module.activate_profile(conn, 101, original_active["id"])
 
@@ -1304,6 +1451,47 @@ class LearningProfileApiTests(unittest.TestCase):
         finally:
             with app_module.auth_db() as conn:
                 conn.execute("DELETE FROM agent_orchestration_runs WHERE run_id = ?", (run_id,))
+
+    def test_xiaozhi_chat_persists_user_and_supervisor_messages_in_active_profile_group(self) -> None:
+        prompt = "群聊持久化测试：请说明桂枝与麻黄的区别"
+        reply = "我已记录问题，并会让知识检索智能体准备可追溯依据。"
+        with app_module.auth_db() as conn:
+            active = app_module.active_profile_for_user(conn, 101)
+        profile_id = int(active["id"])
+        try:
+            with patch.object(
+                app_module,
+                "xiaozhi_detect_intent",
+                return_value={"intent": "chat", "topic": "桂枝与麻黄", "reply": reply},
+            ):
+                response = self.client.post(
+                    "/api/xiaozhi/chat",
+                    headers=self.headers,
+                    json={"message": prompt, "route": "/learning-path"},
+                )
+            self.assertEqual(response.status_code, 200)
+            conversation_response = self.client.get(
+                f"/api/xiaozhi/profile-conversation?profileReportId={profile_id}",
+                headers=self.headers,
+            )
+            self.assertEqual(conversation_response.status_code, 200)
+            messages = conversation_response.get_json()["data"]["recentMessages"]
+            matched = [item for item in messages if item["content"] in {prompt, reply}]
+            self.assertEqual([item["type"] for item in matched], ["user_message", "supervisor_reply"])
+            self.assertEqual(matched[1]["agentName"], "岐小智总控智能体")
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute("DELETE FROM xiaozhi_messages WHERE user_id = ? AND content IN (?, ?)", (101, prompt, reply))
+                conn.execute("DELETE FROM knowledge_growth_memories WHERE user_id = ? AND user_message = ?", (101, prompt))
+                conversation = conn.execute(
+                    "SELECT id FROM profile_agent_conversations WHERE user_id = ? AND profile_report_id = ?",
+                    (101, profile_id),
+                ).fetchone()
+                if conversation:
+                    conn.execute(
+                        "DELETE FROM profile_agent_messages WHERE conversation_id = ? AND content IN (?, ?)",
+                        (int(conversation["id"]), prompt, reply),
+                    )
 
     def test_profile_sessions_keep_chat_and_dimensions_isolated(self) -> None:
         first = self.client.post(

@@ -72,7 +72,7 @@
       <ArrowRight v-if="!loading" class="transition duration-300 group-hover:translate-x-0.5" :size="20" />
     </button>
 
-    <p class="text-center text-sm text-slate-400">首次登录将自动创建账号</p>
+    <p class="text-center text-sm text-slate-400">没有账号请先切换到注册</p>
   </form>
 </template>
 

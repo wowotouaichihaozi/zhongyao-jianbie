@@ -215,6 +215,21 @@ CREATE TABLE IF NOT EXISTS xiaozhi_tasks (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS generated_video_covers (
+    task_id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    image_blob BLOB,
+    mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
+    model TEXT NOT NULL DEFAULT 'z-image-turbo',
+    prompt TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'queued',
+    error TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(task_id) REFERENCES xiaozhi_tasks(task_id) ON DELETE CASCADE,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS agent_orchestration_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id TEXT NOT NULL UNIQUE,
@@ -266,6 +281,58 @@ CREATE TABLE IF NOT EXISTS agent_orchestration_events (
     payload_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL,
     FOREIGN KEY(run_id) REFERENCES agent_orchestration_runs(run_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS profile_agent_conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    profile_report_id INTEGER NOT NULL,
+    supervisor_agent TEXT NOT NULL DEFAULT 'xiaozhi-companion-agent',
+    summary_text TEXT NOT NULL DEFAULT '',
+    summary_version INTEGER NOT NULL DEFAULT 0,
+    compacted_through_sequence INTEGER NOT NULL DEFAULT 0,
+    message_count INTEGER NOT NULL DEFAULT 0,
+    estimated_tokens INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(user_id, profile_report_id),
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY(profile_report_id) REFERENCES learning_profile_reports(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS profile_agent_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id INTEGER NOT NULL,
+    sequence INTEGER NOT NULL,
+    dedupe_key TEXT NOT NULL,
+    run_id TEXT NOT NULL DEFAULT '',
+    task_id TEXT NOT NULL DEFAULT '',
+    agent_id TEXT NOT NULL,
+    agent_name TEXT NOT NULL DEFAULT '',
+    message_type TEXT NOT NULL DEFAULT 'status',
+    status TEXT NOT NULL DEFAULT '',
+    content TEXT NOT NULL,
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    resource_refs_json TEXT NOT NULL DEFAULT '[]',
+    estimated_tokens INTEGER NOT NULL DEFAULT 0,
+    compacted INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    UNIQUE(conversation_id, sequence),
+    UNIQUE(conversation_id, dedupe_key),
+    FOREIGN KEY(conversation_id) REFERENCES profile_agent_conversations(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS profile_agent_context_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id INTEGER NOT NULL,
+    version INTEGER NOT NULL,
+    summary_text TEXT NOT NULL,
+    source_message_count INTEGER NOT NULL DEFAULT 0,
+    source_estimated_tokens INTEGER NOT NULL DEFAULT 0,
+    through_sequence INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    UNIQUE(conversation_id, version),
+    FOREIGN KEY(conversation_id) REFERENCES profile_agent_conversations(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS knowledge_graph_concepts (
@@ -506,11 +573,16 @@ CREATE INDEX IF NOT EXISTS idx_multimodal_inputs_user_created ON multimodal_inpu
 CREATE INDEX IF NOT EXISTS idx_xiaozhi_tasks_user_id ON xiaozhi_tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_xiaozhi_tasks_task_id ON xiaozhi_tasks(task_id);
 CREATE INDEX IF NOT EXISTS idx_xiaozhi_tasks_user_type_id ON xiaozhi_tasks(user_id, task_type, id DESC);
+CREATE INDEX IF NOT EXISTS idx_generated_video_covers_user_status ON generated_video_covers(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_user_id ON agent_orchestration_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_task_id ON agent_orchestration_runs(task_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_updated_at ON agent_orchestration_runs(updated_at);
 CREATE INDEX IF NOT EXISTS idx_agent_handoffs_run_id ON agent_orchestration_handoffs(run_id);
 CREATE INDEX IF NOT EXISTS idx_agent_events_run_id ON agent_orchestration_events(run_id);
+CREATE INDEX IF NOT EXISTS idx_profile_agent_conversations_profile ON profile_agent_conversations(user_id, profile_report_id);
+CREATE INDEX IF NOT EXISTS idx_profile_agent_messages_recent ON profile_agent_messages(conversation_id, compacted, sequence DESC);
+CREATE INDEX IF NOT EXISTS idx_profile_agent_messages_run ON profile_agent_messages(run_id, sequence);
+CREATE INDEX IF NOT EXISTS idx_profile_agent_snapshots_version ON profile_agent_context_snapshots(conversation_id, version DESC);
 CREATE INDEX IF NOT EXISTS idx_knowledge_concepts_user_domain ON knowledge_graph_concepts(user_id, domain);
 CREATE INDEX IF NOT EXISTS idx_knowledge_edges_user_source ON knowledge_graph_edges(user_id, source_type, source_key);
 CREATE INDEX IF NOT EXISTS idx_knowledge_edges_user_target ON knowledge_graph_edges(user_id, target_type, target_key);

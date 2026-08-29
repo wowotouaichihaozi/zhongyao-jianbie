@@ -21,7 +21,7 @@ class FakeResponse:
         return self._payload
 
 
-def test_video_first_frame_uses_seedream_45_contract(monkeypatch):
+def test_video_first_frame_uses_z_image_turbo_contract(monkeypatch):
     settings = {
         "SEEDREAM_BASE_URL": "https://api.apimart.ai/v1",
         "SEEDREAM_API_KEY": "test-key",
@@ -52,7 +52,7 @@ def test_video_first_frame_uses_seedream_45_contract(monkeypatch):
     assert calls[0][0] == "https://api.apimart.ai/v1/images/generations"
     assert calls[0][1]["Authorization"] == "Bearer test-key"
     assert calls[0][2] == {
-        "model": "seedream-4-5",
+        "model": "z-image-turbo",
         "prompt": "GPIO lesson cover",
         "size": "16:9",
         "resolution": "2K",
@@ -85,6 +85,8 @@ def test_waiting_video_cover_only_generates_and_downloads_one_image(monkeypatch,
     )
 
     assert result["posterUrl"].endswith("/video-cover-1/poster")
+    assert result["model"] == "z-image-turbo"
+    assert result["imagePath"].endswith("poster.jpg")
     assert [call[0] for call in calls] == ["image", "download"]
     assert "黄芪性状辨识" in calls[0][1]
     assert video_generation.media_file(101, "video-cover-1", "poster.jpg").read_bytes() == b"poster"

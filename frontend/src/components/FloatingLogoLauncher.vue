@@ -113,11 +113,98 @@
       <div v-else-if="activeTab === 'chat'" key="chat" class="chat-panel">
         <div ref="messageListRef" class="chat-scroll-area">
           <div class="message-list">
-          <div v-if="messages.length === 0" class="empty-chat">
+          <div v-if="messages.length === 0 && agentConversationGroups.length === 0 && !agentConversation?.summary" class="empty-chat">
             <Sparkles :size="22" />
             <strong>你好，我是岐小智</strong>
             <p>我会记录你的学习画像、答题和研读状态。你也可以直接让我生成 PPT、思维导图、视频或题库。</p>
           </div>
+
+          <section
+            class="agent-group-chat"
+            aria-label="当前学习画像的多智能体群聊"
+          >
+            <header class="agent-group-chat-head">
+              <span><Network :size="15" />画像协同群聊</span>
+              <small>{{ agentConversation?.messageCount || 0 }} 条记录</small>
+            </header>
+
+            <article v-if="!agentConversationGroups.length && !agentConversation?.summary" class="agent-conversation-empty">
+              <strong>暂无协同记录</strong>
+              <span>发送消息、生成学习路径或创建资源后，岐小智和各专家智能体的动作会写入这里。</span>
+            </article>
+
+            <article v-if="agentConversation?.summary" class="agent-conversation-card compacted-history">
+              <button type="button" class="agent-conversation-main" @click="toggleConversationGroup('compacted-summary')">
+                <span class="agent-conversation-icon"><Archive :size="15" /></span>
+                <span class="agent-conversation-copy">
+                  <small>自动上下文压缩 · v{{ agentConversation.summaryVersion }}</small>
+                  <strong>更早的协作记录已压缩</strong>
+                  <em>保留关键结论、任务和知识引用，不再占用完整模型上下文。</em>
+                </span>
+                <ChevronUp v-if="isConversationGroupExpanded('compacted-summary')" :size="17" />
+                <ChevronDown v-else :size="17" />
+              </button>
+              <div v-if="isConversationGroupExpanded('compacted-summary')" class="agent-conversation-details">
+                <p class="conversation-summary-text">{{ agentConversation.summary }}</p>
+              </div>
+            </article>
+
+            <article
+              v-for="group in agentConversationGroups"
+              :key="group.key"
+              :class="['agent-conversation-card', group.status]"
+            >
+              <button type="button" class="agent-conversation-main" @click="toggleConversationGroup(group.key)">
+                <span class="agent-conversation-icon">
+                  <LoaderCircle v-if="group.status === 'running'" class="spin" :size="15" />
+                  <CircleAlert v-else-if="group.status === 'failed'" :size="15" />
+                  <Network v-else :size="15" />
+                </span>
+                <span class="agent-conversation-copy">
+                  <small>{{ group.agentNames }} · {{ conversationStatusLabel(group.status) }}</small>
+                  <strong>{{ group.title }}</strong>
+                  <em>{{ group.summary }}</em>
+                </span>
+                <ChevronUp v-if="isConversationGroupExpanded(group.key)" :size="17" />
+                <ChevronDown v-else :size="17" />
+              </button>
+
+              <i v-if="group.progress > 0" class="agent-conversation-progress" aria-hidden="true">
+                <b :style="{ width: `${group.progress}%` }"></b>
+              </i>
+
+              <div v-if="isConversationGroupExpanded(group.key)" class="agent-conversation-details">
+                <ol>
+                  <li v-for="entry in group.messages" :key="entry.id || `${group.key}-${entry.sequence}`">
+                    <span class="conversation-entry-marker"></span>
+                    <div>
+                      <header>
+                        <strong>{{ entry.agentName || entry.agentId }}</strong>
+                        <time>{{ formatConversationTime(entry.createdAt) }}</time>
+                      </header>
+                      <p>{{ entry.content }}</p>
+                      <small v-if="conversationDetailText(entry)">{{ conversationDetailText(entry) }}</small>
+                      <span v-if="entry.resourceReferences?.length" class="conversation-references">
+                        <i v-for="reference in entry.resourceReferences.slice(0, 6)" :key="`${reference.type}-${reference.id}`">
+                          {{ reference.type }} · {{ reference.id }}
+                        </i>
+                      </span>
+                    </div>
+                  </li>
+                </ol>
+                <a
+                  v-if="group.route"
+                  class="conversation-resource-link"
+                  :href="resolveRouteHref(group.route)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  打开对应资源
+                  <ExternalLink :size="14" />
+                </a>
+              </div>
+            </article>
+          </section>
 
           <template v-for="(message, index) in messages" :key="`${message.createdAt || index}-${index}`">
             <article class="message" :class="message.role">
@@ -295,9 +382,13 @@ import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, reactive, ref,
 import { useRoute, useRouter } from 'vue-router'
 import {
   Activity,
+  Archive,
   BrainCircuit,
   BookOpenCheck,
+  ChevronDown,
+  ChevronUp,
   CircleAlert,
+  ExternalLink,
   FileText,
   Film,
   ImagePlus,
@@ -306,6 +397,7 @@ import {
   Map,
   MessageCircle,
   Mic,
+  Network,
   Paperclip,
   Presentation,
   RefreshCw,
@@ -352,6 +444,8 @@ const assistantImageInputRef = ref(null)
 const assistantVideoInputRef = ref(null)
 const assistantFileInputRef = ref(null)
 const messages = ref([])
+const agentConversation = ref(null)
+const expandedConversationGroups = ref(new Set())
 const tasks = ref([])
 const agents = ref([])
 const harnessStatus = ref(null)
@@ -499,6 +593,55 @@ const harnessActivityText = computed(() => {
   if (failedAgent) return `${agentDisplayName(failedAgent)}需要处理：${failedAgent.detail || '执行失败'}`
   return '所有智能体已连接，等待岐小智总控调度'
 })
+const agentConversationGroups = computed(() => {
+  const recentMessages = Array.isArray(agentConversation.value?.recentMessages)
+    ? agentConversation.value.recentMessages
+    : []
+  const grouped = new Map()
+  for (const entry of recentMessages) {
+    if (!entry || ['user_message', 'supervisor_reply'].includes(String(entry.type || ''))) continue
+    const key = String(entry.runId || entry.taskId || `message-${entry.id || entry.sequence}`)
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        key,
+        runId: String(entry.runId || ''),
+        taskId: String(entry.taskId || ''),
+        messages: [],
+      })
+    }
+    grouped.get(key).messages.push(entry)
+  }
+  return Array.from(grouped.values()).slice(-10).map((group) => {
+    const relatedTaskId = group.taskId || group.messages
+      .flatMap(entry => Array.isArray(entry.resourceReferences) ? entry.resourceReferences : [])
+      .find(reference => reference?.type === 'task')?.id || ''
+    const relatedTask = tasks.value.find(task => String(task.taskId || '') === String(relatedTaskId))
+    const statuses = group.messages.map(entry => String(entry.status || ''))
+    const status = statuses.some(value => ['failed', 'error', 'needs_attention'].includes(value))
+      ? 'failed'
+      : statuses.some(value => ['running', 'queued'].includes(value))
+        ? 'running'
+        : statuses.some(value => value === 'warning') ? 'warning' : 'complete'
+    const progress = Math.max(
+      0,
+      ...group.messages.map(entry => Number(entry.payload?.progress || entry.payload?.details?.progress || 0)),
+    )
+    const names = Array.from(new Set(group.messages.map(entry => entry.agentName || entry.agentId).filter(Boolean)))
+    const routeReference = group.messages
+      .flatMap(entry => Array.isArray(entry.resourceReferences) ? entry.resourceReferences : [])
+      .find(reference => reference?.type === 'route')
+    const lastMessage = group.messages.at(-1) || {}
+    return {
+      ...group,
+      status,
+      progress,
+      agentNames: names.slice(0, 2).join('、') + (names.length > 2 ? ` 等 ${names.length} 个智能体` : ''),
+      title: relatedTask?.title || group.messages.find(entry => entry.type === 'review')?.content || lastMessage.content || '智能体协同任务',
+      summary: lastMessage.content || '协作记录已更新',
+      route: relatedTask?.route || routeReference?.id || '',
+    }
+  })
+})
 
 watch(isOpen, async (open) => {
   if (!open) {
@@ -633,6 +776,7 @@ async function loadHistory() {
     const response = await getXiaoZhiHistory()
     messages.value = response?.data?.messages || []
     tasks.value = response?.data?.tasks || []
+    agentConversation.value = response?.data?.agentConversation || agentConversation.value
     await scrollToBottom()
   } catch (error) {
     addLog(error?.message || '岐小智历史加载失败', 'warn', '岐小智')
@@ -645,12 +789,54 @@ async function loadStatus() {
     agents.value = response?.data?.agents || []
     tasks.value = response?.data?.tasks || tasks.value
     harnessStatus.value = response?.data?.architecture || null
+    agentConversation.value = response?.data?.agentConversation || agentConversation.value
     if (statusTimer && !isOpen.value && !runningTaskCount.value) {
       stopStatusPolling()
     }
   } catch (error) {
     addLog(error?.message || '岐小智状态加载失败', 'warn', '岐小智')
   }
+}
+
+function toggleConversationGroup(key) {
+  const next = new Set(expandedConversationGroups.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  expandedConversationGroups.value = next
+  nextTick(scrollToBottom)
+}
+
+function isConversationGroupExpanded(key) {
+  return expandedConversationGroups.value.has(key)
+}
+
+function conversationStatusLabel(status) {
+  return {
+    running: '协同中',
+    failed: '需处理',
+    warning: '待核验',
+    complete: '已完成',
+  }[status] || '已记录'
+}
+
+function formatConversationTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+function conversationDetailText(entry) {
+  const payload = entry?.payload && typeof entry.payload === 'object' ? entry.payload : {}
+  const parts = []
+  if (payload.stage) parts.push(`阶段：${payload.stage}`)
+  if (Number.isFinite(Number(payload.progress)) && Number(payload.progress) > 0) parts.push(`进度：${Number(payload.progress)}%`)
+  if (payload.artifactType) parts.push(`交接物：${payload.artifactType}`)
+  if (payload.toAgentName) parts.push(`交给：${payload.toAgentName}`)
+  const details = payload.details && typeof payload.details === 'object' ? payload.details : {}
+  const citationCount = Array.isArray(details.citations) ? details.citations.length : 0
+  if (citationCount) parts.push(`知识引用：${citationCount} 条`)
+  return parts.join(' · ')
 }
 
 async function openRuntimeSettings() {
@@ -1581,6 +1767,281 @@ onBeforeUnmount(() => {
   color: #667a77;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.agent-group-chat {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+.agent-group-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.agent-group-chat-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #185b49;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.agent-group-chat-head small {
+  color: #7b8b87;
+  font-size: 11px;
+}
+
+.agent-conversation-empty {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px dashed #cbded8;
+  border-radius: 7px;
+  background: #f8fbfa;
+  color: #54706a;
+}
+
+.agent-conversation-empty strong {
+  color: #244b41;
+  font-size: 12px;
+}
+
+.agent-conversation-empty span {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.agent-conversation-card {
+  overflow: hidden;
+  border: 1px solid #d9e4e0;
+  border-left: 3px solid #2a8a6c;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.agent-conversation-card.running {
+  border-left-color: #3182ce;
+}
+
+.agent-conversation-card.failed {
+  border-left-color: #c84b4b;
+}
+
+.agent-conversation-card.warning,
+.agent-conversation-card.compacted-history {
+  border-left-color: #b47a1f;
+}
+
+.agent-conversation-main {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 0;
+  background: #fff;
+  color: #263a35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-conversation-main:hover {
+  background: #f7faf9;
+}
+
+.agent-conversation-main > svg {
+  color: #84938f;
+}
+
+.agent-conversation-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #147257;
+  background: #edf7f3;
+}
+
+.agent-conversation-card.running .agent-conversation-icon {
+  color: #286ca8;
+  background: #edf5fc;
+}
+
+.agent-conversation-card.failed .agent-conversation-icon {
+  color: #a73737;
+  background: #fdf0f0;
+}
+
+.agent-conversation-copy {
+  min-width: 0;
+  display: block;
+}
+
+.agent-conversation-copy small,
+.agent-conversation-copy strong,
+.agent-conversation-copy em {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-conversation-copy small {
+  color: #397866;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.agent-conversation-copy strong {
+  margin-top: 3px;
+  color: #21332f;
+  font-size: 12px;
+}
+
+.agent-conversation-copy em {
+  margin-top: 3px;
+  color: #71817d;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.agent-conversation-progress {
+  display: block;
+  height: 3px;
+  background: #edf2f0;
+}
+
+.agent-conversation-progress b {
+  display: block;
+  height: 100%;
+  background: #2a8a6c;
+  transition: width 0.25s ease;
+}
+
+.agent-conversation-details {
+  padding: 0 11px 11px 48px;
+  border-top: 1px solid #edf1ef;
+  background: #fbfcfc;
+}
+
+.agent-conversation-details ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 8px 0 0;
+  list-style: none;
+}
+
+.agent-conversation-details li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 7px;
+  padding: 5px 0 8px;
+}
+
+.agent-conversation-details li:not(:last-child)::before {
+  position: absolute;
+  top: 18px;
+  bottom: -4px;
+  left: 5px;
+  width: 1px;
+  background: #cddbd6;
+  content: '';
+}
+
+.conversation-entry-marker {
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  margin-top: 3px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2a8a6c;
+  box-shadow: 0 0 0 1px #9abeb3;
+}
+
+.agent-conversation-details li header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.agent-conversation-details li header strong {
+  color: #29453d;
+  font-size: 10px;
+}
+
+.agent-conversation-details time {
+  color: #87948f;
+  font-size: 9px;
+}
+
+.agent-conversation-details li p,
+.conversation-summary-text {
+  margin: 3px 0 0;
+  color: #536660;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.agent-conversation-details li small {
+  display: block;
+  margin-top: 3px;
+  color: #7b8985;
+  font-size: 9px;
+}
+
+.conversation-summary-text {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-top: 8px;
+}
+
+.conversation-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.conversation-references i {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 5px;
+  border: 1px solid #d7e3df;
+  border-radius: 4px;
+  color: #527068;
+  background: #fff;
+  font-size: 9px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-resource-link {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  padding: 6px 8px;
+  border: 1px solid #bcd6cd;
+  border-radius: 5px;
+  color: #17684f;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .message {

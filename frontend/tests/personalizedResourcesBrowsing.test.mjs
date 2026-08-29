@@ -17,6 +17,8 @@ test('history resources provide keyword search, type filtering, and pagination',
 
 test('history resources use real-page cover cards', () => {
   assert.match(source, /class="resource-launcher-grid"/)
+  assert.doesNotMatch(source, /tool\.description/)
+  assert.doesNotMatch(source, /按学习画像生成讲解视频/)
   assert.match(source, /class="resource-gallery"/)
   assert.match(source, /class="resource-cover-card"/)
   assert.match(source, /class="resource-live-cover"/)

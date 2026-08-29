@@ -1115,8 +1115,10 @@ body,
 }
 
 /* Personalized resources owns its compact archive controls. */
+#app .resources-page .archive-heading .archive-search input,
 #app .resources-page .archive-toolbar .history-search input,
-#app .resources-page .archive-toolbar .type-filter select {
+#app .resources-page .archive-toolbar .type-filter select,
+#app .resources-page .archive-actions .type-filter select {
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;

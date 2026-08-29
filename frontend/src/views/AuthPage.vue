@@ -8,61 +8,71 @@
         <span><strong>中药鉴别</strong><small>中医智慧学习平台</small></span>
       </a>
 
-      <nav class="auth-landing-links" aria-label="产品能力">
-        <a href="#capabilities">核心能力</a>
-        <a href="#model-capabilities">模型能力</a>
-        <a href="#innovation">创新展示</a>
-        <a href="#workflow">学习闭环</a>
-        <a href="#resources-capability">多模态资源</a>
-        <a href="#assessment-capability">效果评估</a>
-      </nav>
-
       <div class="auth-landing-actions">
-        <button type="button" class="auth-login-link" @click="openAuth('login')">登录</button>
-        <button type="button" class="auth-register-button" @click="openAuth('register')">注册</button>
+        <button type="button" class="auth-login-link" @click="focusAuth('login')">登录</button>
+        <button type="button" class="auth-register-button" @click="focusAuth('register')">注册</button>
       </div>
     </header>
 
     <section id="top" class="auth-landing-hero">
       <div class="auth-hero-copy">
-        <span class="auth-hero-kicker">
-          <Cpu :size="15" :stroke-width="2" />
-          Agent Harness 架构 · 22 个已实现角色
-        </span>
         <h1>
           <strong>中药鉴别</strong>
-          <span>让每一步中医学习都有依据</span>
+          <span>中医学习，从辨药开始</span>
         </h1>
-        <p>从学习画像到周路径、经典研读、方药辨析与效果评估，让智能体围绕真实学习证据持续编排。</p>
+        <p>围绕学习画像安排路径、资源与评估，把经典、药材和练习连成一条清楚的学习线。</p>
 
         <ul class="auth-hero-points" aria-label="平台特点">
-          <li><CheckCircle2 :size="16" />画像驱动</li>
-          <li><CheckCircle2 :size="16" />智能编排</li>
-          <li><CheckCircle2 :size="16" />多模态资源</li>
+          <li><CheckCircle2 :size="16" />画像</li>
+          <li><CheckCircle2 :size="16" />路径</li>
+          <li><CheckCircle2 :size="16" />资源</li>
+          <li><CheckCircle2 :size="16" />评估</li>
         </ul>
-
-        <div class="auth-hero-actions">
-          <button type="button" class="auth-start-button" @click="openAuth('login')">
-            开始学习
-            <ArrowRight :size="17" />
-          </button>
-          <a href="#capabilities" class="auth-outline-link">查看能力</a>
-        </div>
       </div>
 
-      <div class="auth-hero-gallery" aria-label="中医学习与实践场景">
+      <div class="auth-hero-gallery compact" aria-label="中医学习与实践场景">
         <figure class="auth-gallery-main" :style="heroVisualStyle">
           <img src="/auth-hero-tcm-learning.webp" alt="学生在中医课堂中学习脉诊、中药标本与知识图谱" decoding="async" fetchpriority="high" />
         </figure>
-        <figure class="auth-gallery-crop crop-scope" aria-hidden="true">
-          <img src="/qihuang-zhijing-mark-512.png" alt="" decoding="async" />
-        </figure>
-        <figure class="auth-gallery-crop crop-face" aria-hidden="true">
-          <img src="/auth-hero-tcm-learning.webp" alt="" decoding="async" />
-        </figure>
-        <span class="auth-gallery-label label-live"><Activity :size="14" />实时学习证据</span>
-        <span class="auth-gallery-label label-profile"><Network :size="14" />动态画像</span>
       </div>
+
+      <section ref="inlineAuthPanelRef" class="auth-inline-panel" aria-label="登录或注册">
+        <header>
+          <strong>{{ activeTab === 'register' ? '创建账号' : '欢迎回来' }}</strong>
+          <span>登录后继续你的中医学习路径</span>
+        </header>
+
+        <RoleSelector v-model="role" class="mb-4" />
+        <TabSwitch v-model="activeTab" class="mb-4" />
+
+        <Transition name="auth-panel" mode="out-in">
+          <LoginForm
+            v-if="activeTab === 'login'"
+            key="inline-login"
+            :form="loginForm"
+            :loading="authLoading"
+            :message="authMessage"
+            :error="authError"
+            :captcha-required="captchaRequired"
+            :captcha-question="captchaQuestion"
+            @submit="submitLogin"
+          />
+          <RegisterForm
+            v-else
+            key="inline-register"
+            :form="registerForm"
+            :loading="authLoading"
+            :message="authMessage"
+            :error="authError"
+            :email-valid="isRegisterEmailValid"
+            :email-code-sending="emailCodeSending"
+            :email-code-countdown="emailCodeCountdown"
+            :password-strength="passwordStrength"
+            @submit="submitRegister"
+            @send-email-code="sendEmailCode"
+          />
+        </Transition>
+      </section>
     </section>
 
     <section class="auth-skill-band auth-reveal auth-stagger" aria-label="平台能力">
@@ -520,7 +530,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import {
   Activity,
   AudioLines,
@@ -553,11 +563,11 @@ import { getLoginCaptcha, loginAdminUser, loginUser, registerUser, sendRegisterE
 import { readRememberedLoginAccount, rememberLoginAccount, setAuthSession } from '../stores/auth.js'
 import { DEFAULT_AUTHENTICATED_PATH, safeInternalRedirect } from '../utils/authRedirect.js'
 
-const router = useRouter()
 const route = useRoute()
 
 const activeTab = ref('login')
 const authModalOpen = ref(false)
+const inlineAuthPanelRef = ref(null)
 const role = ref(route.query.role === 'admin' ? 'admin' : 'user')
 const authLoading = ref(false)
 const authMessage = ref('')
@@ -627,6 +637,11 @@ function openAuth(tab = 'login') {
     loginForm.username = readRememberedLoginAccount()
   }
   authModalOpen.value = true
+}
+
+function focusAuth(tab = 'login') {
+  activeTab.value = tab === 'register' ? 'register' : 'login'
+  inlineAuthPanelRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
 }
 
 function openAuthForRoute(target) {
@@ -720,6 +735,12 @@ function getAdminHomeUrl(loginToken) {
   })
 
   return `${getAdminBaseUrl()}/dashboard#${params.toString()}`
+}
+
+function redirectAfterAuthentication(target) {
+  // A full navigation reloads the current release entrypoint. This prevents an
+  // already-open login page from requesting stale Vite chunks after a deploy.
+  window.location.replace(target)
 }
 
 function resetFeedback() {
@@ -847,7 +868,7 @@ async function submitLogin() {
       const loginToken = await loginAdminUser(credentials)
       rememberLoginAccount(credentials.username)
       setMessage('正在进入后台管理...', false)
-      window.location.href = getAdminHomeUrl(loginToken)
+      redirectAfterAuthentication(getAdminHomeUrl(loginToken))
       return
     }
 
@@ -872,11 +893,11 @@ async function submitLogin() {
       return
     }
     setMessage('登录成功，正在进入系统...', false)
-    await router.replace(pendingRoute.value || DEFAULT_AUTHENTICATED_PATH)
+    redirectAfterAuthentication(pendingRoute.value || DEFAULT_AUTHENTICATED_PATH)
   } catch (error) {
     const data = error.response?.data || {}
     if (data.captchaRequired) await refreshCaptcha(data)
-    setMessage(data.msg || data.message || '认证失败，请稍后再试')
+    setMessage(data.msg || data.message || error.message || '认证失败，请稍后再试')
   } finally {
     authLoading.value = false
   }
@@ -903,10 +924,10 @@ async function submitRegister() {
     persistUser(user)
     localStorage.setItem('appMode', 'user')
     setMessage('注册成功，正在进入系统...', false)
-    await router.replace(pendingRoute.value || DEFAULT_AUTHENTICATED_PATH)
+    redirectAfterAuthentication(pendingRoute.value || DEFAULT_AUTHENTICATED_PATH)
   } catch (error) {
     const data = error.response?.data || {}
-    setMessage(data.msg || data.message || '注册失败，请稍后再试')
+    setMessage(data.msg || data.message || error.message || '注册失败，请稍后再试')
   } finally {
     authLoading.value = false
   }
@@ -964,14 +985,27 @@ async function submitRegister() {
   min-height: 100vh;
   overflow-x: hidden;
   color: #1c2020;
-  background: #ffffff;
+  background: #fbfdfc;
+}
+
+.auth-scroll-progress,
+.auth-skill-band,
+.auth-model-section,
+.auth-capabilities-section,
+.auth-innovation-section,
+.auth-flow-section,
+.auth-bonus-section,
+.auth-proof-section,
+.auth-final-section,
+.auth-landing-footer {
+  display: none !important;
 }
 
 .auth-landing-nav {
   width: min(1460px, calc(100% - 64px));
-  height: 76px;
+  height: 72px;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 260px;
+  grid-template-columns: 1fr auto;
   align-items: center;
   margin: 0 auto;
   border-bottom: 1px solid #eceeed;
@@ -1067,17 +1101,18 @@ async function submitRegister() {
 
 .auth-landing-hero {
   width: min(1460px, calc(100% - 64px));
-  min-height: calc(100vh - 134px);
-  display: flex;
+  min-height: calc(100vh - 72px);
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.05fr) minmax(340px, 420px);
+  gap: 42px;
   align-items: center;
-  justify-content: flex-start;
   margin: 0 auto;
-  padding: 54px 0 46px;
+  padding: 34px 0 42px;
   box-sizing: border-box;
 }
 
 .auth-hero-copy {
-  max-width: 760px;
+  max-width: 520px;
 }
 
 .auth-hero-kicker {
@@ -1099,7 +1134,7 @@ async function submitRegister() {
 }
 
 .auth-hero-copy h1 {
-  margin: 30px 0 22px;
+  margin: 0 0 18px;
   letter-spacing: 0;
 }
 
@@ -1111,25 +1146,25 @@ async function submitRegister() {
 
 .auth-hero-copy h1 strong {
   color: #111414;
-  font-size: 66px;
+  font-size: 58px;
   font-weight: 820;
   line-height: 1.05;
 }
 
 .auth-hero-copy h1 span {
-  margin-top: 10px;
+  margin-top: 8px;
   color: #176f4b;
-  font-size: 44px;
+  font-size: 32px;
   font-weight: 780;
   line-height: 1.16;
 }
 
 .auth-hero-copy > p {
-  max-width: 570px;
+  max-width: 470px;
   margin: 0;
   color: #69706f;
-  font-size: 17px;
-  line-height: 1.85;
+  font-size: 16px;
+  line-height: 1.75;
 }
 
 .auth-hero-points {
@@ -1148,6 +1183,59 @@ async function submitRegister() {
   color: #2e3433;
   font-size: 14px;
   font-weight: 600;
+}
+
+.auth-hero-gallery.compact {
+  height: min(44vw, 480px);
+  min-height: 340px;
+  max-height: 500px;
+}
+
+.auth-hero-gallery.compact .auth-gallery-main {
+  inset: 0;
+}
+
+.auth-hero-gallery.compact .auth-gallery-main img {
+  border-radius: 8px;
+}
+
+.auth-inline-panel {
+  align-self: center;
+  max-height: calc(100vh - 128px);
+  overflow-y: auto;
+  padding: 24px;
+  border: 1px solid #dfe6e3;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(24, 39, 35, 0.12);
+  scrollbar-color: #c5cac9 transparent;
+}
+
+.auth-inline-panel > header {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.auth-inline-panel > header strong {
+  color: #17211d;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.auth-inline-panel > header span {
+  color: #70807a;
+  font-size: 13px;
+}
+
+.auth-inline-panel :deep(input) {
+  border-radius: 6px !important;
+}
+
+.auth-inline-panel :deep(.auth-role-option),
+.auth-inline-panel :deep(.auth-primary-action),
+.auth-inline-panel :deep(.auth-tab-action) {
+  border-radius: 6px !important;
 }
 
 .auth-hero-points svg {
@@ -2908,6 +2996,138 @@ async function submitRegister() {
     margin-left: 22px;
   }
 
+}
+
+.auth-scroll-progress,
+.auth-skill-band,
+.auth-model-section,
+.auth-capabilities-section,
+.auth-innovation-section,
+.auth-flow-section,
+.auth-bonus-section,
+.auth-proof-section,
+.auth-final-section,
+.auth-landing-footer {
+  display: none !important;
+}
+
+.auth-landing-page {
+  display: grid;
+  min-height: 100vh;
+  background: #fbfdfc;
+}
+
+.auth-landing-nav {
+  width: min(1280px, calc(100% - 56px));
+  height: 68px;
+}
+
+.auth-landing-hero {
+  width: min(1280px, calc(100% - 56px));
+  min-height: calc(100vh - 68px);
+  grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 0.95fr) minmax(330px, 390px);
+  gap: 32px;
+  padding: 28px 0 36px;
+}
+
+.auth-hero-copy {
+  max-width: 460px;
+}
+
+.auth-hero-copy h1 {
+  margin-bottom: 14px;
+}
+
+.auth-hero-copy h1 strong {
+  font-size: clamp(42px, 4vw, 56px);
+}
+
+.auth-hero-copy h1 span {
+  margin-top: 8px;
+  color: #176f4b;
+  font-size: clamp(27px, 2.45vw, 34px);
+}
+
+.auth-hero-copy > p {
+  max-width: 430px;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.auth-hero-points {
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.auth-hero-gallery.compact {
+  height: min(40vw, 440px);
+  min-height: 300px;
+  max-height: 440px;
+}
+
+.auth-hero-gallery.compact .auth-gallery-main {
+  inset: 0;
+}
+
+.auth-hero-gallery.compact .auth-gallery-main img {
+  border-radius: 8px;
+}
+
+.auth-inline-panel {
+  align-self: center;
+  max-height: calc(100vh - 112px);
+  padding: 22px;
+}
+
+@media (max-width: 1180px) {
+  .auth-landing-hero {
+    grid-template-columns: minmax(260px, 0.95fr) minmax(330px, 390px);
+    gap: 28px;
+  }
+
+  .auth-hero-gallery.compact {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .auth-landing-nav {
+    width: calc(100% - 28px);
+  }
+
+  .auth-landing-brand img {
+    width: 44px;
+    height: 44px;
+  }
+
+  .auth-landing-hero {
+    width: calc(100% - 28px);
+    min-height: 0;
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 28px 0 30px;
+  }
+
+  .auth-hero-copy h1 strong {
+    font-size: 40px;
+  }
+
+  .auth-hero-copy h1 span {
+    font-size: 26px;
+  }
+
+  .auth-hero-copy > p {
+    font-size: 14px;
+  }
+
+  .auth-hero-points {
+    gap: 10px 14px;
+  }
+
+  .auth-inline-panel {
+    max-height: none;
+    padding: 18px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

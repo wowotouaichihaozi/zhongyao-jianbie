@@ -59,6 +59,20 @@ try {
   assert.equal(await page.locator('.resource-card').count(), 0)
   assert.equal(await page.locator('.resource-tool-card').count(), 0)
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  const archiveToolbarLayout = await page.evaluate(() => {
+    const title = document.querySelector('.archive-title')?.getBoundingClientRect()
+    const search = document.querySelector('.archive-search')?.getBoundingClientRect()
+    const type = document.querySelector('.archive-actions .type-filter')?.getBoundingClientRect()
+    const generate = document.querySelector('.archive-actions .generate-btn')?.getBoundingClientRect()
+    return {
+      centers: [title, search, type, generate].map(rect => rect ? Math.round(rect.top + rect.height / 2) : null),
+      searchWidth: search?.width || 0,
+    }
+  })
+  assert.ok(archiveToolbarLayout.centers.every(center => center !== null), 'archive toolbar item is missing')
+  assert.ok(Math.max(...archiveToolbarLayout.centers) - Math.min(...archiveToolbarLayout.centers) <= 2, 'archive toolbar wrapped onto multiple rows')
+  assert.ok(archiveToolbarLayout.searchWidth <= 320, `search is too wide: ${archiveToolbarLayout.searchWidth}px`)
+  assert.doesNotMatch(await page.locator('.archive-result-line').innerText(), /共\s*\d+\s*项/)
   await page.locator('.resource-live-cover.loaded').first().waitFor({ state: 'visible', timeout: 15_000 })
   assert.ok(await page.locator('.resource-live-cover.loaded').count() > 0, 'no real page cover finished loading')
   const assistantBox = await page.locator('.xiaozhi-float').boundingBox()
@@ -70,7 +84,7 @@ try {
   assert.equal(firstCardStyle.borderRadius, '6px')
 
   const embeddedControlStyles = await page.evaluate(() => {
-    const searchInput = document.querySelector('.archive-toolbar .history-search input')
+    const searchInput = document.querySelector('.archive-search input')
     const typeSelect = document.querySelector('.type-filter select')
     return {
       searchBorder: searchInput ? getComputedStyle(searchInput).borderTopWidth : null,

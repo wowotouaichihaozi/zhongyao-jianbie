@@ -137,6 +137,8 @@ class XiaoZhiAgentHarness:
                 "json_contract_validation",
                 "mcp_tool_gateway",
                 "shared_blackboard",
+                "profile_scoped_shared_conversation",
+                "automatic_context_compaction",
                 "structured_handoffs",
                 "policy_metadata",
                 "quality_and_safety_review",

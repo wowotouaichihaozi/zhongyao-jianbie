@@ -5,133 +5,133 @@
     "agents":  [
                    {
                        "id":  "xiaozhi-companion-agent",
-                       "name":  "xiaozhi-companion-agent",
+                       "name":  "岐小智总控智能体",
                        "role":  "supervisor",
                        "description":  "Platform agent xiaozhi-companion-agent"
                    },
                    {
                        "id":  "learning-background-dialogue-agent",
-                       "name":  "learning-background-dialogue-agent",
+                       "name":  "学习背景采集智能体",
                        "role":  "specialist",
                        "description":  "Platform agent learning-background-dialogue-agent"
                    },
                    {
                        "id":  "learning-profile-agent",
-                       "name":  "learning-profile-agent",
+                       "name":  "学习画像智能体",
                        "role":  "specialist",
                        "description":  "Platform agent learning-profile-agent"
                    },
                    {
                        "id":  "learning-route-agent",
-                       "name":  "learning-route-agent",
+                       "name":  "学习路径规划智能体",
                        "role":  "specialist",
                        "description":  "Platform agent learning-route-agent"
                    },
                    {
                        "id":  "learning-path-stage-agent",
-                       "name":  "learning-path-stage-agent",
+                       "name":  "周任务规划智能体",
                        "role":  "specialist",
                        "description":  "Platform agent learning-path-stage-agent"
                    },
                    {
                        "id":  "personalized-resource-workflow",
-                       "name":  "personalized-resource-workflow",
+                       "name":  "个性化资源调度智能体",
                        "role":  "specialist",
                        "description":  "Platform agent personalized-resource-workflow"
                    },
                    {
                        "id":  "question-generator-workflow",
-                       "name":  "question-generator-workflow",
+                       "name":  "题库生成智能体",
                        "role":  "specialist",
                        "description":  "Platform agent question-generator-workflow"
                    },
                    {
                        "id":  "ppt-agent",
-                       "name":  "ppt-agent",
+                       "name":  "PPT 生成智能体",
                        "role":  "specialist",
                        "description":  "Platform agent ppt-agent"
                    },
                    {
                        "id":  "learning-document-agent",
-                       "name":  "learning-document-agent",
+                       "name":  "课程讲义智能体",
                        "role":  "specialist",
                        "description":  "Platform agent learning-document-agent"
                    },
                    {
                        "id":  "mindmap-agent",
-                       "name":  "mindmap-agent",
+                       "name":  "思维导图智能体",
                        "role":  "specialist",
                        "description":  "Platform agent mindmap-agent"
                    },
                    {
                        "id":  "video-search-agent",
-                       "name":  "video-search-agent",
+                       "name":  "视频检索智能体",
                        "role":  "specialist",
                        "description":  "Platform agent video-search-agent"
                    },
                    {
                        "id":  "generated-video-agent",
-                       "name":  "generated-video-agent",
+                       "name":  "AI 视频生成智能体",
                        "role":  "specialist",
                        "description":  "Platform agent generated-video-agent"
                    },
                    {
                        "id":  "learning-animation-agent",
-                       "name":  "learning-animation-agent",
+                       "name":  "学习动画智能体",
                        "role":  "specialist",
                        "description":  "Platform agent learning-animation-agent"
                    },
                    {
                        "id":  "mcu-agent",
-                       "name":  "mcu-agent",
+                       "name":  "实验资源智能体",
                        "role":  "specialist",
                        "description":  "Platform agent mcu-agent"
                    },
                    {
                        "id":  "interview-agent",
-                       "name":  "interview-agent",
+                       "name":  "学习访谈智能体",
                        "role":  "specialist",
                        "description":  "Platform agent interview-agent"
                    },
                    {
                        "id":  "smart-tutor-agent",
-                       "name":  "smart-tutor-agent",
+                       "name":  "智能辅导智能体",
                        "role":  "specialist",
                        "description":  "Platform agent smart-tutor-agent"
                    },
                    {
                        "id":  "learning-effect-assessment-agent",
-                       "name":  "learning-effect-assessment-agent",
+                       "name":  "效果评估智能体",
                        "role":  "specialist",
                        "description":  "Platform agent learning-effect-assessment-agent"
                    },
                    {
                        "id":  "learning-feedback-agent",
-                       "name":  "learning-feedback-agent",
+                       "name":  "学习反馈智能体",
                        "role":  "specialist",
                        "description":  "Platform agent learning-feedback-agent"
                    },
                    {
                        "id":  "private-knowledge-agent",
-                       "name":  "private-knowledge-agent",
+                       "name":  "私有知识库智能体",
                        "role":  "specialist",
                        "description":  "Platform agent private-knowledge-agent"
                    },
                    {
                        "id":  "qwen-multimodal-evidence-agent",
-                       "name":  "qwen-multimodal-evidence-agent",
+                       "name":  "多模态证据智能体",
                        "role":  "runtime",
                        "description":  "Alibaba Bailian Qwen visual and audio evidence agent"
                    },
                    {
                        "id":  "document-text-extraction-agent",
-                       "name":  "document-text-extraction-agent",
+                       "name":  "文档解析智能体",
                        "role":  "runtime",
                        "description":  "Platform agent document-text-extraction-agent"
                    },
                    {
                        "id":  "spark-text-reasoning-agent",
-                       "name":  "spark-text-reasoning-agent",
+                       "name":  "文本推理智能体",
                        "role":  "runtime",
                        "description":  "Platform agent spark-text-reasoning-agent"
                    }

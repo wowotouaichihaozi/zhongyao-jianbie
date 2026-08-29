@@ -42,6 +42,11 @@ function clearAuthAndRedirect() {
   }
 }
 
+function isAuthEntryRequest(config = {}) {
+  const url = String(config.url || '')
+  return url.includes('/api/auth/login') || url.includes('/api/admin-auth/login')
+}
+
 apiClient.interceptors.request.use((config) => {
   const token = getAuthToken()
   if (token) {
@@ -53,7 +58,7 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isAuthEntryRequest(error.config)) {
       clearAuthAndRedirect()
     }
     return Promise.reject(error)
@@ -143,6 +148,8 @@ export async function loginUser(payload) {
   } catch (error) {
     if (error.code === 'ECONNABORTED') {
       error.response = { data: { msg: '服务器响应超时，请稍后重试或联系管理员查看运行监控' } }
+    } else if (!error.response) {
+      error.response = { data: { msg: '认证服务暂时无法连接，请检查网络后重试' } }
     }
     throw error
   }
@@ -173,6 +180,9 @@ export async function loginAdminUser(payload) {
       const timeoutError = new Error('服务器响应超时，请稍后重试或检查运行监控')
       timeoutError.response = { data: { msg: timeoutError.message } }
       throw timeoutError
+    }
+    if (!error.response) {
+      error.response = { data: { msg: '认证服务暂时无法连接，请检查网络后重试' } }
     }
     throw error
   } finally {
@@ -607,6 +617,11 @@ export async function saveLearningProfileQuestionnaire(payload) {
 
 export async function generateLearningPath(payload) {
   const { data } = await apiClient.post('/api/learning-path/generate', payload, { timeout: 180000 })
+  return data?.data || data
+}
+
+export async function generateNextLearningPathWeek(payload = {}) {
+  const { data } = await apiClient.post('/api/learning-path/generate-next-week', payload, { timeout: 180000 })
   return data?.data || data
 }
 

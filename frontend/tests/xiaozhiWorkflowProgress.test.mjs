@@ -18,6 +18,7 @@ const resourceDetailSource = fs.readFileSync(new URL('../src/views/ResourceDetai
 const pathSource = fs.readFileSync(new URL('../src/views/LearningPathView.vue', import.meta.url), 'utf8')
 const pptSource = fs.readFileSync(new URL('../src/views/PptGeneratingView.vue', import.meta.url), 'utf8')
 const animationSource = fs.readFileSync(new URL('../src/views/LearningAnimationView.vue', import.meta.url), 'utf8')
+const apiSource = fs.readFileSync(new URL('../src/services/api.js', import.meta.url), 'utf8')
 
 test('workflow progress is clamped and normalizes server terminal states', () => {
   assert.equal(clampWorkflowProgress(-5), 0)
@@ -96,4 +97,20 @@ test('weekly task details show one week heading and no duplicate task rail', () 
   assert.match(pathSource, /eyebrow: ''/)
   assert.match(pathSource, /hasActiveLearningProfile && !isWeekTaskPage/)
   assert.doesNotMatch(pathSource, /\$\{weekLabel\}具体学习任务/)
+})
+
+test('the companion shows profile-scoped agent messages as expandable resource cards', () => {
+  assert.match(launcherSource, /response\?\.data\?\.agentConversation/)
+  assert.match(launcherSource, /class="agent-group-chat"/)
+  assert.match(launcherSource, /toggleConversationGroup\(group\.key\)/)
+  assert.match(launcherSource, /class="agent-conversation-details"/)
+  assert.match(launcherSource, /class="conversation-resource-link"/)
+  assert.match(launcherSource, /chatWithXiaoZhi\(\{ message: displayContent/)
+})
+
+test('learning paths stop after week one and expose an explicit next-week action', () => {
+  assert.doesNotMatch(pathSource, /generateRemainingWeeks/)
+  assert.match(pathSource, /generateNextLearningPathWeek/)
+  assert.match(pathSource, /更新画像后再规划/)
+  assert.match(apiSource, /\/api\/learning-path\/generate-next-week/)
 })
