@@ -137,12 +137,17 @@ test('the companion exposes direct resource commands inside the same group chat 
 
 test('the harness panel renders persisted runs and handoffs instead of a static fake topology', () => {
   assert.match(launcherSource, /response\?\.data\?\.orchestrationRuns/)
-  assert.match(launcherSource, /class="actual-agent-grid"/)
-  assert.match(launcherSource, /class="handoff-list"/)
+  assert.match(launcherSource, /const harnessFlowNodes = computed/)
+  assert.match(launcherSource, /class="harness-flow-canvas"/)
+  assert.match(launcherSource, /class="harness-node-overlay"/)
+  assert.match(launcherSource, /selectedHarnessNodeDetail/)
   assert.match(launcherSource, /selectedRunHandoffs/)
+  assert.match(launcherSource, /class="harness-runtime-brief"/)
   assert.match(launcherSource, /没有运行记录，不展示模拟连接关系/)
   assert.doesNotMatch(launcherSource, /class="flow-trunk"/)
   assert.doesNotMatch(launcherSource, /class="specialist-flow-grid"/)
+  assert.doesNotMatch(launcherSource, /class="actual-agent-grid"/)
+  assert.doesNotMatch(launcherSource, /class="handoff-list"/)
 })
 
 test('learning paths stop after week one and expose an explicit next-week action', () => {

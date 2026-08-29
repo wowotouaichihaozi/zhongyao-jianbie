@@ -20,7 +20,7 @@
     </button>
 
     <Transition name="motion-pop">
-    <section v-if="isOpen" class="xiaozhi-window" :class="windowPlacement" :style="windowStyle" @pointerdown.stop>
+    <section v-if="isOpen" class="xiaozhi-window" :class="[windowPlacement, { wide: activeTab === 'status' }]" :style="windowStyle" @pointerdown.stop>
       <header class="window-head">
         <div class="title-block">
           <span class="eyebrow">Learning Companion</span>
@@ -389,54 +389,49 @@
               </dl>
             </article>
 
-            <section class="actual-agent-section" aria-label="本次实际参与智能体">
+            <section class="harness-flow-section" aria-label="Agent Harness 智能体协作流程">
               <header>
-                <strong>本次实际参与</strong>
-                <span>{{ selectedRunAgents.length }} 个</span>
+                <strong>真实协作流程</strong>
+                <span>点击节点查看运行详情</span>
               </header>
-              <div class="actual-agent-grid">
-                <article
-                  v-for="agent in selectedRunAgents"
-                  :key="agent.id"
-                  :class="['actual-agent-card', normalizeStatus(agent.status)]"
-                >
-                  <span class="actual-agent-icon"><component :is="agentIcon(agent)" :size="15" /></span>
-                  <span>
-                    <small>{{ agentRoleText(agent) }}</small>
-                    <strong>{{ agentDisplayName(agent) }}</strong>
-                    <em>{{ actualAgentDetail(agent) }}</em>
-                  </span>
-                  <i :class="['agent-light', normalizeStatus(agent.status)]" :title="statusText(agent.status)"></i>
-                </article>
+
+              <div class="harness-flow-canvas" role="list">
+                <template v-for="(node, index) in harnessFlowNodes" :key="node.id">
+                  <button
+                    v-if="index > 0"
+                    type="button"
+                    class="harness-flow-link"
+                    :title="node.edgeLabel || '协作流转'"
+                    @click="openHarnessNodeDetail(node.edgeNode)"
+                  >
+                    <MoveRight v-if="node.edgeDirection !== 'both'" :size="14" />
+                    <MoveHorizontal v-else :size="15" />
+                    <span>{{ node.edgeLabel }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="listitem"
+                    :class="['harness-flow-node', node.kind, normalizeStatus(node.status), { active: selectedHarnessNodeId === node.id }]"
+                    @click="openHarnessNodeDetail(node)"
+                  >
+                    <span class="harness-node-icon"><component :is="agentIcon(node.agent)" :size="15" /></span>
+                    <strong>{{ node.label }}</strong>
+                    <small>{{ statusText(node.status) }}</small>
+                    <i class="harness-node-light" aria-hidden="true"></i>
+                  </button>
+                </template>
               </div>
             </section>
 
-            <section class="handoff-section" aria-label="真实智能体交接记录">
-              <header>
-                <strong>真实交接记录</strong>
-                <span>{{ selectedRunHandoffs.length }} 次</span>
-              </header>
-              <ol v-if="selectedRunHandoffs.length" class="handoff-list">
-                <li v-for="(handoff, index) in selectedRunHandoffs" :key="`${handoff.sequence || index}-${handoff.fromAgent}-${handoff.toAgent}`">
-                  <span class="handoff-order">{{ String(index + 1).padStart(2, '0') }}</span>
-                  <div class="handoff-route-row">
-                    <div class="handoff-party">
-                      <small>FROM</small>
-                      <strong>{{ handoffAgentName(handoff.fromAgent, handoff.fromAgentName) }}</strong>
-                    </div>
-                    <div class="handoff-artifact">
-                      <ArrowRight :size="17" />
-                      <span>{{ handoffArtifactLabel(handoff.artifactType) }}</span>
-                    </div>
-                    <div class="handoff-party target">
-                      <small>TO</small>
-                      <strong>{{ handoffAgentName(handoff.toAgent, handoff.toAgentName) }}</strong>
-                    </div>
-                  </div>
-                  <p>{{ handoff.summary || '已完成结构化上下文交接' }}</p>
-                </li>
-              </ol>
-              <div v-else class="handoff-empty">本次运行没有保存智能体交接记录</div>
+            <section class="harness-runtime-brief" aria-label="真实交接摘要">
+              <div class="harness-brief-card">
+                <strong>真实交接</strong>
+                <p>{{ selectedRunHandoffs.length ? selectedRunHandoffs[0].summary || '已完成结构化上下文交接' : '本次运行暂无交接记录' }}</p>
+              </div>
+              <div class="harness-brief-card">
+                <strong>最近产物</strong>
+                <p>{{ latestHarnessArtifact || '等待资源生成完成' }}</p>
+              </div>
             </section>
           </template>
 
@@ -448,6 +443,37 @@
         </section>
       </div>
     </section>
+    </Transition>
+    <Transition name="fade">
+      <div v-if="selectedHarnessNodeDetail" class="harness-node-overlay" @click.self="closeHarnessNodeDetail">
+        <article class="harness-node-detail" role="dialog" aria-modal="true" :aria-label="selectedHarnessNodeDetail.label">
+          <header>
+            <span><component :is="agentIcon(selectedHarnessNodeDetail.agent)" :size="17" /></span>
+            <div>
+              <small>{{ selectedHarnessNodeDetail.stage }}</small>
+              <strong>{{ selectedHarnessNodeDetail.label }}</strong>
+            </div>
+            <button type="button" @click="closeHarnessNodeDetail">
+              <X :size="16" />
+            </button>
+          </header>
+          <dl>
+            <div><dt>运行状态</dt><dd>{{ statusText(selectedHarnessNodeDetail.status) }}</dd></div>
+            <div><dt>运行详情</dt><dd>{{ selectedHarnessNodeDetail.description }}</dd></div>
+            <div><dt>执行事件</dt><dd>{{ selectedHarnessNodeDetail.eventCount }} 个</dd></div>
+            <div><dt>更新时间</dt><dd>{{ selectedHarnessNodeDetail.time }}</dd></div>
+          </dl>
+          <div class="harness-node-handoffs">
+            <strong>相关交接</strong>
+            <p v-for="handoff in selectedHarnessNodeDetail.handoffs" :key="`${handoff.sequence}-${handoff.fromAgent}-${handoff.toAgent}`">
+              {{ handoffAgentName(handoff.fromAgent, handoff.fromAgentName) }} → {{ handoffAgentName(handoff.toAgent, handoff.toAgentName) }}
+              · {{ handoffArtifactLabel(handoff.artifactType) }}
+              <small>{{ handoff.summary }}</small>
+            </p>
+            <p v-if="!selectedHarnessNodeDetail.handoffs.length" class="empty">本次运行未保存该节点的结构化交接。</p>
+          </div>
+        </article>
+      </div>
     </Transition>
   </div>
 </template>
@@ -473,6 +499,8 @@ import {
   Map as MapIcon,
   MessageCircle,
   Mic,
+  MoveHorizontal,
+  MoveRight,
   Network,
   Paperclip,
   Presentation,
@@ -666,8 +694,9 @@ const windowStyle = computed(() => {
   const viewportPadding = 16
   const orbGap = 18
   const size = orbSize()
-  const width = Math.max(1, Math.min(440, viewport.width - viewportPadding * 2))
-  const height = Math.max(1, Math.min(660, viewport.height - viewportPadding * 2))
+  const isStatusTab = activeTab.value === 'status'
+  const width = Math.max(1, Math.min(isStatusTab ? 820 : 440, viewport.width - viewportPadding * 2))
+  const height = Math.max(1, Math.min(isStatusTab ? 520 : 660, viewport.height - viewportPadding * 2))
   const opensLeft = windowPlacement.value.left
   const opensUp = windowPlacement.value.up
 
@@ -705,6 +734,7 @@ const realOrchestrationRuns = computed(() => orchestrationRuns.value.filter(run 
     || (Array.isArray(run.events) && run.events.length)
   )
 )))
+const selectedHarnessNodeId = ref('')
 const selectedOrchestrationRun = computed(() => (
   realOrchestrationRuns.value.find(run => run.runId === selectedRunId.value)
   || realOrchestrationRuns.value[0]
@@ -734,6 +764,65 @@ const harnessActivityText = computed(() => {
   if (['running', 'queued'].includes(run.status)) return `${taskLabel}正在由 ${selectedRunAgents.value.length} 个智能体协作执行`
   if (run.status === 'failed') return `${taskLabel}执行失败，以下记录来自真实运行链路`
   return `${taskLabel}已完成，以下为本次真实调用与交接`
+})
+const harnessFlowNodes = computed(() => {
+  const run = selectedOrchestrationRun.value
+  if (!run) return []
+  const runAgentMap = new Map(selectedRunAgents.value.map(agent => [String(agent.id), agent]))
+  const definitions = [
+    { id: 'user', label: '用户', kind: 'actor', stage: '学习起点', role: '发起学习请求与反馈' },
+    { id: 'learning-profile-agent', label: '学习画像智能体', kind: 'stage', stage: '画像构建', role: '整合采集信息与历史证据' },
+    { id: 'xiaozhi-companion-agent', label: '岐小智总控智能体', kind: 'master', stage: '总控调度', role: '拆解任务并分发专家智能体' },
+    { id: 'learning-route-agent', label: '学习路径智能体', kind: 'stage', stage: '路径规划', role: '规划周目标与阶段任务' },
+    { id: 'personalized-resource-workflow', label: '资源生成智能体', kind: 'generate', stage: '资源生成', role: '生成题库、课件、导图、视频与药材辨识资源' },
+    { id: 'quality-review-agent', label: '质量审核智能体', kind: 'review', stage: '质量审核', role: '校验引用、结构与内容安全' },
+    { id: 'learning-effect-assessment-agent', label: '效果评估智能体', kind: 'stage', stage: '效果评估', role: '汇总学习结果与薄弱点' },
+  ]
+  const edgeLabels = ['', '发起', '画像上下文', '路径调度', '周任务', '调用知识', '审核结论', '学习反馈']
+  const nodes = definitions.map((definition, index) => {
+    const agent = runAgentMap.get(definition.id) || agents.value.find(item => String(item.id) === definition.id)
+      || { id: definition.id, name: definition.label, status: 'idle' }
+    const status = runAgentMap.has(definition.id) ? normalizeStatus(agent.status) : 'idle'
+    return {
+      ...definition,
+      agent,
+      status,
+      eventCount: Number(agent?.eventCount || 0),
+      description: runAgentMap.has(definition.id) ? actualAgentDetail(agent) : definition.role,
+      time: formatRunTime(agent?.lastRunAt || run.updatedAt || run.createdAt),
+      edgeLabel: edgeLabels[index] || '协作',
+      edgeDirection: index === 5 ? 'both' : 'forward',
+      edgeNode: null,
+    }
+  })
+  nodes.forEach((node, index) => {
+    if (index > 0) node.edgeNode = nodes[index - 1]
+  })
+  return nodes
+})
+const latestHarnessArtifact = computed(() => {
+  for (const handoff of [...selectedRunHandoffs.value].reverse()) {
+    if (handoff.artifactType) return handoffArtifactLabel(handoff.artifactType)
+  }
+  return harnessFlowNodes.value.find(node => node.id === 'personalized-resource-workflow')?.agent?.detail || ''
+})
+const selectedHarnessNodeDetail = computed(() => {
+  if (!selectedOrchestrationRun.value || !selectedHarnessNodeId.value) return null
+  const node = harnessFlowNodes.value.find(item => item.id === selectedHarnessNodeId.value)
+  if (!node) return null
+  const handoffs = selectedRunHandoffs.value.filter(handoff => (
+    String(handoff.fromAgent) === node.id || String(handoff.toAgent) === node.id
+  ))
+  return {
+    ...node,
+    handoffs,
+    description: node.id === 'user'
+      ? (selectedOrchestrationRun.value.topic || '用户发起了本次学习协作')
+      : node.description,
+    time: node.id === 'user'
+      ? formatRunTime(selectedOrchestrationRun.value.updatedAt || selectedOrchestrationRun.value.createdAt)
+      : node.time,
+  }
 })
 const agentConversationGroups = computed(() => {
   const recentMessages = Array.isArray(agentConversation.value?.recentMessages)
@@ -1579,6 +1668,15 @@ function handoffArtifactLabel(artifactType) {
   return handoffArtifactLabels[type] || type.replaceAll('_', ' ') || '结构化交接'
 }
 
+function openHarnessNodeDetail(node) {
+  if (!node) return
+  selectedHarnessNodeId.value = String(node.id || '')
+}
+
+function closeHarnessNodeDetail() {
+  selectedHarnessNodeId.value = ''
+}
+
 function taskTypeLabel(task) {
   return resourceLabels[task?.taskType || task?.type] || '学习任务'
 }
@@ -1715,6 +1813,12 @@ onBeforeUnmount(() => {
 
 .xiaozhi-window.previewing {
   width: min(760px, calc(100vw - 32px));
+}
+
+.xiaozhi-window.wide {
+  width: min(820px, calc(100vw - 32px));
+  height: min(520px, calc(100dvh - 28px));
+  max-height: min(520px, calc(100dvh - 28px));
 }
 
 .xiaozhi-window.right {
@@ -3745,178 +3849,319 @@ onBeforeUnmount(() => {
   font-weight: 900;
 }
 
-.actual-agent-section,
-.handoff-section {
+.harness-flow-section {
   display: grid;
-  gap: 8px;
-  margin-top: 14px;
+  gap: 9px;
+  margin-top: 2px;
+  padding: 10px;
+  border: 1px solid #e2efe9;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f7fffc, #fff);
 }
 
-.actual-agent-section > header strong,
-.handoff-section > header strong {
-  color: #2b3431;
+.harness-flow-section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.harness-flow-section > header strong {
+  color: #26332f;
   font-size: 11px;
 }
 
-.actual-agent-grid {
+.harness-flow-section > header span {
+  color: #6f7a76;
+  font-size: 9px;
+}
+
+.harness-flow-canvas {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.harness-flow-node {
+  position: relative;
+  flex: 1 0 76px;
+  min-width: 76px;
+  min-height: 78px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border: 1px solid #dfe8e4;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.harness-flow-node:hover,
+.harness-flow-node.active {
+  border-color: #6fbf9c;
+  box-shadow: 0 8px 18px rgba(23,111,75,.11);
+  transform: translateY(-1px);
+}
+
+.harness-flow-node.master {
+  border-color: #176f4b;
+  background: #176f4b;
+  color: #fff;
+}
+
+.harness-flow-node.master small {
+  color: #d7f0e5;
+}
+
+.harness-flow-node.generate {
+  border-color: #a8c8db;
+  background: #f6fbff;
+}
+
+.harness-flow-node.review {
+  border-color: #c9ad77;
+  background: #fffaf0;
+}
+
+.harness-flow-node.idle {
+  border-style: dashed;
+  opacity: .74;
+}
+
+.harness-flow-node.running,
+.harness-flow-node.queued {
+  border-color: #72b8e0;
+  background: #f8fcff;
+}
+
+.harness-flow-node.failed {
+  border-color: #d98282;
+  background: #fff8f8;
+}
+
+.harness-node-icon {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: #ecf5f0;
+  color: #3b705e;
+}
+
+.harness-flow-node.master .harness-node-icon {
+  background: rgba(255,255,255,.15);
+  color: #fff;
+}
+
+.harness-flow-node strong {
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-size: 9px;
+  line-height: 1.25;
+  text-align: center;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.harness-flow-node small {
+  color: #72807b;
+  font-size: 8px;
+}
+
+.harness-node-light {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b7c1bd;
+}
+
+.harness-flow-node.running .harness-node-light,
+.harness-flow-node.queued .harness-node-light { background: #3aa0dc; }
+.harness-flow-node.complete .harness-node-light { background: #16a34a; }
+.harness-flow-node.failed .harness-node-light { background: #dc2626; }
+.harness-flow-node.review .harness-node-light { background: #c8a267; }
+
+.harness-flow-link {
+  flex: 0 0 auto;
+  min-width: 43px;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  border: 0;
+  background: transparent;
+  color: #4e7d6b;
+  cursor: pointer;
+}
+
+.harness-flow-link span {
+  color: #73827c;
+  font-size: 7px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.harness-runtime-brief {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
 }
 
-.actual-agent-card {
+.harness-brief-card {
   min-width: 0;
-  min-height: 66px;
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) 7px;
-  align-items: center;
-  gap: 7px;
   padding: 8px;
-  border: 1px solid #e0e5e3;
-  border-radius: 7px;
-  background: #ffffff;
+  border: 1px solid #e3e8e5;
+  border-radius: 8px;
+  background: #fff;
 }
 
-.actual-agent-card.running,
-.actual-agent-card.queued {
-  border-color: #9fc8e2;
-  background: #f8fcff;
+.harness-brief-card strong {
+  color: #33413c;
+  font-size: 9px;
 }
 
-.actual-agent-card.failed {
-  border-color: #e5b6b6;
-  background: #fffafa;
+.harness-brief-card p {
+  margin: 4px 0 0;
+  color: #6f7a76;
+  font-size: 9px;
+  line-height: 1.4;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-.actual-agent-icon {
-  width: 28px;
-  height: 28px;
+.harness-node-overlay {
+  position: fixed;
+  z-index: 1290;
+  inset: 0;
   display: grid;
   place-items: center;
-  border-radius: 6px;
-  background: #eef3f1;
-  color: #4d655c;
+  padding: 24px;
+  background: rgba(18, 27, 24, .44);
 }
 
-.actual-agent-card > span:nth-child(2) {
-  min-width: 0;
+.harness-node-detail {
+  width: min(430px, 100%);
+  max-height: min(430px, calc(100vh - 48px));
+  overflow-y: auto;
+  border: 1px solid #d8e5df;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 20px 42px rgba(15,23,20,.22);
+}
+
+.harness-node-detail header {
+  position: sticky;
+  top: 0;
   display: grid;
-  gap: 2px;
-}
-
-.actual-agent-card small {
-  color: #7d8683;
-  font-size: 8px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.actual-agent-card strong {
-  overflow: hidden;
-  color: #28312e;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.actual-agent-card em {
-  display: -webkit-box;
-  overflow: hidden;
-  color: #727c78;
-  font-size: 8px;
-  font-style: normal;
-  line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.handoff-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.handoff-list li {
-  position: relative;
-  padding: 10px 9px 9px 32px;
-  border: 1px solid #e1e6e3;
-  border-radius: 7px;
-  background: #ffffff;
-}
-
-.handoff-order {
-  position: absolute;
-  top: 10px;
-  left: 9px;
-  color: #176f4b;
-  font-size: 9px;
-  font-weight: 900;
-}
-
-.handoff-route-row {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0,1fr) 32px;
+  gap: 9px;
   align-items: center;
-  gap: 6px;
+  padding: 13px;
+  border-bottom: 1px solid #e9eeec;
+  background: #fff;
 }
 
-.handoff-party {
-  min-width: 0;
+.harness-node-detail header span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #e8f4ef;
+  color: #176f4b;
+}
+
+.harness-node-detail header small {
+  color: #71807a;
+  font-size: 9px;
+}
+
+.harness-node-detail header strong {
+  color: #22302c;
+  font-size: 13px;
+}
+
+.harness-node-detail header button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e0e7e3;
+  border-radius: 8px;
+  background: #fff;
+  color: #5c6b65;
+  cursor: pointer;
+}
+
+.harness-node-detail dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 11px 13px;
+}
+
+.harness-node-detail dl div {
   display: grid;
   gap: 2px;
 }
 
-.handoff-party.target {
-  text-align: right;
-}
-
-.handoff-party small {
-  color: #8a928f;
-  font-size: 7px;
+.harness-node-detail dt {
+  color: #77827d;
+  font-size: 8px;
   font-weight: 900;
 }
 
-.handoff-party strong {
-  display: -webkit-box;
-  overflow: hidden;
-  color: #29332f;
-  font-size: 9px;
-  line-height: 1.3;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.handoff-artifact {
-  min-width: 0;
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  color: #39745f;
-}
-
-.handoff-artifact span {
-  max-width: 76px;
-  overflow: hidden;
-  color: #60716a;
-  font-size: 8px;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.handoff-list li > p {
-  margin: 7px 0 0;
-  border-top: 1px solid #f0f2f1;
-  padding-top: 6px;
-  color: #707a76;
-  font-size: 9px;
+.harness-node-detail dd {
+  margin: 0;
+  color: #2a3531;
+  font-size: 11px;
   line-height: 1.45;
 }
 
-.handoff-empty,
+.harness-node-handoffs {
+  padding: 0 13px 13px;
+}
+
+.harness-node-handoffs strong {
+  color: #33413c;
+  font-size: 9px;
+}
+
+.harness-node-handoffs p {
+  margin: 6px 0 0;
+  padding: 8px;
+  border: 1px solid #e6ebe8;
+  border-radius: 7px;
+  background: #fbfdfc;
+  color: #47544f;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.harness-node-handoffs small {
+  display: block;
+  margin-top: 3px;
+  color: #727d78;
+}
+
+.harness-node-handoffs p.empty {
+  border-style: dashed;
+  color: #76817c;
+}
+
 .real-run-empty {
   border: 1px dashed #d8dfdc;
   border-radius: 7px;
@@ -4031,6 +4276,34 @@ onBeforeUnmount(() => {
   .xiaozhi-window.left {
     left: 12px;
     right: 12px;
+  }
+
+  .harness-flow-canvas {
+    align-items: stretch;
+    overflow-x: hidden;
+  }
+
+  .harness-flow-node {
+    flex: 1 1 62px;
+    min-width: 62px;
+    min-height: 70px;
+    padding: 6px 4px;
+  }
+
+  .harness-flow-link {
+    min-width: 28px;
+  }
+
+  .harness-flow-link span {
+    display: none;
+  }
+
+  .harness-runtime-brief {
+    grid-template-columns: 1fr;
+  }
+
+  .harness-node-overlay {
+    padding: 12px;
   }
 
   .task-preview-bubble {
