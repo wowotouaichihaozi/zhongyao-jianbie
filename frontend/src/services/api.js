@@ -592,6 +592,11 @@ export async function renameLearningProfile(reportId, profileName) {
   return data.data
 }
 
+export async function deleteLearningProfile(reportId) {
+  const { data } = await apiClient.delete(`/api/learning-profile/profiles/${reportId}`)
+  return data.data
+}
+
 export async function resetLearningProfile() {
   const { data } = await apiClient.post('/api/learning-profile/reset')
   return data.data

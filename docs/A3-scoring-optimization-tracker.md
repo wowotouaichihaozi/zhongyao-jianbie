@@ -1,12 +1,16 @@
 # A3 Scoring Optimization Tracker
 
+- [x] 2026-08-29：简化登录页首屏，降低技术营销和 AI 味：收起能力长页与滚动展示，把登录/注册入口前置到首屏内联面板，保留画像、路径、资源、评估四个学习闭环提示。验证：登录重定向契约 4/4、前端非清理生产构建通过；本地 Chrome 实测 `/login` 桌面 `1440x900` 为一屏展示且无横向溢出，移动 `390x844` 仅保留精简标题与登录卡片。生产增量部署前备份入口到 `/var/www/feishengwangying/backups/20260829-031042-login-compact/`，覆盖新入口、主包、登录页 JS/CSS 和按需图标 chunk；线上 `/`、`/login` 与新资源均为 HTTP 200，生产桌面/移动实测无缺失资源和横向溢出，截图位于 `frontend/test-output/auth-page-compact/`。
+
+- [x] 2026-08-29：收口登录页认证失败提示：用户登录接口的 `401` 不再触发全局未登录跳转拦截，后端明确错误可稳定展示为“账号或密码错误/验证码”等原文；认证服务无响应时改为“认证服务暂时无法连接，请检查网络后重试”。同步修正登录表单底部“首次登录将自动创建账号”的误导文案。验证：登录重定向契约 4/4、前端非清理生产构建通过；本地 Chrome 模拟 `401` 与网络失败均显示对应清晰提示。生产增量部署前备份入口到 `/var/www/feishengwangying/backups/20260829-032917-login-auth-message/`，线上 `/`、`/login`、新主包、登录页 JS/CSS 和图标 chunk 均为 HTTP 200；真实浏览器错误登录显示“账号或密码错误”且不再出现“认证失败，请稍后再试”，管理员登录可跳转 `/admin/dashboard`。
+
 - [~] 2026-08-28：同步生产环境 SQLite 数据库到本地可恢复副本，并重构个性化资源页的历史资源检索体验：降低多色卡片与胶囊控件造成的模板感，增加关键词搜索、类型筛选、结果计数和分页；仅在本地验证，不部署生产。
 
 - [x] 2026-08-28：将数字孪生架构展示从用户端迁移到管理员端：移除用户导航入口与旧页面分包，旧地址 `/agent-digital-twin` 改为跳转个性化资源；管理员菜单新增 `/admin/digital-twin` 独立页面，复用现有同源 1920×1080 三维场景并提供自适应缩放、加载失败重试、刷新和全屏控制。验证：包装页契约 4/4、管理员 TypeScript 检查、用户端和管理员端非清理生产构建、`git diff --check` 均通过；生产增量部署用户端 168 个文件、管理员端 171 个文件，发布包 SHA-256 分别为 `D45AE6BB85C880C08AC44D40E4E0FBE8AC4171BA9908D25F8F37F5BE77F2BF88` 和 `139B3EB19CF8218870F383C4A2BE9075DC767D4907BF3F47633D071CE85CBA7A`，旧入口备份于 `/var/www/feishengwangying/backups/20260828-153100-digital-twin-admin/`。线上入口与关键分包哈希和本地产物一致；管理员路由、数字孪生分包、同源场景及旧用户端地址均可访问，`/api/health`、`/ppt-api/health`、`/api/ppt-h5/health` 为 HTTP 200，Nginx、主后端和 PPT API 服务保持 active。
 
 - [x] 2026-08-28：按用户确认的交互位置，将多智能体协同进度从页面级独立悬浮窗移入岐小智“陪伴式助手”对话滚动区，作为一张可折叠生成依据的助手消息卡；新工作流自动打开对话面板并恢复真实 SSE/后台任务状态，不再额外遮挡业务页面。验证：静态工作流契约 9/9、资源详情契约 5/5、非清理生产构建通过；本地与生产 `1440x900` 实际页面均仅有一个协同卡，卡片边界完整位于助手对话窗口内且页面无横向溢出。按用户要求不再做移动端专项验收。生产采用 170 文件增量包部署，发布包 SHA-256 为 `AD8E193341CB9918A7C388A5FAF80B4F3BDD79AC3D4D1E6757B08E23D1EE96B8`，旧入口备份于 `/var/www/feishengwangying/backups/20260828-141656-embedded-workflow/index.html.before`；公网入口为 HTTP 200，本地与生产入口哈希一致，主 API、PPT API、Nginx 及两个服务保持健康。
 
-Last updated: 2026-08-28
+Last updated: 2026-08-29
 
 - [x] 2026-08-28：增强岐小智在“画像构建→后台学习路径规划”闭环中的可见性，并收口任务详情页冗余信息。画像分析 SSE、画像对话完成后返回的真实路径任务与 `xiaozhi_tasks` 周进度统一接入一个全局单实例多智能体进度卡，支持跨路由续接、完成跳转、失败保留与移动端避让；PPT、思维导图、讲义、视频、动画和智能辅导详情优先展示实际学习内容，任务来源、画像、Harness、Skill、质量与引用统一折叠到悬浮卡“生成依据”中。周任务页只保留一个周次标题并移除重复任务编号栏。验证：工作流进度测试 9/9、资源详情测试 5/5、资源详情桌面/移动合约、画像开发工具测试 3/3、包装页测试 4/4 及非清理生产构建通过；进度完全来自真实 SSE 与后台任务状态，不使用伪进度。生产部署采用仅前端增量覆盖且保留旧哈希资源的方式，旧入口备份于 `/var/www/feishengwangying/backups/20260828-140116-xiaozhi-detail/index.html.before`，发布包 SHA-256 为 `E2D5A8E28FAD328A5C33DED914662D081145BFA516210C0243EE92C59E72DFD0`；公网入口、周任务深链、资源详情、动画页、主健康接口与两个 PPT 健康接口均为 HTTP 200，当前主包及相关路由分包均可访问，Nginx 配置有效且主后端/PPT 服务保持 active。
 
@@ -347,6 +351,10 @@ Acceptance criteria for this batch:
 - [x] Repaired production configuration drift where the isolated OhMyPPT service had an `OHMYPPT_INTERNAL_TOKEN` but the main backend did not, causing the backend to sign with an unrelated model credential and every generation request to fail with HTTP 401. Backed up both production environment files and the learner database, synchronized only the internal token without exposing or committing it, and restarted only the main backend and PPT API services. Both public/server-local health checks returned ready with the configured DeepSeek model and 32,768 completion-token budget. A signed one-page integration smoke test returned model-generated HTML, and the original failed task `xz_1787897348162_62edeff9` was regenerated in place under its existing OhMyPPT session: 6/6 pages persisted, status `complete`, progress 100%, and an empty error field. PPT API logs recorded HTTP 200 for both generation calls and no post-restart signature errors.
 
 ## Completed changes
+
+### XiaoZhi profile group-chat recovery
+
+- [x] Backfilled existing Harness orchestration events into the profile-scoped XiaoZhi group chat so previously generated paths and resources appear as expandable cards after deployment, and added a visible empty state when no shared messages exist yet. Evidence: focused backend profile/API tests 74/74 plus 7 subtests, XiaoZhi workflow frontend tests 11/11, and non-clean frontend build passed.
 
 ### 中药鉴别中医主题换皮（已完成）
 

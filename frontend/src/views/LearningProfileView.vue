@@ -831,6 +831,15 @@
                 >
                   <Pencil :size="16" />
                 </button>
+                <button
+                  class="history-delete-button"
+                  :title="`删除${report.profileName || '学习画像'}`"
+                  :aria-label="`删除${report.profileName || '学习画像'}`"
+                  :disabled="!!profileActionBusy"
+                  @click.stop="deleteProfileVersion(report)"
+                >
+                  <Trash2 :size="16" />
+                </button>
               </div>
             </div>
           </div>
@@ -895,6 +904,7 @@ import DigitalHumanAvatar from '../components/DigitalHumanAvatar.vue'
 import {
   analyzeLearningProfileStream,
   activateLearningProfile,
+  deleteLearningProfile,
   getLearningProfiles,
   getLearningProfileSession,
   getLearningProfileSessions,
@@ -1336,6 +1346,41 @@ async function renameProfileVersion(report) {
     showToast('画像名称已更新')
   } catch (error) {
     showToast(error?.response?.data?.msg || error?.message || '重命名失败')
+  } finally {
+    profileActionBusy.value = ''
+  }
+}
+
+async function deleteProfileVersion(report) {
+  if (!report?.id || profileActionBusy.value) return
+  const profileName = report.profileName || '学习画像'
+  const activeNotice = report.isActive
+    ? '删除后将自动切换到最近一份剩余画像。'
+    : ''
+  const confirmed = window.confirm(
+    `确定删除“${profileName}”吗？${activeNotice}\n该画像的专属路径、效果评估和智能体协作记录也会删除，已生成的学习资源仍会保留。`,
+  )
+  if (!confirmed) return
+
+  profileActionBusy.value = `delete-${report.id}`
+  try {
+    const data = await deleteLearningProfile(report.id)
+    resetReportPortraitView()
+    if (viewingHistory.value?.id === report.id) viewingHistory.value = null
+    if (activeChatReport.value?.id === report.id) activeChatReport.value = null
+    profileSessions.value = profileSessions.value.map(session => (
+      Number(session.reportId) === Number(report.id)
+        ? { ...session, reportId: null }
+        : session
+    ))
+    if (data?.activeProfile) replaceProfile(data.activeProfile)
+    else if (report.isActive) clearProfileCache()
+    await loadHistoryReports()
+    showToast(data?.activeProfile
+      ? `已删除 ${profileName}，当前切换为 ${data.activeProfile.profileName || '学习画像'}`
+      : `已删除 ${profileName}`)
+  } catch (error) {
+    showToast(error?.response?.data?.msg || error?.message || '删除画像失败')
   } finally {
     profileActionBusy.value = ''
   }
@@ -11631,6 +11676,16 @@ onBeforeUnmount(() => {
   color: #26302d !important;
   box-shadow: none !important;
   transform: none !important;
+}
+
+#app .lp-page.lp-page.profile-history-mode .history-item-actions .history-delete-button {
+  color: #9b3f3f !important;
+}
+
+#app .lp-page.lp-page.profile-history-mode .history-item-actions .history-delete-button:hover:not(:disabled) {
+  border-color: #e4c4c4 !important;
+  background: #fff7f7 !important;
+  color: #852f2f !important;
 }
 
 #app .lp-page.lp-page.profile-history-mode .history-item-actions button:hover:not(:disabled) {

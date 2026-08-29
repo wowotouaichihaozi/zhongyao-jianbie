@@ -141,6 +141,14 @@ class ProfileAgentContextStoreTests(unittest.TestCase):
             ["agent_event", "handoff", "review"],
         )
         self.assertIn("质量分 87", context["recentMessages"][-1]["content"])
+        self.assertEqual(
+            [item["taskId"] for item in context["recentMessages"]],
+            ["task-1", "task-1", "task-1"],
+        )
+        self.assertIn(
+            {"type": "task", "id": "task-1"},
+            context["recentMessages"][1]["resourceReferences"],
+        )
 
     def test_backfills_existing_orchestration_records(self):
         with closing(sqlite3.connect(self.db_path)) as conn, conn:

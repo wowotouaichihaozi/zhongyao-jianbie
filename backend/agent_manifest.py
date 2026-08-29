@@ -53,7 +53,16 @@ class AgentManifest:
                 "role": str(agent["role"]),
                 "description": str(agent["description"]),
             }
-            for key in ("modelId", "modelName", "contextWindow", "processor", "input", "output"):
+            for key in (
+                "modelId",
+                "modelName",
+                "contextWindow",
+                "processor",
+                "input",
+                "output",
+                "hidden",
+                "hiddenReason",
+            ):
                 if key in agent:
                     entry[key] = agent[key]
             catalog[str(agent["id"])] = entry

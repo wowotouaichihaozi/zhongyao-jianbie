@@ -3,9 +3,15 @@
     class="xiaozhi-float"
     :class="{ dragging: isDragging, open: isOpen }"
     :style="floatStyle"
-    @pointerdown="handlePointerDown"
   >
-    <button class="xiaozhi-orb" type="button" aria-label="打开岐小智" @click.prevent>
+    <button
+      class="xiaozhi-orb"
+      type="button"
+      :aria-label="isOpen ? '关闭岐小智' : '打开岐小智'"
+      :aria-expanded="isOpen"
+      @pointerdown="handlePointerDown"
+      @click.stop="handleOrbClick"
+    >
       <picture>
         <img class="xiaozhi-orb-logo" src="/qihuang-zhijing-mark-512.png" alt="岐小智" draggable="false" decoding="async" />
       </picture>
@@ -42,7 +48,6 @@
         </button>
       </div>
 
-      <Transition name="motion-panel" mode="out-in">
       <form v-if="showRuntimeSettings" key="settings" class="runtime-settings-panel" @submit.prevent="saveRuntimeSettings">
         <header class="runtime-settings-head">
           <div>
@@ -164,6 +169,11 @@
                   <small>{{ group.agentNames }} · {{ conversationStatusLabel(group.status) }}</small>
                   <strong>{{ group.title }}</strong>
                   <em>{{ group.summary }}</em>
+                  <span class="conversation-card-meta">
+                    <i v-if="group.resourceLabel">{{ group.resourceLabel }}</i>
+                    <i v-if="group.citationCount">引用 {{ group.citationCount }}</i>
+                    <i v-if="group.qualityScore !== null">评分 {{ group.qualityScore }}</i>
+                  </span>
                 </span>
                 <ChevronUp v-if="isConversationGroupExpanded(group.key)" :size="17" />
                 <ChevronDown v-else :size="17" />
@@ -184,6 +194,12 @@
                       </header>
                       <p>{{ entry.content }}</p>
                       <small v-if="conversationDetailText(entry)">{{ conversationDetailText(entry) }}</small>
+                      <span v-if="conversationCitations(entry).length" class="conversation-citations">
+                        <span v-for="citation in conversationCitations(entry).slice(0, 4)" :key="citation.id || citation.title || citation.excerpt">
+                          <strong>{{ citation.title || citation.source || '知识库引用' }}</strong>
+                          <small>{{ citation.excerpt || citation.content || citation.snippet }}</small>
+                        </span>
+                      </span>
                       <span v-if="entry.resourceReferences?.length" class="conversation-references">
                         <i v-for="reference in entry.resourceReferences.slice(0, 6)" :key="`${reference.type}-${reference.id}`">
                           {{ reference.type }} · {{ reference.id }}
@@ -192,16 +208,15 @@
                     </div>
                   </li>
                 </ol>
-                <a
+                <button
                   v-if="group.route"
+                  type="button"
                   class="conversation-resource-link"
-                  :href="resolveRouteHref(group.route)"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  @click="openConversationRoute(group)"
                 >
                   打开对应资源
                   <ExternalLink :size="14" />
-                </a>
+                </button>
               </div>
             </article>
           </section>
@@ -288,7 +303,20 @@
           <input ref="assistantImageInputRef" type="file" accept="image/*" multiple hidden @change="queueAssistantAttachments" />
           <input ref="assistantVideoInputRef" type="file" accept="video/*" multiple hidden @change="queueAssistantAttachments" />
           <input ref="assistantFileInputRef" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md" multiple hidden @change="queueAssistantAttachments" />
+          <div class="resource-command-strip" aria-label="资源生成命令">
+            <button
+              v-for="command in resourceCommands"
+              :key="command.type"
+              type="button"
+              :title="`准备${command.label}生成指令`"
+              @click="prepareResourceCommand(command)"
+            >
+              <component :is="resourceIcon(command.type)" :size="13" />
+              {{ command.label }}
+            </button>
+          </div>
           <textarea
+            ref="composerInputRef"
             v-model="draft"
             rows="2"
             placeholder="告诉岐小智你的学习情况，或说：生成八纲辨证课程的 PPT..."
@@ -314,64 +342,111 @@
         </form>
       </div>
 
-      <div v-else key="status" class="status-panel">
+      <div v-else key="status" class="status-panel real-runtime-panel">
         <div class="status-toolbar">
           <div>
-            <strong>智能体连接状态</strong>
-            <p>岐小智总控与专项智能体实时编排拓扑</p>
+            <strong>真实协作记录</strong>
+            <p>仅展示 Harness 已保存的实际调用与交接</p>
           </div>
-          <button type="button" class="refresh-btn icon-only" title="刷新智能体状态" aria-label="刷新智能体状态" @click="loadStatus">
+          <button type="button" class="refresh-btn icon-only" title="刷新协作记录" aria-label="刷新协作记录" @click="loadStatus">
             <RefreshCw :size="16" />
           </button>
         </div>
 
-        <div v-if="harnessStatus" class="harness-summary">
-          <span><strong>Harness</strong>{{ harnessStatus.version || '1.0.0' }}</span>
-          <span><strong>{{ harnessStatus.skillRegistry?.skillCount || 0 }}</strong> Skills</span>
-          <span><strong>{{ harnessStatus.mcpGateway?.toolCount || 0 }}</strong> MCP Tools</span>
-          <span><strong>{{ harnessStatus.mcpGateway?.servers?.length || 0 }}</strong> MCP Servers</span>
+        <div v-if="selectedOrchestrationRun" class="runtime-run-picker">
+          <label for="xiaozhi-real-run">查看任务</label>
+          <select id="xiaozhi-real-run" v-model="selectedRunId">
+            <option v-for="run in realOrchestrationRuns" :key="run.runId" :value="run.runId">
+              {{ runOptionLabel(run) }}
+            </option>
+          </select>
         </div>
 
-        <section class="agent-topology" aria-label="岐小智智能体连接流程图">
+        <section class="agent-topology" aria-label="岐小智真实智能体协作记录">
           <div class="topology-activity">
             <Activity :size="15" />
             <span>{{ harnessActivityText }}</span>
           </div>
 
-          <article :class="['master-agent-node', normalizeStatus(masterAgent.status)]">
-            <span class="agent-node-icon"><BrainCircuit :size="20" /></span>
-            <span class="agent-node-copy">
-              <small>Supervisor</small>
-              <strong>{{ agentDisplayName(masterAgent) }}</strong>
-              <span>{{ masterAgent.detail }}</span>
-            </span>
-            <em><i :class="['agent-light', normalizeStatus(masterAgent.status)]"></i>{{ statusText(masterAgent.status) }}</em>
-          </article>
-
-          <div class="flow-trunk" aria-hidden="true">
-            <span></span>
-            <small>Harness 调度通道</small>
-          </div>
-
-          <div class="specialist-flow-grid">
-            <article
-              v-for="agent in specialistAgents"
-              :key="agent.id"
-              :class="['specialist-agent-node', normalizeStatus(agent.status)]"
-              :title="agent.detail"
-            >
-              <span class="agent-node-icon"><component :is="agentIcon(agent)" :size="17" /></span>
-              <span class="agent-node-copy">
-                <small>{{ agentRoleText(agent) }}</small>
-                <strong>{{ agentDisplayName(agent) }}</strong>
-              <span>{{ agentDetail(agent) }}</span>
-              </span>
-              <i :class="['agent-light', normalizeStatus(agent.status)]" :title="statusText(agent.status)"></i>
+          <template v-if="selectedOrchestrationRun">
+            <article class="real-run-summary">
+              <header>
+                <span>{{ runTaskLabel(selectedOrchestrationRun) }}</span>
+                <em :class="normalizeStatus(selectedOrchestrationRun.status)">
+                  {{ statusText(selectedOrchestrationRun.status) }}
+                </em>
+              </header>
+              <strong>{{ selectedOrchestrationRun.topic || '未命名协作任务' }}</strong>
+              <p>
+                {{ formatRunTime(selectedOrchestrationRun.updatedAt || selectedOrchestrationRun.createdAt) }}
+                <span v-if="selectedOrchestrationRun.harness?.skillId">· {{ selectedOrchestrationRun.harness.skillId }}</span>
+              </p>
+              <dl>
+                <div><dt>实际参与</dt><dd>{{ selectedRunAgents.length }}</dd></div>
+                <div><dt>真实交接</dt><dd>{{ selectedRunHandoffs.length }}</dd></div>
+                <div><dt>执行事件</dt><dd>{{ selectedOrchestrationRun.eventCount || selectedOrchestrationRun.events?.length || 0 }}</dd></div>
+                <div><dt>审核得分</dt><dd>{{ selectedOrchestrationRun.review?.score ?? '--' }}</dd></div>
+              </dl>
             </article>
+
+            <section class="actual-agent-section" aria-label="本次实际参与智能体">
+              <header>
+                <strong>本次实际参与</strong>
+                <span>{{ selectedRunAgents.length }} 个</span>
+              </header>
+              <div class="actual-agent-grid">
+                <article
+                  v-for="agent in selectedRunAgents"
+                  :key="agent.id"
+                  :class="['actual-agent-card', normalizeStatus(agent.status)]"
+                >
+                  <span class="actual-agent-icon"><component :is="agentIcon(agent)" :size="15" /></span>
+                  <span>
+                    <small>{{ agentRoleText(agent) }}</small>
+                    <strong>{{ agentDisplayName(agent) }}</strong>
+                    <em>{{ actualAgentDetail(agent) }}</em>
+                  </span>
+                  <i :class="['agent-light', normalizeStatus(agent.status)]" :title="statusText(agent.status)"></i>
+                </article>
+              </div>
+            </section>
+
+            <section class="handoff-section" aria-label="真实智能体交接记录">
+              <header>
+                <strong>真实交接记录</strong>
+                <span>{{ selectedRunHandoffs.length }} 次</span>
+              </header>
+              <ol v-if="selectedRunHandoffs.length" class="handoff-list">
+                <li v-for="(handoff, index) in selectedRunHandoffs" :key="`${handoff.sequence || index}-${handoff.fromAgent}-${handoff.toAgent}`">
+                  <span class="handoff-order">{{ String(index + 1).padStart(2, '0') }}</span>
+                  <div class="handoff-route-row">
+                    <div class="handoff-party">
+                      <small>FROM</small>
+                      <strong>{{ handoffAgentName(handoff.fromAgent, handoff.fromAgentName) }}</strong>
+                    </div>
+                    <div class="handoff-artifact">
+                      <ArrowRight :size="17" />
+                      <span>{{ handoffArtifactLabel(handoff.artifactType) }}</span>
+                    </div>
+                    <div class="handoff-party target">
+                      <small>TO</small>
+                      <strong>{{ handoffAgentName(handoff.toAgent, handoff.toAgentName) }}</strong>
+                    </div>
+                  </div>
+                  <p>{{ handoff.summary || '已完成结构化上下文交接' }}</p>
+                </li>
+              </ol>
+              <div v-else class="handoff-empty">本次运行没有保存智能体交接记录</div>
+            </section>
+          </template>
+
+          <div v-else class="real-run-empty">
+            <Network :size="28" />
+            <strong>暂无真实协作记录</strong>
+            <p>创建一次画像、路径或资源任务后，这里将显示实际参与者和交接关系。</p>
           </div>
         </section>
       </div>
-      </Transition>
     </section>
     </Transition>
   </div>
@@ -383,6 +458,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   Activity,
   Archive,
+  ArrowRight,
   BrainCircuit,
   BookOpenCheck,
   ChevronDown,
@@ -394,7 +470,7 @@ import {
   ImagePlus,
   LoaderCircle,
   Maximize2,
-  Map,
+  Map as MapIcon,
   MessageCircle,
   Mic,
   Network,
@@ -443,11 +519,14 @@ const pendingAttachments = ref([])
 const assistantImageInputRef = ref(null)
 const assistantVideoInputRef = ref(null)
 const assistantFileInputRef = ref(null)
+const composerInputRef = ref(null)
 const messages = ref([])
 const agentConversation = ref(null)
 const expandedConversationGroups = ref(new Set())
 const tasks = ref([])
 const agents = ref([])
+const orchestrationRuns = ref([])
+const selectedRunId = ref('')
 const harnessStatus = ref(null)
 const showRuntimeSettings = ref(false)
 const savingRuntime = ref(false)
@@ -467,14 +546,15 @@ let pointerState = null
 let statusTimer = null
 let recognition = null
 let lastWorkflowCardId = ''
+let suppressOrbClickUntil = 0
 
 const iconMap = {
   learning_background: markRaw(MessageCircle),
-  learning_path: markRaw(Map),
-  learning_path_stage: markRaw(Map),
+  learning_path: markRaw(MapIcon),
+  learning_path_stage: markRaw(MapIcon),
   personalized_resources: markRaw(Sparkles),
   ppt: markRaw(Presentation),
-  mindmap: markRaw(Map),
+  mindmap: markRaw(MapIcon),
   video: markRaw(Search),
   generated_video: markRaw(Film),
   question_bank: markRaw(BookOpenCheck),
@@ -512,11 +592,46 @@ const resourceLabels = {
   knowledge_base: '知识库',
 }
 
+const handoffArtifactLabels = {
+  task_plan: '任务计划',
+  learner_context: '学习上下文',
+  grounded_knowledge: '知识依据',
+  specialist_output: '资源产物',
+  revision_request: '修订要求',
+  review_result: '审核结论',
+  feedback_summary: '反馈摘要',
+}
+
+const resourceCommands = [
+  { type: 'ppt', label: 'PPT', prompt: '请根据当前学习画像，生成一份关于当前学习重点的 PPT 课件。' },
+  { type: 'mindmap', label: '思维导图', prompt: '请根据当前学习画像，生成一份当前学习重点的思维导图。' },
+  { type: 'question_bank', label: '题库', prompt: '请根据当前学习画像，生成一套当前学习重点的练习题。' },
+  { type: 'document', label: '讲义', prompt: '请根据当前学习画像，生成一份当前学习重点的课程讲义。' },
+  { type: 'generated_video', label: 'AI 视频', prompt: '请根据当前学习画像，创建当前学习重点的 AI 视频任务并先生成封面。' },
+  { type: 'herb_model', label: '药材模型', prompt: '请根据当前学习画像，创建一项药材模型辨识任务。' },
+]
+
 const companionTaskTypes = new Set(
   Object.keys(resourceLabels).filter(type => !['profile_management', 'learning_feedback', 'mcu'].includes(type)),
 )
 
 const agentNameAliases = {
+  'xiaozhi-companion-agent': '岐小智总控智能体',
+  'learning-background-dialogue-agent': '学习背景采集智能体',
+  'learning-profile-agent': '学习画像智能体',
+  'learning-route-agent': '学习路径规划智能体',
+  'learning-path-stage-agent': '周任务规划智能体',
+  'personalized-resource-workflow': '个性化资源调度智能体',
+  'question-generator-workflow': '题库生成智能体',
+  'ppt-agent': 'PPT 生成智能体',
+  'learning-document-agent': '课程讲义智能体',
+  'mindmap-agent': '思维导图智能体',
+  'video-search-agent': '视频检索智能体',
+  'generated-video-agent': 'AI 视频生成智能体',
+  'interview-agent': '学习访谈智能体',
+  'smart-tutor-agent': '智能辅导智能体',
+  'learning-effect-assessment-agent': '效果评估智能体',
+  'private-knowledge-agent': '私有知识库智能体',
   'learner-context-agent': '学习上下文智能体',
   'course-knowledge-retrieval-agent': '课程知识检索智能体',
   'skill-registry-agent': 'Skill 注册智能体',
@@ -524,6 +639,9 @@ const agentNameAliases = {
   'quality-review-agent': '质量审核智能体',
   'content-safety-agent': '内容安全智能体',
   'learning-feedback-agent': '学习反馈智能体',
+  'qwen-multimodal-evidence-agent': '多模态证据智能体',
+  'document-text-extraction-agent': '文档解析智能体',
+  'spark-text-reasoning-agent': '文本推理智能体',
 }
 
 const floatStyle = computed(() => ({
@@ -576,22 +694,46 @@ const windowStyle = computed(() => {
 
 const runningTaskCount = computed(() => tasks.value.filter(task => ['queued', 'running'].includes(task.status)).length)
 const canSendMessage = computed(() => !isSending.value && Boolean(draft.value.trim() || pendingAttachments.value.length))
-const masterAgent = computed(() => agents.value.find(agent => agent.role === 'supervisor') || {
-  id: 'xiaozhi-companion-agent',
-  name: '岐小智总控智能体',
-  status: 'idle',
-  detail: '正在连接 Agent Harness',
+const hiddenAgentIds = computed(() => new Set(
+  agents.value.filter(agent => agent.hidden).map(agent => String(agent.id || '')),
+))
+const realOrchestrationRuns = computed(() => orchestrationRuns.value.filter(run => (
+  run?.runId
+  && (
+    (Array.isArray(run.agentRuns) && run.agentRuns.length)
+    || (Array.isArray(run.handoffs) && run.handoffs.length)
+    || (Array.isArray(run.events) && run.events.length)
+  )
+)))
+const selectedOrchestrationRun = computed(() => (
+  realOrchestrationRuns.value.find(run => run.runId === selectedRunId.value)
+  || realOrchestrationRuns.value[0]
+  || null
+))
+const selectedRunAgents = computed(() => {
+  const unique = new Map()
+  for (const agent of selectedOrchestrationRun.value?.agentRuns || []) {
+    const agentId = String(agent?.id || '').trim()
+    if (!agentId || hiddenAgentIds.value.has(agentId)) continue
+    unique.set(agentId, agent)
+  }
+  return Array.from(unique.values())
 })
-const specialistAgents = computed(() => agents.value.filter(agent => {
-  const identity = `${agent.id || ''} ${agent.type || ''}`.toLowerCase()
-  return agent.id !== masterAgent.value.id && !identity.includes('mcu') && !identity.includes('simulator')
-}))
+const selectedRunHandoffs = computed(() => (
+  (selectedOrchestrationRun.value?.handoffs || []).filter(handoff => (
+    handoff?.fromAgent
+    && handoff?.toAgent
+    && !hiddenAgentIds.value.has(String(handoff.fromAgent))
+    && !hiddenAgentIds.value.has(String(handoff.toAgent))
+  ))
+))
 const harnessActivityText = computed(() => {
-  const activeAgent = agents.value.find(agent => ['running', 'queued'].includes(agent.status))
-  if (activeAgent) return `${agentDisplayName(activeAgent)}：${activeAgent.detail || statusText(activeAgent.status)}`
-  const failedAgent = agents.value.find(agent => agent.status === 'failed')
-  if (failedAgent) return `${agentDisplayName(failedAgent)}需要处理：${failedAgent.detail || '执行失败'}`
-  return '所有智能体已连接，等待岐小智总控调度'
+  const run = selectedOrchestrationRun.value
+  if (!run) return '没有运行记录，不展示模拟连接关系'
+  const taskLabel = runTaskLabel(run)
+  if (['running', 'queued'].includes(run.status)) return `${taskLabel}正在由 ${selectedRunAgents.value.length} 个智能体协作执行`
+  if (run.status === 'failed') return `${taskLabel}执行失败，以下记录来自真实运行链路`
+  return `${taskLabel}已完成，以下为本次真实调用与交接`
 })
 const agentConversationGroups = computed(() => {
   const recentMessages = Array.isArray(agentConversation.value?.recentMessages)
@@ -600,7 +742,7 @@ const agentConversationGroups = computed(() => {
   const grouped = new Map()
   for (const entry of recentMessages) {
     if (!entry || ['user_message', 'supervisor_reply'].includes(String(entry.type || ''))) continue
-    const key = String(entry.runId || entry.taskId || `message-${entry.id || entry.sequence}`)
+    const key = String(entry.taskId || entry.runId || `message-${entry.id || entry.sequence}`)
     if (!grouped.has(key)) {
       grouped.set(key, {
         key,
@@ -616,12 +758,18 @@ const agentConversationGroups = computed(() => {
       .flatMap(entry => Array.isArray(entry.resourceReferences) ? entry.resourceReferences : [])
       .find(reference => reference?.type === 'task')?.id || ''
     const relatedTask = tasks.value.find(task => String(task.taskId || '') === String(relatedTaskId))
-    const statuses = group.messages.map(entry => String(entry.status || ''))
-    const status = statuses.some(value => ['failed', 'error', 'needs_attention'].includes(value))
+    const latestStatus = String([...group.messages].reverse().find(entry => entry.status)?.status || '')
+    const runtimeStatus = String(relatedTask?.status || latestStatus)
+    const statusSource = ['failed', 'error', 'needs_attention'].includes(latestStatus)
+      ? latestStatus
+      : runtimeStatus
+    const status = ['failed', 'error', 'needs_attention'].includes(statusSource)
       ? 'failed'
-      : statuses.some(value => ['running', 'queued'].includes(value))
+      : ['running', 'queued'].includes(statusSource)
         ? 'running'
-        : statuses.some(value => value === 'warning') ? 'warning' : 'complete'
+        : ['waiting', 'waiting_for_user'].includes(statusSource)
+          ? 'waiting'
+          : ['warning', 'needs-verification'].includes(statusSource) ? 'warning' : 'complete'
     const progress = Math.max(
       0,
       ...group.messages.map(entry => Number(entry.payload?.progress || entry.payload?.details?.progress || 0)),
@@ -631,14 +779,33 @@ const agentConversationGroups = computed(() => {
       .flatMap(entry => Array.isArray(entry.resourceReferences) ? entry.resourceReferences : [])
       .find(reference => reference?.type === 'route')
     const lastMessage = group.messages.at(-1) || {}
+    const reviewEntry = [...group.messages].reverse().find(entry => entry.type === 'review')
+    const qualityScoreValue = Number(reviewEntry?.payload?.score)
+    const resourceType = String(
+      relatedTask?.taskType
+      || group.messages.find(entry => entry.payload?.resourceType)?.payload?.resourceType
+      || '',
+    )
+    const citationCount = group.messages.reduce(
+      (count, entry) => Math.max(count, conversationCitations(entry).length),
+      0,
+    )
     return {
       ...group,
       status,
       progress,
       agentNames: names.slice(0, 2).join('、') + (names.length > 2 ? ` 等 ${names.length} 个智能体` : ''),
-      title: relatedTask?.title || group.messages.find(entry => entry.type === 'review')?.content || lastMessage.content || '智能体协同任务',
+      title: relatedTask?.title
+        || group.messages.find(entry => entry.payload?.title)?.payload?.title
+        || group.messages.find(entry => entry.type === 'review')?.content
+        || lastMessage.content
+        || '智能体协同任务',
       summary: lastMessage.content || '协作记录已更新',
       route: relatedTask?.route || routeReference?.id || '',
+      resourceType,
+      resourceLabel: resourceLabels[resourceType] || '',
+      citationCount,
+      qualityScore: Number.isFinite(qualityScoreValue) ? qualityScoreValue : null,
     }
   })
 })
@@ -716,6 +883,7 @@ function handlePointerDown(event) {
   event.currentTarget.setPointerCapture?.(event.pointerId)
   window.addEventListener('pointermove', handlePointerMove)
   window.addEventListener('pointerup', handlePointerUp)
+  window.addEventListener('pointercancel', handlePointerCancel)
 }
 
 function handlePointerMove(event) {
@@ -736,15 +904,32 @@ function handlePointerMove(event) {
 
 function handlePointerUp(event) {
   if (!pointerState || event.pointerId !== pointerState.id) return
-  const shouldToggle = !pointerState.moved
+  const moved = pointerState.moved
   pointerState = null
   isDragging.value = false
   persistPosition()
+  removePointerListeners()
+  if (moved) suppressOrbClickUntil = Date.now() + 250
+}
+
+function handlePointerCancel(event) {
+  if (!pointerState || event.pointerId !== pointerState.id) return
+  pointerState = null
+  isDragging.value = false
+  removePointerListeners()
+}
+
+function removePointerListeners() {
   window.removeEventListener('pointermove', handlePointerMove)
   window.removeEventListener('pointerup', handlePointerUp)
-  if (shouldToggle) {
-    isOpen.value = !isOpen.value
-  }
+  window.removeEventListener('pointercancel', handlePointerCancel)
+}
+
+function handleOrbClick() {
+  if (Date.now() < suppressOrbClickUntil) return
+  showRuntimeSettings.value = false
+  activeTab.value = 'chat'
+  isOpen.value = !isOpen.value
 }
 
 function handleResize() {
@@ -789,6 +974,12 @@ async function loadStatus() {
     agents.value = response?.data?.agents || []
     tasks.value = response?.data?.tasks || tasks.value
     harnessStatus.value = response?.data?.architecture || null
+    orchestrationRuns.value = Array.isArray(response?.data?.orchestrationRuns)
+      ? response.data.orchestrationRuns
+      : []
+    if (!orchestrationRuns.value.some(run => run?.runId === selectedRunId.value)) {
+      selectedRunId.value = orchestrationRuns.value[0]?.runId || ''
+    }
     agentConversation.value = response?.data?.agentConversation || agentConversation.value
     if (statusTimer && !isOpen.value && !runningTaskCount.value) {
       stopStatusPolling()
@@ -813,6 +1004,7 @@ function isConversationGroupExpanded(key) {
 function conversationStatusLabel(status) {
   return {
     running: '协同中',
+    waiting: '待用户确认',
     failed: '需处理',
     warning: '待核验',
     complete: '已完成',
@@ -837,6 +1029,48 @@ function conversationDetailText(entry) {
   const citationCount = Array.isArray(details.citations) ? details.citations.length : 0
   if (citationCount) parts.push(`知识引用：${citationCount} 条`)
   return parts.join(' · ')
+}
+
+function conversationCitations(entry) {
+  const payload = entry?.payload && typeof entry.payload === 'object' ? entry.payload : {}
+  const details = payload.details && typeof payload.details === 'object' ? payload.details : {}
+  const candidates = [payload.citations, payload.knowledgeSources, details.citations, details.knowledgeSources]
+  return candidates.find(value => Array.isArray(value)) || []
+}
+
+async function openConversationRoute(group) {
+  const routeTarget = taskRoute({
+    route: group?.route,
+    taskId: group?.taskId,
+    taskType: group?.resourceType,
+    title: group?.title,
+  })
+  if (!routeTarget) return
+  logTaskOpen({
+    taskId: group.taskId,
+    taskType: group.resourceType,
+    title: group.title,
+    route: routeTarget,
+  })
+  if (/^https?:\/\//i.test(routeTarget)) {
+    const targetUrl = new URL(routeTarget, window.location.origin)
+    if (targetUrl.origin !== window.location.origin) {
+      window.open(targetUrl.href, '_blank', 'noopener,noreferrer')
+      return
+    }
+    await router.push(`${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`)
+  } else {
+    await router.push(routeTarget)
+  }
+  isOpen.value = false
+}
+
+function prepareResourceCommand(command) {
+  const topic = draft.value.trim()
+  draft.value = topic
+    ? `请根据当前学习画像，生成一份关于“${topic}”的${command.label}资源。`
+    : command.prompt
+  nextTick(() => composerInputRef.value?.focus())
 }
 
 async function openRuntimeSettings() {
@@ -1083,6 +1317,7 @@ async function sendMessage() {
     userMessage.attachments = attachments
     const response = await chatWithXiaoZhi({ message: displayContent, attachments, route: route.fullPath })
     const data = response?.data || {}
+    if (data.agentConversation) agentConversation.value = data.agentConversation
     messages.value.push({
       role: 'assistant',
       content: data.reply || '我已经收到，会继续跟进你的学习状态。',
@@ -1230,7 +1465,7 @@ function resolveRouteHref(routeTarget) {
 }
 
 function normalizeStatus(status) {
-  if (['running', 'queued', 'ready', 'complete', 'failed'].includes(status)) return status
+  if (['running', 'queued', 'ready', 'complete', 'failed', 'warning'].includes(status)) return status
   if (['waiting', 'waiting_for_user'].includes(status)) return 'ready'
   return status === 'idle' ? 'idle' : 'ready'
 }
@@ -1242,6 +1477,7 @@ function statusText(status) {
     ready: '已就绪',
     complete: '已完成',
     failed: '失败',
+    warning: '待核验',
     idle: '待命',
     waiting: '等待确认',
     waiting_for_user: '等待确认',
@@ -1250,7 +1486,17 @@ function statusText(status) {
 }
 
 function agentIcon(agent) {
-  return agent?.type ? resourceIcon(agent.type) : Activity
+  if (agent?.type) return resourceIcon(agent.type)
+  const agentId = String(agent?.id || '')
+  if (agentId === 'xiaozhi-companion-agent') return BrainCircuit
+  if (agentId.includes('knowledge')) return BookOpenCheck
+  if (agentId.includes('review') || agentId.includes('safety')) return ShieldCheck
+  if (agentId.includes('context') || agentId.includes('profile')) return BrainCircuit
+  if (agentId.includes('ppt')) return Presentation
+  if (agentId.includes('mindmap')) return MapIcon
+  if (agentId.includes('question')) return BookOpenCheck
+  if (agentId.includes('video')) return Film
+  return Activity
 }
 
 function agentDisplayName(agent) {
@@ -1280,6 +1526,7 @@ function agentRoleText(agent) {
   }
   if (idRoleMap[agent?.id]) return idRoleMap[agent.id]
   const roleMap = {
+    supervisor: 'Supervisor',
     context: 'Context',
     gateway: 'MCP Gateway',
     registry: 'Skill Registry',
@@ -1288,6 +1535,48 @@ function agentRoleText(agent) {
     specialist: 'Specialist',
   }
   return roleMap[agent?.role] || 'Agent'
+}
+
+function runTaskLabel(run) {
+  return resourceLabels[run?.taskType] || run?.taskType || '协作任务'
+}
+
+function runOptionLabel(run) {
+  const topic = String(run?.topic || '未命名任务').trim()
+  const compactTopic = topic.length > 22 ? `${topic.slice(0, 22)}...` : topic
+  return `${runTaskLabel(run)} · ${compactTopic}`
+}
+
+function formatRunTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '时间未记录'
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+function actualAgentDetail(agent) {
+  const detail = String(agent?.detail || '').trim()
+  if (detail) return detail
+  const eventCount = Number(agent?.eventCount || 0)
+  return eventCount > 0 ? `记录 ${eventCount} 个执行事件` : '已参与本次实际运行'
+}
+
+function handoffAgentName(agentId, recordedName) {
+  const persistedName = String(recordedName || '').trim()
+  if (persistedName && persistedName !== agentId) return persistedName
+  const runtimeAgent = selectedRunAgents.value.find(agent => String(agent.id) === String(agentId))
+    || agents.value.find(agent => String(agent.id) === String(agentId))
+  return agentDisplayName(runtimeAgent || { id: agentId, name: persistedName })
+}
+
+function handoffArtifactLabel(artifactType) {
+  const type = String(artifactType || '').trim()
+  return handoffArtifactLabels[type] || type.replaceAll('_', ' ') || '结构化交接'
 }
 
 function taskTypeLabel(task) {
@@ -1333,11 +1622,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  removePointerListeners()
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('xiaozhi-task-updated', handleExternalTaskUpdate)
   window.removeEventListener(XIAOZHI_WORKFLOW_EVENT, handleWorkflowCardOpen)
-  window.removeEventListener('pointermove', handlePointerMove)
-  window.removeEventListener('pointerup', handlePointerUp)
   stopStatusPolling()
   recognition?.stop?.()
 })
@@ -1913,6 +2201,24 @@ onBeforeUnmount(() => {
   font-style: normal;
 }
 
+.conversation-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.conversation-card-meta i {
+  padding: 2px 5px;
+  border: 1px solid #d9e5e1;
+  border-radius: 4px;
+  color: #5e746d;
+  background: #fff;
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1.2;
+}
+
 .agent-conversation-progress {
   display: block;
   height: 3px;
@@ -2028,6 +2334,36 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.conversation-citations {
+  display: grid;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.conversation-citations > span {
+  display: grid;
+  gap: 2px;
+  padding: 6px 7px;
+  border-left: 2px solid #7eaa9c;
+  background: #f3f8f6;
+}
+
+.conversation-citations strong {
+  color: #365d51;
+  font-size: 9px;
+}
+
+.conversation-citations small {
+  display: -webkit-box !important;
+  overflow: hidden;
+  margin: 0 !important;
+  color: #667771 !important;
+  font-size: 9px !important;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
 .conversation-resource-link {
   width: fit-content;
   display: inline-flex;
@@ -2041,6 +2377,7 @@ onBeforeUnmount(() => {
   background: #fff;
   font-size: 10px;
   font-weight: 800;
+  cursor: pointer;
   text-decoration: none;
 }
 
@@ -2372,6 +2709,42 @@ onBeforeUnmount(() => {
   border: 1px solid #d9eee8;
   border-radius: 18px;
   background: #fff;
+}
+
+.resource-command-strip {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 7px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.resource-command-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.resource-command-strip button {
+  min-height: 27px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  border: 1px solid #d9e7e2;
+  border-radius: 5px;
+  color: #4f6760;
+  background: #f9fbfa;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.resource-command-strip button:hover,
+.resource-command-strip button:focus-visible {
+  border-color: #9fc6b8;
+  color: #17684f;
+  background: #eff7f4;
+  outline: none;
 }
 
 .pending-attachments {
@@ -3255,181 +3628,326 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.master-agent-node,
-.specialist-agent-node {
-  position: relative;
-  min-width: 0;
+.runtime-run-picker {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  box-sizing: border-box;
-  border: 1px solid #dfe4e2;
-  border-radius: 8px;
+  gap: 9px;
+  padding: 0 4px 10px;
+}
+
+.runtime-run-picker label {
+  color: #5d6965;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.runtime-run-picker select {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid #d9dfdc;
+  border-radius: 6px;
+  padding: 0 28px 0 9px;
+  background: #ffffff;
+  color: #26302d;
+  font-size: 10px;
+  outline: none;
+}
+
+.runtime-run-picker select:focus {
+  border-color: #79a995;
+  box-shadow: 0 0 0 2px rgba(23, 111, 75, 0.09);
+}
+
+.real-run-summary {
+  padding: 12px;
+  border: 1px solid #dce4e0;
+  border-radius: 7px;
   background: #ffffff;
 }
 
-.master-agent-node {
-  grid-template-columns: 42px minmax(0, 1fr) auto;
-  gap: 10px;
-  min-height: 76px;
-  padding: 11px 12px;
-  border-color: #a9c8ba;
-  box-shadow: 0 8px 18px rgba(25, 63, 48, 0.07);
-}
-
-.master-agent-node .agent-node-icon {
-  width: 42px;
-  height: 42px;
-  background: #176f4b;
-  color: #ffffff;
-}
-
-.master-agent-node > em {
-  display: inline-flex;
+.real-run-summary header,
+.actual-agent-section > header,
+.handoff-section > header {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  color: #4e5754;
-  font-size: 10px;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.real-run-summary header span,
+.real-run-summary header em,
+.actual-agent-section > header span,
+.handoff-section > header span {
+  color: #67736f;
+  font-size: 9px;
   font-style: normal;
   font-weight: 800;
 }
 
-.agent-node-copy {
+.real-run-summary header em {
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #edf3f0;
+}
+
+.real-run-summary header em.complete {
+  color: #176f4b;
+  background: #eaf5f0;
+}
+
+.real-run-summary header em.failed {
+  color: #9b3f3f;
+  background: #fff0f0;
+}
+
+.real-run-summary > strong {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 8px;
+  color: #1f2825;
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.real-run-summary > p {
+  margin: 5px 0 0;
+  color: #7b8481;
+  font-size: 9px;
+}
+
+.real-run-summary dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 12px 0 0;
+  border-top: 1px solid #edf0ee;
+  padding-top: 10px;
+}
+
+.real-run-summary dl div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+
+.real-run-summary dt {
+  color: #7b8581;
+  font-size: 8px;
+}
+
+.real-run-summary dd {
+  margin: 0;
+  color: #26332f;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.actual-agent-section,
+.handoff-section {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.actual-agent-section > header strong,
+.handoff-section > header strong {
+  color: #2b3431;
+  font-size: 11px;
+}
+
+.actual-agent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.actual-agent-card {
+  min-width: 0;
+  min-height: 66px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 7px;
+  align-items: center;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid #e0e5e3;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.actual-agent-card.running,
+.actual-agent-card.queued {
+  border-color: #9fc8e2;
+  background: #f8fcff;
+}
+
+.actual-agent-card.failed {
+  border-color: #e5b6b6;
+  background: #fffafa;
+}
+
+.actual-agent-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: #eef3f1;
+  color: #4d655c;
+}
+
+.actual-agent-card > span:nth-child(2) {
   min-width: 0;
   display: grid;
   gap: 2px;
 }
 
-.agent-node-copy small {
-  color: #73807c;
-  font-size: 9px;
+.actual-agent-card small {
+  color: #7d8683;
+  font-size: 8px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
-.agent-node-copy strong {
+.actual-agent-card strong {
   overflow: hidden;
-  color: #202525;
-  font-size: 12px;
-  line-height: 1.25;
+  color: #28312e;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.agent-node-copy > span {
+.actual-agent-card em {
   display: -webkit-box;
   overflow: hidden;
-  color: #737a79;
-  font-size: 10px;
+  color: #727c78;
+  font-size: 8px;
+  font-style: normal;
   line-height: 1.35;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-.flow-trunk {
-  position: relative;
-  height: 46px;
+.handoff-list {
   display: grid;
-  place-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.flow-trunk::before,
-.flow-trunk span {
-  content: '';
-  position: absolute;
-  left: 50%;
-  width: 1px;
-  background: #b8c8c2;
-  transform: translateX(-50%);
-}
-
-.flow-trunk::before {
-  top: 0;
-  bottom: 0;
-}
-
-.flow-trunk span {
-  top: 21px;
-  width: 7px;
-  height: 7px;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-  background: #176f4b;
-}
-
-.flow-trunk small {
+.handoff-list li {
   position: relative;
-  z-index: 1;
-  margin-left: 112px;
-  padding: 2px 5px;
+  padding: 10px 9px 9px 32px;
+  border: 1px solid #e1e6e3;
+  border-radius: 7px;
   background: #ffffff;
-  color: #7a8380;
+}
+
+.handoff-order {
+  position: absolute;
+  top: 10px;
+  left: 9px;
+  color: #176f4b;
   font-size: 9px;
+  font-weight: 900;
 }
 
-.specialist-flow-grid {
-  position: relative;
+.handoff-route-row {
+  min-width: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 24px;
-  row-gap: 9px;
+  grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
 }
 
-.specialist-flow-grid::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  bottom: 37px;
-  left: 50%;
-  width: 1px;
-  background: #c9d3d0;
-  transform: translateX(-50%);
+.handoff-party {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
 }
 
-.specialist-agent-node {
-  grid-template-columns: 30px minmax(0, 1fr) 8px;
+.handoff-party.target {
+  text-align: right;
+}
+
+.handoff-party small {
+  color: #8a928f;
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.handoff-party strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #29332f;
+  font-size: 9px;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.handoff-artifact {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  color: #39745f;
+}
+
+.handoff-artifact span {
+  max-width: 76px;
+  overflow: hidden;
+  color: #60716a;
+  font-size: 8px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.handoff-list li > p {
+  margin: 7px 0 0;
+  border-top: 1px solid #f0f2f1;
+  padding-top: 6px;
+  color: #707a76;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.handoff-empty,
+.real-run-empty {
+  border: 1px dashed #d8dfdc;
+  border-radius: 7px;
+  padding: 18px 14px;
+  color: #6f7a76;
+  background: #fafbfa;
+  font-size: 10px;
+  text-align: center;
+}
+
+.real-run-empty {
+  min-height: 180px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
   gap: 7px;
-  min-height: 74px;
-  padding: 8px;
 }
 
-.specialist-agent-node::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 12px;
-  height: 1px;
-  background: #c9d3d0;
+.real-run-empty svg {
+  color: #568371;
 }
 
-.specialist-agent-node:nth-child(odd)::before {
-  right: -12px;
+.real-run-empty strong {
+  color: #2b3732;
+  font-size: 12px;
 }
 
-.specialist-agent-node:nth-child(even)::before {
-  left: -12px;
-}
-
-.specialist-agent-node .agent-node-icon {
-  width: 30px;
-  height: 30px;
-  background: #eef2f0;
-  color: #53625d;
-}
-
-.specialist-agent-node.running,
-.specialist-agent-node.queued {
-  border-color: #9fc8e2;
-  background: #f8fcff;
-}
-
-.specialist-agent-node.running::before,
-.specialist-agent-node.queued::before {
-  background: #4c90bc;
-}
-
-.specialist-agent-node.failed {
-  border-color: #e5b6b6;
-  background: #fffafa;
+.real-run-empty p {
+  max-width: 270px;
+  margin: 0;
+  line-height: 1.55;
 }
 
 .agent-light.running,

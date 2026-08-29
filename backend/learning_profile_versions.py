@@ -247,6 +247,60 @@ def rename_profile(
     return get_profile_for_user(conn, user_id, report_id)
 
 
+def delete_profile(
+    conn: sqlite3.Connection,
+    user_id: int,
+    report_id: int,
+    *,
+    timestamp: str | None = None,
+) -> dict[str, Any]:
+    """Delete one owned profile and keep the user's active selection valid."""
+
+    existing = get_profile_for_user(conn, user_id, report_id)
+    if not existing:
+        raise LookupError("学习画像不存在")
+
+    was_active = bool(existing.get("isActive"))
+    conn.execute(
+        "DELETE FROM learning_profile_reports WHERE id = ? AND user_id = ?",
+        (int(report_id), int(user_id)),
+    )
+
+    if was_active:
+        replacement_row = conn.execute(
+            """
+            SELECT id
+            FROM learning_profile_reports
+            WHERE user_id = ? AND archived = 0
+            ORDER BY updated_at DESC, id DESC
+            LIMIT 1
+            """,
+            (int(user_id),),
+        ).fetchone()
+        replacement_id = int(replacement_row["id"]) if replacement_row else None
+        now = timestamp or _timestamp()
+        conn.execute(
+            """
+            INSERT INTO user_learning_profile_state
+                (user_id, active_report_id, generation, reset_at, created_at, updated_at)
+            VALUES (?, ?, 0, '', ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                active_report_id = excluded.active_report_id,
+                updated_at = excluded.updated_at
+            """,
+            (int(user_id), replacement_id, now, now),
+        )
+
+    state = profile_state_for_user(conn, user_id)
+    active_profile = active_profile_for_user(conn, user_id)
+    return {
+        "deletedReportId": int(report_id),
+        "deletedActiveProfile": was_active,
+        "activeReportId": state["activeReportId"],
+        "activeProfile": active_profile or None,
+    }
+
+
 def update_profile_report(
     conn: sqlite3.Connection,
     user_id: int,

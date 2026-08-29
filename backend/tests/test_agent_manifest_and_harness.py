@@ -39,6 +39,11 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
             for role in {"supervisor", "specialist", "runtime"}
         }
         self.assertEqual(role_counts, {"supervisor": 1, "specialist": 18, "runtime": 3})
+        agents = {item["id"]: item for item in DEFAULT_AGENT_MANIFEST.agents}
+        self.assertTrue(agents["learning-animation-agent"]["hidden"])
+        self.assertTrue(agents["mcu-agent"]["hidden"])
+        self.assertIn("中医药", agents["learning-animation-agent"]["hiddenReason"])
+        self.assertIn("已下线", agents["mcu-agent"]["hiddenReason"])
         skill_agent_ids = {item["agentId"] for item in DEFAULT_AGENT_MANIFEST.skills}
         unbound_specialists = {
             item["id"]

@@ -265,11 +265,14 @@ class ProfileAgentContextStore:
         user_id: int,
         profile_report_id: int,
         event: dict[str, Any],
+        *,
+        task_id: str = "",
     ) -> dict[str, Any] | None:
         if not isinstance(event, dict):
             return None
         run_id = str(event.get("runId") or "")
         sequence = int(event.get("sequence") or 0)
+        resolved_task_id = str(event.get("taskId") or task_id or "")
         return self.append(
             user_id,
             profile_report_id,
@@ -281,10 +284,11 @@ class ProfileAgentContextStore:
             payload={
                 "stage": event.get("stage"),
                 "progress": event.get("progress"),
+                "taskId": resolved_task_id,
                 "details": event.get("payload") or {},
             },
             run_id=run_id,
-            task_id=str(event.get("taskId") or ""),
+            task_id=resolved_task_id,
             dedupe_key=f"{run_id}:event:{sequence}",
             created_at=str(event.get("time") or ""),
         )
@@ -294,6 +298,8 @@ class ProfileAgentContextStore:
         user_id: int,
         profile_report_id: int,
         handoff: dict[str, Any],
+        *,
+        task_id: str = "",
     ) -> dict[str, Any] | None:
         if not isinstance(handoff, dict):
             return None
@@ -311,12 +317,14 @@ class ProfileAgentContextStore:
             status="complete",
             content=f"{from_name}向{to_name}交接：{summary}",
             payload={
+                "taskId": str(task_id or ""),
                 "toAgent": handoff.get("toAgent"),
                 "toAgentName": to_name,
                 "artifactType": handoff.get("artifactType"),
                 "artifact": handoff.get("payload") or {},
             },
             run_id=run_id,
+            task_id=str(task_id or ""),
             dedupe_key=f"{run_id}:handoff:{sequence}",
             created_at=str(handoff.get("time") or ""),
         )
@@ -334,10 +342,10 @@ class ProfileAgentContextStore:
             return
         for event in trace.get("events") or []:
             if isinstance(event, dict):
-                self.append_event(user_id, profile_report_id, event)
+                self.append_event(user_id, profile_report_id, event, task_id=task_id)
         for handoff in trace.get("handoffs") or []:
             if isinstance(handoff, dict):
-                self.append_handoff(user_id, profile_report_id, handoff)
+                self.append_handoff(user_id, profile_report_id, handoff, task_id=task_id)
         run_id = str(trace.get("runId") or "")
         review = trace.get("review") if isinstance(trace.get("review"), dict) else {}
         if review:
@@ -355,7 +363,7 @@ class ProfileAgentContextStore:
                     if passed
                     else f"审核未通过，质量分 {score}，需要继续处理。"
                 ),
-                payload=review,
+                payload={**review, "taskId": task_id},
                 run_id=run_id,
                 task_id=task_id,
                 dedupe_key=f"{run_id}:review:final",
