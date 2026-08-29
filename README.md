@@ -95,7 +95,7 @@ npm run build -- --emptyOutDir=false
 
 ## 知识网络展示
 
-`/knowledge-network` 在主站导航栏下方嵌入用户提供的 `wu-xing-holo-core (1).zip` 原始 React/Vite 页面；旧地址 `/personalized-resources/knowledge-network` 保留兼容重定向。原始附件逐文件复制在 `frontend/wu-xing-holo-core-original/`，不修改其中任一文件的代码、样式、入口或依赖声明。知识网络沿用与数字孪生页相同的可用视口规则：桌面保留顶部主导航，手机保留底部主导航，画布不被导航遮挡，可从主导航直接返回其他主页面。
+`/knowledge-network` 在主站导航栏下方嵌入用户提供的 `wu-xing-holo-core (1).zip` 原始 React/Vite 页面；旧地址 `/personalized-resources/knowledge-network` 保留兼容重定向。原始附件逐文件复制在 `frontend/wu-xing-holo-core-original/`，保留其页面结构、视觉基线、入口和依赖声明；runner 通过构建期适配器注入知识数据，并仅在画布交互层补充知识域聚焦与层级高亮。知识网络沿用与数字孪生页相同的可用视口规则：桌面保留顶部主导航，手机保留底部主导航，画布不被导航遮挡，可从主导航直接返回其他主页面。
 
 用户提供的 `中医药知识库_1600节点_知识讲解_实质内容版.json` 原样保存在 `frontend/src/data/tcm-knowledge-network.v1.2-substantive.json`。原 ZIP SHA-256 为 `9176A840EE386BF6B970C7156B3A2C3F2A4BADAFDB424503B5DF8CAA47F7C555`，知识库 JSON SHA-256 为 `D4FE839D525254EDC9AA4F588BD5A0873F550E06ACF8F66E5E4AC9B93F8EF922`。ZIP 内的 `src/data.ts` 保持原样；附件目录外的 `frontend/wu-xing-holo-core-runner/knowledgeDataAdapter.ts` 在构建期将该 JSON 树转换为原页面已使用的 `nodes`、`edges` 接口，因此运行页面使用 1601 个节点、1600 条父子边和所提供的实质知识说明，而不改写附件源码。数据仅用于学习知识浏览，不作为临床诊疗依据。
 
@@ -110,6 +110,24 @@ npm.cmd run build -- --emptyOutDir=false
 ```
 
 随后运行 `start-frontend-backend.bat`，统一入口默认位于 `http://127.0.0.1:3000/knowledge-network`。
+
+星系画布继续沿用原版背景、材质和 OrbitControls 交互；构建期适配器将十个知识域分别布置为稳定的局部星群，收紧总览中心到域簇的距离，并拉开域内主题、子主题和知识点的层级间距。关系线保持节点之间的直线连接，依靠稳定三维布局形成自然斜角，避免整齐的 90°/180° 方向；点击导航中的知识域时，镜头会平滑拉近并聚焦该域的主题簇；点击节点或继续下钻时，镜头会把节点置于画布中心，选中节点及其父子路径提亮，仅保留当前路径关系线，其他关系线隐藏。铭牌跟随三维节点更新且不接收指针事件，不会挡住其他节点点击。完成聚焦后仍保留原版自动旋转、缩放和平移；`frontend/wu-xing-holo-core-runner/` 继续负责知识域、主题、子主题、具体知识点的目录导航和详情分类。验证命令：
+
+```powershell
+cd frontend\wu-xing-holo-core-runner
+npm.cmd exec vite -- build --config vite.config.mjs
+cd ..
+npm.cmd run build -- --emptyOutDir=false
+```
+
+浏览器验收覆盖 `1440x900` 与 `390x844`：画布保持原版旋转、缩放和平移行为，移动端抽屉可开关并可从知识域下钻到具体知识点，详情标题出现且页面无横向溢出。
+
+移动端点击知识域、主题、子主题或具体知识点后保持导航展开；具体知识点详情嵌入导航滚动区，列表上下文和详情可同时查看。导航顶部提供关键词搜索，可匹配标题、知识域、学习说明、关键词和标签，点击结果直接打开对应详情。桌面端继续使用右侧详情面板。验证命令：
+
+```bash
+node --test frontend/tests/knowledgeNetworkRunner.test.mjs
+node frontend/tests/knowledgeNetworkRunner.e2e.mjs
+```
 
 ## 智能体数字孪生展示
 

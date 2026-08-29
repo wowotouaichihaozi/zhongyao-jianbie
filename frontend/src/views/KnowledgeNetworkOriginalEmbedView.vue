@@ -2,7 +2,7 @@
   <main class="knowledge-network-original-page">
     <iframe
       class="knowledge-network-original"
-      src="/wu-xing-holo-core-original/index.html"
+      src="/wu-xing-holo-core-original/index.html?v=20260829-nav3"
       title="Wu Xing Holo-Core"
     ></iframe>
   </main>
