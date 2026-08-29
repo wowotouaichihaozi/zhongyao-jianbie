@@ -37,21 +37,10 @@
         </div>
       </header>
 
-      <div class="mode-tabs" role="tablist" aria-label="岐小智功能">
-        <button type="button" :class="{ active: activeTab === 'chat' }" @click="activeTab = 'chat'">
-          <MessageCircle :size="16" />
-          陪伴式助手
-        </button>
-        <button type="button" :class="{ active: activeTab === 'status' }" @click="openStatusTab">
-          <Activity :size="16" />
-          Agent Harness
-        </button>
-      </div>
-
       <form v-if="showRuntimeSettings" key="settings" class="runtime-settings-panel" @submit.prevent="saveRuntimeSettings">
         <header class="runtime-settings-head">
           <div>
-            <span>Agent Harness</span>
+            <span>Model Runtime</span>
             <strong>智能体运行设置</strong>
           </div>
           <button type="button" class="icon-btn" aria-label="关闭设置" @click="showRuntimeSettings = false">
@@ -166,9 +155,19 @@
                   <Network v-else :size="15" />
                 </span>
                 <span class="agent-conversation-copy">
-                  <small>{{ group.agentNames }} · {{ conversationStatusLabel(group.status) }}</small>
-                  <strong>{{ group.title }}</strong>
+                  <small>{{ group.flowLabel }}</small>
+                  <strong>{{ group.collaborationTitle }}</strong>
                   <em>{{ group.summary }}</em>
+                  <span class="conversation-handoff-strip" aria-label="协同交接动态">
+                    <i
+                      v-for="step in group.collaborationSteps"
+                      :key="`${group.key}-${step.agent}-${step.text}`"
+                      :class="step.status"
+                    >
+                      <b></b>
+                      {{ step.text }}
+                    </i>
+                  </span>
                   <span class="conversation-card-meta">
                     <i v-if="group.resourceLabel">{{ group.resourceLabel }}</i>
                     <i v-if="group.citationCount">引用 {{ group.citationCount }}</i>
@@ -909,17 +908,25 @@ const agentConversationGroups = computed(() => {
       (count, entry) => Math.max(count, conversationCitations(entry).length),
       0,
     )
+    const collaborationSteps = group.messages
+      .map(entry => conversationCollaborationStep(entry))
+      .filter(Boolean)
+      .slice(-3)
+    const baseTitle = relatedTask?.title
+      || group.messages.find(entry => entry.payload?.title)?.payload?.title
+      || group.messages.find(entry => entry.type === 'review')?.content
+      || lastMessage.content
+      || '智能体协同任务'
     return {
       ...group,
       status,
       progress,
       agentNames: names.slice(0, 2).join('、') + (names.length > 2 ? ` 等 ${names.length} 个智能体` : ''),
-      title: relatedTask?.title
-        || group.messages.find(entry => entry.payload?.title)?.payload?.title
-        || group.messages.find(entry => entry.type === 'review')?.content
-        || lastMessage.content
-        || '智能体协同任务',
-      summary: lastMessage.content || '协作记录已更新',
+      flowLabel: `${names.length ? `${names.length} 个智能体协同` : '多智能体协同'} · ${conversationStatusLabel(status)}`,
+      title: baseTitle,
+      collaborationTitle: collaborationSteps.at(-1)?.text || conciseConversationText(baseTitle, 36),
+      summary: conversationGroupSummary(group.messages, relatedTask),
+      collaborationSteps,
       route: relatedTask?.route || routeReference?.id || '',
       resourceType,
       resourceLabel: resourceLabels[resourceType] || '',
@@ -1128,6 +1135,97 @@ function conversationStatusLabel(status) {
     warning: '待核验',
     complete: '已完成',
   }[status] || '已记录'
+}
+
+function compactAgentName(value, fallbackId = '') {
+  const raw = String(value || fallbackId || '').trim()
+  if (!raw) return '智能体'
+  const alias = agentNameAliases[raw]
+  const normalized = alias || raw
+  const englishMap = {
+    'Quality Review Agent': '质量审核智能体',
+    'Skill Registry': 'Skill 注册智能体',
+    'MCP Tool Gateway': 'MCP 工具网关',
+  }
+  return englishMap[normalized] || normalized
+}
+
+function handoffActionText(targetName, artifactType) {
+  const target = String(targetName || '')
+  const artifact = String(artifactType || '')
+  if (target.includes('学习路径')) return '规划任务'
+  if (target.includes('PPT')) return '生成课件'
+  if (target.includes('题库')) return '生成题库'
+  if (target.includes('导图')) return '生成导图'
+  if (target.includes('视频')) return '生成视频'
+  if (target.includes('审核') || artifact === 'review_result') return '审核质量'
+  if (target.includes('知识') || artifact === 'grounded_knowledge') return '补充知识依据'
+  if (target.includes('总控')) return '重新调度'
+  return '继续处理'
+}
+
+function runningActionText(entry) {
+  const payload = entry?.payload && typeof entry.payload === 'object' ? entry.payload : {}
+  const stage = String(payload.stage || payload.details?.stage || entry?.content || '').trim()
+  const agent = compactAgentName(entry?.agentName, entry?.agentId)
+  if (stage.includes('retrieve') || stage.includes('检索')) return `${agent}正在检索知识库`
+  if (stage.includes('review') || stage.includes('审核')) return `${agent}正在核验内容质量`
+  if (stage.includes('path') || stage.includes('路径')) return `${agent}正在规划学习任务`
+  if (stage.includes('profile') || stage.includes('画像')) return `${agent}正在更新学习画像`
+  if (stage.includes('resource') || stage.includes('生成')) return `${agent}正在生成学习资源`
+  return `${agent}正在协同处理`
+}
+
+function conversationCollaborationStep(entry) {
+  if (!entry) return null
+  const payload = entry.payload && typeof entry.payload === 'object' ? entry.payload : {}
+  const status = normalizeStatus(entry.status)
+  if (entry.type === 'handoff') {
+    const from = compactAgentName(entry.agentName, entry.agentId)
+    const to = compactAgentName(payload.toAgentName, payload.toAgent)
+    return {
+      agent: from,
+      status: 'complete',
+      text: `${from}已完成，交接给${to}${handoffActionText(to, payload.artifactType)}`,
+    }
+  }
+  if (entry.type === 'review') {
+    const score = Number(payload.score)
+    const passed = payload.passed !== false && !['failed', 'needs_attention'].includes(String(entry.status || ''))
+    return {
+      agent: '质量审核智能体',
+      status: passed ? 'complete' : 'warning',
+      text: Number.isFinite(score)
+        ? `质量审核智能体${passed ? '已通过' : '要求修改'}，评分 ${score}`
+        : `质量审核智能体${passed ? '已通过' : '要求修改'}`,
+    }
+  }
+  if (['running', 'queued'].includes(status)) {
+    return {
+      agent: compactAgentName(entry.agentName, entry.agentId),
+      status: 'running',
+      text: runningActionText(entry),
+    }
+  }
+  const agent = compactAgentName(entry.agentName, entry.agentId)
+  const text = String(entry.content || '').trim()
+  return {
+    agent,
+    status: status === 'failed' ? 'failed' : 'complete',
+    text: text ? `${agent}已完成：${conciseConversationText(text, 24)}` : `${agent}已完成协同处理`,
+  }
+}
+
+function conversationGroupSummary(messages, relatedTask) {
+  const taskLabel = relatedTask?.title ? `产物：${relatedTask.title}` : ''
+  const latest = messages.at(-1)
+  const latestStep = conversationCollaborationStep(latest)
+  return conciseConversationText(taskLabel || latestStep?.text || latest?.content || '协同记录已更新', 42)
+}
+
+function conciseConversationText(value, maxLength = 42) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text
 }
 
 function formatConversationTime(value) {
@@ -2194,7 +2292,7 @@ onBeforeUnmount(() => {
 .agent-group-chat {
   display: grid;
   gap: 8px;
-  margin: 4px 0 12px;
+  margin: 2px 0 12px;
 }
 
 .agent-group-chat-head {
@@ -2241,41 +2339,43 @@ onBeforeUnmount(() => {
 
 .agent-conversation-card {
   overflow: hidden;
-  border: 1px solid #d9e4e0;
-  border-left: 3px solid #2a8a6c;
-  border-radius: 7px;
-  background: #fff;
+  border: 1px solid #e4ede9;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ffffff, #fbfefd);
 }
 
 .agent-conversation-card.running {
-  border-left-color: #3182ce;
+  border-color: #cfe3f2;
+  background: linear-gradient(135deg, #ffffff, #f7fbff);
 }
 
 .agent-conversation-card.failed {
-  border-left-color: #c84b4b;
+  border-color: #efcccc;
+  background: linear-gradient(135deg, #ffffff, #fff8f8);
 }
 
 .agent-conversation-card.warning,
 .agent-conversation-card.compacted-history {
-  border-left-color: #b47a1f;
+  border-color: #eadbb6;
+  background: linear-gradient(135deg, #ffffff, #fffaf0);
 }
 
 .agent-conversation-main {
   width: 100%;
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 18px;
-  align-items: center;
-  gap: 9px;
-  padding: 10px;
+  grid-template-columns: 28px minmax(0, 1fr) 16px;
+  align-items: start;
+  gap: 8px;
+  padding: 10px 11px;
   border: 0;
-  background: #fff;
+  background: transparent;
   color: #263a35;
   text-align: left;
   cursor: pointer;
 }
 
 .agent-conversation-main:hover {
-  background: #f7faf9;
+  background: rgba(241, 249, 246, .72);
 }
 
 .agent-conversation-main > svg {
@@ -2283,8 +2383,8 @@ onBeforeUnmount(() => {
 }
 
 .agent-conversation-icon {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -2318,36 +2418,77 @@ onBeforeUnmount(() => {
 
 .agent-conversation-copy small {
   color: #397866;
-  font-size: 10px;
-  font-weight: 750;
+  font-size: 9px;
+  font-weight: 850;
 }
 
 .agent-conversation-copy strong {
-  margin-top: 3px;
+  margin-top: 2px;
   color: #21332f;
   font-size: 12px;
 }
 
 .agent-conversation-copy em {
-  margin-top: 3px;
+  margin-top: 2px;
   color: #71817d;
-  font-size: 11px;
+  font-size: 10px;
   font-style: normal;
+}
+
+.conversation-handoff-strip {
+  display: grid;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.conversation-handoff-strip i {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: #4f625c;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-handoff-strip b {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #2a8a6c;
+}
+
+.conversation-handoff-strip i.running b {
+  background: #3182ce;
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, .1);
+}
+
+.conversation-handoff-strip i.warning b {
+  background: #b47a1f;
+}
+
+.conversation-handoff-strip i.failed b {
+  background: #c84b4b;
 }
 
 .conversation-card-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 5px;
+  margin-top: 6px;
 }
 
 .conversation-card-meta i {
   padding: 2px 5px;
-  border: 1px solid #d9e5e1;
-  border-radius: 4px;
+  border: 1px solid #e1e9e5;
+  border-radius: 999px;
   color: #5e746d;
-  background: #fff;
+  background: rgba(255,255,255,.72);
   font-size: 9px;
   font-style: normal;
   line-height: 1.2;
