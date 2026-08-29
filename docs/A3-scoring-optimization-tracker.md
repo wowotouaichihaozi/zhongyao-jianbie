@@ -1,5 +1,7 @@
 # A3 Scoring Optimization Tracker
 
+- [x] 2026-08-29：知识网络镜头平滑修复：将相机位置与 OrbitControls 目标点改为同一时间轴的缓动插值，移除结束时的硬跳定位，避免“先拉近一段再闪现到目标”。验证：runner 非清理构建通过（2238 modules）；`node --test frontend/tests/knowledgeNetworkRunner.test.mjs` 3/3；`node frontend/tests/knowledgeNetworkRunner.e2e.mjs` 桌面/移动通过。
+
 - [x] 2026-08-29：星图导航关键词搜索：在导航面板顶部增加搜索框，按标题、知识域、学习说明、关键词和标签匹配节点；结果可直接打开详情并沿用现有层级上下文，移动端详情仍嵌入导航滚动区。验证：runner 非清理构建通过（2238 modules）；`node --test frontend/tests/knowledgeNetworkRunner.test.mjs` 3/3；`node frontend/tests/knowledgeNetworkRunner.e2e.mjs` 桌面/移动通过。
 
 - [x] 2026-08-29：知识网络移动端叶子节点导航状态修复：具体知识点选中后保留其祖先子主题，避免“具体知识点”层被卸载；移动端详情纳入已展开导航的滚动内容，避免详情浮层遮挡导航项。验证：runner 非清理构建通过（2238 modules）；`node --test frontend/tests/knowledgeNetworkRunner.test.mjs` 3/3；`node frontend/tests/knowledgeNetworkRunner.e2e.mjs` 桌面/移动通过。

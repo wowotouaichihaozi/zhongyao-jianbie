@@ -172,10 +172,13 @@ function HTMLOverlays({ selectedId, activeDomain }: { selectedId: string; active
 function FocusCamera({ selectedId, activeDomain, focusToken = 0 }: { selectedId: string; activeDomain?: string; focusToken?: number }) {
   const { camera } = useThree();
   const controls = useRef<any>(null);
+  const startCamera = useRef(new THREE.Vector3());
   const destination = useRef(new THREE.Vector3());
+  const startTarget = useRef(new THREE.Vector3());
   const target = useRef(new THREE.Vector3(-4, 0, 0));
   const pendingFocus = useRef(true);
   const animating = useRef(false);
+  const progress = useRef(0);
   const selected = useMemo(() => nodes.find(node => node.id === selectedId), [selectedId]);
   const domainTarget = useMemo(() => {
     const domainNodes = nodes.filter(node => node.level === 'main' && node.domain === activeDomain);
@@ -203,20 +206,22 @@ function FocusCamera({ selectedId, activeDomain, focusToken = 0 }: { selectedId:
       if (direction.lengthSq() < 0.001) direction.set(-4, 2, 22);
       direction.normalize();
       const desiredDistance = isOverview ? 22.45 : isDomainFocus ? 13.5 : 9.5;
-      const currentDistance = camera.position.distanceTo(orbit.target);
-      const focusDistance = Math.min(currentDistance || desiredDistance, desiredDistance);
+      const focusDistance = desiredDistance;
+      startCamera.current.copy(camera.position);
+      startTarget.current.copy(orbit.target);
       destination.current.copy(target.current).addScaledVector(direction, focusDistance);
+      progress.current = 0;
       pendingFocus.current = false;
       animating.current = true;
       orbit.autoRotate = false;
     }
 
     if (animating.current) {
-      camera.position.lerp(destination.current, 0.13);
-      orbit.target.lerp(target.current, 0.15);
-      if (camera.position.distanceTo(destination.current) < 0.03 && orbit.target.distanceTo(target.current) < 0.03) {
-        camera.position.copy(destination.current);
-        orbit.target.copy(target.current);
+      progress.current = Math.min(1, progress.current + 0.08);
+      const eased = progress.current * progress.current * (3 - 2 * progress.current);
+      camera.position.lerpVectors(startCamera.current, destination.current, eased);
+      orbit.target.lerpVectors(startTarget.current, target.current, eased);
+      if (progress.current >= 1) {
         animating.current = false;
         orbit.autoRotate = true;
       }
