@@ -41,74 +41,27 @@ try {
   })
 
   await page.goto(`${baseUrl}/personalized-resources`, { waitUntil: 'networkidle' })
-  await page.locator('.archive-result-line').waitFor({ state: 'visible' })
+  await page.locator('.resource-card').first().waitFor({ state: 'visible' })
 
-  const cards = page.locator('.resource-cover-card')
+  const cards = page.locator('.resource-card.topic-card')
   const visibleCardCount = await cards.count()
-  assert.ok(visibleCardCount > 0 && visibleCardCount <= 9, `expected 1-9 cards, received ${visibleCardCount}`)
-  assert.equal(await page.locator('.history-search').count(), 1)
-  assert.equal(await page.locator('.history-pagination').count(), 1)
-  assert.equal(await page.locator('.resource-launcher-grid').count(), 1)
-  assert.equal(await page.locator('.resource-gallery').count(), 1)
-  const liveCoverCount = await page.locator('.resource-live-cover').count()
-  const staticCoverCount = await page.locator('.resource-static-cover').count()
-  assert.equal(liveCoverCount + staticCoverCount, visibleCardCount)
-  assert.ok(staticCoverCount > 0, 'video resources did not use static covers')
-  assert.equal(await page.locator('.resource-tool-sidebar').count(), 0)
-  assert.equal(await page.locator('.resource-table-head').count(), 0)
-  assert.equal(await page.locator('.resource-card').count(), 0)
-  assert.equal(await page.locator('.resource-tool-card').count(), 0)
+  assert.equal(visibleCardCount, 8, `expected eight topic cards, received ${visibleCardCount}`)
+  assert.equal(await page.locator('.resource-tool-card').count(), 6)
+  assert.equal(await page.getByRole('link', { name: '药材模型识别' }).getAttribute('href'), '/personalized-resources/herb-model')
+  assert.equal(await page.locator('.history-search').count(), 0)
+  assert.equal(await page.locator('.history-pagination').count(), 0)
+  assert.equal(await page.locator('.topic-cover-texture').count(), 8)
+  assert.equal(await page.locator('.topic-cover-icon-image').count(), 8)
+  await page.waitForFunction(() => [...document.querySelectorAll('.topic-cover-texture, .topic-cover-icon-image')]
+    .every(image => image.complete && image.naturalWidth > 0))
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-  const archiveToolbarLayout = await page.evaluate(() => {
-    const title = document.querySelector('.archive-title')?.getBoundingClientRect()
-    const search = document.querySelector('.archive-search')?.getBoundingClientRect()
-    const type = document.querySelector('.archive-actions .type-filter')?.getBoundingClientRect()
-    const generate = document.querySelector('.archive-actions .generate-btn')?.getBoundingClientRect()
-    return {
-      centers: [title, search, type, generate].map(rect => rect ? Math.round(rect.top + rect.height / 2) : null),
-      searchWidth: search?.width || 0,
-    }
-  })
-  assert.ok(archiveToolbarLayout.centers.every(center => center !== null), 'archive toolbar item is missing')
-  assert.ok(Math.max(...archiveToolbarLayout.centers) - Math.min(...archiveToolbarLayout.centers) <= 2, 'archive toolbar wrapped onto multiple rows')
-  assert.ok(archiveToolbarLayout.searchWidth <= 320, `search is too wide: ${archiveToolbarLayout.searchWidth}px`)
-  assert.doesNotMatch(await page.locator('.archive-result-line').innerText(), /共\s*\d+\s*项/)
-  await page.locator('.resource-live-cover.loaded').first().waitFor({ state: 'visible', timeout: 15_000 })
-  assert.ok(await page.locator('.resource-live-cover.loaded').count() > 0, 'no real page cover finished loading')
   const assistantBox = await page.locator('.xiaozhi-float').boundingBox()
   assert.ok(assistantBox && assistantBox.x > 1000 && assistantBox.y > 500, 'floating assistant overlaps the page header')
   const firstCardStyle = await cards.first().evaluate(element => {
     const style = getComputedStyle(element)
     return { borderRadius: style.borderRadius, boxShadow: style.boxShadow }
   })
-  assert.equal(firstCardStyle.borderRadius, '6px')
-
-  const embeddedControlStyles = await page.evaluate(() => {
-    const searchInput = document.querySelector('.archive-search input')
-    const typeSelect = document.querySelector('.type-filter select')
-    return {
-      searchBorder: searchInput ? getComputedStyle(searchInput).borderTopWidth : null,
-      searchShadow: searchInput ? getComputedStyle(searchInput).boxShadow : null,
-      selectBorder: typeSelect ? getComputedStyle(typeSelect).borderTopWidth : null,
-      selectShadow: typeSelect ? getComputedStyle(typeSelect).boxShadow : null,
-    }
-  })
-  assert.deepEqual(embeddedControlStyles, {
-    searchBorder: '0px',
-    searchShadow: 'none',
-    selectBorder: '0px',
-    selectShadow: 'none',
-  })
-
-  const firstTitle = (await cards.first().locator('.resource-cover-copy h3').textContent())?.trim() || ''
-  assert.ok(firstTitle, 'first history resource has no title')
-  await page.locator('.history-search input').fill(firstTitle.slice(0, Math.min(firstTitle.length, 8)))
-  await page.waitForTimeout(150)
-  assert.ok(await cards.count() >= 1, 'search removed the matching resource')
-
-  await page.locator('.history-search button').click()
-  await page.waitForTimeout(100)
-  assert.equal(await page.locator('.history-search input').inputValue(), '')
+  assert.equal(firstCardStyle.borderRadius, '8px')
 
   await page.screenshot({
     path: path.join(outputDir, 'personalized-resources-desktop.png'),

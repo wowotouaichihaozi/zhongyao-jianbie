@@ -394,7 +394,7 @@ import {
   ImagePlus,
   LoaderCircle,
   Maximize2,
-  Map,
+  Map as MapIcon,
   MessageCircle,
   Mic,
   Network,
@@ -470,11 +470,11 @@ let lastWorkflowCardId = ''
 
 const iconMap = {
   learning_background: markRaw(MessageCircle),
-  learning_path: markRaw(Map),
-  learning_path_stage: markRaw(Map),
+  learning_path: markRaw(MapIcon),
+  learning_path_stage: markRaw(MapIcon),
   personalized_resources: markRaw(Sparkles),
   ppt: markRaw(Presentation),
-  mindmap: markRaw(Map),
+  mindmap: markRaw(MapIcon),
   video: markRaw(Search),
   generated_video: markRaw(Film),
   question_bank: markRaw(BookOpenCheck),
