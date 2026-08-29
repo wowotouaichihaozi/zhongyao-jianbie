@@ -7211,6 +7211,112 @@ def learning_profile_session_message(session_id: int):
     })
 
 
+@app.post("/api/learning-profile/sessions/<int:session_id>/messages-stream")
+def learning_profile_session_message_stream(session_id: int):
+    @stream_with_context
+    def generate_events():
+        yield _sse_event("start", {
+            "agent": "learning-background-dialogue-agent",
+            "stage": "start",
+            "message": "学习画像智能体已启动",
+            "sessionId": session_id,
+        })
+        try:
+            yield _sse_event("progress", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "call_agent",
+                "message": "正在读取会话上下文并调用学习画像智能体",
+                "sessionId": session_id,
+            })
+            raw_response = learning_profile_session_message(session_id)
+            status_code = 200
+            response = raw_response
+            if isinstance(raw_response, tuple):
+                response = raw_response[0]
+                if len(raw_response) > 1:
+                    try:
+                        status_code = int(raw_response[1])
+                    except (TypeError, ValueError):
+                        status_code = 500
+            payload = {}
+            try:
+                payload = json.loads(response.get_data(as_text=True))
+            except Exception:
+                payload = {}
+            if status_code >= 400:
+                yield _sse_event("error", {
+                    "agent": "learning-background-dialogue-agent",
+                    "stage": "failed",
+                    "message": payload.get("msg") or payload.get("message") or "学习画像智能体调用失败",
+                    "data": payload.get("data") or {},
+                    "errorCode": payload.get("errorCode") or "",
+                })
+                yield _sse_event("done", {
+                    "agent": "learning-background-dialogue-agent",
+                    "stage": "done",
+                    "status": "failed",
+                })
+                return
+            data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+            workflow = data.get("workflow") if isinstance(data.get("workflow"), dict) else {}
+            reply = str(workflow.get("reply") or workflow.get("question") or "")
+            if not reply.strip():
+                yield _sse_event("error", {
+                    "agent": "learning-background-dialogue-agent",
+                    "stage": "empty_reply",
+                    "message": "学习画像智能体未返回可显示内容",
+                    "data": data,
+                })
+                yield _sse_event("done", {
+                    "agent": "learning-background-dialogue-agent",
+                    "stage": "done",
+                    "status": "failed",
+                })
+                return
+            yield _sse_event("progress", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "stream_reply",
+                "message": "学习画像智能体已返回，正在流式输出",
+                "source": workflow.get("source") or "",
+                "status": workflow.get("status") or "",
+                "completeness": workflow.get("completeness"),
+                "missingFields": workflow.get("missingProfileDimensions") or [],
+            })
+            for index in range(0, len(reply), 4):
+                yield _sse_event("delta", {
+                    "agent": "learning-background-dialogue-agent",
+                    "text": reply[index:index + 4],
+                    "source": workflow.get("source") or "",
+                })
+                time.sleep(0.04)
+            yield _sse_event("result", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "complete",
+                "message": "学习画像会话本轮输出完成",
+                "data": data,
+            })
+            yield _sse_event("done", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "done",
+                "message": "学习画像会话流已结束",
+            })
+        except Exception as exc:
+            app.logger.exception("learning profile session message stream failed")
+            yield _sse_event("error", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "failed",
+                "message": "学习画像智能体调用失败，请重试本轮对话。",
+                "error": str(exc),
+            })
+            yield _sse_event("done", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "done",
+                "status": "failed",
+            })
+
+    return Response(generate_events(), mimetype="text/event-stream")
+
+
 @app.post("/api/learning-profile/background-chat")
 def learning_profile_background_chat():
     user = g.get("current_user")

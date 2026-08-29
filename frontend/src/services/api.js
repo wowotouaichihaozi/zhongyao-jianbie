@@ -399,6 +399,26 @@ export async function sendLearningProfileSessionMessage(sessionId, content, atta
   return data?.data
 }
 
+export async function streamLearningProfileSessionMessage(sessionId, content, attachments = [], onEvent, options = {}) {
+  const token = getAuthToken()
+  const response = await fetch(makeApiUrl(`/api/learning-profile/sessions/${sessionId}/messages-stream`), {
+    method: 'POST',
+    credentials: 'include',
+    signal: options.signal,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ content, attachments }),
+  })
+
+  await consumeSseResponse(response, async (parsed) => {
+    if (typeof onEvent === 'function') {
+      await onEvent(parsed)
+    }
+  })
+}
+
 export async function uploadMultimodalInputs(files, context = 'chat', route = '') {
   const formData = new FormData()
   Array.from(files || []).forEach(file => formData.append('files', file))

@@ -916,7 +916,7 @@ import {
   resetLearningProfile,
   resetLearningProfileBackgroundChat,
   createLearningProfileSession,
-  sendLearningProfileSessionMessage,
+  streamLearningProfileSessionMessage,
   streamLearningProfileBackgroundChat,
   uploadMultimodalInputs,
 } from '../services/api.js'
@@ -3116,9 +3116,48 @@ async function sendChat() {
   await scrollChatToBottom()
 
   if (activeProfileSessionId.value) {
+    const botMessage = {
+      id: createChatMessageId('bot'),
+      role: 'bot',
+      text: '',
+      timestamp: Date.now(),
+      source: 'llm-streaming',
+    }
     try {
-      const result = await sendLearningProfileSessionMessage(activeProfileSessionId.value, msg, attachments)
-      applyProfileSession(result?.session)
+      chatMsgs.value.push(botMessage)
+      chatStreaming.value = true
+      let result = null
+      let reply = ''
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => controller.abort(), LLM_CHAT_TIMEOUT_MS)
+      try {
+        await streamLearningProfileSessionMessage(activeProfileSessionId.value, msg, attachments, async ({ event, data }) => {
+          const source = data?.source || data?.data?.workflow?.source || 'pending'
+          addLog({ event, source, data }, event === 'error' ? 'error' : 'info', '学习画像会话')
+          if (event === 'delta' && data?.text) {
+            reply += String(data.text)
+            setChatBotMessage(botMessage, reply, 'llm')
+            await scrollChatToBottom()
+            return
+          }
+          if (event === 'result') {
+            result = data?.data || data || {}
+            const workflowReply = String(result?.workflow?.reply || result?.workflow?.question || '').trim()
+            if (workflowReply && !reply.trim()) {
+              reply = workflowReply
+              setChatBotMessage(botMessage, reply, 'llm')
+              await scrollChatToBottom()
+            }
+            return
+          }
+          if (event === 'error') {
+            throw new Error(data?.message || data?.error || '学习画像智能体调用失败')
+          }
+        }, { signal: controller.signal })
+      } finally {
+        window.clearTimeout(timeoutId)
+      }
+      if (!result) throw new Error('学习画像会话流未返回结果')
       const workflow = result?.workflow || {}
       updatePortraitFromAgent(workflow, String(workflow.reply || workflow.question || ''))
       if (result?.report) {
@@ -3137,20 +3176,15 @@ async function sendChat() {
             : '十个画像维度已补齐，完整学习画像报告已生成',
         )
       }
+      if (result?.session) applyProfileSession(result.session)
       await scrollChatToBottom()
     } catch (error) {
       addLog(error, 'error', '学习画像会话对话')
-      const modelUnavailable = error?.response?.data?.errorCode === 'MODEL_UNAVAILABLE'
+      const modelUnavailable = error?.response?.data?.errorCode === 'MODEL_UNAVAILABLE' || /大模型不可用|MODEL_UNAVAILABLE/.test(String(error?.message || ''))
       const errorText = modelUnavailable
         ? '学习画像大模型不可用，请稍后重试。'
         : (error?.response?.data?.msg || error?.message || '学习画像对话失败')
-      chatMsgs.value.push({
-        id: createChatMessageId('bot-error'),
-        role: 'bot',
-        text: errorText,
-        timestamp: Date.now(),
-        source: 'error',
-      })
+      setChatBotMessage(botMessage, errorText, 'error')
       showToast(errorText)
       await scrollChatToBottom()
     } finally {
@@ -3192,18 +3226,16 @@ async function sendChat() {
     scrollChatToBottom()
   } catch (error) {
     addLog(error, 'error', '学习背景对话')
-    const fallback = `LLM 对话接口未返回有效结果：${error?.message || '未知错误'}。请检查后端大模型配置后重试。`
-    chatStreaming.value = true
-    await typeReply(botMessage, fallback)
-    chatHistory.value.push({ role: 'assistant', content: fallback })
+    const errorText = `学习画像智能体调用失败：${error?.message || '未知错误'}`
+    setChatBotMessage(botMessage, errorText, 'error')
     persistChatState({ chatBackground: getCurrentChatBackground(), chatTimestamp: Date.now() })
     chatLoading.value = false
     chatStreaming.value = false
-    showToast('大模型对话接口未连通')
+    showToast('学习画像智能体调用失败')
 
     scrollChatToBottom()
   }
-  settleTransientBotMessage(botMessage, 'LLM 暂时没有返回内容，请稍后重试。')
+  settleTransientBotMessage(botMessage, '学习画像智能体未返回内容，请稍后重试。')
   chatLoading.value = false
   chatStreaming.value = false
   await scrollChatToBottom()
