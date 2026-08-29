@@ -513,6 +513,7 @@ python -m pytest tests/test_learning_profile_api.py tests/test_harness_real_e2e.
 
 标准交付文档：
 
+- `docs/PROJECT_HANDOFF_2026-08-29.md`：当前 Git 基线、架构、启动/验证方式、用户已确认的设计边界、风险和下一对话开场提示。
 - `docs/DEVELOPMENT_GUIDE.md`：开发环境、扩展子智能体、数据迁移和提交检查。
 - `docs/REQUIREMENTS_ANALYSIS.md`：大学生学习痛点、用户场景、功能/非功能需求及技术结合点。
 - `docs/TEST_GUIDE.md`：18 个 Skill、MCP JSON-RPC、真实讯飞和浏览器验收方法。
