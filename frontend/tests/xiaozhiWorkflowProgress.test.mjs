@@ -131,8 +131,10 @@ test('the companion shows profile-scoped agent messages as expandable resource c
 })
 
 test('the companion exposes direct resource commands inside the same group chat composer', () => {
-  assert.match(launcherSource, /class="resource-command-strip"/)
+  assert.match(launcherSource, /class="composer-input-tools"/)
+  assert.match(launcherSource, /class="composer-tool resource-tool"/)
   assert.match(launcherSource, /prepareResourceCommand\(command\)/)
+  assert.doesNotMatch(launcherSource, /class="resource-command-strip"/)
   assert.match(launcherSource, /type: 'ppt'/)
   assert.match(launcherSource, /type: 'question_bank'/)
   assert.match(launcherSource, /type: 'generated_video'/)
