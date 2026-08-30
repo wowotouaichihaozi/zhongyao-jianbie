@@ -30,7 +30,7 @@
     <aside ref="authPanelRef" class="login-console auth-modal-panel" aria-label="登录或注册">
       <header class="console-heading">
         <span>统一身份认证</span>
-        <h2>{{ activeTab === 'register' ? '创建账号' : '用户登录' }}</h2>
+        <h2>{{ activeTab === 'register' ? '创建账号' : role === 'admin' ? '管理端登录' : '用户端登录' }}</h2>
         <p>{{ activeTab === 'register' ? '注册后开始建立你的中医学习画像' : '登录后继续当前画像与学习路径' }}</p>
       </header>
 
@@ -50,8 +50,8 @@
       </div>
 
       <div class="auth-tabs" role="tablist" aria-label="认证方式">
-        <button type="button" :class="{ active: activeTab === 'login' }" @click="activeTab = 'login'">登录</button>
-        <button type="button" :class="{ active: activeTab === 'register' }" @click="activeTab = 'register'">注册</button>
+        <button type="button" role="tab" :aria-selected="activeTab === 'login'" :class="{ active: activeTab === 'login' }" @click="activeTab = 'login'">登录</button>
+        <button type="button" role="tab" :aria-selected="activeTab === 'register'" :class="{ active: activeTab === 'register' }" @click="activeTab = 'register'">注册</button>
       </div>
 
       <Transition name="auth-panel" mode="out-in">
@@ -123,7 +123,7 @@ const capabilities = [
 ]
 
 const roleOptions = [
-  { value: 'user', label: '学习者', icon: markRaw(UserRound) },
+  { value: 'user', label: '用户端', icon: markRaw(UserRound) },
   { value: 'admin', label: '管理端', icon: markRaw(ShieldCheck) },
 ]
 
@@ -472,13 +472,36 @@ onUnmounted(() => {
 
 .role-tabs,
 .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; }
-.role-tabs { margin: 20px 0 14px; border: 1px solid #d9ded7; border-radius: 6px; overflow: hidden; }
-.role-tabs button { display: flex; min-height: 42px; align-items: center; justify-content: center; gap: 7px; border: 0; border-right: 1px solid #d9ded7; background: #f8faf8; color: #6c7d75; cursor: pointer; }
-.role-tabs button:last-child { border-right: 0; }
-.role-tabs button.active { background: #1d674e; color: #fff; }
-.auth-tabs { margin-bottom: 17px; border-bottom: 1px solid #e3e3da; }
-.auth-tabs button { min-height: 40px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #87928d; cursor: pointer; font-weight: 700; }
-.auth-tabs button.active { border-bottom-color: #b78b3d; color: #205743; }
+.role-tabs,
+.auth-tabs {
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #d8dfda;
+  border-radius: 6px;
+  background: #eef2ef;
+}
+.role-tabs { margin: 20px 0 12px; }
+.auth-tabs { margin-bottom: 17px; }
+.role-tabs button,
+.auth-tabs button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #65766f;
+  cursor: pointer;
+  font-weight: 700;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+.role-tabs button { display: flex; align-items: center; justify-content: center; gap: 7px; }
+.role-tabs button:hover,
+.auth-tabs button:hover { color: #174c3c; background: rgba(255, 255, 255, 0.7); }
+:global(#app .herbwise-login-page .role-tabs button.active),
+:global(#app .herbwise-login-page .auth-tabs button.active) {
+  color: #fff !important;
+  background: #174c3c !important;
+  box-shadow: 0 3px 10px rgba(23, 76, 60, 0.2);
+}
 
 .login-console :deep(form) { gap: 12px; }
 .login-console :deep(label > span:first-child) { margin-bottom: 5px; color: #345548; font-size: 12px; }

@@ -23,3 +23,12 @@ test('new skin keeps real project authentication contracts', () => {
   assert.doesNotMatch(source, /HerbWise@2026/)
   assert.doesNotMatch(source, /captchaCode = ref/)
 })
+
+test('role and authentication choices use a strong shared selected state', () => {
+  assert.match(source, /label: '用户端'/)
+  assert.match(source, /role="tab" :aria-selected="activeTab === 'login'"/)
+  assert.match(source, /:global\(#app \.herbwise-login-page \.role-tabs button\.active\)/)
+  assert.match(source, /:global\(#app \.herbwise-login-page \.auth-tabs button\.active\)/)
+  assert.match(source, /background: #174c3c !important;/)
+  assert.match(source, /color: #fff !important;/)
+})
