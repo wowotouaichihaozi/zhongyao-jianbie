@@ -55,11 +55,13 @@ def test_json_model_calls_have_enough_budget_for_reasoning_models():
             '返回 {"ok":true}',
             max_tokens=120,
             json_mode=True,
+            thinking=False,
         )
 
     request_body = json.loads(request_call.call_args.args[0].data.decode("utf-8"))
     assert result == '{"ok":true}'
     assert request_body["max_tokens"] == 128000
+    assert request_body["thinking"] == {"type": "disabled"}
 
 
 def test_question_generator_ignores_request_model_url_and_credentials():

@@ -797,9 +797,10 @@ def node_llm_agent_decide(state: WorkflowState) -> WorkflowState:
                 system,
                 prompt + retry_instruction,
                 max_tokens=PROFILE_AGENT_MAX_TOKENS,
-                timeout=35,
+                timeout=90,
                 json_mode=True,
                 allow_anthropic_fallback=False,
+                thinking=False,
             )
             parsed = _extract_json(raw)
             validated = validate_agent_json(parsed)

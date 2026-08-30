@@ -91,6 +91,7 @@ def request_llm_text(
     timeout: int = 90,
     json_mode: bool = True,
     allow_anthropic_fallback: bool = True,
+    thinking: bool | None = None,
 ) -> str:
     """Call the configured LLM and return text content.
 
@@ -124,6 +125,8 @@ def request_llm_text(
         }
         if json_mode:
             body["response_format"] = {"type": "json_object"}
+        if thinking is not None:
+            body["thinking"] = {"type": "enabled" if thinking else "disabled"}
         req = urllib.request.Request(
             build_openai_chat_completions_url(openai_base_url),
             data=json.dumps(body, ensure_ascii=False).encode("utf-8"),

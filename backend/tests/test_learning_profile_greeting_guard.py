@@ -253,6 +253,8 @@ class LearningProfileGreetingGuardTests(unittest.TestCase):
             )
 
         self.assertEqual(request_model.call_args.kwargs["max_tokens"], workflow_agent.PROFILE_AGENT_MAX_TOKENS)
+        self.assertEqual(request_model.call_args.kwargs["timeout"], 90)
+        self.assertIs(request_model.call_args.kwargs["thinking"], False)
         self.assertEqual(result["studentProfile"]["可投入时间"], "每天约 7 小时")
         self.assertEqual(result["nextDimension"], "易错点类型")
         self.assertNotIn("大模型不可用", result["reply"])
