@@ -11944,7 +11944,7 @@ onBeforeUnmount(() => {
 /* Keep the three learning-profile modes aligned on one stable desktop rail. */
 @media (min-width: 761px) {
   #app .lp-page.lp-page {
-    --learning-profile-sidebar-width: 276px;
+    --learning-profile-sidebar-width: 320px;
   }
 
   #app .lp-page.lp-page > .lp-sidebar.lp-sidebar {
@@ -12055,18 +12055,18 @@ onBeforeUnmount(() => {
   #app .lp-page.lp-page.profile-history-mode .sidebar-stage-card,
   #app .lp-page.lp-page.profile-history-mode:not(.profile-report-mode) .sidebar-stage-card {
     width: 100% !important;
-    height: 290px !important;
-    min-height: 290px !important;
-    max-height: 290px !important;
-    flex: 0 0 290px !important;
+    height: 360px !important;
+    min-height: 360px !important;
+    max-height: 360px !important;
+    flex: 0 0 360px !important;
   }
 
   #app .lp-page.lp-page .sidebar-stage-frame,
   #app .lp-page.lp-page.profile-history-mode .sidebar-stage-frame,
   #app .lp-page.lp-page.profile-assess-mode .sidebar-stage-frame {
-    height: 200px !important;
-    min-height: 200px !important;
-    max-height: 200px !important;
+    height: 270px !important;
+    min-height: 270px !important;
+    max-height: 270px !important;
   }
 
   #app .lp-page.lp-page .sidebar-stage-card > strong,
