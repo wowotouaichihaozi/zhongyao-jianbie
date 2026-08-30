@@ -12084,6 +12084,29 @@ onBeforeUnmount(() => {
   }
 }
 
+@media (min-width: 1280px) {
+  #app .lp-page.lp-page {
+    --learning-profile-sidebar-width: 420px;
+  }
+
+  #app .lp-page.lp-page .sidebar-stage-card,
+  #app .lp-page.lp-page.profile-history-mode .sidebar-stage-card,
+  #app .lp-page.lp-page.profile-history-mode:not(.profile-report-mode) .sidebar-stage-card {
+    height: 500px !important;
+    min-height: 500px !important;
+    max-height: 500px !important;
+    flex-basis: 500px !important;
+  }
+
+  #app .lp-page.lp-page .sidebar-stage-frame,
+  #app .lp-page.lp-page.profile-history-mode .sidebar-stage-frame,
+  #app .lp-page.lp-page.profile-assess-mode .sidebar-stage-frame {
+    height: 410px !important;
+    min-height: 410px !important;
+    max-height: 410px !important;
+  }
+}
+
 /* Keep the shared SDK player inside the sidebar stage instead of floating over it. */
 #app .lp-page.lp-page .sidebar-stage-frame {
   position: relative !important;
