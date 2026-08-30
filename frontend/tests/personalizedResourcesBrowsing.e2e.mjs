@@ -48,7 +48,7 @@ try {
   assert.ok(visibleCardCount > 0 && visibleCardCount <= 9, `expected 1-9 cards, received ${visibleCardCount}`)
   assert.equal(await page.locator('.history-search').count(), 1)
   assert.equal(await page.locator('.history-pagination').count(), 1)
-  assert.equal(await page.locator('.resource-launcher-grid').count(), 1)
+  assert.equal(await page.locator('.resource-tools-grid').count(), 1)
   assert.equal(await page.locator('.resource-gallery').count(), 1)
   const liveCoverCount = await page.locator('.resource-live-cover').count()
   const staticCoverCount = await page.locator('.resource-static-cover').count()

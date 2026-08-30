@@ -26,25 +26,24 @@
       <button class="banner-btn" @click="$router.push('/learning-profile')">前往评估</button>
     </div>
 
-    <section class="resource-launchers" aria-labelledby="resource-tools-title">
-      <div class="section-line-heading">
-        <h2 id="resource-tools-title">资源工具</h2>
+    <section class="resource-tools-section" aria-labelledby="resource-tools-title">
+      <div class="resource-tools-head">
+        <h2 id="resource-tools-title">新建资源</h2>
       </div>
-      <nav class="resource-launcher-grid" aria-label="资源生成工具">
+      <nav class="resource-tools-grid" aria-label="资源生成工具">
         <RouterLink
           v-for="tool in resourceTools"
           :key="tool.to"
-          class="resource-launcher"
-          :class="tool.tone"
+          class="resource-tool-card"
           :to="tool.to"
           target="_blank"
           rel="noopener noreferrer"
+          :aria-label="tool.title"
         >
-          <span class="launcher-icon"><component :is="tool.icon" :size="22" :stroke-width="1.8" aria-hidden="true" /></span>
-          <span class="launcher-copy">
-            <strong>{{ tool.title }}</strong>
+          <span class="resource-tool-icon">
+            <component :is="tool.icon" :size="26" :stroke-width="1.8" aria-hidden="true" />
           </span>
-          <ArrowRight :size="17" aria-hidden="true" />
+          <strong>{{ tool.title }}</strong>
         </RouterLink>
       </nav>
     </section>
@@ -206,21 +205,20 @@
 import { ref, computed, markRaw, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  ArrowRight,
+  BookOpenCheck,
   Box,
   ChevronLeft,
   ChevronRight,
   CirclePlay,
-  Film,
+  Clapperboard,
   FileText,
-  ListChecks,
   LoaderCircle,
-  PanelsTopLeft,
+  Presentation,
   Plus,
   RefreshCw,
   Search,
+  Share2,
   TriangleAlert,
-  Workflow,
   X,
 } from 'lucide-vue-next'
 import {
@@ -244,38 +242,32 @@ const resourceTools = [
   {
     title: 'AI 视频课程',
     to: '/personalized-resources/video-generator',
-    icon: markRaw(Film),
-    tone: 'launcher-teal',
+    icon: markRaw(Clapperboard),
   },
   {
     title: '题库生成',
     to: '/personalized-resources/question-bank',
-    icon: markRaw(ListChecks),
-    tone: 'launcher-amber',
+    icon: markRaw(BookOpenCheck),
   },
   {
     title: 'PPT生成',
     to: '/personalized-resources/ppt',
-    icon: markRaw(PanelsTopLeft),
-    tone: 'launcher-blue',
+    icon: markRaw(Presentation),
   },
   {
     title: '思维导图',
     to: '/personalized-resources/mind-map',
-    icon: markRaw(Workflow),
-    tone: 'launcher-violet',
+    icon: markRaw(Share2),
   },
   {
     title: '药材模型识别',
     to: '/personalized-resources/herb-model',
     icon: markRaw(Box),
-    tone: 'launcher-coral',
   },
   {
     title: '视频查找',
     to: '/personalized-resources/video-search',
     icon: markRaw(Search),
-    tone: 'launcher-cyan',
   },
 ]
 
@@ -3349,6 +3341,117 @@ function formatResourceTime(value) {
   .resources-title-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+/* PR #6 resource head, kept independent from the history cover grid below it. */
+.resource-tools-section {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 8px 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.resource-tools-head {
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.resource-tools-head h2 {
+  margin: 0;
+  color: #202b27;
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.resource-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid #e1e6e2;
+  border-bottom: 1px solid #e1e6e2;
+}
+
+#app .resources-page .resource-tool-card,
+#app .resources-page .resource-tool-card[class*="tool-"] {
+  min-height: 88px;
+  padding: 13px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0 !important;
+  border-right: 1px solid #e1e6e2 !important;
+  border-radius: 0 !important;
+  color: #26332e;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-align: center;
+  text-decoration: none;
+  transition: color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+#app .resources-page .resource-tool-card:last-child {
+  border-right: 0 !important;
+}
+
+#app .resources-page .resource-tool-card:hover {
+  color: #176b50;
+  background: #f0f4f1 !important;
+  transform: translateY(-2px);
+}
+
+#app .resources-page .resource-tool-card .resource-tool-icon,
+#app .resources-page .resource-tool-card[class*="tool-"] .resource-tool-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  color: currentColor;
+  background: transparent !important;
+}
+
+.resource-tool-card > strong {
+  color: currentColor;
+  font-size: 14px;
+  font-weight: 620;
+  line-height: 1.2;
+}
+
+@media (max-width: 720px) {
+  .resource-tools-section {
+    margin-bottom: 0;
+    padding: 6px 0 8px;
+  }
+
+  .resource-tools-head h2 {
+    font-size: 19px;
+  }
+
+  .resource-tools-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-bottom: 0;
+  }
+
+  #app .resources-page .resource-tool-card,
+  #app .resources-page .resource-tool-card[class*="tool-"] {
+    min-height: 74px;
+    border-bottom: 1px solid #e1e6e2 !important;
+  }
+
+  #app .resources-page .resource-tool-card:nth-child(2n) {
+    border-right: 0 !important;
+  }
+
+  #app .resources-page .resource-tool-card:last-child {
+    border-right: 1px solid #e1e6e2 !important;
   }
 }
 </style>
