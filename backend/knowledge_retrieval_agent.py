@@ -134,21 +134,21 @@ def _extract_entities(message: str) -> list[str]:
         r"([\u4e00-\u9fff]{2,10})[与和及]([\u4e00-\u9fff]{2,10})(?=的(?:功效|性味|主治|区别|异同|鉴别|配伍))",
         message,
     ):
-        left = re.sub(r"^(?:比较|对比|辨析|鉴别|分析)", "", left)
+        left = re.sub(r"^(?:请)?(?:围绕|关于)?(?:比较|对比|辨析|鉴别|分析)?", "", left)
         right = re.sub(r"(?:之间)?$", "", right)
         syntactic.extend([left, right])
     for entity in re.findall(
         r"(?:如|例如|观察|识别|辨认|学习|关于|围绕)?([\u4e00-\u9fff]{2,8})的[\u4e00-\u9fff]{0,4}(?:性味归经|功效|主治|药用部位|性状|炮制|用法|用量)",
         message,
     ):
-        entity = re.sub(r"^(?:比较|对比|辨析|鉴别|分析|关于|围绕|观察|识别|辨认|学习)", "", entity)
+        entity = re.sub(r"^(?:请)?(?:比较|对比|辨析|鉴别|分析|关于|围绕|观察|识别|辨认|学习)", "", entity)
         if not re.search(r"[与和及]", entity):
             syntactic.append(entity)
     for entity in re.findall(
         r"(?:分析|辨析|围绕|关于)?([\u4e00-\u9fff]{2,10}?)(?:医案)?的(?:病机|治法|证候|方药)",
         message,
     ):
-        entity = re.sub(r"^(?:分析|辨析|围绕|关于)", "", entity)
+        entity = re.sub(r"^(?:请)?(?:分析|辨析|围绕|关于)", "", entity)
         syntactic.append(entity)
 
     quoted = re.findall(r"[“\"]([^”\"]{2,24})[”\"]", message)

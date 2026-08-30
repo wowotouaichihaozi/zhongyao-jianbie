@@ -106,13 +106,70 @@
         </template>
       </aside>
     </section>
+
+    <section v-if="resultName" class="analysis-panel" aria-live="polite">
+      <header class="analysis-header">
+        <div>
+          <span>大模型药性分析</span>
+          <h2>{{ resultName }}学习要点</h2>
+        </div>
+        <p v-if="analysisResult">知识库引用 {{ analysisCitations.length }} 条</p>
+      </header>
+
+      <div v-if="isAnalyzing" class="analysis-status">
+        <LoaderCircle :size="20" class="spin" aria-hidden="true" />
+        正在检索知识库并分析药物特性
+      </div>
+      <div v-else-if="analysisError" class="analysis-status analysis-error" role="alert">
+        <TriangleAlert :size="19" aria-hidden="true" />
+        <span>{{ analysisError }}</span>
+        <button type="button" @click="loadHerbAnalysis(resultName)">重新分析</button>
+      </div>
+      <div v-else-if="analysisResult" class="analysis-content">
+        <article class="agent-explanation">
+          <div class="agent-explanation-mark" aria-hidden="true"><BookOpenText :size="20" /></div>
+          <div>
+            <h3>药物讲解</h3>
+            <p>{{ analysisResult.agentExplanation }}</p>
+          </div>
+        </article>
+        <dl>
+          <div>
+            <dt>来源与药用部位</dt>
+            <dd>{{ analysisResult.sourceAndPart }}</dd>
+          </div>
+          <div>
+            <dt>性味归经</dt>
+            <dd>{{ analysisResult.natureFlavorMeridians }}</dd>
+          </div>
+          <div>
+            <dt>功效主治</dt>
+            <dd><ul><li v-for="item in analysisResult.effectsAndIndications" :key="item">{{ item }}</li></ul></dd>
+          </div>
+          <div>
+            <dt>性状鉴别</dt>
+            <dd><ul><li v-for="item in analysisResult.identificationPoints" :key="item">{{ item }}</li></ul></dd>
+          </div>
+          <div>
+            <dt>配伍思路</dt>
+            <dd>{{ analysisResult.compatibility }}</dd>
+          </div>
+          <div>
+            <dt>用药注意</dt>
+            <dd><ul><li v-for="item in analysisResult.cautions" :key="item">{{ item }}</li></ul></dd>
+          </div>
+        </dl>
+        <p class="learning-tip"><BookOpenText :size="18" aria-hidden="true" />{{ analysisResult.learningTip }}</p>
+        <p class="analysis-disclaimer">内容用于中药学学习，不替代药材真伪鉴定、临床诊断或处方建议。</p>
+      </div>
+    </section>
   </main>
 </template>
 
 <script setup>
 import { nextTick, onActivated, onBeforeUnmount, onDeactivated, ref } from 'vue'
-import { Camera, Crosshair, ImageUp, LoaderCircle, RefreshCw, ScanSearch, TriangleAlert } from 'lucide-vue-next'
-import { calibrateHerbWithAi, recognizeHerb } from '../services/api.js'
+import { BookOpenText, Camera, Crosshair, ImageUp, LoaderCircle, RefreshCw, ScanSearch, TriangleAlert } from 'lucide-vue-next'
+import { analyzeRecognizedHerb, calibrateHerbWithAi, recognizeHerb } from '../services/api.js'
 
 const ACCEPTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -127,11 +184,41 @@ const cameraActive = ref(false)
 const isRecognizing = ref(false)
 const errorMessage = ref('')
 const resultName = ref('')
+const isAnalyzing = ref(false)
+const analysisError = ref('')
+const analysisResult = ref(null)
+const analysisCitations = ref([])
 let stream = null
+let analysisRequestId = 0
 
 function resetRecognition() {
+  analysisRequestId += 1
   errorMessage.value = ''
   resultName.value = ''
+  isAnalyzing.value = false
+  analysisError.value = ''
+  analysisResult.value = null
+  analysisCitations.value = []
+}
+
+async function loadHerbAnalysis(name) {
+  const requestId = ++analysisRequestId
+  isAnalyzing.value = true
+  analysisError.value = ''
+  analysisResult.value = null
+  analysisCitations.value = []
+  try {
+    const data = await analyzeRecognizedHerb(name)
+    if (requestId !== analysisRequestId) return
+    analysisResult.value = data?.analysis || null
+    analysisCitations.value = Array.isArray(data?.citations) ? data.citations : []
+    if (!analysisResult.value) throw new Error('大模型未返回可用的药性分析。')
+  } catch (error) {
+    if (requestId !== analysisRequestId) return
+    analysisError.value = error?.response?.data?.msg || error?.message || '大模型药性分析不可用，请稍后重试。'
+  } finally {
+    if (requestId === analysisRequestId) isAnalyzing.value = false
+  }
 }
 
 function clearPreview() {
@@ -237,6 +324,7 @@ async function recognize() {
       : await recognizeHerb(selectedFile.value)
     resultName.value = result?.name || ''
     if (!resultName.value) throw new Error('识别服务没有返回药材名称。')
+    loadHerbAnalysis(resultName.value)
   } catch (error) {
     errorMessage.value = error?.response?.data?.msg || error?.message || '药材识别失败，请稍后重试。'
   } finally {
@@ -260,10 +348,15 @@ onActivated(() => {
 
 <style scoped>
 .herb-recognition-page {
-  min-height: calc(100vh - 72px);
+  height: calc(100vh - 72px);
+  min-height: 0;
   padding: 48px clamp(24px, 6vw, 104px) 72px;
   background: #f6f8f6;
   box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .page-header {
@@ -476,6 +569,154 @@ onActivated(() => {
   font-weight: 650;
 }
 
+.analysis-panel {
+  max-width: 1180px;
+  margin: 22px auto 0;
+  padding: 28px 30px;
+  border: 1px solid #dde5df;
+  border-radius: 8px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.analysis-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e7ece8;
+}
+
+.analysis-header span {
+  color: #8d4b3d;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.analysis-header h2 {
+  margin: 5px 0 0;
+  color: #173d2e;
+  font-size: 22px;
+}
+
+.analysis-header p {
+  margin: 0;
+  color: #718078;
+  font-size: 13px;
+}
+
+.analysis-status {
+  min-height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: #52655b;
+  font-size: 15px;
+}
+
+.analysis-error {
+  color: #ae3b34;
+}
+
+.analysis-error button {
+  margin-left: 8px;
+  padding: 7px 12px;
+  border: 1px solid #cfdbd3;
+  border-radius: 6px;
+  color: #173d2e;
+  background: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.analysis-content dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 36px;
+  margin: 0;
+}
+
+.agent-explanation {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 14px;
+  padding: 22px 0 20px;
+  border-bottom: 1px solid #dfe8e2;
+}
+
+.agent-explanation-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #1f6a4d;
+}
+
+.agent-explanation h3 {
+  margin: 0 0 7px;
+  color: #173d2e;
+  font-size: 16px;
+}
+
+.agent-explanation p {
+  margin: 0;
+  color: #43564d;
+  font-size: 15px;
+  line-height: 1.85;
+}
+
+.analysis-content dl > div {
+  padding: 20px 0;
+  border-bottom: 1px solid #edf1ee;
+}
+
+.analysis-content dt {
+  margin-bottom: 8px;
+  color: #315847;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.analysis-content dd,
+.analysis-content ul {
+  margin: 0;
+  color: #4c5c54;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.analysis-content ul {
+  padding-left: 18px;
+}
+
+.learning-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 22px 0 0;
+  padding: 13px 15px;
+  color: #315847;
+  background: #f3f7f4;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.learning-tip svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.analysis-disclaimer {
+  margin: 12px 0 0;
+  color: #849089;
+  font-size: 12px;
+}
+
 .spin {
   animation: spin 0.9s linear infinite;
 }
@@ -486,7 +727,8 @@ onActivated(() => {
 
 @media (max-width: 800px) {
   .herb-recognition-page {
-    min-height: 100vh;
+    height: calc(100vh - 88px);
+    min-height: 0;
     padding: 30px 18px 100px;
   }
 
@@ -532,6 +774,21 @@ onActivated(() => {
   .result-panel {
     min-height: 168px;
     padding: 24px;
+  }
+
+  .analysis-panel {
+    margin-top: 16px;
+    padding: 22px 18px;
+  }
+
+  .analysis-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .analysis-content dl {
+    grid-template-columns: 1fr;
   }
 }
 

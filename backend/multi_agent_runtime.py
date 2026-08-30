@@ -369,6 +369,7 @@ def node_load_context(state: MultiAgentState) -> MultiAgentState:
     learner_context = {
         "profile": profile,
         "weakPoints": _weak_points(profile),
+        "longTermMemories": (context.get("longTermMemories") or [])[:10],
         "examResults": context.get("examResults") or [],
         "questionSheets": context.get("questionSheets") or [],
         "mcuExperiments": context.get("mcuExperiments") or [],
@@ -390,6 +391,8 @@ def node_load_context(state: MultiAgentState) -> MultiAgentState:
             "weakPointCount": len(learner_context["weakPoints"]),
             "examCount": len(learner_context["examResults"]),
             "experimentCount": len(learner_context["mcuExperiments"]),
+            "memoryCount": len(learner_context["longTermMemories"]),
+            "memoryIds": [item.get("id") for item in learner_context["longTermMemories"] if isinstance(item, dict)],
         },
     )
     next_agent = (
@@ -454,7 +457,12 @@ def node_retrieve_knowledge(state: MultiAgentState) -> MultiAgentState:
         "complete" if citations else "warning",
         f"混合知识路由完成，命中 {len(citations)} 条可追溯证据；审核结论：{verification.get('status') or '待核验'}",
         30,
-        {"query": query, "citations": conversation_citations, "routing": routing},
+        {
+            "query": query,
+            "citations": conversation_citations,
+            "routing": routing,
+            "cache": knowledge.get("cache") or {},
+        },
     )
     _handoff(
         state,
@@ -466,6 +474,7 @@ def node_retrieve_knowledge(state: MultiAgentState) -> MultiAgentState:
             "citations": citations,
             "chunks": (knowledge.get("chunks") or knowledge.get("hits") or [])[:7],
             "routing": routing,
+            "cache": knowledge.get("cache") or {},
         },
     )
     return state
@@ -486,6 +495,7 @@ def _specialist_payload(state: MultiAgentState) -> dict[str, Any]:
         }
     payload.setdefault("learningEvidence", profile.get("learningEvidence") or {})
     payload["xiaozhiContext"] = learner_context
+    payload["longTermMemories"] = learner_context.get("longTermMemories") or []
     payload["knowledgeSources"] = (state.get("knowledge") or {}).get("citations") or []
     knowledge = state.get("knowledge") or {}
     payload["knowledgeContext"] = knowledge.get("chunks") or knowledge.get("hits") or []
@@ -498,6 +508,11 @@ def _specialist_payload(state: MultiAgentState) -> dict[str, Any]:
         "attempt": state.get("attempt", 0) + 1,
         "reviewFeedback": (state.get("review") or {}).get("issues") or [],
         "profileConversation": learner_context.get("sharedAgentConversation") or {},
+        "memoryIds": [
+            item.get("id")
+            for item in (learner_context.get("longTermMemories") or [])
+            if isinstance(item, dict)
+        ],
     }
     return payload
 

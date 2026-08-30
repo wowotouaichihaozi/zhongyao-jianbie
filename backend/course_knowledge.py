@@ -8,11 +8,15 @@ This keeps startup fast while still making the complete document set available.
 from __future__ import annotations
 
 import json
+import copy
+import hashlib
 import math
 import os
 import re
+import sqlite3
 import threading
-from collections import Counter
+import time
+from collections import Counter, OrderedDict
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -359,6 +363,161 @@ class CourseKnowledgeBase:
 
 
 _knowledge_base = CourseKnowledgeBase()
+
+RETRIEVAL_CACHE_VERSION = "hybrid-retrieval-cache-v1"
+RETRIEVAL_CACHE_TTL_SECONDS = max(30, int(os.environ.get("KNOWLEDGE_RETRIEVAL_CACHE_TTL", "600")))
+RETRIEVAL_CACHE_MAX_ENTRIES = max(16, int(os.environ.get("KNOWLEDGE_RETRIEVAL_CACHE_SIZE", "256")))
+_retrieval_cache_lock = threading.RLock()
+_retrieval_cache: OrderedDict[str, tuple[float, dict[str, Any]]] = OrderedDict()
+
+
+def clear_retrieval_cache() -> None:
+    with _retrieval_cache_lock:
+        _retrieval_cache.clear()
+
+
+def _file_revision(paths: list[Path]) -> str:
+    parts = [RETRIEVAL_CACHE_VERSION, str(CACHE_VERSION)]
+    for path in paths:
+        try:
+            stat = path.stat()
+            parts.append(f"{path.name}:{stat.st_size}:{stat.st_mtime_ns}")
+        except OSError:
+            parts.append(f"{path.name}:missing")
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:20]
+
+
+def _public_knowledge_revision() -> str:
+    data_dir = Path(__file__).resolve().parent / "data"
+    return _file_revision(
+        [
+            CACHE_PATH,
+            data_dir / "tcm_qa_pairs.json",
+            data_dir / "tcm_graph_index.json",
+            data_dir / "tcm_hybrid_corpus.db.gz",
+            data_dir / "tcm_hybrid_corpus_manifest.json",
+        ]
+    )
+
+
+def _private_knowledge_revision(
+    user_id: int | None,
+    db_path: str | Path | None,
+    collection_id: int | None,
+    include_private: bool,
+) -> str:
+    if not include_private or user_id is None:
+        return "private-disabled"
+    # User id is always part of the revision, including when no collection is
+    # active, so cached private evidence can never cross account boundaries.
+    prefix = f"user:{int(user_id)}"
+    if db_path is None:
+        return f"{prefix}:runtime-resolved"
+    resolved_path = Path(db_path)
+    if not resolved_path.exists():
+        return f"{prefix}:db-missing"
+    try:
+        conn = sqlite3.connect(resolved_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            resolved_collection_id = int(collection_id or 0)
+            if not resolved_collection_id:
+                state = conn.execute(
+                    "SELECT active_collection_id FROM user_private_knowledge_state WHERE user_id = ?",
+                    (int(user_id),),
+                ).fetchone()
+                resolved_collection_id = int(state["active_collection_id"] or 0) if state else 0
+            if not resolved_collection_id:
+                return f"{prefix}:none"
+            row = conn.execute(
+                """
+                SELECT k.updated_at,
+                       COUNT(DISTINCT d.id) AS document_count,
+                       COUNT(c.id) AS chunk_count,
+                       COALESCE(MAX(d.updated_at), '') AS document_revision,
+                       COALESCE(MAX(c.id), 0) AS max_chunk_id
+                FROM private_knowledge_collections AS k
+                LEFT JOIN private_knowledge_documents AS d
+                  ON d.collection_id = k.id AND d.user_id = k.user_id
+                LEFT JOIN private_knowledge_chunks AS c
+                  ON c.collection_id = k.id AND c.user_id = k.user_id AND c.document_id = d.id
+                WHERE k.id = ? AND k.user_id = ? AND k.archived = 0
+                GROUP BY k.id
+                """,
+                (resolved_collection_id, int(user_id)),
+            ).fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return f"{prefix}:db-unavailable"
+    if not row:
+        return f"{prefix}:collection:{resolved_collection_id}:missing"
+    return (
+        f"{prefix}:collection:{resolved_collection_id}:{row['updated_at']}:"
+        f"{row['document_revision']}:{row['document_count']}:{row['chunk_count']}:{row['max_chunk_id']}"
+    )
+
+
+def _retrieval_signature(plan: dict[str, Any]) -> str:
+    entities = sorted(str(item).strip().lower() for item in (plan.get("entities") or []))
+    aspects = sorted(str(item).strip().lower() for item in (plan.get("aspects") or []))
+    # For well-formed domain requests, entities + aspects + intent are the
+    # semantic signature. Task wording such as "please", "generate PPT" or a
+    # punctuation change should not force an identical retrieval to run again.
+    fallback_keywords = [] if entities or aspects else sorted(
+        str(item).strip().lower() for item in (plan.get("keywords") or [])
+    )
+    normalized = {
+        "version": plan.get("version") or "",
+        "intent": plan.get("intent") or "concept",
+        "entities": entities,
+        "aspects": aspects,
+        "keywords": fallback_keywords,
+    }
+    return json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _retrieval_cache_key(
+    plan: dict[str, Any],
+    *,
+    top_k: int,
+    max_context_chars: int,
+    public_revision: str,
+    private_revision: str,
+) -> str:
+    raw = "|".join(
+        [
+            _retrieval_signature(plan),
+            str(int(top_k)),
+            str(int(max_context_chars)),
+            public_revision,
+            private_revision,
+        ]
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _cached_retrieval(key: str) -> tuple[dict[str, Any] | None, float]:
+    now = time.monotonic()
+    with _retrieval_cache_lock:
+        entry = _retrieval_cache.get(key)
+        if entry is None:
+            return None, 0.0
+        created_at, result = entry
+        age = max(0.0, now - created_at)
+        if age > RETRIEVAL_CACHE_TTL_SECONDS:
+            _retrieval_cache.pop(key, None)
+            return None, age
+        _retrieval_cache.move_to_end(key)
+        return copy.deepcopy(result), age
+
+
+def _store_cached_retrieval(key: str, result: dict[str, Any]) -> None:
+    with _retrieval_cache_lock:
+        _retrieval_cache[key] = (time.monotonic(), copy.deepcopy(result))
+        _retrieval_cache.move_to_end(key)
+        while len(_retrieval_cache) > RETRIEVAL_CACHE_MAX_ENTRIES:
+            _retrieval_cache.popitem(last=False)
 
 
 def _knowledge_hit_block(hit: dict[str, Any]) -> str:
@@ -801,6 +960,34 @@ def retrieve_course_knowledge(
     include_private: bool = True,
 ) -> dict[str, Any]:
     plan = plan_knowledge_retrieval(query, max_subqueries=4)
+    public_revision = _public_knowledge_revision()
+    private_revision = _private_knowledge_revision(
+        user_id,
+        db_path,
+        private_collection_id,
+        include_private,
+    )
+    cache_key = _retrieval_cache_key(
+        plan,
+        top_k=top_k,
+        max_context_chars=max_context_chars,
+        public_revision=public_revision,
+        private_revision=private_revision,
+    )
+    cached, cache_age = _cached_retrieval(cache_key)
+    if cached is not None:
+        cached["query"] = query
+        if isinstance(cached.get("retrievalAgent"), dict):
+            cached["retrievalAgent"]["originalQuery"] = query
+        cached["cache"] = {
+            "hit": True,
+            "key": cache_key[:16],
+            "ageSeconds": round(cache_age, 3),
+            "ttlSeconds": RETRIEVAL_CACHE_TTL_SECONDS,
+            "publicRevision": public_revision,
+            "privateRevision": private_revision,
+        }
+        return cached
     subqueries = plan.get("subQueries") or [{"id": "SQ1", "query": query}]
     runs: list[tuple[dict[str, Any], dict[str, Any]]] = []
     per_query_top_k = 12
@@ -818,13 +1005,23 @@ def retrieve_course_knowledge(
             include_private=include_private,
         )
         runs.append((subquery, result))
-    return _merge_agent_retrievals(
+    result = _merge_agent_retrievals(
         query,
         plan,
         runs,
         top_k=top_k,
         max_context_chars=max_context_chars,
     )
+    _store_cached_retrieval(cache_key, result)
+    result["cache"] = {
+        "hit": False,
+        "key": cache_key[:16],
+        "ageSeconds": 0.0,
+        "ttlSeconds": RETRIEVAL_CACHE_TTL_SECONDS,
+        "publicRevision": public_revision,
+        "privateRevision": private_revision,
+    }
+    return result
 
 
 def grounded_prompt_block(

@@ -327,4 +327,34 @@ router.beforeEach(async (to) => {
   return true
 })
 
+const ROUTE_CHUNK_RELOAD_KEY = 'feishengwangying:route-chunk-reload'
+
+function isRouteChunkLoadError(error) {
+  const message = String(error?.message || error || '')
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk .* failed/i.test(message)
+}
+
+router.onError((error, to) => {
+  if (!isRouteChunkLoadError(error)) return
+  let lastReload = 0
+  try {
+    lastReload = Number(sessionStorage.getItem(ROUTE_CHUNK_RELOAD_KEY) || 0)
+  } catch {}
+  const now = Date.now()
+  if (now - lastReload < 15000) return
+  try {
+    sessionStorage.setItem(ROUTE_CHUNK_RELOAD_KEY, String(now))
+  } catch {}
+  const target = typeof to?.fullPath === 'string' && to.fullPath.startsWith('/')
+    ? to.fullPath
+    : window.location.pathname + window.location.search + window.location.hash
+  window.location.replace(target)
+})
+
+router.afterEach(() => {
+  try {
+    sessionStorage.removeItem(ROUTE_CHUNK_RELOAD_KEY)
+  } catch {}
+})
+
 export default router

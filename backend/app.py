@@ -40,9 +40,9 @@ except ImportError:  # pragma: no cover - package import fallback
     from .video_generation import execute_generated_video_task, generate_generated_video_cover, media_file
 
 try:
-    from herb_recognition import HerbRecognitionError, recognize_herb_image, recognize_herb_image_with_deepseek
+    from herb_recognition import HerbRecognitionError, herb_ai_runtime_overrides, normalize_herb_analysis, recognize_herb_image, recognize_herb_image_with_deepseek, validate_recognized_herb_name
 except ImportError:  # pragma: no cover - package import fallback
-    from .herb_recognition import HerbRecognitionError, recognize_herb_image, recognize_herb_image_with_deepseek
+    from .herb_recognition import HerbRecognitionError, herb_ai_runtime_overrides, normalize_herb_analysis, recognize_herb_image, recognize_herb_image_with_deepseek, validate_recognized_herb_name
 
 try:
     from resource_cover import render_resource_task_cover
@@ -4446,6 +4446,69 @@ def herb_recognition_ai_calibrate():
         return jsonify({"code": exc.status_code, "msg": str(exc)}), exc.status_code
 
     return jsonify({"code": 0, "data": {"name": herb_name}})
+
+
+@app.post("/api/herb-recognition/analyze")
+def herb_recognition_analyze():
+    payload = request.get_json(silent=True) or {}
+    try:
+        herb_name = validate_recognized_herb_name(payload.get("name"))
+    except HerbRecognitionError as exc:
+        return jsonify({"code": exc.status_code, "msg": str(exc)}), exc.status_code
+
+    query = f"{herb_name} 来源 药用部位 性味归经 功效主治 性状鉴别 配伍 用药注意"
+    try:
+        knowledge = retrieve_course_knowledge(
+            query,
+            top_k=6,
+            max_context_chars=7000,
+            user_id=int(g.current_user["id"]),
+            db_path=AUTH_DB_PATH,
+        )
+        evidence = str(knowledge.get("context") or "").strip()
+        with setting_overrides(herb_ai_runtime_overrides()):
+            analysis_payload = call_llm_json(
+                """你是中药学与中药鉴定学学习助手。只分析用户给出的标准药材名，不诊断、不处方。
+优先依据提供的混合知识库证据；证据不足时明确写“需进一步核验”，不得编造来源、性味归经、功效或禁忌。
+只输出合法 JSON，不要输出 Markdown。""".strip(),
+                f"""标准药材名：{herb_name}
+
+混合知识库证据（来源可能包括 QA 对、文档切块和知识图谱）：
+{evidence or "未检索到直接证据；仅可给出通行教材知识，并将不确定内容标为需进一步核验。"}
+
+请输出以下 JSON 字段：
+{{
+  "agentExplanation": "用180至320个中文字符连贯讲解这味药材：从来源和性状切入，解释性味归经如何关联主要功效，再指出辨识时最值得观察的特征和学习时应注意的边界；不要只罗列字段",
+  "sourceAndPart": "来源与药用部位，一段话",
+  "natureFlavorMeridians": "性味归经，一段话",
+  "effectsAndIndications": ["功效与常见主治要点"],
+  "identificationPoints": ["性状鉴别要点"],
+  "compatibility": "常见配伍思路，一段话；不要给具体患者开方",
+  "cautions": ["用药注意与需核验事项"],
+  "learningTip": "帮助记忆该药材的一条学习提示"
+}}""".strip(),
+                max_tokens=3200,
+                repair=True,
+                timeout=120,
+            )
+        analysis = normalize_herb_analysis(herb_name, analysis_payload)
+    except HerbRecognitionError as exc:
+        return jsonify({"code": exc.status_code, "msg": str(exc)}), exc.status_code
+    except Exception as exc:
+        app.logger.warning("herb analysis failed name=%s user=%s error=%s", herb_name, g.current_user["id"], public_llm_error(exc))
+        return jsonify({"code": 502, "msg": "大模型药性分析不可用，请稍后重试。"}), 502
+
+    citations = [
+        {
+            "id": item.get("id"),
+            "title": item.get("title") or item.get("source") or "知识库片段",
+            "route": item.get("route") or item.get("sourceType") or "document",
+            "excerpt": str(item.get("excerpt") or "")[:360],
+        }
+        for item in (knowledge.get("citations") or [])[:6]
+        if isinstance(item, dict)
+    ]
+    return jsonify({"code": 0, "data": {"analysis": analysis, "citations": citations}})
 
 
 @app.post("/api/multimodal-inputs")
@@ -12502,7 +12565,7 @@ def prepare_learning_path_stage_resources_for_user(
 
 
 
-def xiaozhi_latest_context(user_id: int) -> dict:
+def xiaozhi_latest_context(user_id: int, memory_query: str = "") -> dict:
     with auth_db() as conn:
         profile = active_profile_for_user(conn, int(user_id))
         active_profile_report_id = int(profile.get("id") or 0) if profile else 0
@@ -12561,7 +12624,12 @@ def xiaozhi_latest_context(user_id: int) -> dict:
             tasks = []
         private_knowledge = private_knowledge_service.list_knowledge_collections(conn, int(user_id))
         learning_evidence = learning_evidence_for_user(conn, int(user_id))
-        long_term_memories = knowledge_growth.recent_memory_context(conn, int(user_id), limit=12)
+        long_term_memories = knowledge_growth.relevant_memory_context(
+            conn,
+            int(user_id),
+            memory_query,
+            limit=10,
+        )
     try:
         question_history = list_history(user_id)
     except Exception:
@@ -13368,6 +13436,13 @@ def xiaozhi_run_orchestrated(
     platform_context = dict(
         context if isinstance(context, dict) else xiaozhi_latest_context(int(user_id))
     )
+    with auth_db() as conn:
+        platform_context["longTermMemories"] = knowledge_growth.relevant_memory_context(
+            conn,
+            int(user_id),
+            f"{topic} {task_type}",
+            limit=10,
+        )
     profile_report_id = int(
         platform_context.get("profileReportId")
         or (platform_context.get("profile") or {}).get("id")
@@ -15764,7 +15839,7 @@ def xiaozhi_chat():
     if re.search(r"(^|\s)@([^\s，,：:]+)", message) and not has_agent_mention:
         return jsonify({"code": 400, "msg": "该智能体不可用，请从群聊的 @ 列表中选择"}), 400
     requested_profile_id = payload.get("profileReportId")
-    context = xiaozhi_latest_context(user["id"])
+    context = xiaozhi_latest_context(user["id"], memory_query=message)
     profile_report_id = int(
         context.get("profileReportId")
         or (context.get("profile") or {}).get("id")

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import sqlite3
 from collections import Counter
+from datetime import datetime
 from typing import Any
 
 
@@ -44,6 +46,49 @@ def _loads(value: object, fallback: Any) -> Any:
 
 def _compact(value: object, limit: int) -> str:
     return " ".join(str(value or "").split())[:limit]
+
+
+def _tokens(value: object) -> set[str]:
+    """Return stable lexical features for lightweight, local memory retrieval."""
+
+    text = _compact(value, 12000).lower()
+    tokens = set(re.findall(r"[a-z][a-z0-9_+\-]{1,}|[0-9]+(?:\.[0-9]+)?", text))
+    for sequence in re.findall(r"[\u4e00-\u9fff]{2,}", text):
+        tokens.update(sequence[index : index + 2] for index in range(len(sequence) - 1))
+        if len(sequence) <= 12:
+            tokens.add(sequence)
+    return tokens
+
+
+def _timestamp(value: object) -> float:
+    text = str(value or "").strip()
+    if not text:
+        return 0.0
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+
+
+def _memory_row(row: sqlite3.Row, *, score: float | None = None) -> dict[str, Any]:
+    item = {
+        "id": int(row["id"]),
+        "summary": _compact(row["core_summary"], 260),
+        "topics": [_compact(value, 60) for value in _loads(row["topics_json"], [])[:8]],
+        "signals": [
+            {
+                "type": _compact(signal.get("type"), 40),
+                "value": _compact(signal.get("value"), 120),
+                "source": _compact(signal.get("source"), 40),
+            }
+            for signal in _loads(row["signals_json"], [])[:8]
+            if isinstance(signal, dict) and _compact(signal.get("value"), 120)
+        ],
+        "updatedAt": str(row["updated_at"] or ""),
+    }
+    if score is not None:
+        item["relevanceScore"] = round(float(score), 4)
+    return item
 
 
 def extract_conversation_core(
@@ -179,6 +224,26 @@ def conversation_growth_overview(conn: sqlite3.Connection, user_id: int, limit: 
 
 
 def recent_memory_context(conn: sqlite3.Connection, user_id: int, limit: int = 12) -> list[dict[str, Any]]:
+    return relevant_memory_context(conn, user_id, "", limit=limit)
+
+
+def relevant_memory_context(
+    conn: sqlite3.Connection,
+    user_id: int,
+    query: str,
+    *,
+    limit: int = 8,
+    candidate_limit: int = 200,
+    max_context_chars: int = 6000,
+) -> list[dict[str, Any]]:
+    """Retrieve compact user memories by relevance, then recency.
+
+    Memories describe the learner and prior interactions. They are deliberately
+    kept separate from verified course facts and must never be presented as a
+    document/QA/graph citation.
+    """
+
+    resolved_limit = max(1, min(int(limit or 8), 20))
     rows = conn.execute(
         """
         SELECT id, core_summary, topics_json, signals_json, updated_at
@@ -186,12 +251,52 @@ def recent_memory_context(conn: sqlite3.Connection, user_id: int, limit: int = 1
         WHERE user_id = ? AND status = 'complete'
         ORDER BY updated_at DESC, id DESC LIMIT ?
         """,
-        (int(user_id), max(1, min(int(limit or 12), 30))),
+        (int(user_id), max(resolved_limit, min(int(candidate_limit or 200), 500))),
     ).fetchall()
-    return [{
-        "id": int(row["id"]),
-        "summary": str(row["core_summary"] or ""),
-        "topics": _loads(row["topics_json"], []),
-        "signals": _loads(row["signals_json"], []),
-        "updatedAt": str(row["updated_at"] or ""),
-    } for row in rows]
+    if not rows:
+        return []
+
+    query_tokens = _tokens(query)
+    newest_timestamp = max((_timestamp(row["updated_at"]) for row in rows), default=0.0)
+    ranked: list[tuple[float, float, int, sqlite3.Row]] = []
+    for position, row in enumerate(rows):
+        topics = _loads(row["topics_json"], [])
+        signals = _loads(row["signals_json"], [])
+        signal_text = " ".join(
+            f"{item.get('type', '')} {item.get('value', '')}"
+            for item in signals
+            if isinstance(item, dict)
+        )
+        memory_text = f"{row['core_summary'] or ''} {' '.join(map(str, topics))} {signal_text}"
+        memory_tokens = _tokens(memory_text)
+        if query_tokens and memory_tokens:
+            overlap = query_tokens & memory_tokens
+            query_coverage = len(overlap) / max(len(query_tokens), 1)
+            memory_coverage = len(overlap) / max(len(memory_tokens), 1)
+            relevance = query_coverage * 0.82 + memory_coverage * 0.18
+            compact_query = re.sub(r"\s+", "", str(query or "")).lower()
+            compact_memory = re.sub(r"\s+", "", memory_text).lower()
+            if len(compact_query) >= 2 and compact_query in compact_memory:
+                relevance += 0.45
+        else:
+            relevance = 0.0
+        age_seconds = max(0.0, newest_timestamp - _timestamp(row["updated_at"]))
+        recency = math.exp(-age_seconds / (60 * 60 * 24 * 30)) if newest_timestamp else 0.0
+        # Relevance dominates. Recency resolves ties and supplies useful context
+        # when the current request has no lexical match.
+        score = relevance * 10.0 + recency * 0.35 + max(0.0, 0.05 - position * 0.0001)
+        ranked.append((score, recency, int(row["id"]), row))
+
+    ranked.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+    selected: list[dict[str, Any]] = []
+    used_chars = 0
+    for score, _, _, row in ranked:
+        item = _memory_row(row, score=score)
+        serialized_length = len(json.dumps(item, ensure_ascii=False, separators=(",", ":")))
+        if selected and used_chars + serialized_length > max(800, int(max_context_chars or 6000)):
+            continue
+        selected.append(item)
+        used_chars += serialized_length
+        if len(selected) >= resolved_limit:
+            break
+    return selected

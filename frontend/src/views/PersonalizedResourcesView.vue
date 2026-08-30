@@ -338,8 +338,9 @@ async function loadResources() {
     let legacyResources = []
     try {
       const saved = localStorage.getItem('personalizedResources')
-      legacyResources = saved
-        ? JSON.parse(saved).filter(item => item?.source === 'workflow-real-data' || item?.metadata)
+      const parsed = saved ? JSON.parse(saved) : []
+      legacyResources = Array.isArray(parsed)
+        ? parsed.filter(item => item?.source === 'workflow-real-data' || item?.metadata)
         : []
     } catch {}
 
@@ -395,12 +396,14 @@ function sortResourceHistory(items) {
 function loadEvaluations() {
   try {
     const raw = localStorage.getItem('resourceEvaluations')
-    if (raw) evaluations.value = JSON.parse(raw)
+    const parsed = raw ? JSON.parse(raw) : []
+    evaluations.value = Array.isArray(parsed) ? parsed : []
   } catch {}
 }
 
 function getEvaluation(resourceId) {
-  return evaluations.value.find(e => e.resourceId === resourceId)
+  return (Array.isArray(evaluations.value) ? evaluations.value : [])
+    .find(e => e?.resourceId === resourceId)
 }
 
 function saveResources() {
@@ -630,11 +633,11 @@ function goToPage(page) {
 
 function getResourceIcon(type) {
   return {
-    mindmap: Workflow,
-    ppt: PanelsTopLeft,
+    mindmap: Share2,
+    ppt: Presentation,
     video: CirclePlay,
-    generated_video: Film,
-    quiz: ListChecks,
+    generated_video: Clapperboard,
+    quiz: BookOpenCheck,
     herb_model: Box,
   }[type] || FileText
 }

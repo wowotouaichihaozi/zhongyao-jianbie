@@ -105,6 +105,50 @@ def _stable_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def _compact_value(value: Any, *, depth: int = 0) -> Any:
+    """Bound volatile platform data without cutting through serialized JSON."""
+
+    if depth >= 4:
+        return str(value or "")[:300]
+    if isinstance(value, dict):
+        return {
+            str(key): _compact_value(item, depth=depth + 1)
+            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))[:32]
+            if key not in {"agentConversation", "conversationMemories", "raw", "runData"}
+        }
+    if isinstance(value, list):
+        return [_compact_value(item, depth=depth + 1) for item in value[:12]]
+    if isinstance(value, str):
+        return value[:800]
+    return value
+
+
+def _prompt_context(context: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
+    context = context if isinstance(context, dict) else {}
+    stable_profile = {
+        "profileReportId": context.get("profileReportId") or 0,
+        "profileName": context.get("profileName") or "",
+        "profileVersion": context.get("profileVersion") or 0,
+        "profile": _compact_value(context.get("profile") or {}),
+        "questionnaire": _compact_value(context.get("questionnaire") or {}),
+        "privateKnowledge": _compact_value(context.get("privateKnowledge") or {}),
+    }
+    memories = [
+        _compact_value(item)
+        for item in (context.get("longTermMemories") or [])[:10]
+        if isinstance(item, dict)
+    ]
+    volatile = {
+        "learningEvidence": _compact_value(context.get("learningEvidence") or {}),
+        "recentMessages": _compact_value(context.get("recentMessages") or []),
+        "recentTasks": _compact_value(context.get("recentTasks") or []),
+        "recentEvents": _compact_value(context.get("recentEvents") or []),
+        "questionSheets": _compact_value(context.get("questionSheets") or []),
+        "examResults": _compact_value(context.get("examResults") or []),
+    }
+    return stable_profile, memories, volatile
+
+
 _HERMES_TOOL_LIST = [
     {
         "resourceType": key,
@@ -116,6 +160,18 @@ _HERMES_TOOL_LIST = [
     for key, value in PLATFORM_TOOLS.items()
 ]
 
+HERMES_RESPONSE_SHAPE = {
+    "intent": "chat|generate_resource|update_profile|profile_management",
+    "resourceType": "none or one registered platform resource type",
+    "profileAction": "list|activate|refresh|reset or empty string",
+    "targetQuery": "profile name, version, date phrase, report id or empty string",
+    "topic": "task topic or empty string",
+    "reply": "short Simplified Chinese reply",
+    "weakPointSummary": "weak-point summary inferred from context",
+    "suggestions": ["up to 3 short suggestions"],
+    "selectedAction": {"name": "registered action name", "arguments": {}},
+}
+
 HERMES_XIAOZHI_SYSTEM_PROMPT = f"""You are 岐小智, the Hermes master-control agent for 岐黄智境, a traditional Chinese medicine learning platform.
 Your runtime is Hermes Agent Runtime. Your underlying LLM/API is the configured model through a compatible chat endpoint.
 
@@ -124,6 +180,9 @@ You can orchestrate these platform agents:
 
 Action schema:
 {_stable_json(ACTION_SCHEMA)}
+
+Response JSON shape:
+{_stable_json(HERMES_RESPONSE_SHAPE)}
 
 Rules:
 1. Output exactly one JSON object. Do not output Markdown or explanations.
@@ -246,28 +305,19 @@ class HermesXiaoZhiAgent:
         return HERMES_XIAOZHI_SYSTEM_PROMPT
 
     def _user_prompt(self, message: str, context: dict[str, Any]) -> str:
+        stable_profile, memories, volatile = _prompt_context(context)
         return f"""
+Stable learner/profile context (provider-cache prefix):
+{_stable_json(stable_profile)}
+
+Relevant long-term learner memories (personalization only; not verified medical evidence):
+{_stable_json(memories)}
+
+Recent volatile platform context:
+{_stable_json(volatile)}
+
 User message:
 {message}
-
-Platform context summary:
-{json.dumps(context, ensure_ascii=False)[:5000]}
-
-Return JSON in this shape:
-{{
-  "intent": "chat|generate_resource|update_profile|profile_management",
-  "resourceType": "{'|'.join(['none', *PLATFORM_TOOLS.keys()])}",
-  "profileAction": "list|activate|refresh|reset or empty string",
-  "targetQuery": "profile name, version, date phrase, report id or empty string",
-  "topic": "task topic or empty string",
-  "reply": "short Simplified Chinese reply",
-  "weakPointSummary": "weak-point summary inferred from context",
-  "suggestions": ["up to 3 short suggestions"],
-  "selectedAction": {{
-    "name": "chat|create_learning_task|update_learning_profile|manage_learning_profile",
-    "arguments": {{}}
-  }}
-}}
 """
 
     def _normalize_result(self, data: dict[str, Any]) -> dict[str, Any]:

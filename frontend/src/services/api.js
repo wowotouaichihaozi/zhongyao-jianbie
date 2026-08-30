@@ -451,6 +451,14 @@ export async function calibrateHerbWithAi(file) {
   return data?.data
 }
 
+export async function analyzeRecognizedHerb(name) {
+  const { data } = await apiClient.post('/api/herb-recognition/analyze', { name }, {
+    timeout: 150000,
+  })
+  if (data?.code !== 0) throw new Error(data?.msg || '大模型药性分析失败')
+  return data?.data
+}
+
 export async function getLearningProfileHistory() {
   const { data } = await apiClient.get('/api/learning-profile/history')
   return data

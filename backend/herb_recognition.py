@@ -6,6 +6,7 @@ import csv
 import io
 import threading
 from pathlib import Path
+from typing import Any
 
 import requests
 from PIL import Image, UnidentifiedImageError
@@ -75,6 +76,54 @@ def load_name_mapping(mapping_path: Path = MAPPING_PATH) -> dict[str, str]:
     if not mapping:
         raise HerbRecognitionError("药材类别映射文件内容无效，请检查本地模型资源。", 503)
     return mapping
+
+
+def validate_recognized_herb_name(raw_name: object) -> str:
+    herb_name = str(raw_name or "").strip()
+    if not herb_name:
+        raise HerbRecognitionError("缺少已识别的药材名称。", 400)
+    if herb_name not in set(load_name_mapping().values()):
+        raise HerbRecognitionError("该药材不在当前识别模型的类别范围内。", 400)
+    return herb_name
+
+
+def _analysis_text(payload: dict[str, Any], key: str) -> str:
+    value = str(payload.get(key) or "").strip()
+    if not value:
+        raise HerbRecognitionError("大模型返回的药性分析内容不完整，请稍后重试。", 502)
+    return value[:1200]
+
+
+def _analysis_list(payload: dict[str, Any], key: str) -> list[str]:
+    raw = payload.get(key)
+    if isinstance(raw, str):
+        values = [part.strip() for part in raw.replace("；", "\n").splitlines()]
+    elif isinstance(raw, list):
+        values = [str(part or "").strip() for part in raw]
+    else:
+        values = []
+    result = list(dict.fromkeys(value[:300] for value in values if value))[:8]
+    if not result:
+        raise HerbRecognitionError("大模型返回的药性分析内容不完整，请稍后重试。", 502)
+    return result
+
+
+def normalize_herb_analysis(herb_name: str, payload: object) -> dict[str, Any]:
+    """Validate the model response without inventing missing pharmacognosy facts."""
+    name = validate_recognized_herb_name(herb_name)
+    if not isinstance(payload, dict):
+        raise HerbRecognitionError("大模型未返回可用的药性分析，请稍后重试。", 502)
+    return {
+        "name": name,
+        "agentExplanation": _analysis_text(payload, "agentExplanation"),
+        "sourceAndPart": _analysis_text(payload, "sourceAndPart"),
+        "natureFlavorMeridians": _analysis_text(payload, "natureFlavorMeridians"),
+        "effectsAndIndications": _analysis_list(payload, "effectsAndIndications"),
+        "identificationPoints": _analysis_list(payload, "identificationPoints"),
+        "compatibility": _analysis_text(payload, "compatibility"),
+        "cautions": _analysis_list(payload, "cautions"),
+        "learningTip": _analysis_text(payload, "learningTip"),
+    }
 
 
 def _load_model():
@@ -172,6 +221,18 @@ def _herb_ai_settings() -> tuple[str, str, int, int]:
     if not api_key:
         raise HerbRecognitionError("AI 校准服务未配置 API Key。", 503)
     return base_url, api_key, _positive_int_setting("HERB_AI_TIMEOUT", 120), _positive_int_setting("HERB_AI_MAX_TOKENS", DEFAULT_AGENT_MAX_TOKENS)
+
+
+def herb_ai_runtime_overrides() -> dict[str, str]:
+    """Reuse the server-side DeepSeek vision runtime for post-recognition analysis."""
+    base_url, api_key, _, max_tokens = _herb_ai_settings()
+    return {
+        "OPENAI_BASE_URL": base_url,
+        "ANTHROPIC_AUTH_TOKEN": api_key,
+        "ANTHROPIC_MODEL": DEEPSEEK_HERB_MODEL,
+        "LLM_PROTOCOL": "openai",
+        "LLM_MAX_TOKENS": str(max_tokens),
+    }
 
 
 def _extract_standard_herb_name(text: str, allowed_names: set[str]) -> str:

@@ -39,3 +39,14 @@ test('only AI-generated videos use static posters and waiting tasks remain visib
   assert.match(source, /getGeneratedVideoTaskHistory\(\{ limit: 100, offset \}\)/)
   assert.doesNotMatch(source, /getGeneratedVideoTaskHistory\(\{ status: 'complete'/)
 })
+
+test('resource cards never reference missing icon bindings or malformed local arrays', () => {
+  assert.doesNotMatch(source, /mindmap:\s*Workflow/)
+  assert.doesNotMatch(source, /ppt:\s*PanelsTopLeft/)
+  assert.doesNotMatch(source, /generated_video:\s*Film/)
+  assert.doesNotMatch(source, /quiz:\s*ListChecks/)
+  assert.match(source, /mindmap:\s*Share2/)
+  assert.match(source, /ppt:\s*Presentation/)
+  assert.match(source, /Array\.isArray\(parsed\)/)
+  assert.match(source, /Array\.isArray\(evaluations\.value\)/)
+})

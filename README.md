@@ -51,7 +51,7 @@ code6.14/
 
 ## 主要功能
 
-- 药材识别：主导航“药材识别”支持上传 JPG、PNG、WebP 图片或打开浏览器摄像头锁定画面。默认由本地 `backend/models/herbwise-yolo26s.pt` 识别；点击摄像头右侧的“AI 校准”后，图片仅请求 `deepseek-v4-flash-vision-exp`，不会调用或融合 YOLO。两种方式均只返回一个中文药材名称。AI 校准使用 `HERB_AI_BASE_URL`、`HERB_AI_MODEL`、`HERB_AI_CONTEXT_WINDOW`、`HERB_AI_TIMEOUT`、`HERB_AI_MAX_TOKENS`，可复用 `ANTHROPIC_AUTH_TOKEN` 或设置独立 `HERB_AI_API_KEY`。启动后登录访问 `/herb-recognition`；可用 `cd backend; .\venv\Scripts\python.exe -m unittest tests.test_herb_recognition` 检查本地映射与 DeepSeek 地址规则，再以清晰药材图片完成真实接口识别。
+- 药材识别：主导航“药材识别”支持上传 JPG、PNG、WebP 图片或打开浏览器摄像头锁定画面。默认由本地 `backend/models/herbwise-yolo26s.pt` 识别；点击摄像头右侧的“AI 校准”后，图片仅请求 `deepseek-v4-flash-vision-exp`，不会调用或融合 YOLO。两种方式均只返回一个中文药材名称。识别成功后，页面会自动通过 `/api/herb-recognition/analyze` 调用混合知识检索和平台大模型，先给出一段把来源、性味、功效与鉴别逻辑串联起来的药物讲解，再展示来源与药用部位、性味归经、功效主治、性状鉴别、配伍和用药注意；模型不可用或结构化结果不完整时明确报错，不用本地假结论兜底。AI 校准使用 `HERB_AI_BASE_URL`、`HERB_AI_MODEL`、`HERB_AI_CONTEXT_WINDOW`、`HERB_AI_TIMEOUT`、`HERB_AI_MAX_TOKENS`，可复用 `ANTHROPIC_AUTH_TOKEN` 或设置独立 `HERB_AI_API_KEY`。启动后登录访问 `/herb-recognition`；可用 `cd backend; .\venv\Scripts\python.exe -m unittest tests.test_herb_recognition` 与 `cd frontend; node --test tests/herbRecognitionAnalysis.test.mjs` 检查分析契约，再以清晰药材图片完成真实接口识别。
 - 岐小智总控与扩展：22 个已实现 Harness 角色和 18 个可调用 Skill 由 `backend/agent_manifests/xiaozhi_agents.json` 统一声明。角色数严格按 Manifest 中有实际职责的条目统计，执行步骤和占位名称不计入智能体数量。Handler Registry 在启动时校验重复 ID、缺失处理器、非法权限和 MCP 映射。新增可调用业务能力通过 Manifest、Handler 与 MCP 接入，不修改 Supervisor 主流程。
 - 学习画像：首次补齐十个画像维度时创建报告；后续重新评估、会话补全和证据更新都会合并到当前画像并原位保存，保持画像 ID、名称、版本和历史位置不变，只有明确选择另一份历史画像时才切换当前画像。
 - 学习画像会话一致性：服务端会话是唯一对话事实源，页面不再把旧 `localStorage` 草稿拼接到空服务端会话。一次画像回合只有在大模型返回有效且非重复的回复后，才把用户消息、助手回复和维度更新写入数据库；模型失败、无效输出或连续重复回复统一返回 `503 / MODEL_UNAVAILABLE`，前端明确显示“大模型不可用”，不再使用固定问题伪装成功。重复输出会先执行一次真实模型重试。验证命令：`cd backend && python -m pytest tests/test_learning_profile_greeting_guard.py tests/test_learning_profile_api.py -q`；`cd frontend && node --test tests/learningProfileChat.test.mjs`。
@@ -74,6 +74,7 @@ code6.14/
 - 视频查找：B 站学习视频检索集成在 `/video-search`，后端提供必要代理、主题筛选和封面字段；该能力是视频检索，不宣称生成视频成片。
 - 历史兼容模块（当前界面不开放）：单片机模拟器实现与既有实验记录暂时保留，主动导航、资源入口与学习路径展示均已下线。
 - 个性化资源：基于画像、实验和路径生成学习资源。资源历史页会合并持久化任务与旧版本地记录，并明确区分加载中、部分来源失败、全部失败和真实空记录；资源详情页通过 URL 中的任务/资源身份调用 `GET /api/xiaozhi/tasks/:taskId` 恢复内容，旧版本地缓存只作为带来源标记的兼容回退。详情页优先展示 PPT、思维导图、讲义、视频和学习验证等实际学习内容；任务来源、画像依据、规划策略、专项智能体、Harness 运行、Skill/MCP、质量审核与知识引用统一折叠在全局岐小智进度卡的“生成依据”中，避免重复占用页面。Markdown 先转义再有限渲染，Mermaid 使用严格安全模式，模型生成的 HTML PPT 只在禁用脚本且带 CSP 的沙箱 iframe 中预览。资源工作台保留 AI 视频课程、题库生成、PPT 生成、思维导图、药材模型识别和视频查找六种真实工具入口，并将说明型工具卡收口为居中的图标命令带；资源浏览区保留八纲辨证、药材识别、性味归经、方剂配伍、四诊合参、经络腧穴、养生健康和医案研习八个课程封面专题。封面使用八张 768×432 透明 PNG 纹理和八张独立生成、透明化处理的 256×256 PNG 专题符号；每个符号是完整位图，内部暖白实心轮廓和透明镂空均已固化在图片中，页面不使用 SVG 路径组合部件或重复圆形底板。专题优先打开关键词匹配的真实历史资源，没有匹配记录时进入对应的现有学习或生成能力，不伪造学习人数、评分或完成度。页面继续保留画像状态、刷新、生成、加载、真实空数据、部分失败和完整失败反馈；浏览器验证命令为 `cd frontend && npm run test:personalized-resources:e2e`。
+- 个性化资源白屏防护：历史卡片只引用已导入的资源图标，本地旧缓存读取前校验数组结构，避免资源接口返回后触发渲染异常；Vue Router 捕获部署切换期间的动态分块加载失败，并在 15 秒窗口内最多自动刷新一次。生产部署保留旧哈希分块并统一 `dist` 目录为目录 `755`、文件 `644`，避免 Nginx 因静态文件权限不一致返回 404。验证命令：`cd frontend && node --test tests/personalizedResourcesBrowsing.test.mjs tests/routeChunkRecovery.test.mjs`。
 - 资源学习反馈闭环：资源详情可记录“完成学习”“需要巩固”或“暂时受阻”，反馈按当前用户、任务 ID 与资源缓存键组合隔离，避免同一生成任务中的多个资源互相覆盖。已有学习路径节点会同步完成状态；没有对应节点时不会创建伪路径缓存。提交后可继续查看效果评估、返回学习路径，或在需要巩固时转入智能导师。
 - 智能辅导：`/smart-tutor` 展示岐小智通过 `learning.tutor.answer` Skill 生成的苏格拉底追问、费曼复述任务、三级提示、带解析练习、Mermaid 学习流程、学习卡、知识引用和 Harness 执行轨迹；同一页面支持悬浮窗嵌入预览与新页面完整打开。
 - 数字人面试：集成讯飞数字人 SDK、题目生成、追问和可选关键帧分析。数字人连接、销毁和播报是独立的限时 best-effort 支线，面试 API 返回首题、下一题或总结后会立即解锁文字输入、发送、结束与重新开始；数字人或摄像头失败不会覆盖面试状态，也不会阻断完整文字面试。`/api/avatar/config`、`/api/avatar/diagnostics` 与备用会话接口均要求登录，防止匿名请求消耗数字人额度。
@@ -131,7 +132,7 @@ npm.cmd run build -- --emptyOutDir=false
 
 该页的数据口径来自当前课程索引、当前用户私有知识、真实 Harness 运行和反哺候选。`GET /api/knowledge-network/overview?view=atlas&limit=15000` 返回文档级图谱，默认调用仍保留聚合视图。搜索框在浏览器内对当前全部节点执行轻量相似度排序，依次考虑名称精确匹配、前缀、包含、来源、知识域、分词命中与字符二元组相似度，返回前 10 个结果；点击或键盘回车会直接定位原图谱节点，不另造搜索节点或删减图谱。Vue 适配实现位于 `frontend/src/components/KnowledgeSigmaGraph.vue`，布局 Worker 位于 `frontend/src/workers/knowledge-graph-layout.worker.js`，上游 GPL-3.0 许可证保存在 `frontend/public/vendor/llm-wiki/LICENSE`。它是“LLM Wiki 启发的可审计知识演化网络”，不宣称实现自动递归重写知识库的完整 LLM Wiki 引擎，也不包含 3D 或数字孪生能力。
 
-知识网络顶部保留“关系网络”和“AI 知识库自生长”两个固定模式。“关系网络”只展示本地课程索引和当前用户私有知识，不再混入智能体运行、审核候选等展示节点；正式 `course_knowledge_index.json` 是文档关系的唯一课程索引来源，`course_knowledge_index_catalog.json` 是由该索引生成的文档级只读投影，使低内存部署无需反序列化全部切片文本即可展示同等数量的真实文档节点。便携源码包未携带体积较大的原始 `rag文档` 时，课程知识加载器会只读已打包索引，禁止用空语料覆盖正式索引。“AI 知识库自生长”用于用户隔离的长期对话记忆：岐小智总控与学习画像每完成一轮对话，后端都会先保存原始用户消息，再在智能体回复后补全核心摘要、主题和目标/偏好/薄弱点等学习信号。最近完成的记忆通过 `longTermMemories` 合并到下一轮智能体上下文，并进入平台学习证据；聊天内容不会被当作已经核验的课程事实，也不会直接写入可信 RAG 文档。
+知识网络顶部保留“关系网络”和“AI 知识库自生长”两个固定模式。“关系网络”只展示本地课程索引和当前用户私有知识，不再混入智能体运行、审核候选等展示节点；正式 `course_knowledge_index.json` 是文档关系的唯一课程索引来源，`course_knowledge_index_catalog.json` 是由该索引生成的文档级只读投影，使低内存部署无需反序列化全部切片文本即可展示同等数量的真实文档节点。便携源码包未携带体积较大的原始 `rag文档` 时，课程知识加载器会只读已打包索引，禁止用空语料覆盖正式索引。“AI 知识库自生长”用于用户隔离的长期对话记忆：岐小智总控与学习画像每完成一轮对话，后端都会先保存原始用户消息，再在智能体回复后补全核心摘要、主题和目标/偏好/薄弱点等学习信号。后续请求会在最多 200 条候选记忆中按当前主题的词法相关度、主题/信号覆盖率和时间新近度检索紧凑记忆，通过 `longTermMemories` 同时交给岐小智、学习者上下文智能体和资源生成专家；执行轨迹保留选中的记忆 ID。聊天记忆只用于个性化，不充当已经核验的医学证据，也不会直接写入可信 RAG 文档；资源事实仍必须引用 QA、文档切块或知识图谱。
 
 ### QA + 文档 + 图谱混合知识路由
 
@@ -140,6 +141,8 @@ npm.cmd run build -- --emptyOutDir=false
 公共知识入口先运行 `knowledge-retrieval-agent-v1`：从用户任务中提取中药/方剂/证候实体、所问属性和检索意图，再拆成最多 4 个可审计子查询。每个子查询分别执行 QA、文档和图谱节点检索，合并时按实体覆盖去重重排；例如比较麻黄与桂枝时，会分别检索两味药的性味归经和功效，不允许用黄连问答或麻黄同名前缀方剂凑数。结构化 QA 适合定义与固定问答，文档切片提供原文上下文，当前图谱索引提供层级节点与关系语义；同一图谱派生的 QA/文档不会被重复计算为独立证据。只有至少两类独立路由命中且语义一致度达到阈值时，`crossValidation.decision` 才返回 `allow_grounded_generation`；单源、低一致度或无证据结果统一返回 `mark_for_verification`，并由 `grounded_prompt_block` 要求生成智能体标注“需进一步核验”。
 
 `POST /api/knowledge/retrieve` 返回 `retrievalAgent`、`routing.subQueryRuns`、`routing.routes`、`routing.crossValidation` 和逐条引用。引用会持久保留 `excerpt`、命中的子查询、数据集 revision 与许可证，资源生成智能体收到的是完整证据片段，不只是来源标题。混合知识库页面只展示检索命中和审核状态，不展示或加载全部大语料。个性化资源工作流在资源专员之前明确记录 `knowledge-retrieval-agent` 节点，并把检索计划、引用片段和审核结论一并交给 PPT、题库、导图、讲义和视频资源生成器。压缩 SQLite 语料位于 `backend/data/tcm_hybrid_corpus.db.gz`，运行时按清单校验并解压为只读缓存；压缩 SHA-256 为 `894B2F2866B6F2E30B7D0218588320690C9BEE895F4DA2827340AC2389715E52`，解压 SHA-256 为 `3FB25E8CFBFEE7C7F9C39451EA57BBF640687A0D140C9D0FD894788A3BA854FB`。
+
+混合检索增加了进程内有界 TTL 缓存，键由规范化多查询计划、`topK`、上下文上限、公共 QA/文档/图谱版本，以及用户 ID 和当前私有知识库 revision 共同组成。相同主题重复检索直接复用完整结果，引用数量、片段、三路来源和交叉验证结论保持不变；语料文件、私有文档或当前知识库发生变化时自动换键失效，且不同用户绝不共享私有结果。接口通过 `cache.hit/key/ageSeconds/publicRevision/privateRevision` 暴露可审计缓存状态。模型侧提示词按“固定 system prompt -> 稳定画像 -> 相关长期记忆 -> 动态证据/事件 -> 当前消息”排序并稳定序列化，避免把整份超大上下文截断后造成记忆失效，也提高兼容模型的前缀缓存复用率。
 
 固定数据集 revision、许可证和输入文件 SHA-256 记录在 `backend/data/tcm_hybrid_corpus_manifest.json` 与 `THIRD_PARTY_NOTICES.md`。语料重建和验证命令：
 
