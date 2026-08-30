@@ -107,7 +107,7 @@ const defaultStageNodeBlueprints = [
   ['目标拆解', '查看画像', '/learning-profile', '把本周主题拆成理论、辨证、医案和测评目标，明确验收标准。'],
   ['概念建模', '生成导图', '/personalized-resources/mind-map', '围绕本周主题整理知识结构图，标出关键概念、前置知识和易错点。'],
   ['案例跟学', '查看资源', '/personalized-resources', '跟随一个典型医案，理解四诊信息、病机、治法和方药之间的关系。'],
-  ['医案辨析', '生成讲义', '/personalized-resources/document', '完成一个基础医案辨析，记录证候依据、鉴别要点和治法方药。'],
+  ['医案辨析', '生成辨析课件', '/personalized-resources/ppt', '完成一个基础医案辨析，记录证候依据、鉴别要点和治法方药。'],
   ['专项测评', '进入测评', '/personalized-resources/question-bank', '完成针对性题目或医案辨析题，检查本周知识是否真正掌握。'],
   ['复盘迭代', '整理资源', '/personalized-resources', '整理错因、医案证据和下一周要继续追踪的问题。'],
 ]

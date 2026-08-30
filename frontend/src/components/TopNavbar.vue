@@ -130,7 +130,8 @@ async function logout() {
 
 <style scoped>
 .topnavbar {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 100;
   height: 72px;
   display: grid;
@@ -415,6 +416,7 @@ async function logout() {
 @media (max-width: 768px) and (orientation: portrait) {
   .topnavbar {
     position: fixed;
+    top: auto;
     left: max(12px, env(safe-area-inset-left));
     right: max(12px, env(safe-area-inset-right));
     bottom: max(10px, env(safe-area-inset-bottom));

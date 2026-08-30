@@ -19,6 +19,7 @@ const COMPLETE_STATUSES = new Set(['complete', 'completed', 'done', 'success', '
 const ACTIVE_STATUSES = new Set(['current', 'active', 'in-progress', 'running', 'developing'])
 const BLOCKED_STATUSES = new Set(['blocked', 'failed', 'error'])
 const WEEK_LABELS = ['第一周', '第二周', '第三周', '第四周', '第五周', '第六周']
+const LEGACY_RADAR_LABELS = new Set(['编程调试', '实验实践', '项目能力', '工程意识'])
 
 function text(value) {
   return String(value ?? '').trim()
@@ -239,9 +240,10 @@ export function buildLifeTreeModel(payload = {}) {
 
   const labels = Array.isArray(assessment.labels) ? assessment.labels : []
   const radarScores = Array.isArray(assessment.radarScores) ? assessment.radarScores : []
+  const usesLegacyRadarLabels = labels.some((label) => LEGACY_RADAR_LABELS.has(text(label)))
   const profileDimensions = DOMAIN_DEFINITIONS.map((domain, index) => ({
     id: `profile-dimension-${domain.id}`,
-    label: text(labels[index]) || domain.label,
+    label: usesLegacyRadarLabels ? domain.label : text(labels[index]) || domain.label,
     description: domain.description,
     score: numberOrNull(radarScores[index]),
   }))

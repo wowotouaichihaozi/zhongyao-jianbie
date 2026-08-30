@@ -396,6 +396,45 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
         self.assertTrue(review["retryRecommended"])
         self.assertIn("质量评价未通过", "；".join(review["issues"]))
 
+    def test_resource_review_uses_specialist_score_instead_of_template_95(self) -> None:
+        review = review_specialist_output(
+            "ppt",
+            {
+                "ppt": {
+                    "pages": [{"title": "第一页", "html": "<main>内容</main>"}],
+                    "qualityEvaluation": {
+                        "score": 87,
+                        "passed": True,
+                        "criteria": {"structure": 22, "knowledgeGrounding": 18},
+                    },
+                }
+            },
+            {"citations": [{"id": "KB1"}, {"id": "KB2"}]},
+            70,
+        )
+
+        self.assertEqual(review["score"], 87)
+        self.assertEqual(review["scoreSource"], "resource-quality-evaluation")
+        self.assertEqual(review["citationCount"], 2)
+        self.assertTrue(review["passed"])
+
+    def test_grounded_resource_review_does_not_pass_without_citations(self) -> None:
+        review = review_specialist_output(
+            "ppt",
+            {
+                "ppt": {
+                    "pages": [{"title": "第一页", "html": "<main>内容</main>"}],
+                    "qualityEvaluation": {"score": 92, "passed": True},
+                }
+            },
+            {"citations": []},
+            70,
+        )
+
+        self.assertEqual(review["score"], 69)
+        self.assertFalse(review["passed"])
+        self.assertEqual(review["citationCount"], 0)
+
     def test_quality_review_rejects_degraded_learning_path(self) -> None:
         review = review_specialist_output(
             "learning_path",

@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
@@ -358,6 +358,11 @@ function animate(time = 0) {
   }
 }
 
+function stopAnimation() {
+  if (animationFrame) window.cancelAnimationFrame(animationFrame)
+  animationFrame = 0
+}
+
 function init() {
   try {
     scene = new THREE.Scene()
@@ -420,8 +425,14 @@ watch(() => props.resetToken, resetCamera)
 
 onMounted(init)
 
+onDeactivated(stopAnimation)
+
+onActivated(() => {
+  if (renderer && !animationFrame) animate()
+})
+
 onBeforeUnmount(() => {
-  window.cancelAnimationFrame(animationFrame)
+  stopAnimation()
   resizeObserver?.disconnect()
   if (renderer?.domElement) {
     renderer.domElement.removeEventListener('pointerdown', handlePointerDown)

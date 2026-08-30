@@ -55,6 +55,20 @@ test('knowledge assessment does not invent weekly fruit maturity', () => {
   assert.ok(model.fruits.every((fruit) => fruit.progress === 0))
 })
 
+test('legacy embedded-system radar labels are mapped to TCM dimensions', () => {
+  const model = buildLifeTreeModel({
+    assessment: {
+      labels: ['基础知识', '编程调试', '实验实践', '项目能力', '学习投入', '工程意识'],
+      radarScores: [3, 2.8, 3.2, 2.5, 3.8, 2.9],
+    },
+  })
+
+  assert.deepEqual(
+    model.profileDimensions.map((dimension) => dimension.label),
+    ['基础知识', '辨证思维', '方药应用', '医案实践', '学习投入', '综合素养'],
+  )
+})
+
 test('six learning-path fruits use real stage task completion as maturity', () => {
   const model = buildLifeTreeModel({
     profile: { id: 17, profileName: '六周画像', isActive: true },

@@ -60,10 +60,10 @@ ALLOWED_RUNTIME_HOSTS = {
 
 def _completion_token_budget() -> int:
     try:
-        configured = int(os.getenv("OHMYPPT_LLM_MAX_TOKENS", "32768"))
+        configured = int(os.getenv("OHMYPPT_LLM_MAX_TOKENS", "128000"))
     except (TypeError, ValueError):
-        configured = 32768
-    return max(2800, min(131072, configured))
+        configured = 128000
+    return max(128000, min(131072, configured))
 
 app = FastAPI(title="Oh My PPT H5 Backend", version="0.3.0")
 app.add_middleware(
@@ -443,7 +443,6 @@ async def _generate_batch(
     protocol: str,
     model: str,
     request_timeout: int,
-    attempts: int,
     max_tokens: int,
     semaphore: asyncio.Semaphore,
 ) -> tuple[int, list[dict[str, Any]]]:
@@ -454,41 +453,16 @@ async def _generate_batch(
         "temperature": 0.5,
         "messages": [{"role": "user", "content": prompt}],
     }
+    if protocol == "openai":
+        payload["thinking"] = {"type": "disabled"}
 
-    last_error = ""
     async with semaphore:
-        for attempt in range(attempts):
-            try:
-                data = await asyncio.to_thread(call_llm_sync, url, headers, payload, request_timeout)
-            except Exception as exc:
-                last_error = str(exc) or exc.__class__.__name__
-                continue
+        data = await asyncio.to_thread(call_llm_sync, url, headers, payload, request_timeout)
 
-            text = _response_text(data, protocol)
-            if not text:
-                last_error = "Empty response"
-                continue
-
-            pages = _parse_model_pages(text)
-            if len(pages) >= page_count:
-                return start_page, pages[:page_count]
-
-            last_error = f"Parsed {len(pages)}/{page_count} usable slides"
-            payload["temperature"] = 0.2
-            payload["messages"] = [{
-                "role": "user",
-                "content": prompt + f"""
-
-FORMAT CORRECTION FOR RETRY {attempt + 2}:
-- Your previous response was not parseable as exactly {page_count} slides.
-- Output only the slide blocks. Do not add an introduction, explanation, JSON wrapper, or closing note.
-- Every block must contain these three labels on separate lines: SLIDE_TITLE:, SLIDE_OUTLINE:, SLIDE_HTML:.
-- Separate blocks with a line containing only ---.
-- Start the response with SLIDE_TITLE: and generate exactly {page_count} complete blocks.""",
-            }]
-
-    end_page = start_page + page_count - 1
-    raise RuntimeError(f"pages {start_page}-{end_page}: {last_error}")
+    text = _response_text(data, protocol)
+    if not text:
+        raise RuntimeError(f"pages {start_page}-{start_page + page_count - 1}: empty response")
+    return start_page, _parse_model_pages(text)[:page_count]
 
 
 def _fallback_page(req: GenerateRequest, page_number: int, warning: str) -> dict[str, Any]:
@@ -540,7 +514,7 @@ async def _generate_batch_with_recovery(
     **kwargs: Any,
 ) -> tuple[int, list[dict[str, Any]]]:
     try:
-        return await _generate_batch(
+        _, model_pages = await _generate_batch(
             req,
             start_page=start_page,
             page_count=page_count,
@@ -548,31 +522,19 @@ async def _generate_batch_with_recovery(
         )
     except Exception as batch_error:
         batch_reason = str(batch_error) or batch_error.__class__.__name__
+        model_pages = []
 
-    recovered_pages: list[dict[str, Any]] = []
-    for page_number in range(start_page, start_page + page_count):
-        try:
-            _, single_pages = await _generate_batch(
-                req,
-                start_page=page_number,
-                page_count=1,
-                **kwargs,
-            )
-            page = single_pages[0]
-            page["generationMode"] = "recovered"
-            page["generationWarning"] = (
-                f"第 {start_page}-{start_page + page_count - 1} 页批量生成未完整返回，"
-                f"第 {page_number} 页已自动逐页重试。"
-            )
-        except Exception as page_error:
-            page_reason = str(page_error) or page_error.__class__.__name__
-            warning = (
-                f"第 {page_number} 页模型响应异常，系统已生成可编辑保底页。"
-                f"批次原因：{batch_reason}；单页原因：{page_reason}"
-            )
-            page = _fallback_page(req, page_number, warning)
-        recovered_pages.append(page)
-    return start_page, recovered_pages
+    pages = list(model_pages[:page_count])
+    for offset in range(len(pages), page_count):
+        page_number = start_page + offset
+        warning = (
+            f"第 {page_number} 页模型未返回可解析内容，系统已直接补入可编辑保底页。"
+            f"本次整份请求已解析 {len(model_pages)}/{page_count} 页。"
+        )
+        if not model_pages and 'batch_reason' in locals():
+            warning += f"请求原因：{batch_reason}"
+        pages.append(_fallback_page(req, page_number, warning))
+    return start_page, pages
 
 
 async def call_llm(req: GenerateRequest, runtime: dict[str, str]) -> list[dict[str, Any]]:
@@ -596,54 +558,19 @@ async def call_llm(req: GenerateRequest, runtime: dict[str, str]) -> list[dict[s
         request_timeout = max(30, min(600, int(os.getenv("OHMYPPT_LLM_TIMEOUT", "300"))))
     except (TypeError, ValueError):
         request_timeout = 300
-    try:
-        attempts = max(1, min(3, int(os.getenv("OHMYPPT_LLM_RETRIES", "2"))))
-    except (TypeError, ValueError):
-        attempts = 2
-    try:
-        batch_size = max(1, min(5, int(os.getenv("OHMYPPT_LLM_BATCH_SIZE", "3"))))
-    except (TypeError, ValueError):
-        batch_size = 3
-    try:
-        max_parallel = max(1, min(3, int(os.getenv("OHMYPPT_LLM_MAX_PARALLEL", "1"))))
-    except (TypeError, ValueError):
-        max_parallel = 1
     max_tokens = _completion_token_budget()
-
-    batches = [
-        (start_page, min(batch_size, req.pageCount - start_page + 1))
-        for start_page in range(1, req.pageCount + 1, batch_size)
-    ]
-    semaphore = asyncio.Semaphore(max_parallel)
-    results = await asyncio.gather(
-        *(
-            _generate_batch_with_recovery(
-                req,
-                start_page=start_page,
-                page_count=page_count,
-                url=url,
-                headers=headers,
-                protocol=protocol,
-                model=model,
-                request_timeout=request_timeout,
-                attempts=attempts,
-                max_tokens=max_tokens,
-                semaphore=semaphore,
-            )
-            for start_page, page_count in batches
-        ),
-        return_exceptions=True,
+    _, pages = await _generate_batch_with_recovery(
+        req,
+        start_page=1,
+        page_count=req.pageCount,
+        url=url,
+        headers=headers,
+        protocol=protocol,
+        model=model,
+        request_timeout=request_timeout,
+        max_tokens=max_tokens,
+        semaphore=asyncio.Semaphore(1),
     )
-
-    failures = [str(result) for result in results if isinstance(result, BaseException)]
-    if failures:
-        raise HTTPException(status_code=502, detail=f"PPT batch generation failed: {'; '.join(failures)}")
-
-    ordered_results = sorted(
-        (result for result in results if isinstance(result, tuple)),
-        key=lambda item: item[0],
-    )
-    pages = [page for _, batch_pages in ordered_results for page in batch_pages]
     if len(pages) != req.pageCount:
         raise HTTPException(
             status_code=502,

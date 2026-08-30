@@ -33,23 +33,20 @@ def test_learning_path_generates_first_week_before_remaining_weeks():
     first_stage_id = first_config["weeks"][0]["id"]
     first_nodes = first_config["stages"][first_stage_id]["nodes"]
     assert 7 <= len(first_nodes) <= 10
-    assert all(node["resourceType"] in {"generated_video", "video", "animation", "document", "ppt", "mindmap", "question-bank", "mcu"} for node in first_nodes)
-    assert {
-        "generated_video", "question-bank", "ppt", "mindmap", "video", "mcu",
-    }.issubset({node["resourceType"] for node in first_nodes})
+    assert all(node["resourceType"] in learning_agents.LEARNING_PATH_RESOURCE_TYPES for node in first_nodes)
+    assert set(learning_agents.LEARNING_PATH_REQUIRED_RESOURCE_TYPES).issubset(
+        {node["resourceType"] for node in first_nodes}
+    )
     assert all(isinstance(node.get("resourceParams"), dict) and node["resourceParams"] for node in first_nodes)
     assert all(node.get("resourcePrompt") for node in first_nodes)
     assert all(node.get("resourceSelectionReason") for node in first_nodes)
     assert all(node["actionRoute"].startswith("/personalized-resources/") for node in first_nodes)
     assert all("/learning-profile" not in node["actionRoute"] for node in first_nodes)
     assert all(node.get("cacheKey") for node in first_nodes)
-    mcu_nodes = [node for node in first_nodes if node["resourceType"] == "mcu"]
-    assert all(node["resourceParams"]["board"] in {"arduino", "8051"} for node in mcu_nodes)
-    assert all(
-        node["resourceParams"]["projectId"]
-        in {"uno-led-ready", "uno-button-ready", "uno-blank", "8051-led-ready", "8051-ram-ready", "8051-blank"}
-        for node in mcu_nodes
-    )
+    herb_nodes = [node for node in first_nodes if node["resourceType"] == "herb-model"]
+    assert herb_nodes
+    assert all(node["resourceParams"].get("herbId") for node in herb_nodes)
+    assert all(node["resourceParams"].get("herbName") for node in herb_nodes)
 
     current_config = first_config
     for week in range(2, 7):
@@ -79,9 +76,7 @@ def test_learning_path_generates_first_week_before_remaining_weeks():
         7 <= len(complete_config["stages"][week["id"]]["nodes"]) <= 10
         for week in complete_config["weeks"]
     )
-    required_resource_types = {
-        "generated_video", "question-bank", "ppt", "mindmap", "video", "mcu",
-    }
+    required_resource_types = set(learning_agents.LEARNING_PATH_REQUIRED_RESOURCE_TYPES)
     assert all(
         required_resource_types.issubset({
             node["resourceType"]
@@ -358,12 +353,12 @@ def test_chinese_only_week_title_uses_stable_nonduplicated_stage_id():
 
 
 def test_profile_preferences_change_resource_routing_without_a_fixed_sequence():
-    hands_on = generate_learning_path({
+    herb_focused = generate_learning_path({
         "profile": {
             "studentProfile": {
-                "学习目标": ["完成开发板项目"],
-                "薄弱知识点": ["中断调试"],
-                "资源形式偏好": ["实验", "动手实践"],
+                "学习目标": ["熟练辨识常见药材"],
+                "薄弱知识点": ["药材性状鉴别"],
+                "资源形式偏好": ["药材模型", "三维观察"],
             }
         },
         "useLLM": False,
@@ -385,16 +380,16 @@ def test_profile_preferences_change_resource_routing_without_a_fixed_sequence():
         "totalWeeks": 1,
     })
 
-    hands_on_stage = next(iter(hands_on["config"]["stages"].values()))
+    herb_stage = next(iter(herb_focused["config"]["stages"].values()))
     assessment_stage = next(iter(assessment_focused["config"]["stages"].values()))
-    hands_on_types = [node["resourceType"] for node in hands_on_stage["nodes"]]
+    herb_types = [node["resourceType"] for node in herb_stage["nodes"]]
     assessment_types = [node["resourceType"] for node in assessment_stage["nodes"]]
 
-    assert hands_on_types != assessment_types
-    assert hands_on_types.count("mcu") == learning_agents.LEARNING_PATH_RESOURCE_CONCENTRATION_LIMIT
-    assert assessment_types.count("mcu") <= learning_agents.LEARNING_PATH_RESOURCE_CONCENTRATION_LIMIT
+    assert herb_types != assessment_types
+    assert "herb-model" in herb_types
+    assert "mcu" not in herb_types
+    assert "document" not in herb_types
     assert assessment_types[0] == "question-bank"
-    assert hands_on_types.index("mcu") < assessment_types.index("mcu")
 
 
 def test_resource_semantic_guard_rejects_incompatible_agent_choices(monkeypatch):
@@ -434,9 +429,8 @@ def test_resource_semantic_guard_rejects_incompatible_agent_choices(monkeypatch)
     assert tasks["01"]["resourceType"] == "question-bank"
     assert tasks["02"]["resourceType"] in {"mindmap", "ppt", "video"}
     assert tasks["03"]["resourceType"] in {"mindmap", "ppt", "video"}
-    assert tasks["04"]["resourceType"] in {"mcu", "question-bank", "video"}
-    assert tasks["01"]["resourceSelectionSource"] == "semantic-guard"
-    assert tasks["02"]["resourceSelectionSource"] == "semantic-guard"
+    assert tasks["04"]["resourceType"] in learning_agents.LEARNING_PATH_RESOURCE_TYPES
+    assert all(task["resourceType"] not in {"mcu", "document"} for task in tasks.values())
 
 
 def test_weekly_resource_plan_always_includes_deferred_ai_video(monkeypatch):
@@ -486,9 +480,9 @@ def test_weekly_resource_plan_always_includes_deferred_ai_video(monkeypatch):
     assert "resolution" not in fallback_query
     assert "autostart" not in fallback_query
     assert "videoEngine" not in fallback_query
-    assert {
-        "generated_video", "question-bank", "ppt", "mindmap", "video", "mcu",
-    }.issubset({task["resourceType"] for task in tasks})
+    assert set(learning_agents.LEARNING_PATH_REQUIRED_RESOURCE_TYPES).issubset(
+        {task["resourceType"] for task in tasks}
+    )
 
 
 def test_weekly_resource_plan_repairs_an_all_video_llm_response(monkeypatch):
@@ -523,7 +517,7 @@ def test_weekly_resource_plan_repairs_an_all_video_llm_response(monkeypatch):
         "stage": {"focus": "STM32 GPIO", "nodes": nodes},
     })
 
-    required = {"generated_video", "question-bank", "ppt", "mindmap", "video", "mcu"}
+    required = set(learning_agents.LEARNING_PATH_REQUIRED_RESOURCE_TYPES)
     assert required.issubset({task["resourceType"] for task in result["tasks"]})
     generated_video = next(task for task in result["tasks"] if task["resourceType"] == "generated_video")
     assert generated_video["resourceSelectionSource"] == "weekly-resource-coverage"
@@ -570,7 +564,7 @@ def test_parallel_resource_planning_reconciles_six_types_before_materialization(
         outcome["result"]["planned"]["resourceType"]
         for outcome in planning_results.values()
     }
-    assert {"generated_video", "question-bank", "ppt", "mindmap", "video", "mcu"}.issubset(planned_types)
+    assert set(learning_agents.LEARNING_PATH_REQUIRED_RESOURCE_TYPES).issubset(planned_types)
 
 
 def test_saved_week_without_ai_video_is_repaired_before_resource_tasks_start():
@@ -603,9 +597,7 @@ def test_saved_week_without_ai_video_is_repaired_before_resource_tasks_start():
     )
 
     repaired_types = [node["resourceType"] for node in repaired]
-    assert {
-        "generated_video", "question-bank", "ppt", "mindmap", "video", "mcu",
-    }.issubset(set(repaired_types))
+    assert set(learning_agents.LEARNING_PATH_REQUIRED_RESOURCE_TYPES).issubset(set(repaired_types))
     assert repaired_types.count("generated_video") == 1
     video_node = next(node for node in repaired if node["resourceType"] == "generated_video")
     assert video_node["resourceTask"] == {"status": "waiting", "progress": 0}
@@ -638,7 +630,45 @@ def test_saved_learning_path_queues_each_enabled_week_for_background_preparation
     assert [args for _callback, args in submitted] == [(7, "week-1"), (7, "week-2")]
 
 
-def test_resource_semantic_guard_rejects_mindmap_for_experiment_task(monkeypatch):
+def test_startup_resource_recovery_skips_weeks_with_complete_entrypoints(monkeypatch):
+    submitted = []
+
+    class FakeExecutor:
+        def submit(self, callback, *args):
+            submitted.append((callback, args))
+
+    monkeypatch.setattr(app_module, "LEARNING_PATH_WEEK_PREPARATION_EXECUTOR", FakeExecutor())
+    config = {
+        "weeks": [{"id": "week-complete", "enabled": True}],
+        "stages": {
+            "week-complete": {
+                "resourcePreparation": {"status": "complete"},
+                "nodes": [
+                    {
+                        "id": "01",
+                        "actionRoute": "/personalized-resources/ppt?xzTask=ready-task",
+                        "resourceTask": {
+                            "taskId": "ready-task",
+                            "status": "complete",
+                            "route": "/personalized-resources/ppt?xzTask=ready-task",
+                        },
+                    }
+                ],
+            }
+        },
+    }
+
+    queued = app_module._queue_learning_path_week_resource_preparation(
+        7,
+        config,
+        only_incomplete=True,
+    )
+
+    assert queued == 0
+    assert submitted == []
+
+
+def test_resource_semantic_guard_routes_model_identification_to_herb_model(monkeypatch):
     monkeypatch.setattr(
         learning_agents,
         "call_llm_json",
@@ -647,7 +677,7 @@ def test_resource_semantic_guard_rejects_mindmap_for_experiment_task(monkeypatch
                 {
                     "id": "02",
                     "resourceType": "mindmap",
-                    "resourceParams": {"topic": "GPIO 输出控制实验"},
+                    "resourceParams": {"topic": "当归药材模型辨识"},
                 }
             ]
         },
@@ -657,19 +687,19 @@ def test_resource_semantic_guard_rejects_mindmap_for_experiment_task(monkeypatch
         "profile": _profile(),
         "useLLM": True,
         "stage": {
-            "focus": "GPIO 核心机制",
+            "focus": "中药材性状鉴别",
             "nodes": [
                 {
                     "id": "02",
-                    "title": "GPIO 输出控制实验",
-                    "description": "配置推挽输出并在开发板记录 LED 与输出波形",
+                    "title": "药材模型辨识",
+                    "description": "旋转观察当归模型并记录药用部位与关键性状",
                 }
             ],
         },
     })
 
     task = result["tasks"][0]
-    assert task["resourceType"] in {"mcu", "video"}
+    assert task["resourceType"] == "herb-model"
     assert task["resourceSelectionSource"] == "semantic-guard"
 
 
@@ -786,14 +816,15 @@ def test_legacy_placeholder_task_descriptions_are_enriched_without_overwriting_s
     assert stage["nodes"][1]["description"] == "配置推挽输出并记录 LED 运行现象。"
 
 
-def test_reviewing_experiment_evidence_does_not_create_another_experiment_task():
+def test_reviewing_learning_evidence_does_not_restore_retired_resources():
     allowed = learning_agents._task_allowed_resource_types(
         "复盘迭代",
-        "整理本周错因、实验截图和代码片段，记录下一周需要继续追踪的问题。",
+        "整理本周错因、药材观察记录和医案证据，记录下一周需要继续追踪的问题。",
     )
 
     assert "mcu" not in allowed
-    assert allowed == {"mindmap", "document", "ppt", "video", "animation"}
+    assert "document" not in allowed
+    assert allowed == {"mindmap", "ppt", "video", "animation"}
 
 
 def test_resource_concentration_guard_keeps_profile_routing_diverse(monkeypatch):
@@ -821,7 +852,7 @@ def test_resource_concentration_guard_keeps_profile_routing_diverse(monkeypatch)
     })
 
     task = result["tasks"][0]
-    assert task["resourceType"] in {"document", "ppt", "video", "animation"}
+    assert task["resourceType"] in {"ppt", "video", "animation"}
     assert task["resourceSelectionSource"] == "concentration-guard"
 
 
@@ -837,20 +868,20 @@ def test_resource_coverage_guard_keeps_a_video_task_in_long_week(monkeypatch):
         "profile": _profile(),
         "useLLM": True,
         "stage": {
-            "focus": "GPIO 核心机制",
+            "focus": "中药鉴别核心能力",
             "previousResourceTypes": [
-                "document",
+                "herb-model",
+                "herb-model",
                 "mindmap",
-                "mcu",
-                "mcu",
                 "question-bank",
-                "mindmap",
+                "question-bank",
+                "ppt",
             ],
             "nodes": [
                 {
                     "id": "07",
-                    "title": "调试证据归档",
-                    "description": "整理调试过程、错误原因和下一步行动",
+                    "title": "错因证据归档",
+                    "description": "整理辨析过程、错误原因和下一步行动",
                 }
             ],
         },
@@ -972,7 +1003,7 @@ def test_animation_learning_path_route_opens_task_backed_animation_page():
     assert "autostart=1" in route
 
 
-def test_mcu_agent_output_is_mapped_to_a_supported_simulator_project(monkeypatch):
+def test_retired_mcu_agent_output_is_mapped_to_a_supported_tcm_resource(monkeypatch):
     monkeypatch.setattr(
         learning_agents,
         "call_llm_json",
@@ -984,7 +1015,7 @@ def test_mcu_agent_output_is_mapped_to_a_supported_simulator_project(monkeypatch
                     "resourceParams": {
                         "board": "STM32F103C8T6",
                         "projectId": "stm32-gpio-interrupt-lab",
-                        "topic": "STM32 GPIO 按键中断验证",
+                        "topic": "当归药材模型辨识",
                     },
                 }
             ]
@@ -995,20 +1026,19 @@ def test_mcu_agent_output_is_mapped_to_a_supported_simulator_project(monkeypatch
         "profile": _profile(),
         "useLLM": True,
         "stage": {
-            "focus": "STM32 GPIO",
+            "focus": "中药材性状鉴别",
             "nodes": [
                 {
                     "id": "04",
-                    "title": "实操验证",
-                    "description": "使用按键输入验证 GPIO 外部中断处理流程",
+                    "title": "药材模型辨识",
+                    "description": "旋转观察当归模型并记录药用部位与关键性状",
                 }
             ],
         },
     })
 
     task = result["tasks"][0]
-    assert task["resourceType"] == "mcu"
-    assert task["resourceParams"]["board"] == "arduino"
-    assert task["resourceParams"]["projectId"] == "uno-button-ready"
-    assert task["resourceParams"]["requestedBoard"] == "STM32F103C8T6"
-    assert task["resourceParams"]["requestedProjectId"] == "stm32-gpio-interrupt-lab"
+    assert task["resourceType"] == "herb-model"
+    assert task["resourceParams"]["challengeMode"] == "identify"
+    assert "board" not in task["resourceParams"]
+    assert "projectId" not in task["resourceParams"]

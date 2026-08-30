@@ -2,7 +2,18 @@
   <div id="app" :class="{ 'xiaozhi-embed-app': isXiaoZhiEmbed || isFramedApp }">
     <TopNavbar v-if="showNavbar" />
     <RouterView v-slot="{ Component, route }">
-      <component :is="Component" :key="route.fullPath" />
+      <KeepAlive :key="navigationCacheEpoch" :max="10">
+        <component
+          :is="Component"
+          v-if="route.meta?.keepAlive"
+          :key="String(route.name || route.path)"
+        />
+      </KeepAlive>
+      <component
+        :is="Component"
+        v-if="!route.meta?.keepAlive"
+        :key="route.fullPath"
+      />
     </RouterView>
     <FloatingLogoLauncher v-if="showFloatingAssistant" />
     <GlobalDebugPanel v-if="showFloatingAssistant" />
@@ -10,7 +21,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, KeepAlive, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import FloatingLogoLauncher from './components/FloatingLogoLauncher.vue'
 import GlobalDebugPanel from './components/GlobalDebugPanel.vue'
@@ -18,6 +29,7 @@ import TopNavbar from './components/TopNavbar.vue'
 import { logXiaoZhiEvent, pulseLearningActivity } from './services/api.js'
 
 const route = useRoute()
+const navigationCacheEpoch = ref(0)
 const isFramedApp = window.self !== window.top
 const isXiaoZhiEmbed = computed(() => route.query.xzEmbed === '1' || route.query.embed === 'xiaozhi')
 
@@ -140,6 +152,15 @@ watch(
     startLearningActivity()
   },
   { immediate: true },
+)
+
+watch(
+  () => route.name,
+  (name, previousName) => {
+    if (name === 'login' && previousName && previousName !== 'login') {
+      navigationCacheEpoch.value += 1
+    }
+  },
 )
 
 onMounted(() => {

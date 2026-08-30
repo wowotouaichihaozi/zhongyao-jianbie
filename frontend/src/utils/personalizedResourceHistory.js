@@ -180,6 +180,7 @@ export function extractTaskResources(task) {
         planner,
         grounded: itemMetadata.grounded ?? workflow.grounded ?? Boolean(knowledgeSources.length),
         taskStatus,
+        taskUpdatedAt: String(task.updatedAt || task.createdAt || ''),
         generationState: itemMetadata.generationState || result.currentStage || taskStatus,
         coverStatus: itemMetadata.coverStatus || result.coverStatus || '',
       },

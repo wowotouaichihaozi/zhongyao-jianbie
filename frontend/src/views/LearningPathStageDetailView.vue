@@ -204,10 +204,18 @@
         </button>
       </div>
 
-      <div v-if="!loading && !pathLoadError && !generationError && (!hasActiveLearningProfile || !sortedNodes.length)" class="empty-path-state" role="status">
-        <strong>{{ hasActiveLearningProfile ? '尚未生成学习路径' : '当前没有学习画像' }}</strong>
-        <span>{{ hasActiveLearningProfile ? '岐小智会按你的目标、薄弱点和资源偏好生成周学习计划。' : '请先完成学习画像后再生成个性化周任务。' }}</span>
-        <button type="button" @click="handlePersonalizationAction">
+      <div
+        v-if="!loading && !pathLoadError && !generationError && (!hasActiveLearningProfile || !sortedNodes.length)"
+        class="empty-path-state"
+        :class="{ generating: generationIsRunning }"
+        role="status"
+        aria-live="polite"
+      >
+        <RefreshCcw v-if="generationIsRunning" class="empty-path-spinner" :size="24" aria-hidden="true" />
+        <strong>{{ generationIsRunning ? '正在生成学习路径' : hasActiveLearningProfile ? '尚未生成学习路径' : '当前没有学习画像' }}</strong>
+        <span>{{ generationIsRunning ? generationStatusMessage : hasActiveLearningProfile ? '岐小智会按你的目标、薄弱点和资源偏好生成周学习计划。' : '请先完成学习画像后再生成个性化周任务。' }}</span>
+        <div v-if="generationIsRunning" class="empty-path-progress" aria-hidden="true"><i></i></div>
+        <button v-else type="button" @click="handlePersonalizationAction">
           {{ hasActiveLearningProfile ? '生成学习路径' : '完成学习画像' }}
         </button>
       </div>
@@ -237,7 +245,6 @@ import LearningPathAcademyNode from '../components/LearningPathAcademyNode.vue'
 import { cloneLearningPathConfig } from '../config/learningPathDefaults.js'
 import {
   generateFirstLearningPath,
-  generateRemainingLearningPath,
   subscribeLearningPathProgress,
   subscribeLearningPathTrace,
 } from '../services/progressiveLearningPath.js'
@@ -245,8 +252,7 @@ import {
   appendNodeCacheParams,
   getNodeCache,
   hydrateNodeCachesFromServer,
-  markNodeCacheComplete,
-  markNodeCacheStarted,
+  markNodeCacheViewed,
 } from '../services/learningPathNodeCache.js'
 import { dispatchXiaoZhiWorkflowProgress } from '../utils/xiaozhiWorkflowProgress.js'
 
@@ -434,6 +440,10 @@ const loadingMessage = computed(() => (
       ? '正在根据当前学习画像生成第一周学习计划'
       : '正在加载学习路径'
 ))
+const generationStatusMessage = computed(() => (
+  String(backgroundPathGeneration.value.message || '').trim()
+  || (planning.value ? '正在根据当前学习画像规划第一周任务，请稍候。' : '学习路径智能体正在后台规划第一周任务，请稍候。')
+))
 
 const academyMapTitles = [
   '本草基原与药用部位',
@@ -457,7 +467,7 @@ const sortedNodes = computed(() => {
     .map((node, index) => {
       const cacheKey = String(node.cacheKey || '').trim()
       const cache = getNodeCache(cacheKey)
-      const cacheDone = cache?.status === 'complete'
+      const cacheDone = cache?.viewedAt && cache?.viewSource === 'learning-path-task-open'
       const compactCoords = compactMap.value && isWeekOverview.value
         ? {
             x: index % 2 === 0 ? 82 : 278,
@@ -482,6 +492,7 @@ const sortedNodes = computed(() => {
         actionRoute: String(node.actionRoute || ''),
         stageId: String(node.stageId || ''),
         order: safeNumber(node.order, index + 1),
+        progressPercent: optionalProgressPercent(node.progressPercent),
         academyGrowth: index / lastIndex,
         academyStage,
         mapTitle: academyMapTitles[academyStage - 1],
@@ -533,9 +544,9 @@ const stageMetrics = computed(() => {
 })
 
 const stageProgressPercent = computed(() => {
-  const total = stageMetrics.value.total || 1
-  const weightedDone = stageMetrics.value.done + stageMetrics.value.current * 0.5
-  return Math.min(100, Math.round((weightedDone / total) * 100))
+  if (!sortedNodes.value.length) return 0
+  const totalProgress = sortedNodes.value.reduce((sum, node) => sum + nodeProgress(node), 0)
+  return Math.min(100, Math.round(totalProgress / sortedNodes.value.length))
 })
 
 const popoverStyle = computed(() => {
@@ -643,7 +654,7 @@ async function loadStage(stageId) {
 }
 
 async function loadWeekOverview() {
-  let config = normalizePathConfig(await getLearningPathConfig())
+  let config = normalizePathConfig(await getLearningPathConfig({ summary: true }))
   pathMeta.value = config.meta || {}
   publishBackgroundPathTask(config)
   applyActiveProfileSummary(config)
@@ -688,16 +699,6 @@ async function loadWeekOverview() {
   await nextTick()
   resetViewport()
 
-  const generatedWeekCount = visiblePathWeeks(config).length
-  const generationComplete = config?.meta?.generationState === 'complete' && generatedWeekCount >= totalWeeks
-  if (
-    config?.meta?.canGeneratePersonalized !== false
-    && !generationComplete
-    && generatedWeekCount < totalWeeks
-    && !planningRemaining.value
-  ) {
-    void generateRemainingWeeks(config, totalWeeks)
-  }
 }
 
 async function rebuildPersonalizedPath() {
@@ -708,7 +709,7 @@ async function rebuildPersonalizedPath() {
     if (!activeProfile?.id) {
       throw new Error('当前没有激活画像，请先在学习画像中选择一份画像。')
     }
-    let config = normalizePathConfig(await getLearningPathConfig())
+    let config = normalizePathConfig(await getLearningPathConfig({ summary: true }))
     const totalWeeks = Math.max(4, Math.min(8, Number(config?.meta?.totalWeeks || pathMeta.value?.totalWeeks) || 6))
     const savedPathMatchesProfile = isSavedPathForProfile(config, activeProfile)
     if (!savedPathMatchesProfile) {
@@ -719,9 +720,6 @@ async function rebuildPersonalizedPath() {
     planning.value = false
     await nextTick()
     resetViewport()
-    if (visiblePathWeeks(config).length < totalWeeks) {
-      await generateRemainingWeeks(config, totalWeeks)
-    }
   } catch (error) {
     console.warn('Failed to rebuild personalized learning path.', error)
     setGenerationFailure(error)
@@ -787,7 +785,7 @@ async function switchToCurrentProfilePath() {
       throw new Error(profilePathSwitchError.value || '当前没有激活画像，请先在学习画像中选择一份画像。')
     }
 
-    const savedConfig = normalizePathConfig(await getLearningPathConfig())
+    const savedConfig = normalizePathConfig(await getLearningPathConfig({ summary: true }))
     if (isSavedPathForProfile(savedConfig, activeProfile)) {
       generationError.value = null
       activeNodeId.value = ''
@@ -815,14 +813,7 @@ async function switchToCurrentProfilePath() {
     await nextTick()
     resetViewport()
 
-    if (visiblePathWeeks(config).length < totalWeeks) {
-      planningRemaining.value = true
-      config = normalizePathConfig(await generateRemainingLearningPath(config, totalWeeks))
-      pathMeta.value = config.meta || {}
-      stageConfig.value = createWeekOverviewStage(config)
-    }
-
-    const persistedConfig = normalizePathConfig(await getLearningPathConfig())
+    const persistedConfig = normalizePathConfig(await getLearningPathConfig({ summary: true }))
     if (!isSavedPathForProfile(persistedConfig, activeProfile)) {
       throw new Error('已保存路径与当前画像不一致，请重试切换。')
     }
@@ -863,19 +854,6 @@ function consumeProfileSwitchNotice() {
   } catch {
     window.localStorage.removeItem('learning-profile-switched')
     profileSwitchNotice.value = '已根据当前学习画像切换学习路径任务。'
-  }
-}
-
-async function generateRemainingWeeks(initialConfig, totalWeeks) {
-  planningRemaining.value = true
-  try {
-    const finalConfig = await generateRemainingLearningPath(initialConfig, totalWeeks)
-    await handleLearningPathProgress(finalConfig)
-  } catch (error) {
-    console.warn('Failed to generate remaining learning-path weeks.', error)
-    setGenerationFailure(error)
-  } finally {
-    planningRemaining.value = false
   }
 }
 
@@ -1117,11 +1095,11 @@ function createWeekOverviewStage(config) {
   const weekLabels = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
   const nodes = visibleWeeks.map((week, index) => {
     const status = String(week.status || '')
-    const state = ['done', 'completed'].includes(status)
-      ? 'done'
-      : ['current', 'active', 'progress'].includes(status)
-        ? 'current'
-        : 'available'
+    const reportedProgress = optionalProgressPercent(week.progressPercent)
+    const progressPercent = reportedProgress !== undefined
+      ? reportedProgress
+      : ['done', 'completed'].includes(status) ? 100 : 0
+    const state = progressPercent >= 100 ? 'done' : progressPercent > 0 ? 'current' : 'available'
     const weekNumber = index + 1
     return {
       id: `week-${weekNumber}`,
@@ -1130,6 +1108,7 @@ function createWeekOverviewStage(config) {
       label: `第${weekLabels[index] || weekNumber}周`,
       title: cleanWeekMapTitle(week.title, weekNumber),
       statusText: state === 'done' ? '已完成' : state === 'current' ? '进行中' : '未开始',
+      progressPercent,
       description: String(week.description || `查看第${weekNumber}周的具体学习任务与资源。`),
       state,
       x: 126 + index * 246,
@@ -1205,6 +1184,12 @@ function safeNumber(value, fallback) {
   return Number.isFinite(number) ? number : Number(fallback)
 }
 
+function optionalProgressPercent(value) {
+  if (value === undefined || value === null || value === '') return undefined
+  const number = Number(value)
+  return Number.isFinite(number) ? Math.min(100, Math.max(0, Math.round(number))) : undefined
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, safeNumber(value, min)))
 }
@@ -1242,17 +1227,20 @@ async function openNodeAction(node) {
   }
   await hydrateNodeCachesFromServer()
   const href = buildNodeActionHref(node)
+  let viewSavePromise = null
   if (node.cacheKey) {
-    const marker = node.resourceType === 'review' ? markNodeCacheComplete : markNodeCacheStarted
-    marker(node.cacheKey, {
+    viewSavePromise = markNodeCacheViewed(node.cacheKey, {
       stageId: normalizeStageId(String(route.params.stageId || firstVisibleStageId)),
       nodeId: node.id,
+      profileReportId: Number(pathMeta.value?.profileReportId || activeProfileSummary.value?.id || 0),
       resourceType: node.resourceType,
       title: node.title,
       route: href,
+      viewedAt: Date.now(),
     })
   }
   if (node.resourceType === 'herb-model' && !/^https?:\/\//i.test(href)) {
+    if (viewSavePromise) await viewSavePromise
     await router.push(href)
     return
   }
@@ -1304,6 +1292,8 @@ function exitStage() {
 
 function nodeProgress(node) {
   if (!node) return 0
+  const reportedProgress = optionalProgressPercent(node.progressPercent)
+  if (reportedProgress !== undefined) return reportedProgress
   if (node.state === 'done') return 100
   if (node.state === 'current') return 66
   return 0
@@ -1725,6 +1715,54 @@ function resetViewport() {
   max-width: 440px;
   font-size: 14px;
   line-height: 1.7;
+}
+
+.empty-path-state.generating {
+  color: #3f6158;
+}
+
+.empty-path-spinner {
+  color: #16836c;
+  animation: empty-path-spin 1.1s linear infinite;
+}
+
+.empty-path-progress {
+  position: relative;
+  width: min(300px, 76vw);
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #dbe8e3;
+}
+
+.empty-path-progress i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  border-radius: inherit;
+  background: #16836c;
+  animation: empty-path-progress 1.45s ease-in-out infinite;
+}
+
+@keyframes empty-path-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes empty-path-progress {
+  0% { transform: translateX(-110%); }
+  55% { transform: translateX(105%); }
+  100% { transform: translateX(270%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-path-spinner,
+  .empty-path-progress i {
+    animation: none;
+  }
+
+  .empty-path-progress i {
+    width: 64%;
+  }
 }
 
 .map-board {

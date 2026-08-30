@@ -31,7 +31,6 @@
       <header class="console-heading">
         <span>统一身份认证</span>
         <h2>{{ activeTab === 'register' ? '创建账号' : role === 'admin' ? '管理端登录' : '用户端登录' }}</h2>
-        <p>{{ activeTab === 'register' ? '注册后开始建立你的中医学习画像' : '登录后继续当前画像与学习路径' }}</p>
       </header>
 
       <div class="role-tabs" role="radiogroup" aria-label="选择登录角色">
@@ -82,10 +81,6 @@
         />
       </Transition>
 
-      <footer class="console-meta">
-        <span>数据按账户隔离</span>
-        <span>{{ role === 'admin' ? '进入管理工作台' : '进入学习工作台' }}</span>
-      </footer>
     </aside>
   </main>
 </template>
@@ -468,7 +463,6 @@ onUnmounted(() => {
 .console-heading { text-align: center; }
 .console-heading > span { color: #9a7839; font-size: 11px; font-weight: 750; }
 .console-heading h2 { margin: 7px 0 4px; color: #244f41; font-size: 22px; }
-.console-heading p { color: #7a8882; font-size: 12px; }
 
 .role-tabs,
 .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; }
@@ -503,15 +497,55 @@ onUnmounted(() => {
   box-shadow: 0 3px 10px rgba(23, 76, 60, 0.2);
 }
 
+:global(#app .herbwise-login-page .password-field) {
+  position: relative;
+}
+
+:global(#app .herbwise-login-page .password-field input) {
+  padding-right: 48px !important;
+}
+
+:global(#app .herbwise-login-page .password-field .password-visibility-toggle),
+:global(#app .herbwise-login-page .password-field .password-visibility-toggle:hover),
+:global(#app .herbwise-login-page .password-field .password-visibility-toggle:focus),
+:global(#app .herbwise-login-page .password-field .password-visibility-toggle:active) {
+  position: absolute !important;
+  z-index: 2;
+  top: 50% !important;
+  right: 11px !important;
+  bottom: auto !important;
+  left: auto !important;
+  display: grid !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  place-items: center;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  color: #64748b !important;
+  box-shadow: none !important;
+  transform: translateY(-50%) !important;
+}
+
+:global(#app .herbwise-login-page .password-field .password-visibility-toggle:hover) {
+  color: #174c3c !important;
+}
+
+:global(#app .herbwise-login-page .password-field .password-visibility-toggle:focus-visible) {
+  outline: 2px solid rgba(23, 76, 60, 0.32) !important;
+  outline-offset: -2px;
+}
+
 .login-console :deep(form) { gap: 12px; }
 .login-console :deep(label > span:first-child) { margin-bottom: 5px; color: #345548; font-size: 12px; }
 .login-console :deep(input) { height: 50px; border-radius: 6px; background: rgba(248, 251, 249, 0.92); }
 .login-console :deep(.auth-primary-action) { height: 50px; border-radius: 6px; background: #1d674e; box-shadow: 0 12px 24px rgba(29, 103, 78, 0.18); font-family: "Noto Serif SC", "Songti SC", SimSun, serif; font-size: 16px; }
 .login-console :deep(.auth-primary-action:hover) { background: #15563f; }
 .login-console :deep(form > p:last-child) { display: none; }
-
-.console-meta { display: flex; justify-content: space-between; gap: 16px; margin-top: 17px; padding-top: 14px; color: #7a8882; border-top: 1px solid #e3dfd3; font-size: 11px; }
-.console-meta span:last-child { color: #215643; }
 
 .auth-panel-enter-active,
 .auth-panel-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }

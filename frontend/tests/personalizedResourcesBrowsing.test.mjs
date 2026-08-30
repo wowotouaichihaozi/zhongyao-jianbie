@@ -4,29 +4,38 @@ import test from 'node:test'
 
 const source = fs.readFileSync(new URL('../src/views/PersonalizedResourcesView.vue', import.meta.url), 'utf8')
 
-test('workspace keeps six real tools including the upstream herb model route', () => {
-  assert.match(source, /title: '药材模型识别'/)
-  assert.match(source, /to: '\/personalized-resources\/herb-model'/)
-  assert.match(source, /icon: markRaw\(Box\)/)
+test('history resources provide keyword search, type filtering, and pagination', () => {
+  assert.match(source, /v-model="searchQuery"/)
+  assert.match(source, /placeholder="搜索资源"/)
+  assert.match(source, /<select v-model="activeCategory" aria-label="按资源类型筛选">/)
+  assert.match(source, /const pageSize = 12/)
+  assert.match(source, /const paginatedResources = computed/)
+  assert.match(source, /v-for="resource in paginatedResources"/)
+  assert.match(source, /aria-label="历史资源分页"/)
+  assert.match(source, /watch\(\[activeCategory, searchQuery\]/)
+})
+
+test('history resources use real-page cover cards', () => {
+  assert.match(source, /class="resource-tools-grid"/)
+  assert.match(source, /<h2 id="resource-tools-title">新建资源<\/h2>/)
+  assert.doesNotMatch(source, /tool\.description/)
+  assert.doesNotMatch(source, /按学习画像生成讲解视频/)
+  assert.match(source, /class="resource-gallery"/)
+  assert.match(source, /class="resource-cover-card"/)
+  assert.match(source, /class="resource-live-cover"/)
+  assert.match(source, /:src="getResourcePreviewUrl\(resource\)"/)
   assert.match(source, /grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/)
-  assert.equal((source.match(/class="resource-tool-card"/g) || []).length, 1)
+  assert.match(source, /aspect-ratio: 16 \/ 9/)
+  assert.match(source, /function getResourcePreviewUrl\(resource\)/)
+  assert.match(source, /\.history-search:focus-within/)
+  assert.doesNotMatch(source, /class="resource-table"/)
+  assert.doesNotMatch(source, /class="resource-tool-sidebar"/)
 })
 
-test('workspace preserves eight generated TCM topic covers', () => {
-  assert.match(source, /v-for="topic in topicCards"/)
-  assert.match(source, /class="resource-card topic-card"/)
-  assert.match(source, /class="topic-cover-texture"/)
-  assert.match(source, /class="topic-cover-icon-image"/)
-  assert.match(source, /resource-topic-patterns-v2/)
-  assert.match(source, /resource-topic-icons-v2/)
-  assert.equal((source.match(/key: '(bagang|herbs|flavor|formula|diagnostics|meridians|wellness|cases)'/g) || []).length, 8)
-  assert.doesNotMatch(source, /TopicSolidGlyph/)
-})
-
-test('workspace still merges task and generated-video histories into real topics', () => {
-  assert.match(source, /getXiaoZhiHistory/)
-  assert.match(source, /getXiaoZhiTask/)
-  assert.match(source, /getGeneratedVideoTaskHistory\(\{ status: 'complete', limit: 100, offset \}\)/)
-  assert.match(source, /const topicCards = computed/)
-  assert.match(source, /linkedResource/)
+test('only AI-generated videos use static posters and waiting tasks remain visible', () => {
+  assert.match(source, /v-if="usesStaticCover\(resource\)"/)
+  assert.match(source, /class="resource-static-cover"/)
+  assert.match(source, /String\(resource\?\.type \|\| ''\) === 'generated_video'/)
+  assert.match(source, /getGeneratedVideoTaskHistory\(\{ limit: 100, offset \}\)/)
+  assert.doesNotMatch(source, /getGeneratedVideoTaskHistory\(\{ status: 'complete'/)
 })

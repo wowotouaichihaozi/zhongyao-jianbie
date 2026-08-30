@@ -99,7 +99,7 @@ const routes = [
     path: '/learning-profile',
     name: 'learning-profile',
     component: LearningProfileView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, keepAlive: true },
   },
   {
     path: '/learning-profile/submit',
@@ -129,7 +129,7 @@ const routes = [
     path: '/effect-assessment',
     name: 'effect-assessment',
     component: EffectAssessmentView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, keepAlive: true },
   },
   {
     path: '/smart-tutor',
@@ -166,13 +166,13 @@ const routes = [
         hash: to.hash,
       }
     },
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, keepAlive: true },
   },
   {
     path: '/personalized-resources',
     name: 'personalized-resources',
     component: PersonalizedResourcesView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, keepAlive: true },
   },
   {
     path: '/personalized-resources/knowledge-base',
@@ -184,13 +184,13 @@ const routes = [
     path: '/herb-recognition',
     name: 'herb-recognition',
     component: HerbRecognitionView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, keepAlive: true },
   },
   {
     path: '/knowledge-network',
     name: 'knowledge-network',
     component: KnowledgeNetworkView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, keepAlive: true },
   },
   {
     path: '/personalized-resources/knowledge-network',
@@ -206,7 +206,7 @@ const routes = [
     path: '/life-tree',
     name: 'life-tree',
     component: LifeTreeView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, keepAlive: true },
   },
   {
     path: '/agent-digital-twin',

@@ -16,29 +16,22 @@
       </header>
 
       <section class="interview-layout">
-        <div class="visual-panel">
+        <div class="visual-panel" :class="{ 'connection-failed': avatarConnectionFailed }">
           <DigitalHumanAvatar
-            v-if="avatarVisible"
+            v-if="avatarVisible && !avatarConnectionFailed"
             ref="avatarRef"
             class="avatar-area"
             @status-change="handleAvatarStatus"
             @error="handleAvatarError"
           />
-          <img
-            v-show="!avatarConnected"
-            class="avatar-standby"
-            src="/avatar-interview-standby.png"
-            alt=""
-            aria-hidden="true"
-          />
           <div
             v-if="avatarConnectionFailed"
             class="avatar-fallback-notice"
-            role="status"
+            role="alert"
             :title="avatarErrorMessage"
           >
-            <MessageSquareText :size="18" aria-hidden="true" />
-            <span>数字人暂不可用，文字访谈正常进行</span>
+            <CircleX :size="28" stroke-width="1.7" aria-hidden="true" />
+            <strong>数字人连接失败</strong>
           </div>
           <div v-if="!avatarVisible" class="avatar-idle-card">
             <strong>数字人待启动</strong>
@@ -152,7 +145,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { CircleStop, LoaderCircle, MessageSquareText, PlayCircle, SendHorizontal } from 'lucide-vue-next'
+import { CircleStop, CircleX, LoaderCircle, MessageSquareText, PlayCircle, SendHorizontal } from 'lucide-vue-next'
 import TopNavbar from '../components/TopNavbar.vue'
 import DigitalHumanAvatar from '../components/DigitalHumanAvatar.vue'
 import SpeechAnswerInput from '../components/SpeechAnswerInput.vue'
@@ -344,7 +337,7 @@ function handleAvatarError(message) {
   avatarConnected.value = false
   avatarConnectionFailed.value = true
   avatarErrorMessage.value = String(message || '数字人连接失败')
-  avatarStatus.value = '文字模式可用'
+  avatarStatus.value = '数字人连接失败'
 }
 
 function stopSpeechRecognition() {
@@ -677,6 +670,10 @@ h1 {
   border: 1px solid #d2d9d6;
 }
 
+.visual-panel.connection-failed {
+  background: #f8faf9;
+}
+
 .visual-panel :deep(.avatar-panel) {
   position: absolute;
   left: 50%;
@@ -722,32 +719,6 @@ h1 {
   background: #ffffff !important;
 }
 
-.avatar-standby {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  z-index: 3;
-  width: min(54%, 360px);
-  height: 88%;
-  object-fit: contain;
-  object-position: center bottom;
-  pointer-events: none;
-  filter: drop-shadow(0 16px 28px rgba(24, 77, 59, 0.12));
-  transform: translateX(-50%);
-  animation: avatarStandbyBreath 2.4s ease-in-out infinite;
-}
-
-@keyframes avatarStandbyBreath {
-  0%, 100% {
-    opacity: 0.9;
-    transform: translateX(-50%) translateY(0);
-  }
-  50% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(-3px);
-  }
-}
-
 .avatar-idle-card {
   position: absolute;
   left: 50%;
@@ -780,27 +751,24 @@ h1 {
 .avatar-fallback-notice {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  top: 50%;
   z-index: 8;
-  display: inline-flex;
-  width: max-content;
-  max-width: calc(100% - 32px);
-  min-height: 40px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 9px 13px;
-  border: 1px solid #d8e4e1;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #30544c;
-  font-size: 13px;
-  font-weight: 700;
+  gap: 12px;
+  color: #5b6661;
+  font-size: 16px;
   line-height: 1.4;
   text-align: center;
-  transform: translateX(-50%);
-  box-sizing: border-box;
-  backdrop-filter: blur(8px);
+  transform: translate(-50%, -50%);
+}
+
+.avatar-fallback-notice strong {
+  color: #232a27;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .visual-panel :deep(.avatar-error) {

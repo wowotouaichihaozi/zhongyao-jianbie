@@ -66,7 +66,7 @@ code6.14/
 - 学习成长树：`/life-tree` 把当前学习画像作为树的能力根系，左侧常驻展示与学习画像报告同源的六维雷达、分值、证据数和置信度；个性化路径第一至第六周固定为由低到高的六枚果实。果实使用仓库内 `img/models/life-tree/apple08.fbx`，初始为小型青果；学习者实际进入并完成/查看路径节点，或提交“完成学习”反馈后，该周完成比例才会驱动苹果平滑放大并由青转红。后台预生成资源只记为“资源已备好”，不会提前增加成熟度。点击果实可核对本周任务总数、学习完成数、后台准备数、反馈来源、画像绑定和路径内容，并进入对应周继续学习；尚未生成的周次保留青果位置但明确标为待生成，不计入完成度。
 - 药材模型辨识：`/personalized-resources/herb-model` 从用户提供的单体中药材 OBJ 中拆分出 20 种可独立加载的药材模型，支持旋转、缩放、切换药材、隐藏答案后辨识和性状特征核对。正常生成的周路径会稳定选择 1 种目录内药材作为模型辨识任务；少于七项的历史短路径保持原任务和任务 ID，不被覆盖规则重写。OBJ、WebP 与目录元数据总计约 9.9 MB，部署时 Nginx 将 `.obj` 作为静态资源提供。
 - 学习路径：学习画像保存完成后，后端立即创建可追踪且幂等的 `learning_path` 后台任务，无需用户先进入学习路径页面；路径根据该画像的目标、薄弱点和偏好生成，并由资源路由智能体逐任务选择子智能体、补齐参数和后台预生成结果。
-- 渐进式学习路径：后台任务先生成并保存第一周，再基于同一画像逐周补全后续周，每周生成 7-10 个可验收任务与资源入口。用户中途打开页面时读取 `meta.backgroundGeneration` 显示进度并轮询数据库，不会另起重复规划；后台失败后仍可通过原有页面生成接口继续缺失周次。生产环境使用独立路径执行器承载画像后的长任务，避免占满普通资源或视频任务线程池。
+- 渐进式学习路径：画像完成后后台只生成并保存第一周，每周生成 7-10 个可验收任务与资源入口。任务卡片被用户实际打开时写入服务端 `viewedAt` 证据；只有当前最后一周的全部任务都已查看，后端才排队生成下一周。页面加载、刷新、画像切换和直接调用下一周接口都不会绕过该门槛。周次地图使用轻量摘要接口，周任务页单独读取当前周，避免路径增长后重复下载全部周次详情。
 - 题库生成：支持文档上传、题目生成、考试记录与 AI 评分。考试会同时兼容题单内嵌题目和会话顶层题目；空题单不会启动计时、写入历史或提交评估证据，并提供明确返回入口。考试计时按会话开始后的真实经过时间计算，进行中可确认退出，移动端不会横向溢出。
 - 登录深链恢复：访问受保护的二级或更深页面时，路由守卫会把同源 `path + query + hash` 带到登录页；运行中遇到 401 也使用同一规则。登录完成后回到原目标，外部地址、协议相对地址、畸形地址和登录循环均回退到默认学习画像页。
 - PPT 生成：`/personalized-resources/ppt` 全屏嵌入精简版 OhMyPPT（仅首页与会话，默认包豪斯风格），普通访问进入快速创建，学习路径携带主题、要求和页数时直接进入可恢复的生成会话；原有 Harness 后台任务与 `/ppt-generator/generating/:sessionId` 继续兼容。
@@ -321,11 +321,11 @@ Supervisor / Skill / MCP / Handoff / 质量与安全审核
 
 OhMyPPT 默认使用 `Spark X2 Flash`（`astron-code-latest`）。独立引擎优先读取 `ppth5/backend/.env`，示例见 `ppth5/backend/.env.example`；模型密钥只保存在服务端环境文件中，不写入浏览器配置、构建产物或 API 响应。原始 H5 的快速创建把该模型识别为服务端托管模型；本机回环地址可在开发模式下使用默认模型，线上浏览器请求必须通过主站登录态校验，智能体后台请求继续使用 HMAC 内部签名。
 
-为避免模型一次返回整份长 HTML 导致读取超时，OhMyPPT 默认按每批 3 页、批次串行生成，再按原始页码合并并执行页数、HTML 安全与结构校验。某一批为空、超时或无法解析时，只把该批拆成单页串行重试；单页仍失败则补入带警告的可编辑保底页，因此任务仍能保存完整页数，且降级状态可被任务历史和审核链识别。批大小与并发数可通过 `OHMYPPT_LLM_BATCH_SIZE`、`OHMYPPT_LLM_MAX_PARALLEL` 调整，生产默认并发为 1。
+OhMyPPT 保留画像上下文和 RAG 检索结果，并把整份课件合并为一次模型请求；常用 6 页课件因此只调用一次 DeepSeek。OpenAI 兼容请求明确关闭思考模式，输出预算仍为 `128000`。模型少返回或无法解析的页面不再触发拆批、整单重试或逐页请求，而是直接补入带警告的可编辑保底页，因此生成页数稳定，降级状态仍可被任务历史和审核链识别。
 
 原始 H5 在等待整份模型结果时会持续展示当前阶段、已等待时长和保守进度，模型尚未返回时进度不会伪装为页面已完成；“取消生成”会中止当前浏览器请求。模型返回后再进入页面解析、结构校验和逐页写入阶段。
 
-默认模型请求最长等待 600 秒且不自动整单重跑，避免五页生成在 300 秒超时后静默从头执行；系统仅在失败批次内执行有界逐页恢复，并把最终降级原因随结果返回。
+默认模型请求最长等待 600 秒且不自动整单重跑；请求失败或缺页时直接补齐带标记的可编辑保底页，并把降级原因随结果返回。
 
 主站工作台使用稳定查询指纹创建 OhMyPPT 会话，相同学习任务刷新后会恢复同一会话；未传页数时默认生成 6 页。演示优先使用原生 Fullscreen API，内置浏览器不提供该 API 时自动切换到页面级全屏，点击动画完成后继续翻页，并支持 `Esc` 退出。
 
@@ -395,7 +395,7 @@ python -m py_compile app.py ppt_h5.py
 旧地址 `/learning-path/stage/:stageId` 仅保留 `overview` 作为周次地图；其他旧阶段地址会自动迁移到对应的周任务页，避免再次出现“地图展示任务、列表展示周次”的反向流程。
 
 1. 学习画像报告保存后，后端以 `(user_id, profile_report_id)` 检查已有完整路径和活动任务，并在同一 SQLite 写事务中幂等创建 `xiaozhi_tasks.task_type=learning_path` 后台任务。
-2. 独立路径执行器先以 `generationPhase: "first-week"` 保存第一周，再以 `generationPhase: "remaining-weeks"` 和已有 `existingConfig` 逐周合并后续路径；每周的 Harness 运行都绑定同一个后台 `taskId`。
+2. 独立路径执行器以 `generationPhase: "first-week"` 保存第一周后停止。当前周全部任务产生用户查看证据后，系统再以 `generationPhase: "next-week"` 和已有 `existingConfig` 只合并下一周；每次周规划都有独立、可追踪的后台 `taskId`。
 3. `GET /api/learning-path/config` 在 `meta.backgroundGeneration` 返回任务 ID、状态、进度、当前阶段和已保存周数。页面只轮询该状态并恢复数据库结果；`POST /api/learning-path/generate-stream` 与非流式 `POST /api/learning-path/generate` 保留为失败重试和兼容入口。
 4. 已规范化路径使用无数据库写入的只读快路径；只有首次读取旧版结构并确实发生格式迁移时才回写一次，不再在每次 GET 中镜像更新两张路径表。`meta.activeProfileSummary` 随配置返回当前画像 ID、名称和版本，周次地图无需再请求完整画像历史。`GET /api/learning-path/stages/{stageId}?includeConfig=0` 只返回周任务、路径元数据和更新时间，旧调用不传参数时仍保留完整 `config` 以兼容现有客户端。
 
@@ -409,7 +409,7 @@ python -m py_compile app.py ppt_h5.py
 
 每周完整任务集固定覆盖题库生成、PPT生成、思维导图、视频查找、单片机模拟器和 AI 视频讲解六类资源智能体，每类至少出现一次；视频查找仍是检索能力，AI 视频讲解使用独立的 `generated_video` 类型。学习路径智能体在生成周任务时一次性产出结构化 `resourceType`、`resourceParams`、`resourcePrompt` 和 `resourceSelectionReason`，保存前执行整周六类覆盖收口；资源派发阶段直接复用这些参数，不再为每个节点重复调用一次资源路由模型。路径只为 AI 视频创建 `waiting_for_user` 的待确认任务，入口携带画像相关主题与提示词；用户打开工作台、选择模型并确认前不会调用任何视频模型或消耗视频生成额度。资源计划版本 `profile-routed-resources-v19-weekly-six-resource-coverage` 会让 `v18` 历史完整周重新编排，避免任何一类资源缺失或单一资源过度集中。
 
-完整学习路径保存后，后端把所有已启用周次投入周资源准备线程池。每一周使用快速派发模式：先在一次短事务中为全部节点创建持久化任务记录和带 `xzTask` 的页面入口，再把题库、PPT、导图、视频查找和单片机实验等普通资源全部提交后台执行器；接口不会等待资源生成完成。PPT 任务在数据库记录和 OhMyPPT 会话参数写入完成后立即提交专用后台执行器，用户不需要打开课件页面才能开始生成；该执行器默认串行，避免多份长课件各自拆批后放大模型侧超时，可通过 `PPT_RESOURCE_MAX_WORKERS` 在 1-2 之间调整。服务重启时，后端会先释放已中断的进程内任务，再自动扫描当前已保存的学习路径并重新投入周资源准备线程池；失败的路径资源仍遵守最多两次生成尝试的边界，不会无限重试。PPT 运行、失败和完成写回会合并已有状态，持续保留 `sessionId`、页数、生成参数、路径来源、缓存键和带 `xzTask` 的入口；OhMyPPT“会话列表”会单独读取这些服务器任务，展示队列、进度、完成页数和错误，并在后台任务活跃时自动刷新。其他普通资源默认最多 10 路并行，可通过 `RESOURCE_AGENT_MAX_WORKERS` 在 1-12 之间调整。不同周写回时通过用户级短锁重读最新配置并只合并当前周，避免并发覆盖任务 ID 或进度。`generated_video` 是唯一例外：入口立即可点击，但状态为 `waiting_for_user`，用户进入三栏视频工作台后编辑提示词、时长、风格、音色、清晰度和模型，并手动确认后才启动原任务。
+每一周学习路径保存后，后端只把该周投入资源准备线程池，不会预先规划后续周次。当前周先在一次短事务中为全部节点创建持久化任务记录和带 `xzTask` 的页面入口，再把题库、PPT、导图和视频查找等普通资源提交后台执行器；接口不会等待资源生成完成。PPT 任务在数据库记录和 OhMyPPT 会话参数写入完成后立即提交专用后台执行器，用户不需要打开课件页面才能开始生成；该执行器默认串行，避免多份长课件各自拆批后放大模型侧超时，可通过 `PPT_RESOURCE_MAX_WORKERS` 在 1-2 之间调整。服务重启时，后端会先释放已中断的进程内任务，并且一次只恢复最早的一个入口缺失、中断或失败周次；完整周次不会重复入队，也不会因此生成新的周次。失败的路径资源仍遵守最多两次生成尝试的边界，不会无限重试。不同周写回时通过用户级短锁重读最新配置并只合并当前周，避免并发覆盖任务 ID 或进度。`generated_video` 入口立即可点击，但状态为 `waiting_for_user`，用户进入视频工作台并手动确认后才启动原任务。
 
 本批状态管理可用 `python -m pytest backend/tests/test_learning_profile_api.py backend/tests/test_ohmyppt_client.py -q`、`python -m unittest discover -s ppth5/backend/tests -p test_batch_generation.py -v`、`cd ppth5 && npm run typecheck:web` 和 `cd frontend && npm run build -- --emptyOutDir=false` 验证；PPT H5 生产构建需直接调用 Vite 并传入 `--emptyOutDir=false`，避免清理既有输出目录。
 
@@ -553,7 +553,7 @@ https://lzhan.xyz/ai-coding
 
 当前部署结构中，PPT 不需要 Electron、xvfb 或 Node 后端服务，但需要 `feishengwangying-pptapi.service` 在回环地址 `127.0.0.1:8765` 运行 OhMyPPT FastAPI。生产 Nginx 的 `/ppt-api/` 仅作为同源服务入口；生成接口仍要求服务端内部签名，不能绕过岐小智直接调用。
 
-OhMyPPT 使用与主后端一致的 DeepSeek OpenAI 兼容配置。`deepseek-v4-flash-vision-exp` 的每批 completion 预算默认使用已完成真实 1 页与 5 页验证的 `32768`；`OHMYPPT_LLM_MAX_TOKENS` 和主后端兼容链路的 `PPT_H5_MAX_TOKENS` 均允许按需提高到接口接受的 `131072`。实测 131072 会让五页生成超过五分钟仍不结束，因此不作为生产默认值。`GET /ppt-api/health` 返回 `maxCompletionTokens`，部署后应同时核对模型、协议和输出预算。聚焦验证命令为 `python -m pytest ppth5/backend/tests/test_batch_generation.py backend/tests/test_model_runtime_hardening.py backend/tests/test_ohmyppt_parser.py backend/tests/test_ohmyppt_client.py -q`。
+OhMyPPT 使用与主后端一致的 DeepSeek OpenAI 兼容配置。`deepseek-v4-flash-vision-exp` 默认关闭思考模式，单次 completion 预算固定不低于 `128000`；常用 6 页课件连同学习画像和 RAG 检索上下文在一次请求中生成。模型缺页、空响应或解析失败时不再重试模型，而是直接补入带降级标记的可编辑模板页。`GET /ppt-api/health` 返回 `maxCompletionTokens`，部署后应同时核对模型、协议和输出预算。聚焦验证命令为 `python -m pytest ppth5/backend/tests/test_batch_generation.py backend/tests/test_model_runtime_hardening.py backend/tests/test_ohmyppt_parser.py backend/tests/test_ohmyppt_client.py -q`。
 
 远程环境的 `/ai-coding` 在主导航栏下方直接嵌入 DeepSeek Harness，共用一个由 `dsh-sandbox` 非 root 用户持有的工作区与会话存储。Harness 仅监听隔离服务器的回环端口，主站通过受限 SSH 隧道和带登录校验的 `/ai-coding-runtime/` 代理访问；未登录请求返回 401。DeepSeek 凭据由沙箱服务器上的 root-only 上游代理注入，不进入浏览器、Harness 工作区、前端构建产物或 Git 文件。为保留远程凭据隔离，浏览器侧 `credentials` 与 `settings` 接口继续保持不可访问；代理只关闭 Harness 内测声明并重写运行时资源/RPC 路径。
 

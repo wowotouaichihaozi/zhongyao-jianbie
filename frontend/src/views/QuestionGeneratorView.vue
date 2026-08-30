@@ -501,14 +501,72 @@
                 <button type="button" class="qg-soft-btn" @click="enterSheetSelectMode">选择题单</button>
                 <button type="button" class="qg-primary-btn" :disabled="!canLaunchSelectedExam" @click="handleExamAction">开始考试</button>
               </div>
-              <div class="qg-glass-card">
-                <div class="qg-card-title">当前试卷</div>
-                <div v-if="!selectedSheet" class="qg-empty-state">请先选择一份题单，然后开始考试。</div>
-                <div v-else-if="selectedQuestions.length" class="qg-exam-pre-info">
-                  <span>{{ selectedSheet.title }}</span>
-                  <span>{{ selectedQuestions.length }} 题 · {{ examResult.total_score }} 分</span>
+              <div class="qg-exam-overview-layout">
+                <div class="qg-glass-card qg-exam-question-card">
+                  <div class="qg-card-title">当前试卷</div>
+                  <div v-if="!selectedSheet" class="qg-empty-state">请先选择一份题单，然后开始考试。</div>
+                  <div v-else-if="selectedQuestions.length" class="qg-exam-pre-info">
+                    <div class="qg-exam-pre-summary">
+                      <strong>{{ selectedSheet.title }}</strong>
+                      <span>{{ selectedQuestions.length }} 题 · {{ selectedExamTotalScore }} 分</span>
+                    </div>
+                    <ol class="qg-exam-question-preview" aria-label="当前试卷部分题目">
+                      <li v-for="(question, index) in examPreviewQuestions" :key="question.id || question._id || index">
+                        <span class="qg-exam-preview-number">{{ index + 1 }}</span>
+                        <div>
+                          <p>{{ question.stem || '题目内容待补充' }}</p>
+                          <small>{{ question.type || '题目' }} · {{ scoreForQuestion(question) }} 分</small>
+                        </div>
+                      </li>
+                    </ol>
+                    <p v-if="remainingExamPreviewCount" class="qg-exam-preview-more">
+                      其余 {{ remainingExamPreviewCount }} 题将在开始考试后展开
+                    </p>
+                  </div>
+                  <div v-else class="qg-empty-state">当前题单没有可用题目，请重新选择或生成题单。</div>
                 </div>
-                <div v-else class="qg-empty-state">当前题单没有可用题目，请重新选择或生成题单。</div>
+
+                <aside v-if="selectedSheet && selectedQuestions.length" class="qg-exam-overview-sidebar">
+                  <header>
+                    <span>试卷概览</span>
+                    <strong>{{ selectedSheet.target_topic || selectedSheet.course_name || selectedSheet.title }}</strong>
+                  </header>
+                  <div class="qg-exam-overview-stats">
+                    <div>
+                      <FileText aria-hidden="true" />
+                      <span>总题数</span>
+                      <strong>{{ selectedQuestions.length }} 题</strong>
+                    </div>
+                    <div>
+                      <ClipboardCheck aria-hidden="true" />
+                      <span>总分值</span>
+                      <strong>{{ selectedExamTotalScore }} 分</strong>
+                    </div>
+                    <div>
+                      <History aria-hidden="true" />
+                      <span>建议用时</span>
+                      <strong>{{ selectedExamMinutes }} 分钟</strong>
+                    </div>
+                  </div>
+                  <section>
+                    <h3>题型分布</h3>
+                    <ul class="qg-exam-type-list">
+                      <li v-for="item in selectedExamTypeDistribution" :key="item.type">
+                        <i aria-hidden="true"></i>
+                        <span>{{ item.type }}</span>
+                        <strong>{{ item.count }} 题</strong>
+                        <em>{{ item.score }} 分</em>
+                      </li>
+                    </ul>
+                  </section>
+                  <section v-if="selectedExamKnowledgeFocus.length">
+                    <h3>知识聚焦</h3>
+                    <div class="qg-exam-focus-tags">
+                      <span v-for="item in selectedExamKnowledgeFocus" :key="item">{{ item }}</span>
+                    </div>
+                  </section>
+                  <p class="qg-exam-overview-note">建议先通览题目，再按题型集中作答；提交后将自动记录错题与薄弱知识点。</p>
+                </aside>
               </div>
             </div>
           </section>
@@ -1320,6 +1378,38 @@ const latestAccuracy = computed(() => {
   return Math.round((latest.correct_count / latest.question_count) * 100)
 })
 const selectedQuestions = computed(() => resolveExamQuestions({ sheet: selectedSheet.value }))
+const examPreviewQuestions = computed(() => selectedQuestions.value.slice(0, 4))
+const remainingExamPreviewCount = computed(() => Math.max(0, selectedQuestions.value.length - examPreviewQuestions.value.length))
+const selectedExamTotalScore = computed(() => (
+  selectedQuestions.value.reduce((sum, question) => sum + Number(scoreForQuestion(question) || 0), 0)
+))
+const selectedExamMinutes = computed(() => Math.max(10, Math.ceil(selectedQuestions.value.length * 2.5)))
+const selectedExamTypeDistribution = computed(() => {
+  const distribution = new Map()
+  selectedQuestions.value.forEach((question) => {
+    const type = String(question?.type || '其他题型').trim() || '其他题型'
+    const current = distribution.get(type) || { type, count: 0, score: 0 }
+    current.count += 1
+    current.score += Number(scoreForQuestion(question) || 0)
+    distribution.set(type, current)
+  })
+  return Array.from(distribution.values())
+})
+const selectedExamKnowledgeFocus = computed(() => {
+  const focus = []
+  selectedQuestions.value.forEach((question) => {
+    const values = [
+      question?.knowledge_point,
+      question?.knowledgePoint,
+      ...(Array.isArray(question?.tags) ? question.tags : []),
+    ]
+    values.forEach((value) => {
+      const text = String(value || '').trim()
+      if (text && !focus.includes(text)) focus.push(text)
+    })
+  })
+  return focus.slice(0, 6)
+})
 const canLaunchSelectedExam = computed(() => Boolean(selectedSheet.value && selectedQuestions.value.length))
 const answeredCount = computed(() => examAnswers.value.filter(a => Array.isArray(a) ? a.length > 0 : Boolean(String(a || '').trim())).length)
 const historyDetailQuestions = computed(() => {
@@ -12589,7 +12679,274 @@ button,
   color: #34403c;
 }
 
+.qg-page.resource-tool-standalone .qg-exam-overview-layout > .qg-glass-card {
+  padding: 22px 24px !important;
+  border: 1px solid #dfe5e2 !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.qg-exam-overview-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  width: min(100%, 1260px);
+  align-items: stretch;
+}
+
+.qg-exam-question-card,
+.qg-exam-overview-sidebar {
+  min-height: 464px;
+}
+
+.qg-exam-overview-sidebar {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid #d7e3de;
+  border-radius: 8px;
+  color: #26332e;
+  background: #ffffff;
+}
+
+.qg-exam-overview-sidebar > header {
+  display: grid;
+  gap: 7px;
+  padding: 20px 22px;
+  border-bottom: 1px solid #dce7e2;
+  background: #f2f8f5;
+}
+
+.qg-exam-overview-sidebar > header span {
+  color: #566760;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.qg-exam-overview-sidebar > header strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #18231f;
+  font-size: 17px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.qg-exam-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 18px 12px;
+  border-bottom: 1px solid #e4ebe8;
+}
+
+.qg-exam-overview-stats > div {
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  min-width: 0;
+  border-right: 1px solid #e4ebe8;
+  text-align: center;
+}
+
+.qg-exam-overview-stats > div:last-child {
+  border-right: 0;
+}
+
+.qg-exam-overview-stats svg {
+  width: 18px;
+  height: 18px;
+  color: #087451;
+  stroke-width: 1.8;
+}
+
+.qg-exam-overview-stats span {
+  color: #68766f;
+  font-size: 11px;
+}
+
+.qg-exam-overview-stats strong {
+  color: #1c2924;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.qg-exam-overview-sidebar > section {
+  padding: 17px 22px 0;
+}
+
+.qg-exam-overview-sidebar h3 {
+  margin: 0 0 11px;
+  color: #26332e;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.qg-exam-type-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qg-exam-type-list li {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto 40px;
+  gap: 8px;
+  align-items: center;
+  color: #52615b;
+  font-size: 12px;
+}
+
+.qg-exam-type-list i {
+  width: 6px;
+  height: 6px;
+  background: #14805d;
+}
+
+.qg-exam-type-list strong {
+  color: #1d2925;
+  font-size: 12px;
+}
+
+.qg-exam-type-list em {
+  color: #697871;
+  font-size: 12px;
+  font-style: normal;
+  text-align: right;
+}
+
+.qg-exam-focus-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.qg-exam-focus-tags span {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 5px 8px;
+  border: 1px solid #cfe0d8;
+  color: #376252;
+  background: #f7faf8;
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qg-exam-overview-note {
+  margin: auto 22px 0;
+  padding: 14px 0 18px;
+  border-top: 1px solid #e4ebe8;
+  color: #68766f;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.qg-exam-pre-info {
+  display: block;
+  padding: 14px 0 0;
+}
+
+.qg-exam-pre-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 16px;
+}
+
+.qg-exam-pre-summary strong {
+  min-width: 0;
+  color: #18231f;
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.qg-exam-pre-summary span {
+  flex: 0 0 auto;
+  color: #697670;
+  font-size: 13px;
+}
+
+.qg-exam-question-preview {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid #e5ebe8;
+  list-style: none;
+}
+
+.qg-exam-question-preview li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 14px 0;
+  border-bottom: 1px solid #edf1ef;
+}
+
+.qg-exam-preview-number {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid #b9d8ca;
+  border-radius: 50%;
+  color: #087451;
+  background: #f2faf6;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.qg-exam-question-preview p {
+  margin: 0;
+  overflow: hidden;
+  color: #27332f;
+  font-size: 14px;
+  line-height: 1.55;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qg-exam-question-preview small {
+  display: block;
+  margin-top: 4px;
+  color: #78847f;
+  font-size: 12px;
+}
+
+.qg-exam-preview-more {
+  margin: 12px 0 0;
+  color: #66736e;
+  font-size: 12px;
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .qg-exam-pre-summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .qg-exam-question-preview p {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
 @media (max-width: 1100px) {
+  .qg-exam-overview-layout {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
   .qg-page.resource-tool-standalone .qg-upload-layout {
     grid-template-columns: 1fr !important;
     height: auto !important;
@@ -12601,6 +12958,58 @@ button,
 
   .qg-page.resource-tool-standalone .qg-sheet-preview-card {
     min-height: 480px;
+  }
+}
+
+@media (max-width: 900px) {
+  .qg-exam-overview-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .qg-exam-question-card,
+  .qg-exam-overview-sidebar {
+    min-height: 0;
+  }
+}
+
+@media (min-width: 1101px) {
+  .qg-page.resource-tool-standalone {
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  .qg-page.resource-tool-standalone .qg-workbench {
+    display: grid !important;
+    grid-template-columns: 15% minmax(0, 85%) !important;
+    gap: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .qg-page.resource-tool-standalone .qg-module-sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .qg-page.resource-tool-standalone .qg-workspace {
+    width: 100% !important;
+    padding: 28px 2vw 36px !important;
+    box-sizing: border-box;
+  }
+
+  .qg-page.resource-tool-standalone .qg-exam-pre-panel,
+  .qg-page.resource-tool-standalone .qg-exam-overview-layout {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .qg-page.resource-tool-standalone .qg-exam-overview-layout {
+    grid-template-columns: minmax(0, 67%) minmax(0, 31%) !important;
+    gap: 2% !important;
   }
 }
 

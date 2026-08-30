@@ -22,6 +22,19 @@ except ImportError:  # pragma: no cover
 DEFAULT_MODEL = "astron-code-latest"
 DEFAULT_API_URL = "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2/chat/completions"
 TOKEN_PLAN_API_URL = DEFAULT_API_URL
+DEFAULT_AGENT_MAX_TOKENS = 128000
+
+
+def _agent_completion_budget(requested: Any = None) -> int:
+    try:
+        configured = int(get_setting("LLM_MAX_TOKENS", setting_default("LLM_MAX_TOKENS", str(DEFAULT_AGENT_MAX_TOKENS))))
+    except (TypeError, ValueError):
+        configured = DEFAULT_AGENT_MAX_TOKENS
+    try:
+        requested_value = int(requested or 0)
+    except (TypeError, ValueError):
+        requested_value = 0
+    return max(DEFAULT_AGENT_MAX_TOKENS, configured, requested_value)
 
 QUESTION_AGENT_TYPES = ["单选题", "多选题", "判断题", "填空题", "简答题", "计算题", "综合应用题"]
 QUESTION_TYPE_ALIASES = {
@@ -713,7 +726,7 @@ def call_mimo_for_question_json(payload: dict[str, Any], on_delta=None, on_stage
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": attempt_payload.get("temperature", 0.3 if attempt_index > 0 else 0.4),
-            "max_tokens": attempt_payload.get("max_tokens", 4200 if attempt_index == 0 else 3200),
+            "max_tokens": _agent_completion_budget(attempt_payload.get("max_tokens")),
             "stream": bool(on_delta),
             "response_format": {"type": "json_object"},
         }
@@ -1262,7 +1275,7 @@ def call_mimo_for_task_plan(payload: dict[str, Any], normalized_counts: dict[str
             {"role": "user", "content": build_task_plan_prompt(payload, normalized_counts)},
         ],
         "temperature": payload.get("planner_temperature", 0.2),
-        "max_tokens": payload.get("planner_max_tokens", 1800),
+        "max_tokens": _agent_completion_budget(payload.get("planner_max_tokens")),
         "response_format": {"type": "json_object"},
     }
     response = requests.post(

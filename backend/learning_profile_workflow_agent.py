@@ -72,6 +72,7 @@ LIST_DIMENSIONS = {
 }
 
 DB_PATH = Path(__file__).resolve().parent / "data" / "profile_workflow.sqlite"
+PROFILE_AGENT_MAX_TOKENS = 128000
 
 
 class LearningProfileModelUnavailable(RuntimeError):
@@ -248,6 +249,16 @@ def is_greeting_only(text: str) -> bool:
     return clean in {"你好", "您好", "hi", "hello", "嗨", "在吗", "开始", "我们开始", "重新开始"}
 
 
+def latest_user_message_matching(messages: List[Dict[str, str]], pattern: str) -> str:
+    for item in reversed(messages):
+        if item.get("role") != "user":
+            continue
+        content = str(item.get("content") or "").strip()
+        if content and re.search(pattern, content, re.I):
+            return content
+    return ""
+
+
 def extract_by_rules(messages: List[Dict[str, str]]) -> Dict[str, Any]:
     text = user_text(messages)
     latest = latest_user_text(messages)
@@ -302,11 +313,24 @@ def extract_by_rules(messages: List[Dict[str, str]]) -> Dict[str, Any]:
         append_profile_value(profile, "学习目标", goals)
         evidence.append({"dimension": "学习目标", "text": "；".join(goals), "confidence": 0.95, "source": "rule"})
 
-    if re.search(r"刚学|最近在学|正在学|中医基础|中医诊断|中药|方剂|针灸|医案|辨证", text, re.I):
-        append_profile_value(profile, "当前知识基础", "已接触中医基础理论与基础辨证内容")
-        append_profile_value(profile, "学习进度", "处于中医基础知识与医案辨析训练阶段")
-        evidence.append({"dimension": "当前知识基础", "text": profile["当前知识基础"], "confidence": 0.78, "source": "rule"})
-        evidence.append({"dimension": "学习进度", "text": profile["学习进度"], "confidence": 0.78, "source": "rule"})
+    foundation_text = latest_user_message_matching(
+        messages,
+        r"零基础|没有(?:任何)?基础|基础(?:一般|较好|薄弱|扎实)|"
+        r"有(?:一点|一定|些)?(?:中医|中药|方剂|辨证)?基础|学过|接触过|了解过|熟悉|已经掌握",
+    )
+    if foundation_text and not re.search(r"想|希望|准备|打算|目标|为了", foundation_text):
+        value = foundation_text[:120]
+        append_profile_value(profile, "当前知识基础", value)
+        evidence.append({"dimension": "当前知识基础", "text": value, "confidence": 0.88, "source": "rule-explicit"})
+
+    progress_text = latest_user_message_matching(
+        messages,
+        r"刚学(?:完|到)?|最近在学|正在学|目前(?:在)?学到|已经学到|学完了?|课程进度|学习进度",
+    )
+    if progress_text and not re.search(r"想|希望|准备|打算|目标|为了", progress_text):
+        value = progress_text[:120]
+        append_profile_value(profile, "学习进度", value)
+        evidence.append({"dimension": "学习进度", "text": value, "confidence": 0.88, "source": "rule-explicit"})
 
     weak_points: List[str] = []
     weak_patterns = [
@@ -413,9 +437,16 @@ def extract_by_rules(messages: List[Dict[str, str]]) -> Dict[str, Any]:
     else:
         for turn in reversed(turns):
             answer = turn["user"]
-            if re.search(r"每周|一周|投入|多少时间|实验|复盘", turn["assistant"]) and re.fullmatch(r"\s*(?:\d{1,2}(?:\.\d)?|半|一|二|两|三|四|五|六|七|八|九|十)(?:\s*(?:小时|h|天))?\s*", answer, re.I):
+            assistant_question = turn["assistant"]
+            if re.search(r"每天|每日|每周|一周|周末|投入|多少时间|实验|复盘", assistant_question) and re.fullmatch(r"\s*(?:\d{1,2}(?:\.\d)?|半|一|二|两|三|四|五|六|七|八|九|十)(?:\s*(?:小时|h|天))?\s*", answer, re.I):
                 unit = "天" if re.search(r"天", answer) else "小时"
-                value = f"每周约 {answer.strip()} {unit}"
+                if re.search(r"每天|每日", assistant_question):
+                    cadence = "每天"
+                elif re.search(r"周末", assistant_question):
+                    cadence = "每周末"
+                else:
+                    cadence = "每周"
+                value = f"{cadence}约 {answer.strip()} {unit}"
                 append_profile_value(profile, "可投入时间", value)
                 evidence.append({"dimension": "可投入时间", "text": value, "confidence": 0.95, "source": "rule-context"})
                 break
@@ -701,7 +732,12 @@ def node_rule_extract(state: WorkflowState) -> WorkflowState:
 def node_llm_agent_decide(state: WorkflowState) -> WorkflowState:
     latest = state.get("latest_user_input") or ""
     previous_assistant = previous_assistant_text_for_latest_user(state.get("messages") or [])
-    missing = [dimension for dimension in PROFILE_DIMENSIONS if not is_filled((state.get("profile") or {}).get(dimension))]
+    effective_profile: Dict[str, Any] = {}
+    for source in [state.get("profile") or {}, (state.get("rule_result") or {}).get("profile_patch") or {}]:
+        for dimension in PROFILE_DIMENSIONS:
+            if dimension in source:
+                append_profile_value(effective_profile, dimension, source.get(dimension))
+    missing = [dimension for dimension in PROFILE_DIMENSIONS if not is_filled(effective_profile.get(dimension))]
     system = "你是中药鉴别的学习画像对话智能体。必须只返回一个 JSON 对象，不要 Markdown。"
     prompt = f"""
 你需要基于中医学习对话完成两件事：
@@ -711,8 +747,8 @@ def node_llm_agent_decide(state: WorkflowState) -> WorkflowState:
 画像维度只能从以下列表选择：
 {json.dumps(PROFILE_DIMENSIONS, ensure_ascii=False)}
 
-当前已有画像：
-{json.dumps(state.get("profile") or {}, ensure_ascii=False)}
+当前已有画像（包含本轮已明确提取的信息）：
+{json.dumps(effective_profile, ensure_ascii=False)}
 
 当前缺失维度：
 {json.dumps(missing, ensure_ascii=False)}
@@ -760,10 +796,11 @@ def node_llm_agent_decide(state: WorkflowState) -> WorkflowState:
             raw = _request_llm_text(
                 system,
                 prompt + retry_instruction,
-                max_tokens=900,
-                timeout=35,
+                max_tokens=PROFILE_AGENT_MAX_TOKENS,
+                timeout=90,
                 json_mode=True,
                 allow_anthropic_fallback=False,
+                thinking=False,
             )
             parsed = _extract_json(raw)
             validated = validate_agent_json(parsed)
@@ -783,7 +820,7 @@ def node_llm_agent_decide(state: WorkflowState) -> WorkflowState:
             if previous_assistant and reply == previous_assistant.strip():
                 raise ValueError("大模型连续返回重复回复")
             if projected_missing and next_dimension not in projected_missing:
-                raise ValueError("大模型未返回有效的下一采集维度")
+                validated["next_dimension"] = projected_missing[0]
             if not projected_missing:
                 validated["next_dimension"] = ""
             state["agent_raw"] = raw
