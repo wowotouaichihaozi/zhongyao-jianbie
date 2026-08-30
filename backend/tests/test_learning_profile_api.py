@@ -1585,6 +1585,52 @@ class LearningProfileApiTests(unittest.TestCase):
         self.assertEqual(len(payload["assessment"]["radarScores"]), 6)
         self.assertIn("pathProgress", payload["evidence"])
 
+    def test_effect_assessment_uses_tcm_dimensions_and_ignores_legacy_mcu_growth(self) -> None:
+        profile = {"id": 29, "scaleScores": [2, 2, 2, 2, 2, 2], "isActive": True}
+        legacy_only = app_module.effect_assessment_snapshot(
+            profile,
+            {"mcuExperiments": [{"passed": True}, {"passed": True}]},
+        )
+        self.assertEqual(
+            legacy_only["labels"],
+            ["基础知识", "辨证思维", "方药应用", "医案实践", "学习投入", "综合素养"],
+        )
+        self.assertEqual(legacy_only["radarScores"], [2, 2, 2, 2, 2, 2])
+        self.assertEqual(legacy_only["evidenceCount"], 0)
+        self.assertEqual(legacy_only["evidenceUsed"]["legacyMcuExperimentsIgnored"], 2)
+
+        tcm_evidence = app_module.effect_assessment_snapshot(
+            profile,
+            {
+                "knowledgePointStats": [
+                    {"knowledgePoint": "阴阳五行", "attempts": 5, "correctCount": 4},
+                    {"knowledgePoint": "八纲辨证", "attempts": 5, "correctCount": 4},
+                    {"knowledgePoint": "方剂配伍", "attempts": 5, "correctCount": 4},
+                    {"knowledgePoint": "医案辨析", "attempts": 5, "correctCount": 4},
+                ],
+                "resourceVisits": [{"type": "herb-model", "title": "黄连药材模型辨识"}],
+                "learningFeedbacks": [{"outcome": "completed", "topic": "医案辨析复盘"}],
+                "pathProgress": {"completedNodes": 3, "trackedNodes": 6, "weeks": []},
+                "activeLearningSeconds": 1800,
+            },
+        )
+        self.assertTrue(all(score > 2 for score in tcm_evidence["radarScores"]))
+        self.assertEqual(tcm_evidence["evidenceUsed"]["legacyMcuExperimentsIgnored"], 0)
+
+    def test_learning_resource_visits_include_tcm_practice_routes(self) -> None:
+        self.assertEqual(
+            app_module.learning_resource_visit("/personalized-resources/herb-model?herb=huanglian"),
+            {"type": "herb-model", "label": "药材模型辨识"},
+        )
+        self.assertEqual(
+            app_module.learning_resource_visit("/herb-recognition"),
+            {"type": "herb-recognition", "label": "药材识别"},
+        )
+        self.assertEqual(
+            app_module.learning_resource_visit("/smart-tutor"),
+            {"type": "smart-tutor", "label": "智能辅导"},
+        )
+
     def test_effect_assessment_filters_internal_task_labels_from_weak_points(self) -> None:
         assessment = app_module.effect_assessment_snapshot(
             {

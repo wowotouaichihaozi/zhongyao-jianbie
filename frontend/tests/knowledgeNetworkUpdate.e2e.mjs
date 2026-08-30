@@ -74,7 +74,7 @@ async function verifyViewport(name, viewport) {
   await page.screenshot({ path: path.join(outputDirectory, `${name}-knowledge-network.png`), fullPage: true })
 
   await page.goto(`${baseUrl}/life-tree?codexPreview=1`, { waitUntil: 'domcontentloaded' })
-  const lifeCanvas = page.locator('.life-tree-scene canvas').first()
+  const lifeCanvas = page.locator('.life-tree-growth-scene canvas').first()
   await lifeCanvas.waitFor({ state: 'visible', timeout: 20_000 })
   const lifeBox = await lifeCanvas.boundingBox()
   assert.ok(lifeBox?.width > 250 && lifeBox?.height > 250, `${name}: life-tree canvas is not sized`)

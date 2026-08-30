@@ -2131,11 +2131,14 @@ RESOURCE_VISIT_ROUTES = (
     ("/personalized-resources/question-bank", "question-bank", "题库"),
     ("/personalized-resources/mind-map", "mindmap", "思维导图"),
     ("/personalized-resources/video-search", "video", "学习视频"),
+    ("/personalized-resources/herb-model", "herb-model", "药材模型辨识"),
     ("/personalized-resources/mcu-simulator", "mcu", "历史实践记录"),
     ("/personalized-resources/knowledge-base", "knowledge-base", "私有知识库"),
     ("/personalized-resources/document", "document", "课程讲义"),
     ("/personalized-resources/animation", "animation", "动画讲解"),
     ("/personalized-resources/ppt", "ppt", "PPT"),
+    ("/herb-recognition", "herb-recognition", "药材识别"),
+    ("/smart-tutor", "smart-tutor", "智能辅导"),
 )
 
 
@@ -2466,7 +2469,13 @@ def learning_evidence_for_user(conn: sqlite3.Connection, user_id: int) -> dict:
     return evidence_payload
 
 
-EFFECT_RADAR_LABELS = ["基础知识", "编程调试", "实验实践", "项目能力", "学习投入", "工程意识"]
+EFFECT_RADAR_LABELS = ["基础知识", "辨证思维", "方药应用", "医案实践", "学习投入", "综合素养"]
+EFFECT_DOMAIN_KEYWORDS = {
+    "foundation": ("中医基础", "阴阳", "五行", "藏象", "经络", "气血", "津液"),
+    "diagnosis": ("四诊", "望诊", "闻诊", "问诊", "切诊", "辨证", "八纲", "证候", "病机", "脏腑辨证"),
+    "medicine": ("中药", "药材", "药性", "性味", "归经", "方剂", "方药", "配伍", "君臣佐使"),
+    "cases": ("医案", "病例", "临床", "治法", "处方", "复盘"),
+}
 
 
 def _bounded_percentage(value: object) -> float:
@@ -2595,11 +2604,11 @@ def _effect_path_adjustment_plan(profile: dict, evidence: dict, heatmap: list[di
     evidence_version = str(evidence.get("evidenceVersion") or "no-evidence")
     plan_seed = f"{profile_id}:{evidence_version}:{','.join(item['knowledgePoint'] for item in focus_points)}"
     plan_id = f"effect-{hashlib.sha256(plan_seed.encode('utf-8')).hexdigest()[:12]}"
-    resource_cycle = ["question-bank", "mindmap", "mcu"]
+    resource_cycle = ["question-bank", "mindmap", "document"]
     task_actions = {
         "question-bank": "完成 8 道专项题，正确率达到 80%，并复盘全部错题。",
-        "mindmap": "输出一张包含核心概念、配置流程和易错点的复盘导图。",
-        "mcu": "完成一次可运行实验，保存代码、关键配置、运行现象和问题定位记录。",
+        "mindmap": "输出一张包含核心概念、证候依据、方药联系和易错点的复盘导图。",
+        "document": "完成一份从四诊信息、证候病机到治法方药的医案辨析记录。",
     }
     tasks = []
     for index, point in enumerate(focus_points, start=1):
@@ -2657,14 +2666,18 @@ def _format_active_learning_duration(active_seconds: int, session_count: int) ->
 
 def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
     """Derive a transparent, deterministic assessment from persisted learning evidence."""
-    baseline = profile.get("effectAssessment", {}).get("radarScores") if isinstance(profile.get("effectAssessment"), dict) else None
-    if not isinstance(baseline, list) or len(baseline) != 6:
-        baseline = profile.get("scaleScores") if isinstance(profile.get("scaleScores"), list) else []
+    stored_assessment = profile.get("effectAssessment") if isinstance(profile.get("effectAssessment"), dict) else {}
+    profile_analysis = profile.get("aiAnalysis") if isinstance(profile.get("aiAnalysis"), dict) else {}
+    stored_labels = stored_assessment.get("labels") if isinstance(stored_assessment.get("labels"), list) else []
+    baseline_candidates = [
+        stored_assessment.get("radarScores") if stored_labels == EFFECT_RADAR_LABELS else None,
+        profile_analysis.get("radarScores"),
+        profile.get("scaleScores"),
+    ]
+    baseline = next((item for item in baseline_candidates if isinstance(item, list) and len(item) == 6), [])
     baseline = [max(1, min(5, float(baseline[index] if index < len(baseline) else 2))) for index in range(6)]
     exams = evidence.get("examResults") or []
     exam_accuracy = sum(float(item.get("accuracy") or 0) for item in exams) / len(exams) if exams else 0
-    experiments = evidence.get("mcuExperiments") or []
-    passed_experiments = sum(1 for item in experiments if item.get("passed"))
     generated_resources = evidence.get("resourceCalls") or []
     resource_visits = evidence.get("resourceVisits") or []
     learning_feedbacks = evidence.get("learningFeedbacks") or []
@@ -2673,23 +2686,95 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
     completed_nodes = int((evidence.get("pathProgress") or {}).get("completedNodes") or 0)
     tracked_nodes = int((evidence.get("pathProgress") or {}).get("trackedNodes") or 0)
     path_completion_rate = completed_nodes / tracked_nodes * 100 if tracked_nodes else 0
-    experiment_pass_rate = passed_experiments / len(experiments) * 100 if experiments else 0
     resource_types = {str(item.get("type") or "") for item in resource_visits if item.get("type")}
+    knowledge_stats = [item for item in (evidence.get("knowledgePointStats") or []) if isinstance(item, dict)]
+
+    def domain_mastery(domain: str) -> tuple[float, int]:
+        keywords = EFFECT_DOMAIN_KEYWORDS[domain]
+        matching = [
+            item for item in knowledge_stats
+            if any(keyword in str(item.get("knowledgePoint") or "") for keyword in keywords)
+        ]
+        attempts = sum(max(0, int(item.get("attempts") or 0)) for item in matching)
+        correct = sum(max(0, int(item.get("correctCount") or 0)) for item in matching)
+        return ((correct / attempts) if attempts else 0.0), attempts
+
+    def matching_evidence_count(items: list[dict], domain: str) -> int:
+        keywords = EFFECT_DOMAIN_KEYWORDS[domain]
+        return sum(
+            1 for item in items
+            if isinstance(item, dict)
+            and any(
+                keyword in " ".join(str(item.get(field) or "") for field in ("title", "topic", "route", "label", "type"))
+                for keyword in keywords
+            )
+        )
+
+    quantified_stats = [item for item in knowledge_stats if max(0, int(item.get("attempts") or 0)) > 0]
+    total_knowledge_attempts = sum(max(0, int(item.get("attempts") or 0)) for item in quantified_stats)
+    total_knowledge_correct = sum(max(0, int(item.get("correctCount") or 0)) for item in quantified_stats)
+    overall_knowledge_rate = total_knowledge_correct / total_knowledge_attempts if total_knowledge_attempts else 0.0
+    foundation_mastery, _ = domain_mastery("foundation")
+    diagnosis_mastery, _ = domain_mastery("diagnosis")
+    medicine_mastery, _ = domain_mastery("medicine")
+    case_mastery, _ = domain_mastery("cases")
+    completed_feedbacks = [item for item in learning_feedbacks if item.get("outcome") == "completed"]
+    medicine_visits = sum(
+        1
+        for item in resource_visits
+        if str(item.get("type") or "") in {"herb-model", "herb-recognition"}
+        or matching_evidence_count([item], "medicine") > 0
+    )
+    medicine_feedbacks = matching_evidence_count(completed_feedbacks, "medicine")
+    diagnosis_feedbacks = matching_evidence_count(completed_feedbacks, "diagnosis")
+    case_feedbacks = matching_evidence_count(completed_feedbacks, "cases")
+    exam_rate = exam_accuracy / 100
+    path_rate = path_completion_rate / 100
     activity_count = (
         len(evidence.get("recentChats") or [])
         + len(exams)
-        + len(experiments)
         + len(resource_visits)
         + len(learning_feedbacks)
         + min(20, active_learning_seconds // 900)
     )
     gains = [
-        min(1.6, exam_accuracy / 100 * 1.4 + len(resource_types) * 0.05),
-        min(1.6, exam_accuracy / 100 * 1.2 + completed_nodes * 0.06),
-        min(1.6, passed_experiments * 0.28 + len(experiments) * 0.05),
-        min(1.6, completed_nodes * 0.15 + passed_experiments * 0.12),
-        min(1.2, activity_count * 0.035),
-        min(1.5, len(resource_types) * 0.12 + completed_nodes * 0.07),
+        min(
+            1.6,
+            exam_rate * 0.55
+            + overall_knowledge_rate * 0.55
+            + foundation_mastery * 0.35
+            + min(0.2, len(quantified_stats) * 0.025),
+        ),
+        min(
+            1.6,
+            diagnosis_mastery * 0.75
+            + exam_rate * 0.35
+            + path_rate * 0.3
+            + min(0.2, diagnosis_feedbacks * 0.08),
+        ),
+        min(
+            1.6,
+            medicine_mastery * 0.75
+            + exam_rate * 0.25
+            + min(0.4, medicine_visits * 0.12)
+            + min(0.2, medicine_feedbacks * 0.08),
+        ),
+        min(
+            1.6,
+            case_mastery * 0.7
+            + path_rate * 0.45
+            + min(0.3, case_feedbacks * 0.12)
+            + min(0.25, completed_nodes * 0.025),
+        ),
+        min(1.5, activity_count * 0.025 + min(0.7, active_learning_seconds / 900 * 0.08)),
+        min(
+            1.5,
+            exam_rate * 0.35
+            + path_rate * 0.35
+            + min(0.4, len(resource_types) * 0.08)
+            + min(0.3, len(quantified_stats) * 0.03)
+            + min(0.2, len(completed_feedbacks) * 0.025),
+        ),
     ]
     scores = [round(min(5, baseline[index] + gains[index]), 1) for index in range(6)]
     improvements = [
@@ -2706,16 +2791,14 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
     )
     achievement_rate, achievement_breakdown = _weighted_evidence_rate(
         [
-            {"label": "学习路径任务", "rate": path_completion_rate, "weight": 0.5, "available": tracked_nodes > 0},
-            {"label": "题单与考试", "rate": exam_accuracy, "weight": 0.3, "available": bool(exams)},
-            {"label": "实验验证", "rate": experiment_pass_rate, "weight": 0.2, "available": bool(experiments)},
+            {"label": "学习路径任务", "rate": path_completion_rate, "weight": 0.6, "available": tracked_nodes > 0},
+            {"label": "题单与考试", "rate": exam_accuracy, "weight": 0.4, "available": bool(exams)},
         ]
     )
     mastery_rate, mastery_breakdown = _weighted_evidence_rate(
         [
-            {"label": "知识点答题", "rate": knowledge_mastery_rate, "weight": 0.55, "available": bool(quantified_points)},
+            {"label": "知识点答题", "rate": knowledge_mastery_rate, "weight": 0.7, "available": bool(quantified_points)},
             {"label": "综合考试", "rate": exam_accuracy, "weight": 0.3, "available": bool(exams)},
-            {"label": "实验通过", "rate": experiment_pass_rate, "weight": 0.15, "available": bool(experiments)},
         ]
     )
     timestamps = [
@@ -2724,7 +2807,6 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
             "recentChats",
             "questionSheets",
             "examResults",
-            "mcuExperiments",
             "resourceVisits",
             "activitySessions",
             "learningFeedbacks",
@@ -2756,14 +2838,14 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
             continue
     evidence_count = sum(
         len(evidence.get(key) or [])
-        for key in ("recentChats", "questionSheets", "examResults", "mcuExperiments", "resourceVisits", "learningFeedbacks")
+        for key in ("recentChats", "questionSheets", "examResults", "resourceVisits", "learningFeedbacks")
     )
     confidence_score = min(
         100,
         min(10, len(evidence.get("recentChats") or [])) * 2
         + min(5, len(evidence.get("questionSheets") or [])) * 4
         + min(5, len(exams)) * 8
-        + min(5, len(experiments)) * 8
+        + min(10, completed_nodes) * 2
         + min(10, len(resource_visits)) * 2
         + min(10, len(learning_feedbacks)) * 2
         + min(10, active_learning_seconds // 900) * 2
@@ -2779,7 +2861,7 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
         ]
     ))[:10]
     return {
-        "schemaVersion": "2.1",
+        "schemaVersion": "2.2",
         "profileReportId": int(profile.get("id") or profile.get("_profileReportId") or 0),
         "evidenceVersion": str(evidence.get("evidenceVersion") or ""),
         "labels": EFFECT_RADAR_LABELS,
@@ -2813,12 +2895,12 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
             "recentChats": len(evidence.get("recentChats") or []),
             "questionSheets": len(evidence.get("questionSheets") or []),
             "examResults": len(exams),
-            "mcuExperiments": len(experiments),
             "resourceVisits": len(resource_visits),
             "learningFeedbacks": len(learning_feedbacks),
             "generatedResources": len(generated_resources),
             "activitySessions": len(activity_sessions),
             "knowledgePoints": len(heatmap),
+            "legacyMcuExperimentsIgnored": len(evidence.get("mcuExperiments") or []),
         },
         "summary": (
             f"本次评估基于 {evidence_count} 条平台学习证据，"

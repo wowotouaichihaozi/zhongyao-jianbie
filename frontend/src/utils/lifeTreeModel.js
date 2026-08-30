@@ -1,61 +1,24 @@
 const DOMAIN_DEFINITIONS = [
-  {
-    id: 'foundation',
-    label: '中医基础',
-    description: '阴阳五行、藏象与气血津液等基础理论',
-    keywords: ['阴阳', '五行', '藏象', '脏腑', '气血', '津液', '经络', '基础'],
-  },
-  {
-    id: 'diagnosis',
-    label: '辨证思维',
-    description: '四诊合参、八纲辨证与证候鉴别',
-    keywords: ['辨证', '证候', '八纲', '四诊', '望诊', '闻诊', '问诊', '切诊', '舌', '脉'],
-  },
-  {
-    id: 'herbs',
-    label: '中药药性',
-    description: '性味归经、功效主治与用药安全',
-    keywords: ['中药', '药性', '性味', '归经', '功效', '药材', '炮制', '禁忌'],
-  },
-  {
-    id: 'formulas',
-    label: '方剂配伍',
-    description: '君臣佐使、方义分析与加减化裁',
-    keywords: ['方剂', '方药', '配伍', '君臣佐使', '治法', '处方'],
-  },
-  {
-    id: 'cases',
-    label: '医案实践',
-    description: '医案证据链、临床推演与复盘验证',
-    keywords: ['医案', '案例', '临床', '实践', '实训', '推演', '复盘'],
-  },
-  {
-    id: 'humanity',
-    label: '医道与安全',
-    description: '中医人文、伦理规范与安全边界',
-    keywords: ['医德', '人文', '伦理', '安全', '规范', '风险', '文化'],
-  },
+  { id: 'foundation', label: '基础知识', description: '中医基础理论、阴阳五行、藏象与气血津液' },
+  { id: 'diagnosis', label: '辨证思维', description: '四诊合参、八纲辨证与证候鉴别' },
+  { id: 'medicine', label: '方药应用', description: '中药药性、方剂配伍与加减化裁' },
+  { id: 'cases', label: '医案实践', description: '医案证据链、临床推演与复盘验证' },
+  { id: 'engagement', label: '学习投入', description: '学习活跃度、有效时长与反馈完成情况' },
+  { id: 'literacy', label: '综合素养', description: '知识迁移、综合应用与中医人文素养' },
 ]
 
 const STATUS_LABELS = {
-  mastered: '已掌握',
-  developing: '学习中',
-  weak: '薄弱',
-  recommended: '推荐下一步',
-  unverified: '待验证',
+  mastered: '已经成熟',
+  developing: '正在生长',
+  weak: '需要巩固',
+  recommended: '当前学习周',
+  unverified: '等待生长',
 }
 
-const RESOURCE_ROUTES = {
-  'question-bank': '/personalized-resources/question-bank',
-  quiz: '/personalized-resources/question-bank',
-  mindmap: '/personalized-resources/mind-map',
-  ppt: '/personalized-resources/ppt',
-  video: '/personalized-resources/video-search',
-  document: '/personalized-resources/document',
-  animation: '/personalized-resources/animation',
-  mcu: '/personalized-resources/document',
-  simulator: '/personalized-resources/document',
-}
+const COMPLETE_STATUSES = new Set(['complete', 'completed', 'done', 'success', 'mastered', 'passed'])
+const ACTIVE_STATUSES = new Set(['current', 'active', 'in-progress', 'running', 'developing'])
+const BLOCKED_STATUSES = new Set(['blocked', 'failed', 'error'])
+const WEEK_LABELS = ['第一周', '第二周', '第三周', '第四周', '第五周', '第六周']
 
 function text(value) {
   return String(value ?? '').trim()
@@ -72,74 +35,190 @@ function clampPercentage(value) {
   return parsed === null ? null : Math.max(0, Math.min(100, parsed))
 }
 
-function normalizePathStatus(value) {
-  const normalized = text(value).toLowerCase().replaceAll('_', '-').replaceAll(' ', '-')
-  if (['complete', 'completed', 'done', 'success'].includes(normalized)) return 'mastered'
-  if (['current', 'active', 'in-progress', 'running'].includes(normalized)) return 'recommended'
-  if (['blocked', 'failed'].includes(normalized)) return 'weak'
+function normalizedStatus(value) {
+  return text(value).toLowerCase().replaceAll('_', '-').replaceAll(' ', '-')
+}
+
+function visibleStageNodes(stage) {
+  const nodes = Array.isArray(stage?.nodes) ? stage.nodes : []
+  return nodes.filter((node) => node && node.enabled !== false && node.placeholder !== true)
+}
+
+function nodeCacheEntries(pathNodeCaches) {
+  if (!pathNodeCaches || typeof pathNodeCaches !== 'object' || Array.isArray(pathNodeCaches)) return []
+  return Object.entries(pathNodeCaches)
+    .filter(([, entry]) => entry && typeof entry === 'object' && !Array.isArray(entry))
+    .map(([cacheKey, entry]) => ({ ...entry, cacheKey: text(entry.cacheKey) || cacheKey }))
+}
+
+function nodeCacheFor(week, node, caches) {
+  const cacheKey = text(node?.cacheKey)
+  if (cacheKey) {
+    const exact = caches.find((entry) => text(entry.cacheKey) === cacheKey)
+    if (exact) return exact
+  }
+  const weekId = text(week?.id)
+  const nodeId = text(node?.id)
+  if (!weekId || !nodeId) return null
+  return caches.find((entry) => (
+    text(entry.stageId || entry.resourceParams?.stageId) === weekId
+    && text(entry.nodeId || entry.resourceParams?.nodeId) === nodeId
+  )) || null
+}
+
+function nodeIsComplete(node) {
+  return COMPLETE_STATUSES.has(normalizedStatus(node?.status || node?.state))
+}
+
+function cacheIsComplete(cache) {
+  return COMPLETE_STATUSES.has(normalizedStatus(cache?.status))
+}
+
+function cacheHasLearnerCompletion(cache) {
+  if (!cacheIsComplete(cache)) return false
+  const feedbackOutcome = normalizedStatus(cache?.learningFeedback?.outcome)
+  if (feedbackOutcome && feedbackOutcome !== 'completed') return false
+  return feedbackOutcome === 'completed'
+    || normalizedStatus(cache?.completionSource) === 'learning-feedback'
+    || Boolean(cache?.lastOpenedAt)
+    || Boolean(cache?.result?.completedAt)
+}
+
+function weekProgress(week, stage, pathNodeCaches) {
+  const weekStatus = normalizedStatus(week?.status)
+  const nodes = visibleStageNodes(stage)
+  const caches = nodeCacheEntries(pathNodeCaches)
+  let pathCompletedNodes = 0
+  let cacheCompletedNodes = 0
+  let feedbackCompletedNodes = 0
+  let preparedNodes = 0
+  let preparedOnlyNodes = 0
+  const matchedCaches = []
+  const completedNodes = nodes.filter((node) => {
+    const pathComplete = nodeIsComplete(node)
+    const cache = nodeCacheFor(week, node, caches)
+    const cachePrepared = cacheIsComplete(cache)
+    const cacheComplete = cacheHasLearnerCompletion(cache)
+    if (pathComplete) pathCompletedNodes += 1
+    if (cacheComplete && !pathComplete) cacheCompletedNodes += 1
+    if (cachePrepared) preparedNodes += 1
+    if (cachePrepared && !cacheComplete && !pathComplete) preparedOnlyNodes += 1
+    if (cacheComplete && (
+      normalizedStatus(cache?.completionSource) === 'learning-feedback'
+      || normalizedStatus(cache?.learningFeedback?.outcome) === 'completed'
+    )) feedbackCompletedNodes += 1
+    if (cache) matchedCaches.push(cache)
+    return pathComplete || cacheComplete
+  }).length
+  const cacheUpdatedAt = matchedCaches
+    .map((cache) => cache.updatedAt || cache.completedAt || cache.createdAt)
+    .filter(Boolean)
+    .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] || ''
+  if (COMPLETE_STATUSES.has(weekStatus)) {
+    return {
+      progress: 100,
+      completedNodes: Math.max(completedNodes, nodes.length),
+      totalNodes: nodes.length,
+      pathCompletedNodes,
+      cacheCompletedNodes,
+      feedbackCompletedNodes,
+      preparedNodes,
+      preparedOnlyNodes,
+      cacheUpdatedAt,
+    }
+  }
+  const progress = nodes.length ? Math.round(completedNodes / nodes.length * 100) : 0
+  return {
+    progress,
+    completedNodes,
+    totalNodes: nodes.length,
+    pathCompletedNodes,
+    cacheCompletedNodes,
+    feedbackCompletedNodes,
+    preparedNodes,
+    preparedOnlyNodes,
+    cacheUpdatedAt,
+  }
+}
+
+function fruitStatus(week, progress) {
+  const status = normalizedStatus(week?.status)
+  if (progress >= 100) return 'mastered'
+  if (BLOCKED_STATUSES.has(status)) return 'weak'
+  if (ACTIVE_STATUSES.has(status) || progress > 0) return 'developing'
   return 'unverified'
 }
 
-function domainFor(label, index = 0) {
-  const normalized = text(label).toLowerCase()
-  const matched = DOMAIN_DEFINITIONS.find((domain) => (
-    domain.keywords.some((keyword) => normalized.includes(keyword.toLowerCase()))
-  ))
-  return matched || DOMAIN_DEFINITIONS[Math.abs(index) % DOMAIN_DEFINITIONS.length]
-}
-
-function latestTimestamp(evidence = {}) {
+function latestTimestamp(evidence = {}, pathConfig = {}, pathNodeCaches = {}) {
   const candidates = [
+    pathConfig.meta?.savedAt,
     evidence.pathProgress?.updatedAt,
     ...(evidence.learningFeedbacks || []).map((item) => item.updatedAt || item.createdAt),
     ...(evidence.resourceVisits || []).map((item) => item.updatedAt || item.createdAt),
+    ...nodeCacheEntries(pathNodeCaches).map((item) => item.updatedAt || item.completedAt || item.createdAt),
   ].filter(Boolean)
   if (!candidates.length) return ''
   return candidates.sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0]
 }
 
-function resourceAction(task, fallbackTopic) {
-  if (!task) return null
-  const resourceType = text(task.resourceType)
-  const path = RESOURCE_ROUTES[resourceType]
-  if (!path) return null
-  const rawParams = task.resourceParams && typeof task.resourceParams === 'object'
-    ? task.resourceParams
-    : {}
-  const query = Object.fromEntries(
-    Object.entries({
-      ...rawParams,
-      topic: rawParams.topic || fallbackTopic,
-      source: 'life-tree',
-    }).filter(([, value]) => value !== '' && value !== null && value !== undefined),
-  )
+function buildWeekFruit(week, stage, index, pathConfig, pathNodeCaches, updatedAt) {
+  const exists = Boolean(week)
+  const weekId = text(week?.id)
+  const progressEvidence = weekProgress(week, stage, pathNodeCaches)
+  const status = exists ? fruitStatus(week, progressEvidence.progress) : 'unverified'
+  const recommended = exists && ACTIVE_STATUSES.has(normalizedStatus(week.status))
+  const title = text(week?.title)
+  const weekLabel = text(week?.weekLabel) || WEEK_LABELS[index]
+  const profileReportId = Number(pathConfig.meta?.profileReportId || 0)
+  const feedbackBreakdown = progressEvidence.feedbackCompletedNodes
+    ? `，其中 ${progressEvidence.feedbackCompletedNodes} 个已提交完成学习反馈`
+    : progressEvidence.cacheCompletedNodes
+      ? `，其中 ${progressEvidence.cacheCompletedNodes} 个已有学习者实际操作记录`
+      : ''
+  const preparationBreakdown = progressEvidence.preparedOnlyNodes
+    ? `另有 ${progressEvidence.preparedOnlyNodes} 个节点仅完成后台资源准备，不计入成熟度。`
+    : ''
+  const nodeEvidence = progressEvidence.totalNodes
+    ? `本周共 ${progressEvidence.totalNodes} 个可学习任务，已有 ${progressEvidence.completedNodes} 个学习完成记录${feedbackBreakdown}。每个路径节点只计一次。${preparationBreakdown}`
+    : exists && progressEvidence.progress >= 100
+      ? '学习路径已把本周记录为完成，因此果实成熟度为 100%。'
+      : exists
+        ? '本周路径已生成，但尚无任务完成记录，果实保持初始青果状态。'
+        : '当前画像尚未生成这一周的路径内容，果实仅表示预留周次，不计入完成度。'
+
   return {
-    label: resourceType === 'question-bank' || resourceType === 'quiz' ? '开始专项测评' : '生成巩固资源',
-    to: { path, query },
+    id: exists ? `fruit-${weekId || index + 1}` : `fruit-pending-${index + 1}`,
+    kind: 'fruit',
+    weekId,
+    order: index + 1,
+    weekLabel,
+    label: title || `${weekLabel}学习内容${exists ? '' : '待生成'}`,
+    eyebrow: `${weekLabel}果实`,
+    description: text(week?.description) || (exists ? '本周学习目标由当前画像生成。' : '完成画像与前序路径后生成本周内容。'),
+    progress: progressEvidence.progress,
+    growthScale: Number((0.46 + progressEvidence.progress / 100 * 0.64).toFixed(3)),
+    status,
+    statusLabel: STATUS_LABELS[recommended ? 'recommended' : status],
+    evidenceCount: progressEvidence.completedNodes,
+    completedNodes: progressEvidence.completedNodes,
+    totalNodes: progressEvidence.totalNodes,
+    pathCompletedNodes: progressEvidence.pathCompletedNodes,
+    cacheCompletedNodes: progressEvidence.cacheCompletedNodes,
+    feedbackCompletedNodes: progressEvidence.feedbackCompletedNodes,
+    preparedNodes: progressEvidence.preparedNodes,
+    preparedOnlyNodes: progressEvidence.preparedOnlyNodes,
+    evidence: nodeEvidence,
+    reason: exists
+      ? `该周内容来自画像 #${profileReportId || '未标记'} 对应的已保存个性化路径。`
+      : '尚无对应路径数据，不展示虚构课程内容或完成证据。',
+    recommended,
+    available: exists,
+    action: {
+      label: exists ? (recommended ? '继续本周学习' : '查看本周路径') : '查看路径生成状态',
+      to: weekId ? `/learning-path/week/${encodeURIComponent(weekId)}` : '/learning-path/stage/overview',
+    },
+    updatedAt: text(progressEvidence.cacheUpdatedAt || stage?.updatedAt || pathConfig.meta?.savedAt || updatedAt),
   }
-}
-
-function knowledgeEvidence(item) {
-  const attempts = Math.max(0, Number(item.attempts || 0))
-  if (attempts > 0) {
-    return `来自 ${attempts} 次答题或测评，答对 ${Math.max(0, Number(item.correctCount || 0))} 次。`
-  }
-  const evidenceTypes = Array.isArray(item.evidenceTypes) ? item.evidenceTypes : []
-  if (evidenceTypes.includes('profile-reported-weakness')) {
-    return '来自学习画像中的自述薄弱点，尚未完成量化测评。'
-  }
-  if (evidenceTypes.includes('weak-point-record')) {
-    return '来自平台学习记录中的薄弱点，尚未完成量化测评。'
-  }
-  return '当前没有足够的量化学习证据，需通过测评进一步验证。'
-}
-
-function branchStatus(children) {
-  const quantified = children.filter((node) => node.evidenceCount > 0)
-  if (!quantified.length) return 'unverified'
-  if (quantified.some((node) => node.status === 'weak')) return 'weak'
-  if (quantified.every((node) => node.status === 'mastered')) return 'mastered'
-  return 'developing'
 }
 
 export function buildLifeTreeModel(payload = {}) {
@@ -147,131 +226,73 @@ export function buildLifeTreeModel(payload = {}) {
   const evidence = payload.evidence && typeof payload.evidence === 'object' ? payload.evidence : {}
   const assessment = payload.assessment && typeof payload.assessment === 'object' ? payload.assessment : {}
   const pathConfig = payload.pathConfig && typeof payload.pathConfig === 'object' ? payload.pathConfig : {}
-  const heatmap = Array.isArray(assessment.knowledgeHeatmap) ? assessment.knowledgeHeatmap : []
-  const recommendations = Array.isArray(assessment.pathAdjustmentPlan?.tasks)
-    ? assessment.pathAdjustmentPlan.tasks
+  const pathNodeCaches = payload.pathNodeCaches && typeof payload.pathNodeCaches === 'object' ? payload.pathNodeCaches : {}
+  const stages = pathConfig.stages && typeof pathConfig.stages === 'object' ? pathConfig.stages : {}
+  const weeks = Array.isArray(pathConfig.weeks)
+    ? pathConfig.weeks.filter((week) => week && week.enabled !== false && week.placeholder !== true).slice(0, 6)
     : []
-  const weeks = Array.isArray(pathConfig.weeks) ? pathConfig.weeks.filter((week) => week?.enabled !== false) : []
-  const updatedAt = latestTimestamp(evidence)
-
-  const knowledgeNodes = heatmap.slice(0, 18).map((item, index) => {
-    const label = text(item.knowledgePoint) || `知识点 ${index + 1}`
-    const recommendation = recommendations.find((task) => text(task.knowledgePoint) === label)
-    const status = STATUS_LABELS[item.status] ? item.status : 'unverified'
-    const domain = domainFor(label, index)
-    const masteryRate = clampPercentage(item.masteryRate)
-    return {
-      id: `knowledge-${index}-${label}`,
-      kind: 'knowledge',
-      domainId: domain.id,
-      label,
-      status,
-      statusLabel: STATUS_LABELS[status],
-      masteryRate,
-      evidenceCount: Math.max(0, Number(item.attempts || 0)),
-      evidence: knowledgeEvidence(item),
-      reason: recommendation?.selectionReason || '',
-      recommended: Boolean(recommendation),
-      action: resourceAction(recommendation, label) || {
-        label: status === 'mastered' ? '查看效果评估' : '进入效果评估',
-        to: { path: '/effect-assessment', query: { profileId: profile.id || undefined } },
-      },
-      updatedAt,
-    }
+  const updatedAt = latestTimestamp(evidence, pathConfig, pathNodeCaches)
+  const fruits = WEEK_LABELS.map((_, index) => {
+    const week = weeks[index] || null
+    return buildWeekFruit(week, week ? stages[text(week.id)] : null, index, pathConfig, pathNodeCaches, updatedAt)
   })
 
-  const pathNodes = weeks.slice(0, 8).map((week, index) => {
-    const label = text(week.title || week.weekLabel) || `学习阶段 ${index + 1}`
-    const domain = domainFor(`${label} ${week.description || ''}`, index)
-    const status = normalizePathStatus(week.status)
-    return {
-      id: `path-${text(week.id) || index}`,
-      kind: 'path',
-      domainId: domain.id,
-      label,
-      eyebrow: text(week.weekLabel) || `第 ${index + 1} 阶段`,
-      status,
-      statusLabel: STATUS_LABELS[status],
-      masteryRate: status === 'mastered' ? 100 : null,
-      evidenceCount: status === 'mastered' ? 1 : 0,
-      evidence: `来自当前学习路径，阶段状态为“${text(week.status) || '未记录'}”。`,
-      reason: text(week.description),
-      recommended: status === 'recommended',
-      action: {
-        label: status === 'recommended' ? '继续当前阶段' : '查看学习路径',
-        to: text(week.id) ? `/learning-path/week/${encodeURIComponent(week.id)}` : '/learning-path',
-      },
-      updatedAt: text(pathConfig.meta?.savedAt || evidence.pathProgress?.updatedAt),
-    }
-  })
-
-  const nodes = [...knowledgeNodes, ...pathNodes]
   const labels = Array.isArray(assessment.labels) ? assessment.labels : []
   const radarScores = Array.isArray(assessment.radarScores) ? assessment.radarScores : []
-  const branches = DOMAIN_DEFINITIONS.map((domain, index) => {
-    const children = nodes.filter((node) => node.domainId === domain.id)
-    const status = branchStatus(children)
-    const score = numberOrNull(radarScores[index])
-    return {
-      id: `branch-${domain.id}`,
-      kind: 'branch',
-      domainId: domain.id,
-      label: labels[index] || domain.label,
-      eyebrow: '能力主枝',
-      description: domain.description,
-      status,
-      statusLabel: STATUS_LABELS[status],
-      score,
-      evidenceCount: children.reduce((total, node) => total + node.evidenceCount, 0),
-      evidence: children.length
-        ? `关联 ${children.length} 个知识或路径节点，其中 ${children.filter((node) => node.evidenceCount > 0).length} 个已有量化证据。`
-        : '该能力主枝暂未关联可核验的知识或路径节点。',
-      reason: '主枝状态只根据其下已有证据的节点汇总，不使用缺失数据推断掌握度。',
-      recommended: children.some((node) => node.recommended),
-      action: { label: '查看能力评估', to: '/effect-assessment' },
-      updatedAt,
-      children,
-      branchIndex: index,
-    }
-  })
+  const profileDimensions = DOMAIN_DEFINITIONS.map((domain, index) => ({
+    id: `profile-dimension-${domain.id}`,
+    label: text(labels[index]) || domain.label,
+    description: domain.description,
+    score: numberOrNull(radarScores[index]),
+  }))
 
   const profileName = text(profile.profileName || profile.name || profile.title) || '当前学习画像'
+  const profileReportId = Number(profile.id || profile._profileReportId || pathConfig.meta?.profileReportId || 0)
   const root = {
     id: 'profile-root',
     kind: 'profile',
     label: profileName,
-    eyebrow: '生命树主干',
-    status: profile.id ? 'developing' : 'unverified',
-    statusLabel: profile.id ? '持续生长' : '待建立画像',
+    eyebrow: '生命树根系',
+    status: profileReportId ? 'developing' : 'unverified',
+    statusLabel: profileReportId ? '画像已绑定' : '待建立画像',
     evidenceCount: Math.max(0, Number(assessment.evidenceCount || 0)),
-    evidence: profile.id
-      ? `当前生命树绑定画像 #${profile.id}${profile.isActive === false ? '，该画像不是当前激活版本' : '，并使用平台学习证据持续更新'}。`
-      : '尚未获得可用学习画像，生命树只能显示待验证的能力骨架。',
-    reason: text(assessment.summary) || '完成学习画像后，路径、资源和测评证据会在这里汇聚。',
+    evidence: profileReportId
+      ? `生命树绑定画像 #${profileReportId}${profile.isActive === false ? '，当前不是激活版本' : '，六周果实随该画像路径的学习证据生长'}。`
+      : '尚未获得可用学习画像，树上仅保留六周生长位置，不显示虚构学习成果。',
+    reason: text(assessment.summary) || '画像决定树的能力根系，学习路径决定六枚周次果实。',
     recommended: false,
-    action: { label: profile.id ? '查看学习画像' : '建立学习画像', to: '/learning-profile' },
+    action: { label: profileReportId ? '查看学习画像' : '建立学习画像', to: '/learning-profile' },
     updatedAt,
   }
 
-  const quantifiedKnowledge = knowledgeNodes.filter((node) => node.evidenceCount > 0)
+  const heatmap = Array.isArray(assessment.knowledgeHeatmap) ? assessment.knowledgeHeatmap : []
+  const quantifiedKnowledge = heatmap.filter((item) => Number(item?.attempts || 0) > 0)
   const hasAchievementEvidence = Number(evidence.pathProgress?.trackedNodes || 0) > 0
     || (evidence.examResults || []).length > 0
-    || (evidence.mcuExperiments || []).length > 0
+    || (evidence.knowledgePointStats || []).some((item) => Number(item?.attempts || 0) > 0)
   const masteryRate = quantifiedKnowledge.length ? clampPercentage(assessment.masteryRate) : null
   const achievementRate = hasAchievementEvidence ? clampPercentage(assessment.achievementRate) : null
+  const currentFruit = fruits.find((fruit) => fruit.recommended)
+    || fruits.find((fruit) => fruit.available && fruit.progress < 100)
+    || fruits.find((fruit) => fruit.available)
+    || fruits[0]
 
   return {
     profile: root,
-    branches,
-    nodes,
+    profileDimensions,
+    fruits,
+    nodes: fruits,
+    branches: [],
+    currentFruitId: currentFruit?.id || '',
     updatedAt,
-    empty: nodes.length === 0,
+    empty: weeks.length === 0,
     stats: {
       masteryRate,
       achievementRate,
-      masteredCount: nodes.filter((node) => node.status === 'mastered').length,
-      weakCount: nodes.filter((node) => node.status === 'weak').length,
-      recommendedCount: nodes.filter((node) => node.recommended).length,
+      overallGrowth: Number((fruits.reduce((total, fruit) => total + fruit.progress, 0) / fruits.length).toFixed(1)),
+      completedWeeks: fruits.filter((fruit) => fruit.progress >= 100).length,
+      generatedWeeks: fruits.filter((fruit) => fruit.available).length,
+      currentWeekProgress: currentFruit?.progress || 0,
       evidenceCount: Math.max(0, Number(assessment.evidenceCount || 0)),
       confidenceLevel: text(assessment.confidenceLevel) || 'low',
     },

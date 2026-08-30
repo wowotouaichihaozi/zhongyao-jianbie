@@ -255,7 +255,7 @@ const profile = ref(null)
 const evidence = ref({})
 const assessment = ref({})
 
-const labels = computed(() => assessment.value.labels || ['中医基础知识', '辨证思维', '方药应用', '医案实践', '学习投入', '人文与安全'])
+const labels = computed(() => assessment.value.labels || ['基础知识', '辨证思维', '方药应用', '医案实践', '学习投入', '综合素养'])
 const previousScores = computed(() => assessment.value.previousRadarScores || [2, 2, 2, 2, 2, 2])
 const currentScores = computed(() => assessment.value.radarScores || previousScores.value)
 const adjustmentPlan = computed(() => assessment.value.pathAdjustmentPlan || {})
