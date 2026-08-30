@@ -23,7 +23,9 @@
     "test:resource-detail": "node --test tests/resourceDetail.test.mjs",
     "test:resource-detail:e2e": "node tests/resourceDetail.e2e.mjs",
     "test:motion-system:e2e": "node tests/motionSystem.e2e.mjs",
-    "test:knowledge-network:e2e": "node tests/knowledgeNetworkUpdate.e2e.mjs"
+    "test:personalized-resources:e2e": "node tests/personalizedResourcesWorkspace.e2e.mjs",
+    "test:knowledge-network:e2e": "node tests/knowledgeNetworkUpdate.e2e.mjs",
+    "test:life-tree-growth:e2e": "node tests/lifeTreeGrowth.e2e.mjs"
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",

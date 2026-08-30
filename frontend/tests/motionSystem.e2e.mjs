@@ -53,6 +53,7 @@ async function verifyDesktop() {
     assert.equal(cardAnimation, 'motion-surface-enter', 'resource cards should use the shared insertion motion')
 
     await page.locator('.xiaozhi-orb').click()
+    await page.waitForFunction(() => Boolean(document.querySelector('.motion-pop-enter-active')))
     await page.locator('.xiaozhi-window').waitFor()
     const popDuration = await page.locator('.xiaozhi-window').evaluate(element => (
       getComputedStyle(element).transitionDuration

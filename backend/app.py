@@ -2211,11 +2211,14 @@ RESOURCE_VISIT_ROUTES = (
     ("/personalized-resources/question-bank", "question-bank", "题库"),
     ("/personalized-resources/mind-map", "mindmap", "思维导图"),
     ("/personalized-resources/video-search", "video", "学习视频"),
+    ("/personalized-resources/herb-model", "herb-model", "药材模型辨识"),
     ("/personalized-resources/mcu-simulator", "mcu", "历史实践记录"),
     ("/personalized-resources/knowledge-base", "knowledge-base", "私有知识库"),
     ("/personalized-resources/document", "document", "课程讲义"),
     ("/personalized-resources/animation", "animation", "动画讲解"),
     ("/personalized-resources/ppt", "ppt", "PPT"),
+    ("/herb-recognition", "herb-recognition", "药材识别"),
+    ("/smart-tutor", "smart-tutor", "智能辅导"),
 )
 
 
@@ -13039,6 +13042,35 @@ def _orchestration_json(value, max_chars: int = 240000) -> str:
     )
 
 
+def _orchestration_output_json(result: dict, max_chars: int = 240000) -> str:
+    try:
+        text = json.dumps(result, ensure_ascii=False, default=str)
+    except Exception:
+        return _orchestration_json(result, max_chars)
+    if len(text) <= max_chars:
+        return text
+
+    trace = result.get("orchestration") if isinstance(result.get("orchestration"), dict) else {}
+    compact_trace = dict(trace)
+    compact_trace["handoffs"] = [
+        {key: value for key, value in item.items() if key != "payload"}
+        for item in trace.get("handoffs") or []
+        if isinstance(item, dict)
+    ]
+    compact_trace["events"] = [
+        {key: value for key, value in item.items() if key != "payload"}
+        for item in trace.get("events") or []
+        if isinstance(item, dict)
+    ]
+    compact_result = {
+        "truncated": True,
+        "originalChars": len(text),
+        "orchestration": compact_trace,
+        "harness": result.get("harness") if isinstance(result.get("harness"), dict) else {},
+    }
+    return _orchestration_json(compact_result, max_chars)
+
+
 def xiaozhi_persist_orchestration(
     user_id: int,
     result: dict,
@@ -13109,7 +13141,7 @@ def xiaozhi_persist_orchestration(
                 _orchestration_json(policy),
                 profile_report_id,
                 _orchestration_json(payload or {}),
-                _orchestration_json(result),
+                _orchestration_output_json(result),
                 _orchestration_json(review),
                 _orchestration_json(feedback),
                 created_at,
