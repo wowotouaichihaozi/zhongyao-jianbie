@@ -112,7 +112,7 @@
                         <strong>{{ entry.agentName || entry.agentId }}</strong>
                         <time>{{ formatConversationTime(entry.createdAt) }}</time>
                       </header>
-                      <p>{{ entry.content }}</p>
+                      <p>{{ conversationEntryContent(entry, group) }}</p>
                       <small v-if="conversationDetailText(entry)">{{ conversationDetailText(entry) }}</small>
                       <span v-if="conversationCitations(entry).length" class="conversation-citations">
                         <span v-for="citation in conversationCitations(entry).slice(0, 4)" :key="citation.id || citation.title || citation.excerpt">
@@ -158,7 +158,12 @@
                 <component v-else :is="messageAgentVisual(message).icon" :size="16" />
               </span>
               <div class="bubble">
-                <p v-if="message.content">{{ message.content }}</p>
+                <p v-if="message.content">
+                  <template v-for="(segment, segmentIndex) in mentionHighlightSegments(message.content)" :key="`${index}-${segmentIndex}`">
+                    <mark v-if="segment.mention" class="agent-mention-highlight">{{ segment.text }}</mark>
+                    <template v-else>{{ segment.text }}</template>
+                  </template>
+                </p>
                 <p v-else-if="message.streaming" class="typing-ellipsis" aria-label="正在回复">
                   <span></span><span></span><span></span>
                 </p>
@@ -234,17 +239,30 @@
           <input ref="assistantImageInputRef" type="file" accept="image/*" multiple hidden @change="queueAssistantAttachments" />
           <input ref="assistantVideoInputRef" type="file" accept="video/*" multiple hidden @change="queueAssistantAttachments" />
           <input ref="assistantFileInputRef" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md" multiple hidden @change="queueAssistantAttachments" />
-          <textarea
-            ref="composerInputRef"
-            v-model="draft"
-            rows="2"
-            placeholder="输入 @ 选择智能体；不点名时由岐小智回复"
-            @input="updateMentionContext"
-            @click="updateMentionContext"
-            @select="updateMentionContext"
-            @blur="closeMentionMenu"
-            @keydown="handleComposerKeydown"
-          ></textarea>
+          <div class="composer-editor-shell">
+            <div v-if="draft" class="composer-highlight-layer" aria-hidden="true">
+              <div class="composer-highlight-content" :style="composerHighlightStyle">
+                <template v-for="(segment, index) in composerHighlightSegments" :key="index">
+                  <mark v-if="segment.mention" class="agent-mention-highlight">{{ segment.text }}</mark>
+                  <template v-else>{{ segment.text }}</template>
+                </template>
+              </div>
+            </div>
+            <textarea
+              ref="composerInputRef"
+              v-model="draft"
+              :class="{ 'has-highlight-mirror': Boolean(draft) }"
+              rows="2"
+              placeholder="输入 @ 选择智能体；不点名时由岐小智回复"
+              @input="updateMentionContext"
+              @focus="updateMentionContext"
+              @click="updateMentionContext"
+              @select="updateMentionContext"
+              @scroll="syncComposerScroll"
+              @blur="closeMentionMenu"
+              @keydown="handleComposerKeydown"
+            ></textarea>
+          </div>
           <div v-if="mentionMenuOpen" class="agent-mention-menu" role="listbox" aria-label="选择智能体">
             <button
               v-for="(agent, index) in filteredMentionAgents"
@@ -503,6 +521,7 @@ const composerInputRef = ref(null)
 const mentionCaretPosition = ref(0)
 const mentionSelectionIndex = ref(0)
 const activeMention = ref(null)
+const composerScroll = reactive({ left: 0, top: 0 })
 const messages = ref([])
 const agentConversation = ref(null)
 const expandedConversationGroups = ref(new Set())
@@ -635,6 +654,12 @@ const mentionableAgents = [
 ]
 
 const agentVisualsById = new Map(mentionableAgents.map(agent => [agent.id, agent]))
+const mentionAgentNamePattern = mentionableAgents
+  .map(agent => agent.name)
+  .sort((left, right) => right.length - left.length)
+  .map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  .join('|')
+const mentionTokenPattern = new RegExp(`@(?:${mentionAgentNamePattern})(?=$|[\\s，,。：:；;！？!?])`, 'g')
 const learnerVisual = {
   id: 'learner',
   name: '我',
@@ -738,10 +763,12 @@ const filteredMentionAgents = computed(() => {
     .filter(agent => !query || `${agent.name} ${agent.taskType}`.toLowerCase().includes(query))
 })
 const mentionMenuOpen = computed(() => {
-  if (!activeMention.value || !filteredMentionAgents.value.length) return false
-  const caret = Math.max(0, Math.min(Number(mentionCaretPosition.value || 0), draft.value.length))
-  return /(^|\s)@([^\s@]*)$/.test(draft.value.slice(0, caret))
+  return Boolean(activeMention.value && filteredMentionAgents.value.length)
 })
+const composerHighlightSegments = computed(() => mentionHighlightSegments(draft.value))
+const composerHighlightStyle = computed(() => ({
+  transform: `translate(${-composerScroll.left}px, ${-composerScroll.top}px)`,
+}))
 const hiddenAgentIds = computed(() => new Set(
   agents.value.filter(agent => agent.hidden).map(agent => String(agent.id || '')),
 ))
@@ -906,18 +933,19 @@ const agentConversationGroups = computed(() => {
       .find(reference => reference?.type === 'route')
     const lastMessage = group.messages.at(-1) || {}
     const reviewEntry = [...group.messages].reverse().find(entry => entry.type === 'review')
-    const qualityScoreValue = Number(reviewEntry?.payload?.score)
+    const taskQuality = taskQualityEvaluation(relatedTask)
+    const qualityScoreValue = Number(taskQuality?.score ?? reviewEntry?.payload?.score)
     const resourceType = String(
       relatedTask?.taskType
       || group.messages.find(entry => entry.payload?.resourceType)?.payload?.resourceType
       || '',
     )
     const citationCount = group.messages.reduce(
-      (count, entry) => Math.max(count, conversationCitations(entry).length),
-      0,
+      (count, entry) => Math.max(count, conversationCitationCount(entry)),
+      taskCitationCount(relatedTask),
     )
     const collaborationSteps = group.messages
-      .map(entry => conversationCollaborationStep(entry))
+      .map(entry => conversationCollaborationStep(entry, taskQuality?.score))
       .filter(Boolean)
       .slice(-3)
     const baseTitle = relatedTask?.title
@@ -952,6 +980,7 @@ watch(isOpen, async (open) => {
   }
   await loadHistory()
   await loadStatus()
+  await scrollToBottom()
   startStatusPolling()
 })
 
@@ -1161,7 +1190,6 @@ function toggleConversationGroup(key) {
   if (next.has(key)) next.delete(key)
   else next.add(key)
   expandedConversationGroups.value = next
-  nextTick(scrollToBottom)
 }
 
 function isConversationGroupExpanded(key) {
@@ -1217,7 +1245,7 @@ function runningActionText(entry) {
   return `${agent}正在协同处理`
 }
 
-function conversationCollaborationStep(entry) {
+function conversationCollaborationStep(entry, qualityScoreOverride = null) {
   if (!entry) return null
   const payload = entry.payload && typeof entry.payload === 'object' ? entry.payload : {}
   const status = normalizeStatus(entry.status)
@@ -1231,7 +1259,10 @@ function conversationCollaborationStep(entry) {
     }
   }
   if (entry.type === 'review') {
-    const score = Number(payload.score)
+    const persistedScore = Number(payload.score)
+    const overrideScore = Number(qualityScoreOverride)
+    const hasOverride = qualityScoreOverride !== null && qualityScoreOverride !== undefined && qualityScoreOverride !== ''
+    const score = hasOverride && Number.isFinite(overrideScore) ? overrideScore : persistedScore
     const passed = payload.passed !== false && !['failed', 'needs_attention'].includes(String(entry.status || ''))
     return {
       agent: '质量审核智能体',
@@ -1255,6 +1286,14 @@ function conversationCollaborationStep(entry) {
     status: status === 'failed' ? 'failed' : 'complete',
     text: text ? `${agent}已完成：${conciseConversationText(text, 24)}` : `${agent}已完成协同处理`,
   }
+}
+
+function conversationEntryContent(entry, group) {
+  if (entry?.type !== 'review' || !Number.isFinite(Number(group?.qualityScore))) {
+    return entry?.content || ''
+  }
+  const passed = entry?.payload?.passed !== false && group?.status !== 'failed'
+  return `审核完成，资源质量分 ${Number(group.qualityScore)}，${passed ? '已通过' : '需要继续处理'}。`
 }
 
 function conversationGroupSummary(messages, relatedTask) {
@@ -1284,9 +1323,54 @@ function conversationDetailText(entry) {
   if (payload.artifactType) parts.push(`交接物：${payload.artifactType}`)
   if (payload.toAgentName) parts.push(`交给：${payload.toAgentName}`)
   const details = payload.details && typeof payload.details === 'object' ? payload.details : {}
-  const citationCount = Array.isArray(details.citations) ? details.citations.length : 0
+  const citationCount = conversationCitationCount(entry)
   if (citationCount) parts.push(`知识引用：${citationCount} 条`)
   return parts.join(' · ')
+}
+
+function conversationCitationCount(entry) {
+  const payload = entry?.payload && typeof entry.payload === 'object' ? entry.payload : {}
+  const details = payload.details && typeof payload.details === 'object' ? payload.details : {}
+  return Math.max(
+    conversationCitations(entry).length,
+    Number(payload.citationCount || 0),
+    Number(details.citationCount || 0),
+  )
+}
+
+function taskQualityEvaluation(task) {
+  const result = task?.result && typeof task.result === 'object' ? task.result : {}
+  const selected = result.selectedResource && typeof result.selectedResource === 'object' ? result.selectedResource : {}
+  const metadata = selected.metadata && typeof selected.metadata === 'object' ? selected.metadata : {}
+  const candidates = [
+    result.qualityEvaluation,
+    result.questionGenerator?.qualityEvaluation,
+    result.ppt?.qualityEvaluation,
+    result.document?.qualityEvaluation,
+    result.animation?.qualityEvaluation,
+    result.tutor?.qualityEvaluation,
+    selected.qualityEvaluation,
+    metadata.qualityEvaluation,
+  ]
+  return candidates.find(value => value && typeof value === 'object' && Number.isFinite(Number(value.score))) || null
+}
+
+function taskCitationCount(task) {
+  const result = task?.result && typeof task.result === 'object' ? task.result : {}
+  const selected = result.selectedResource && typeof result.selectedResource === 'object' ? result.selectedResource : {}
+  const metadata = selected.metadata && typeof selected.metadata === 'object' ? selected.metadata : {}
+  const quality = taskQualityEvaluation(task) || {}
+  const sourceLists = [
+    result.knowledgeSources,
+    result.questionGenerator?.knowledgeSources,
+    result.ppt?.knowledgeSources,
+    selected.knowledgeSources,
+    metadata.knowledgeSources,
+  ]
+  return Math.max(
+    Number(quality.citationCount || 0),
+    ...sourceLists.map(value => Array.isArray(value) ? value.length : 0),
+  )
 }
 
 function conversationCitations(entry) {
@@ -1460,6 +1544,26 @@ function fallbackTaskRoute(task) {
     return `/personalized-resources/knowledge-base?xzTask=${taskId}`
   }
   return '/personalized-resources'
+}
+
+function mentionHighlightSegments(value) {
+  const content = String(value || '')
+  if (!content) return []
+  const segments = []
+  let cursor = 0
+  for (const match of content.matchAll(mentionTokenPattern)) {
+    const start = Number(match.index || 0)
+    if (start > cursor) segments.push({ text: content.slice(cursor, start), mention: false })
+    segments.push({ text: match[0], mention: true })
+    cursor = start + match[0].length
+  }
+  if (cursor < content.length) segments.push({ text: content.slice(cursor), mention: false })
+  return segments.length ? segments : [{ text: content, mention: false }]
+}
+
+function syncComposerScroll(event) {
+  composerScroll.left = Number(event?.target?.scrollLeft || 0)
+  composerScroll.top = Number(event?.target?.scrollTop || 0)
 }
 
 function handleComposerKeydown(event) {
@@ -3123,7 +3227,7 @@ onBeforeUnmount(() => {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 94px;
+  bottom: calc(100% - 2px);
   z-index: 12;
   max-height: 278px;
   overflow-y: auto;
@@ -3132,6 +3236,53 @@ onBeforeUnmount(() => {
   border-radius: 0 !important;
   background: #eef2f0;
   box-shadow: none !important;
+}
+
+.composer-editor-shell {
+  position: relative;
+  min-height: 52px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.composer-highlight-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.composer-highlight-content {
+  width: 100%;
+  min-height: 52px;
+  padding: 9px 10px;
+  box-sizing: border-box;
+  color: transparent;
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  transform-origin: 0 0;
+}
+
+.agent-mention-highlight {
+  margin: 0;
+  padding: 0;
+  border-radius: 3px;
+  background: #cfe7dc;
+  box-shadow: inset 0 0 0 1px rgba(23, 104, 79, 0.12);
+  color: #125a43;
+  font: inherit;
+  font-weight: 800;
+}
+
+.composer-highlight-content .agent-mention-highlight {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .agent-mention-menu > button {
@@ -3192,6 +3343,8 @@ onBeforeUnmount(() => {
 }
 
 .composer textarea {
+  position: relative;
+  z-index: 1;
   width: 100%;
   min-height: 52px;
   resize: none;
@@ -3203,6 +3356,22 @@ onBeforeUnmount(() => {
   color: #213a39;
   font-size: 14px;
   line-height: 1.55;
+  background: transparent;
+}
+
+.composer textarea.has-highlight-mirror {
+  color: #213a39;
+  caret-color: #213a39;
+  -webkit-text-fill-color: #213a39;
+}
+
+.composer textarea.has-highlight-mirror::selection {
+  background: rgba(36, 117, 88, 0.2);
+}
+
+.composer textarea::placeholder {
+  color: #879590;
+  -webkit-text-fill-color: #879590;
 }
 
 .composer textarea:focus {

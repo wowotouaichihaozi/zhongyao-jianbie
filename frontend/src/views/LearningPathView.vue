@@ -25,7 +25,7 @@
         <aside class="path-progress-card" :class="{ 'path-progress-skeleton': loading }" aria-label="学习路径总进度">
           <div class="progress-card-head">
             <Activity :size="16" stroke-width="2.4" aria-hidden="true" />
-            <span>{{ loading ? '' : (isWeekTaskPage ? '本周进度' : '总进度') }}</span>
+            <span>{{ loading ? '' : progressStatusLabel }}</span>
             <strong>{{ loading ? '--' : `${progressPercent}%` }}</strong>
           </div>
           <i><b :style="{ width: loading ? '0%' : `${progressPercent}%` }"></b></i>
@@ -133,7 +133,13 @@
             </span>
           </div>
 
-          <TransitionGroup v-if="hasActiveLearningProfile" name="task-reveal" tag="div" class="week-grid">
+          <TransitionGroup
+            v-if="hasActiveLearningProfile"
+            name="task-reveal"
+            tag="div"
+            class="week-grid"
+            :class="{ 'task-resource-grid': isWeekTaskPage }"
+          >
             <component
               v-for="(week, weekIndex) in visibleWeeks"
               :key="week.id"
@@ -148,28 +154,60 @@
                 `status-${week.visualStatus || week.status || 'locked'}`,
               ]"
               :data-resource-type="isWeekTaskPage ? week.resourceType : undefined"
-              :style="isWeekTaskPage ? taskCardColorStyle(week, weekIndex) : undefined"
               :aria-label="`${week.weekLabel}${week.resourceLabel ? ` ${week.resourceLabel}` : ''} ${week.title}`"
               :disabled="weekEntryTag(week) === 'button' ? (isWeekTaskPage && !week.actionRoute) : undefined"
               @click="openWeek(week, $event)"
             >
-              <span class="week-icon" aria-hidden="true">
-                <component :is="resolveIcon(week.icon)" :size="28" stroke-width="2.1" />
-              </span>
-              <span class="week-copy">
-                <small>
-                  {{ week.weekLabel }}
-                  <template v-if="week.resourceLabel"> · {{ week.resourceLabel }}</template>
-                </small>
-                <strong>{{ week.title }}</strong>
-                <em>{{ week.description }}</em>
-              </span>
-              <span class="week-status">
-                <component :is="statusIcon(week.visualStatus || week.status)" :size="14" stroke-width="2.4" aria-hidden="true" />
-                {{ week.statusText || statusLabel(week.status) }}
-              </span>
-              <component class="week-watermark" :is="resolveIcon(week.icon)" :size="76" stroke-width="1.35" aria-hidden="true" />
-              <ChevronRight class="week-arrow" :size="24" stroke-width="2.2" aria-hidden="true" />
+              <template v-if="isWeekTaskPage">
+                <span class="task-resource-cover" aria-hidden="true">
+                  <span class="task-cover-loading" :class="{ hidden: isTaskCoverLoaded(week.coverKey) }">
+                    <component :is="resolveIcon(week.icon)" :size="30" stroke-width="1.6" />
+                    <small>{{ taskCoverStatusLabel(week) }}</small>
+                  </span>
+                  <img
+                    v-if="isGeneratedVideoTask(week) && taskPosterUrl(week)"
+                    :class="{ loaded: isTaskCoverLoaded(week.coverKey) }"
+                    :src="taskPosterUrl(week)"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    @load="markTaskCoverLoaded(week.coverKey)"
+                    @error="retryTaskPoster(week)"
+                  />
+                  <iframe
+                    v-else-if="taskCoverPreviewUrl(week)"
+                    class="task-resource-live-cover"
+                    :class="{ loaded: isTaskCoverLoaded(week.coverKey) }"
+                    :src="taskCoverPreviewUrl(week)"
+                    :title="`${week.title}页面封面`"
+                    tabindex="-1"
+                    loading="lazy"
+                    scrolling="no"
+                    aria-hidden="true"
+                    @load="markTaskCoverLoaded(week.coverKey)"
+                  ></iframe>
+                </span>
+                <span class="task-resource-copy">
+                  <strong>{{ week.title }}</strong>
+                  <small>{{ week.resourceLabel }}</small>
+                </span>
+              </template>
+              <template v-else>
+                <span class="week-icon" aria-hidden="true">
+                  <component :is="resolveIcon(week.icon)" :size="28" stroke-width="2.1" />
+                </span>
+                <span class="week-copy">
+                  <small>{{ week.weekLabel }}</small>
+                  <strong>{{ week.title }}</strong>
+                  <em>{{ week.description }}</em>
+                </span>
+                <span class="week-status">
+                  <component :is="statusIcon(week.visualStatus || week.status)" :size="14" stroke-width="2.4" aria-hidden="true" />
+                  {{ week.statusText || statusLabel(week.status) }}
+                </span>
+                <component class="week-watermark" :is="resolveIcon(week.icon)" :size="76" stroke-width="1.35" aria-hidden="true" />
+                <ChevronRight class="week-arrow" :size="24" stroke-width="2.2" aria-hidden="true" />
+              </template>
             </component>
 
             <button
@@ -199,19 +237,8 @@
           >
             <span>
               <strong>已规划 {{ visibleWeeks.length }} / {{ totalWeekCount }} 周</strong>
-              <small>继续规划会使用当前画像；也可以先评估本周效果，再让新画像影响后续任务。</small>
+              <small>查看完当前周的全部任务后，岐小智会在后台自动规划下一周；更新画像后，后续任务将使用新画像。</small>
             </span>
-            <button
-              v-if="canGenerateNextWeek"
-              type="button"
-              class="next-week-button"
-              :disabled="planningRemaining"
-              @click="generateNextWeek"
-            >
-              <LoaderCircle v-if="planningRemaining" class="spin" :size="16" aria-hidden="true" />
-              <Rocket v-else :size="16" aria-hidden="true" />
-              {{ planningRemaining ? `正在规划第 ${nextWeekNumber} 周` : `生成第 ${nextWeekNumber} 周` }}
-            </button>
             <button type="button" class="assessment-button" @click="router.push('/effect-assessment')">
               <ClipboardCheck :size="16" aria-hidden="true" />
               更新画像后再规划
@@ -241,7 +268,6 @@ import {
   Flag,
   Layers,
   LockKeyhole,
-  LoaderCircle,
   MoreHorizontal,
   Rocket,
   RotateCcw,
@@ -251,13 +277,17 @@ import {
 import { useRoute, useRouter } from 'vue-router'
 import {
   generateLearningPath,
-  generateNextLearningPathWeek,
   getLearningPathConfig,
   getLearningPathStage,
   getLearningPathStageResourceTasks,
   prepareLearningPathStageResources,
 } from '../services/api.js'
 import { cloneLearningPathConfig, defaultLearningPathConfig } from '../config/learningPathDefaults.js'
+import {
+  getNodeCache,
+  hydrateNodeCachesFromServer,
+  markNodeCacheViewed,
+} from '../services/learningPathNodeCache.js'
 import { dispatchXiaoZhiWorkflowProgress } from '../utils/xiaozhiWorkflowProgress.js'
 
 const router = useRouter()
@@ -271,9 +301,13 @@ const pathConfig = ref(cloneLearningPathConfig())
 const taskStage = ref(createFallbackTaskStage(String(route.params.stageId || '')))
 const resourcePreparing = ref(false)
 const resourcePrepareError = ref('')
+const loadedTaskCovers = ref(new Set())
+const cacheVersion = ref(0)
 let resourcePollTimer = null
 let resourcePreparationRun = 0
 let foregroundPathWorkflowId = ''
+const taskPosterRetries = new Map()
+const taskPosterRetryTimers = new Map()
 const hiddenStageIds = new Set(['profile-diagnosis'])
 const weekNumberLabels = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
 
@@ -298,8 +332,6 @@ const pageMeta = computed(() => ({
 const isWeekTaskPage = computed(() => Boolean(route.params.stageId) && route.name === 'learning-path-week-detail')
 const hasActiveLearningProfile = computed(() => Number(pathConfig.value?.meta?.activeProfileReportId || 0) > 0)
 const totalWeekCount = computed(() => Math.max(1, Number(pathConfig.value?.meta?.totalWeeks || 6)))
-const canGenerateNextWeek = computed(() => visibleWeeks.value.length < totalWeekCount.value)
-const nextWeekNumber = computed(() => visibleWeeks.value.length + 1)
 const resourcePreparation = computed(() => (
   taskStage.value?.resourcePreparation && typeof taskStage.value.resourcePreparation === 'object'
     ? taskStage.value.resourcePreparation
@@ -404,6 +436,7 @@ const visibleTasks = computed(() => {
       const resourceType = normalizeTaskResourceType(node.resourceType, index)
       const taskId = String(resourceTask.taskId || '')
       const taskRoute = taskId ? String(resourceTask.route || node.actionRoute || '') : ''
+      const coverKey = `${String(route.params.stageId || '')}:${taskId || node.id || index}`
       return {
         id: String(node.id || `task-${index + 1}`),
         order: index + 1,
@@ -416,8 +449,11 @@ const visibleTasks = computed(() => {
         resourceType,
         resourceLabel: taskResourceLabel(node.resourceType, index),
         icon: taskIcon(resourceType, index),
+        taskId,
+        coverKey,
         description: String(node.description || node.desc || '完成本任务并记录学习成果。'),
         actionRoute: taskRoute.includes('xzTask=') ? taskRoute : '',
+        cacheKey: String(node.cacheKey || ''),
       }
     })
 })
@@ -435,14 +471,29 @@ const allWeekTaskNodes = computed(() => (
 ))
 
 const activeWeekCount = computed(() => (
-  (isWeekTaskPage.value ? allWeekTaskNodes.value : visibleWeeks.value)
-    .filter((item) => ['done', 'completed', 'current', 'active', 'progress'].includes(String(item?.state || item?.status || '')))
-    .length
+  isWeekTaskPage.value
+    ? allWeekTaskNodes.value.filter(isWeekTaskViewed).length
+    : visibleWeeks.value
+      .filter((item) => ['done', 'completed', 'current', 'active', 'progress'].includes(String(item?.state || item?.status || '')))
+      .length
 ))
 
 const progressPercent = computed(() => {
   const total = (isWeekTaskPage.value ? allWeekTaskNodes.value.length : visibleWeeks.value.length) || 1
   return Math.min(100, Math.round((activeWeekCount.value / total) * 100))
+})
+
+const currentWeekLabel = computed(() => String(
+  taskStage.value?.weekLabel
+  || findWeekLabel(route.params.stageId)
+  || '本周',
+))
+
+const progressStatusLabel = computed(() => {
+  if (!isWeekTaskPage.value) return '总进度'
+  if (progressPercent.value <= 0) return `${currentWeekLabel.value}未开始`
+  if (progressPercent.value >= 100) return `${currentWeekLabel.value}已完成`
+  return `${currentWeekLabel.value}进行中`
 })
 
 const railProgressPercent = computed(() => {
@@ -452,7 +503,12 @@ const railProgressPercent = computed(() => {
   return Math.min(100, Math.round((activeIndex / total) * 100))
 })
 
-onMounted(loadLearningPathConfig)
+onMounted(() => {
+  window.addEventListener('storage', handleNodeCacheUpdated)
+  window.addEventListener('learning-path-node-cache-updated', handleNodeCacheUpdated)
+  void hydrateNodeCachesFromServer()
+  void loadLearningPathConfig()
+})
 
 watch(
   () => `${String(route.name || '')}:${String(route.params.stageId || '')}`,
@@ -465,8 +521,12 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  window.removeEventListener('storage', handleNodeCacheUpdated)
+  window.removeEventListener('learning-path-node-cache-updated', handleNodeCacheUpdated)
   cancelResourcePreparation()
   stopResourcePolling()
+  for (const timer of taskPosterRetryTimers.values()) window.clearTimeout(timer)
+  taskPosterRetryTimers.clear()
 })
 
 async function loadLearningPathConfig() {
@@ -477,7 +537,7 @@ async function loadLearningPathConfig() {
   planning.value = false
   planningRemaining.value = false
   try {
-    const config = await getLearningPathConfig()
+    const config = await getLearningPathConfig({ summary: true })
     let normalizedConfig = normalizeConfig(config)
     pathConfig.value = normalizedConfig
     if (!hasActiveLearningProfile.value) {
@@ -669,53 +729,7 @@ function cancelResourcePreparation() {
   resourcePreparing.value = false
 }
 
-async function generateNextWeek() {
-  if (planningRemaining.value || !canGenerateNextWeek.value) return
-  planningRemaining.value = true
-  generationError.value = null
-  const requestedWeek = nextWeekNumber.value
-  const totalWeeks = totalWeekCount.value
-  startForegroundPathWorkflow(totalWeeks)
-  try {
-    const result = await generateNextLearningPathWeek({
-      profileReportId: Number(pathConfig.value?.meta?.activeProfileReportId || 0),
-      totalWeeks,
-      useLLM: true,
-      prepareResources: true,
-    })
-    if (result?.config) {
-      pathConfig.value = normalizeConfig(result.config)
-    }
-    publishForegroundPathProgress({
-      status: 'complete',
-      progress: 100,
-      completedWeeks: visiblePathWeekCount(pathConfig.value),
-      totalWeeks,
-      message: `第 ${requestedWeek} 周路径已生成并保存`,
-    })
-  } catch (error) {
-    console.warn('Failed to generate next learning-path week.', error)
-    generationError.value = {
-      title: `第 ${requestedWeek} 周规划失败`,
-      message: error?.response?.data?.msg || error?.message || '学习路径生成失败',
-    }
-    publishForegroundPathProgress({
-      status: 'failed',
-      progress: 100,
-      completedWeeks: visiblePathWeekCount(pathConfig.value),
-      totalWeeks,
-      message: generationError.value.message,
-    })
-  } finally {
-    planningRemaining.value = false
-  }
-}
-
 function retryLearningPathGeneration() {
-  if (visibleWeeks.value.length) {
-    void generateNextWeek()
-    return
-  }
   generationError.value = null
   void loadLearningPathConfig()
 }
@@ -800,7 +814,7 @@ function weekEntryHref(week) {
   return opensResourceInCurrentTab(week) ? null : weekActionHref(week)
 }
 
-function openWeek(week, event) {
+async function openWeek(week, event) {
   if (!week?.id) return
   if (isWeekTaskPage.value) {
     if (!week.actionRoute) {
@@ -809,12 +823,26 @@ function openWeek(week, event) {
       }
       return
     }
+    const href = weekActionHref(week)
+    let viewSavePromise = null
+    if (week.cacheKey) {
+      viewSavePromise = markNodeCacheViewed(week.cacheKey, {
+        stageId: String(route.params.stageId || ''),
+        nodeId: week.id,
+        profileReportId: Number(pathConfig.value?.meta?.profileReportId || pathConfig.value?.meta?.activeProfileReportId || 0),
+        resourceType: week.resourceType,
+        title: week.title,
+        route: href,
+        viewedAt: Date.now(),
+      })
+    }
     if (opensResourceInCurrentTab(week)) {
-      router.push(weekActionHref(week))
+      if (viewSavePromise) await viewSavePromise
+      router.push(href)
       return
     }
     if (event?.currentTarget?.tagName === 'A') return
-    window.open(weekActionHref(week), '_blank', 'noopener,noreferrer')
+    window.open(href, '_blank', 'noopener,noreferrer')
     return
   }
   router.push({ name: 'learning-path-week-detail', params: { stageId: week.id } })
@@ -921,27 +949,82 @@ function taskIcon(resourceType, index) {
   return icons[normalizeTaskResourceType(resourceType, index)] || ['target', 'brain', 'book-open', 'cpu'][index % 4]
 }
 
-const TASK_CARD_COLOR_PALETTE = [
-  { tone: '#0b6f66', soft: '#ccefe6', surface: '#e7f7f2', border: '#51b8a5' },
-  { tone: '#1d4ed8', soft: '#dbe7ff', surface: '#edf2ff', border: '#7399ee' },
-  { tone: '#6d28d9', soft: '#e8dcff', surface: '#f2ecff', border: '#a37ae8' },
-  { tone: '#a92b22', soft: '#ffdcd7', surface: '#fff0ed', border: '#e17d73' },
-  { tone: '#805400', soft: '#ffeab5', surface: '#fff5d9', border: '#d3a43d' },
-  { tone: '#b51759', soft: '#ffd8e8', surface: '#ffedf5', border: '#e36b9a' },
-  { tone: '#4338ca', soft: '#dedfff', surface: '#eeeeff', border: '#8c8fe3' },
-  { tone: '#047857', soft: '#cff1df', surface: '#e9f8f0', border: '#58bd91' },
-  { tone: '#9621a4', soft: '#f3d6f8', surface: '#faecfc', border: '#ce70d8' },
-  { tone: '#155e75', soft: '#d2edf4', surface: '#e8f6fa', border: '#61afc1' },
-]
+function isWeekTaskViewed(node) {
+  cacheVersion.value
+  const cacheKey = String(node?.cacheKey || '').trim()
+  if (!cacheKey) return false
+  const cache = getNodeCache(cacheKey)
+  if (!cache?.viewedAt || cache?.viewSource !== 'learning-path-task-open') return false
+  if (String(cache.stageId || '') !== String(route.params.stageId || '')) return false
+  if (String(cache.nodeId || '') !== String(node?.id || '')) return false
+  const expectedProfileId = Number(pathConfig.value?.meta?.profileReportId || pathConfig.value?.meta?.activeProfileReportId || 0)
+  return expectedProfileId <= 0 || Number(cache.profileReportId || 0) === expectedProfileId
+}
 
-function taskCardColorStyle(week, index) {
-  const order = Math.max(1, Number(week?.order || index + 1))
-  const palette = TASK_CARD_COLOR_PALETTE[(order - 1) % TASK_CARD_COLOR_PALETTE.length]
-  return {
-    '--tone': palette.tone,
-    '--tone-soft': palette.soft,
-    '--tone-surface': palette.surface,
-    '--tone-border': palette.border,
+function handleNodeCacheUpdated(event) {
+  if (event?.key && event.key !== 'qianzhi-learning-path-node-results:v1') return
+  cacheVersion.value += 1
+}
+
+function taskCoverStatusLabel(task) {
+  if (isGeneratedVideoTask(task)) return '首图生成中'
+  if (['planning', 'unprepared', 'queued', 'running'].includes(String(task?.resourceStatus || ''))) {
+    return '资源生成中'
+  }
+  return '正在读取封面'
+}
+
+function isTaskCoverLoaded(coverKey) {
+  return loadedTaskCovers.value.has(String(coverKey || ''))
+}
+
+function markTaskCoverLoaded(coverKey) {
+  const key = String(coverKey || '')
+  if (!key || loadedTaskCovers.value.has(key)) return
+  loadedTaskCovers.value = new Set([...loadedTaskCovers.value, key])
+}
+
+function isGeneratedVideoTask(task) {
+  return String(task?.resourceType || '') === 'generated_video'
+}
+
+function taskPosterUrl(task) {
+  cacheVersion.value
+  const taskId = String(task?.taskId || '')
+  if (!taskId) return ''
+  const attempt = taskPosterRetries.get(String(task?.coverKey || '')) || 0
+  const url = `/api/personalized-resources/generated-videos/${encodeURIComponent(taskId)}/poster`
+  return attempt ? `${url}?coverAttempt=${attempt}` : url
+}
+
+function retryTaskPoster(task) {
+  const key = String(task?.coverKey || '')
+  if (!key || taskPosterRetryTimers.has(key)) return
+  const loaded = new Set(loadedTaskCovers.value)
+  loaded.delete(key)
+  loadedTaskCovers.value = loaded
+  const attempt = taskPosterRetries.get(key) || 0
+  const timer = window.setTimeout(() => {
+    taskPosterRetryTimers.delete(key)
+    taskPosterRetries.set(key, attempt + 1)
+    cacheVersion.value += 1
+  }, Math.min(10000, 2000 + attempt * 500))
+  taskPosterRetryTimers.set(key, timer)
+}
+
+function taskCoverPreviewUrl(task) {
+  if (isGeneratedVideoTask(task)) return ''
+  const target = String(task?.actionRoute || '').trim()
+  if (!target || /^https?:\/\//i.test(target)) return ''
+  try {
+    const resolved = router.resolve(target)
+    return router.resolve({
+      path: resolved.path,
+      query: { ...resolved.query, resourcePreview: 'cover' },
+      hash: resolved.hash,
+    }).href
+  } catch {
+    return ''
   }
 }
 
@@ -1670,15 +1753,20 @@ function shouldAutoPlan(config) {
 }
 
 .week-card.task-resource-card {
-  --tone-border: #b7c8d1;
-  --tone-surface: #f2f6f8;
+  --tone-border: #dfe4e2;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 202px minmax(0, 1fr);
+  gap: 0;
+  width: 100%;
+  height: 292px;
+  min-height: 292px;
+  padding: 0 !important;
+  overflow: hidden;
   border-color: var(--tone-border) !important;
-  background: var(--tone-surface) !important;
-  box-shadow:
-    inset 6px 0 0 var(--tone),
-    inset 0 4px 0 var(--tone),
-    0 14px 34px rgba(15, 23, 42, 0.075) !important;
-  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .week-card.task-resource-card::before,
@@ -1686,43 +1774,10 @@ function shouldAutoPlan(config) {
   display: none;
 }
 
-.week-card.task-resource-card .week-icon {
-  background: var(--tone-soft);
-  box-shadow:
-    inset 0 0 0 2px color-mix(in srgb, var(--tone) 34%, transparent),
-    0 8px 18px color-mix(in srgb, var(--tone) 13%, transparent);
-}
-
-.week-card.task-resource-card .week-copy small {
-  width: fit-content;
-  padding: 5px 8px;
-  border: 1px solid color-mix(in srgb, var(--tone) 34%, transparent);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.72);
-}
-
-.week-card.task-resource-card .week-status {
-  border: 1px solid rgba(255, 255, 255, 0.76);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-}
-
 .week-card.task-resource-card:hover:not(:disabled):not(.placeholder-card):not(.week-card-skeleton) {
-  border-color: var(--tone) !important;
-  box-shadow:
-    inset 6px 0 0 var(--tone),
-    inset 0 4px 0 var(--tone),
-    0 18px 40px color-mix(in srgb, var(--tone) 18%, transparent) !important;
-  transform: none !important;
-}
-
-.week-card.task-resource-card:hover:not(:disabled) .week-icon,
-.week-card.task-resource-card:hover:not(:disabled) .week-watermark,
-.week-card.task-resource-card:hover:not(:disabled) .week-arrow {
-  transform: none;
-}
-
-.week-card.task-resource-card:hover:not(:disabled) .week-arrow {
-  color: var(--tone);
+  border-color: #a9beb5 !important;
+  box-shadow: 0 8px 22px rgba(31, 55, 46, 0.08) !important;
+  transform: translateY(-2px) !important;
 }
 
 .week-card.task-resource-card:focus-visible {
@@ -1734,12 +1789,107 @@ function shouldAutoPlan(config) {
 .week-card.task-resource-card:disabled:hover {
   opacity: 1;
   border-color: var(--tone-border) !important;
-  background: var(--tone-surface) !important;
-  box-shadow:
-    inset 6px 0 0 var(--tone),
-    inset 0 4px 0 var(--tone),
-    0 14px 34px rgba(15, 23, 42, 0.075) !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
   transform: none !important;
+}
+
+.task-resource-cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 202px;
+  overflow: hidden;
+  border-bottom: 1px solid #e1e6e4;
+  background: #f1f4f2;
+  isolation: isolate;
+}
+
+.task-cover-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  color: var(--tone);
+  background: #f1f4f2;
+}
+
+.task-cover-loading small {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  color: #75817c;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.task-cover-loading.hidden {
+  visibility: hidden;
+}
+
+.task-resource-live-cover {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 1;
+  width: 300%;
+  height: 300%;
+  border: 0;
+  opacity: 0;
+  background: #f7f9f8;
+  pointer-events: none;
+  transform: scale(0.333333);
+  transform-origin: 0 0;
+  transition: opacity 180ms ease;
+}
+
+.task-resource-live-cover.loaded {
+  opacity: 1;
+}
+
+.task-resource-cover img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  object-fit: cover;
+  transition: opacity 180ms ease;
+}
+
+.task-resource-cover img.loaded {
+  opacity: 1;
+}
+
+.task-resource-copy {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  gap: 5px;
+  padding: 12px 14px 13px;
+}
+
+.task-resource-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #1c2723;
+  font-size: 17px;
+  font-weight: 750;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.task-resource-copy small {
+  overflow: hidden;
+  color: #6f7d77;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-resource-card[data-resource-type="video"] {

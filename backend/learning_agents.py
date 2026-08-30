@@ -46,6 +46,8 @@ DIMENSIONS = [
     "综合应用与人文素养",
 ]
 
+DEFAULT_AGENT_MAX_TOKENS = 128000
+
 
 def _positive_int_setting(name: str, default: int) -> int:
     try:
@@ -53,6 +55,20 @@ def _positive_int_setting(name: str, default: int) -> int:
     except (TypeError, ValueError):
         return default
     return value if value > 0 else default
+
+
+def completion_token_budget(*requested: int | None) -> int:
+    """Return the platform-wide per-response output budget."""
+    configured = _positive_int_setting("LLM_MAX_TOKENS", DEFAULT_AGENT_MAX_TOKENS)
+    valid_requested: list[int] = []
+    for value in requested:
+        try:
+            parsed = int(value or 0)
+        except (TypeError, ValueError):
+            continue
+        if parsed > 0:
+            valid_requested.append(parsed)
+    return max([configured, *valid_requested])
 
 
 def _openai_message_text(data: dict[str, Any]) -> str:
@@ -91,7 +107,7 @@ def request_llm_text(
     use_openai = protocol in {"", "auto", "openai"}
     use_anthropic = protocol in {"", "auto", "anthropic"}
     minimum_completion_tokens = 800 if json_mode else 600
-    max_tokens = max(minimum_completion_tokens, int(max_tokens or 0))
+    max_tokens = completion_token_budget(minimum_completion_tokens, int(max_tokens or 0))
     if not token:
         raise RuntimeError("ANTHROPIC_AUTH_TOKEN is not configured")
 
@@ -296,7 +312,10 @@ def request_llm_audio_understanding(
         "parameters": {
             "result_format": "message",
             "modalities": ["text"],
-            "max_tokens": max(256, min(4000, int(max_tokens or _positive_int_setting("AUDIO_LLM_MAX_TOKENS", 1800)))),
+            "max_tokens": completion_token_budget(
+                256,
+                int(max_tokens or _positive_int_setting("AUDIO_LLM_MAX_TOKENS", DEFAULT_AGENT_MAX_TOKENS)),
+            ),
         },
     }
     req = urllib.request.Request(
@@ -346,7 +365,10 @@ def request_llm_image_understanding(
         raise RuntimeError("VISION_LLM_API_KEY is not configured for image understanding")
 
     request_timeout = timeout or _positive_int_setting("VISION_LLM_TIMEOUT", 120)
-    completion_tokens = max_tokens or _positive_int_setting("VISION_LLM_MAX_TOKENS", 1800)
+    completion_tokens = completion_token_budget(
+        max_tokens,
+        _positive_int_setting("VISION_LLM_MAX_TOKENS", DEFAULT_AGENT_MAX_TOKENS),
+    )
     image_data_url = _vision_image_data_url(raw)
     safe_filename = str(filename or "uploaded-image").replace("\n", " ")[:180]
     requested_analysis = str(analysis_prompt or "").strip()[:4000]
@@ -381,7 +403,7 @@ def request_llm_image_understanding(
             },
         ],
         "temperature": 0.1,
-        "max_tokens": max(256, min(4000, int(completion_tokens))),
+        "max_tokens": completion_tokens,
     }
     req = urllib.request.Request(
         build_openai_chat_completions_url(openai_base_url),
@@ -1298,26 +1320,26 @@ PATH_NODE_BLUEPRINTS = [
 LEARNING_PATH_RESOURCE_ALIASES = {
     "question_bank": "question-bank",
     "quiz": "question-bank",
-    "simulator": "document",
-    "code": "document",
+    "document": "ppt",
+    "simulator": "ppt",
+    "code": "ppt",
     "mind-map": "mindmap",
-    "handout": "document",
-    "learning-document": "document",
+    "handout": "ppt",
+    "learning-document": "ppt",
     "animated-lesson": "animation",
     "learning-animation": "animation",
     "herb_model": "herb-model",
     "herb-recognition": "herb-model",
 }
-LEARNING_PATH_RESOURCE_TYPES = {"video", "generated_video", "animation", "document", "ppt", "mindmap", "question-bank", "herb-model"}
-LEARNING_PATH_REQUIRED_RESOURCE_TYPES = ("herb-model", "question-bank", "ppt", "mindmap", "video", "document", "generated_video")
-LEARNING_PATH_RESOURCE_PLAN_VERSION = "tcm-profile-routed-resources-v21-weekly-herb-model"
+LEARNING_PATH_RESOURCE_TYPES = {"video", "generated_video", "animation", "ppt", "mindmap", "question-bank", "herb-model"}
+LEARNING_PATH_REQUIRED_RESOURCE_TYPES = ("herb-model", "question-bank", "ppt", "mindmap", "video", "generated_video")
+LEARNING_PATH_RESOURCE_PLAN_VERSION = "tcm-profile-routed-resources-v22-six-resource-no-document"
 LEARNING_PATH_RESOURCE_CONCENTRATION_LIMIT = 2
 LEARNING_PATH_RESOURCE_CONCENTRATION_PENALTY = 5
 LEARNING_PATH_RESOURCE_ACTIONS = {
     "generated_video": "生成 AI 视频讲解",
     "video": "查找学习视频",
     "animation": "生成动画微课",
-    "document": "生成课程讲义",
     "ppt": "生成学习课件",
     "mindmap": "生成思维导图",
     "question-bank": "生成练习题单",
@@ -1382,8 +1404,8 @@ def _task_allowed_resource_types(node_title: str, description: str) -> set[str]:
         (["ppt", "课件", "幻灯片", "演示文稿"], {"ppt"}),
         (["题库", "题单", "专项测评", "测试卷", "考试", "测验"], {"question-bank"}),
         (["学习视频", "视频学习", "讲解视频", "教学视频", "视频讲解", "视频演示", "观看视频"], {"video"}),
-        (["课程讲义", "学习讲义", "医案解析", "方药手册", "学习手册"], {"document"}),
-        (["医案", "辨析", "辨证实践", "病例"], {"document", "video", "question-bank"}),
+        (["课程讲义", "学习讲义", "医案解析", "方药手册", "学习手册"], {"ppt"}),
+        (["医案", "辨析", "辨证实践", "病例"], {"ppt", "video", "question-bank"}),
     ]
     for keywords, resource_types in explicit_title_rules:
         if any(keyword in title_text for keyword in keywords):
@@ -1396,7 +1418,7 @@ def _task_allowed_resource_types(node_title: str, description: str) -> set[str]:
         (["ppt", "课件", "幻灯片", "演示文稿"], {"ppt"}),
         (["题库", "题单", "专项测评", "测试卷", "考试", "测验"], {"question-bank"}),
         (["学习视频", "视频学习", "讲解视频", "教学视频", "视频讲解", "视频演示", "观看视频"], {"video"}),
-        (["课程讲义", "学习讲义", "医案解析", "方药手册", "学习手册"], {"document"}),
+        (["课程讲义", "学习讲义", "医案解析", "方药手册", "学习手册"], {"ppt"}),
     ]
     for keywords, resource_types in explicit_artifact_rules:
         if any(keyword in task_text for keyword in keywords):
@@ -1407,17 +1429,17 @@ def _task_allowed_resource_types(node_title: str, description: str) -> set[str]:
         r"(?:依据|结合).{0,16}(?:四诊|舌象|脉象).{0,16}(?:辨证|判断|分析)",
     ]
     if any(re.search(pattern, task_text) for pattern in practical_action_patterns):
-        return {"document", "video", "question-bank"}
+        return {"ppt", "video", "question-bank"}
 
     title_rules = [
         (["专项测评"], {"question-bank"}),
-        (["错因诊断", "错题诊断", "错误诊断"], {"question-bank", "mindmap", "document", "video", "animation"}),
-        (["迁移挑战", "综合挑战", "医案迁移"], {"document", "question-bank", "video"}),
-        (["复盘迭代", "复盘"], {"mindmap", "document", "ppt", "video", "animation"}),
-        (["概念建模"], {"mindmap", "document", "ppt", "video", "animation"}),
-        (["目标拆解"], {"document", "ppt", "video", "mindmap", "animation"}),
-        (["示例跟做", "案例跟做", "医案跟学"], {"video", "animation", "ppt", "document"}),
-        (["医案辨析", "辨证实践"], {"document", "question-bank", "video"}),
+        (["错因诊断", "错题诊断", "错误诊断"], {"question-bank", "mindmap", "video", "animation"}),
+        (["迁移挑战", "综合挑战", "医案迁移"], {"ppt", "question-bank", "video"}),
+        (["复盘迭代", "复盘"], {"mindmap", "ppt", "video", "animation"}),
+        (["概念建模"], {"mindmap", "ppt", "video", "animation"}),
+        (["目标拆解"], {"ppt", "video", "mindmap", "animation"}),
+        (["示例跟做", "案例跟做", "医案跟学"], {"video", "animation", "ppt"}),
+        (["医案辨析", "辨证实践"], {"ppt", "question-bank", "video"}),
     ]
     for keywords, resource_types in title_rules:
         if any(keyword in title_text for keyword in keywords):
@@ -1426,19 +1448,19 @@ def _task_allowed_resource_types(node_title: str, description: str) -> set[str]:
     if any(keyword in task_text for keyword in ["专项测评", "测试卷", "考试", "完成题", "测验结果"]):
         return {"question-bank"}
     if any(keyword in task_text for keyword in ["错因诊断", "错题诊断", "错误诊断"]):
-        return {"question-bank", "mindmap", "document", "video", "animation"}
+        return {"question-bank", "mindmap", "video", "animation"}
     if any(keyword in task_text for keyword in ["复盘迭代", "复盘", "速查手册", "口诀表", "总结归纳"]):
-        return {"mindmap", "document", "ppt", "video", "animation"}
+        return {"mindmap", "ppt", "video", "animation"}
     if any(keyword in task_text for keyword in ["概念建模", "知识结构", "结构框图", "概念图"]):
-        return {"mindmap", "document", "ppt", "video", "animation"}
+        return {"mindmap", "ppt", "video", "animation"}
     if any(keyword in task_text for keyword in ["目标拆解", "学习目标", "验收标准"]):
-        return {"document", "ppt", "video", "mindmap", "animation"}
+        return {"ppt", "video", "mindmap", "animation"}
     if any(keyword in task_text for keyword in ["示例跟做", "案例跟做", "跟随", "跟做"]):
-        return {"video", "animation", "ppt", "document"}
+        return {"video", "animation", "ppt"}
     if any(keyword in task_text for keyword in ["医案辨析", "辨证实践", "病例分析"]):
-        return {"document", "question-bank", "video"}
+        return {"ppt", "question-bank", "video"}
     if any(keyword in task_text for keyword in ["迁移挑战", "综合挑战", "医案迁移"]):
-        return {"document", "question-bank", "video"}
+        return {"ppt", "question-bank", "video"}
     return set(LEARNING_PATH_RESOURCE_TYPES)
 
 
@@ -1463,8 +1485,7 @@ def _profile_routed_resource_type(
     preference_rules = {
         "video": ["视频", "讲解", "演示", "视听", "visual", "video"],
         "animation": ["动画", "动态", "可视化", "微课", "交互演示", "animation"],
-        "document": ["讲义", "文档", "阅读", "文字", "手册", "笔记", "医案", "条文", "辨析", "方药"],
-        "ppt": ["ppt", "课件", "演示文稿", "幻灯片"],
+        "ppt": ["ppt", "课件", "演示文稿", "幻灯片", "讲义", "文档", "阅读", "文字", "手册", "笔记"],
         "mindmap": ["思维导图", "导图", "图谱", "结构化", "知识树", "mindmap"],
         "question-bank": ["题库", "练习", "刷题", "测评", "考试", "quiz"],
         "herb-model": ["药材", "本草", "鉴别", "模型", "三维", "实物", "观察"],
@@ -1480,8 +1501,7 @@ def _profile_routed_resource_type(
     task_rules = {
         "video": ["导学", "讲解", "观察", "跟做", "示例", "演示"],
         "animation": ["动画", "动态过程", "辨证流程", "病机演变", "证候变化", "可视化"],
-        "document": ["讲义", "文档", "笔记", "手册", "归纳", "总结", "医案", "辨证", "病机", "方药", "经典"],
-        "ppt": ["课件", "汇报", "展示", "演示"],
+        "ppt": ["课件", "汇报", "展示", "演示", "讲义", "文档", "笔记", "手册", "归纳", "总结", "医案", "辨证", "病机", "方药", "经典"],
         "mindmap": ["建模", "结构", "概念", "关联", "复盘", "知识图"],
         "question-bank": ["测评", "题", "错因", "诊断", "检验", "考试"],
         "herb-model": ["药材", "中药", "外观", "性状", "鉴别", "辨识", "实物", "模型"],
@@ -1496,7 +1516,7 @@ def _profile_routed_resource_type(
         ]
     ).lower()
     if any(keyword in profile_focus for keyword in ["医案", "辨证", "病机", "方药", "经典"]):
-        scores["document"] += 3
+        scores["ppt"] += 3
     if any(keyword in profile_focus for keyword in ["考试", "测评", "错题", "概念不牢"]):
         scores["question-bank"] += 3
     if any(keyword in profile_focus for keyword in ["流程", "病机演变", "证候变化", "传变"]):
@@ -1521,7 +1541,7 @@ def _profile_routed_resource_type(
             previous_resource_types.count(resource_type)
             * LEARNING_PATH_RESOURCE_CONCENTRATION_PENALTY
         )
-    tie_order = [item for item in ["video", "animation", "document", "mindmap", "ppt", "herb-model", "question-bank"] if item in allowed_types]
+    tie_order = [item for item in ["video", "animation", "mindmap", "ppt", "herb-model", "question-bank"] if item in allowed_types]
     rotation = max(0, index - 1) % len(tie_order)
     tie_order = tie_order[rotation:] + tie_order[:rotation]
     resource_type = max(tie_order, key=lambda item: (scores[item], -tie_order.index(item)))
@@ -1558,7 +1578,6 @@ LEARNING_PATH_RESOURCE_PARAM_FIELDS = {
     "video": {"keyword", "keywords", "duration"},
     "generated_video": {"topic", "prompt", "duration", "style", "voice", "resolution"},
     "animation": {"requirements"},
-    "document": {"requirements"},
     "ppt": {"prompt", "pageCount", "styleName"},
     "mindmap": {"keyword", "prompt"},
     "question-bank": {"course", "chapter", "count", "difficulty", "constraints"},
@@ -1660,11 +1679,6 @@ def _resource_params_for_task(
                 f"围绕“{topic}”把“{node_title}”制作成可播放 H5 动画微课：{description}；"
                 f"重点可视化“{weak_point}”，包含讲解词、交互检查和知识库引用。"
             )[:500],
-        }
-    elif resource_type == "document":
-        defaults = {
-            **common,
-            "requirements": f"围绕“{topic}”完成“{node_title}”：{description}；包含知识库引用、常见错误和验收证据。"[:500],
         }
     elif resource_type == "ppt":
         defaults = {
@@ -2539,7 +2553,7 @@ def _learning_profile_basis(profile_context: Dict[str, Any], llm_basis: Any = No
         "adaptations",
         [
             "按画像薄弱点排序每周主题",
-            "按资源偏好安排讲义、导图、课件、视频、题库和实验",
+            "按资源偏好安排导图、课件、视频、题库、动画和药材模型辨识",
             "按可投入时间拆分可验收产出",
         ],
     )
@@ -2643,7 +2657,7 @@ def ensure_weekly_learning_path_resource_coverage(
                 ),
                 "resourceSelectionReason": (
                     "每周资源覆盖规则：本周必须包含药材模型辨识、题库、PPT、思维导图、"
-                    "视频查找、课程讲义和待确认的 AI 视频讲解。"
+                    "视频查找和待确认的 AI 视频讲解。"
                 ),
                 "resourceSelectionSource": "weekly-resource-coverage",
             }
@@ -2754,15 +2768,15 @@ def plan_learning_path_stage_resources(payload: Dict[str, Any]) -> Dict[str, Any
 {knowledge_context}
 
 要求:
-1. resourceType 只能是 generated_video、video、animation、document、ppt、mindmap、question-bank、herb-model。
-2. 必须按画像偏好、薄弱点、学习目标和任务产出逐项选择；允许重复，不得套用固定节点顺序。资源必须适合任务产出：药材性状与中药鉴别任务优先 herb-model，测评/测试卷优先题库，辨证过程与证候演变可选动画微课，概念建模优先导图/讲义/PPT/动画，医案辨析优先讲义或题库，复盘优先导图/讲义。参考已编排类型避免单一资源过度集中；每周必须安排 1 项 herb-model 药材模型辨识和 1 项 generated_video 的 AI 视频讲解任务。generated_video 只创建待确认入口，用户打开并确认后才会调用视频模型生成。video 仍表示视频查找，不能替代 generated_video。
-   如果任务标题明确包含视频、动画、PPT、思维导图、题库、讲义或实验，resourceType 必须与标题指定的产物一致。
+1. resourceType 只能是 generated_video、video、animation、ppt、mindmap、question-bank、herb-model，禁止生成 document/课程讲义。
+2. 必须按画像偏好、薄弱点、学习目标和任务产出逐项选择；允许重复，不得套用固定节点顺序。资源必须适合任务产出：药材性状与中药鉴别任务优先 herb-model，测评/测试卷优先题库，辨证过程与证候演变可选动画微课，概念建模优先导图/PPT/动画，医案辨析优先 PPT 或题库，复盘优先导图。参考已编排类型避免单一资源过度集中；每周必须安排 1 项 herb-model 药材模型辨识和 1 项 generated_video 的 AI 视频讲解任务。generated_video 只创建待确认入口，用户打开并确认后才会调用视频模型生成。video 仍表示视频查找，不能替代 generated_video。
+   如果任务标题明确包含视频、动画、PPT、思维导图或题库，resourceType 必须与标题指定的产物一致；标题含“讲义”时改用 PPT 课件。
 3. 每项必须返回与子智能体匹配的 resourceParams，参数要完整到后台能立即生成，不能让用户进入页面后再填写。
-4. herb-model 的 herbId 由平台覆盖规则从模型库确定，模型不得编造；generated_video 至少给 topic/duration/style/voice/resolution；video 至少给 topic/keyword；animation 至少给 topic/requirements；document 至少给 topic/requirements；ppt 至少给 topic/prompt/pageCount；mindmap 至少给 topic/keyword/prompt；question-bank 至少给 course/chapter/count/constraints。
+4. herb-model 的 herbId 由平台覆盖规则从模型库确定，模型不得编造；generated_video 至少给 topic/duration/style/voice/resolution；video 至少给 topic/keyword；animation 至少给 topic/requirements；ppt 至少给 topic/prompt/pageCount；mindmap 至少给 topic/keyword/prompt；question-bank 至少给 course/chapter/count/constraints。
 5. selectionReason 必须明确指出使用了哪项画像依据，resourcePrompt 必须是可直接交给子智能体的指令。
 
 只返回:
-{{"tasks":[{{"id":"01","resourceType":"document","resourceParams":{{"topic":"八纲辨证医案","requirements":"结合四诊信息分析证型、病机、治法与方药"}},"resourcePrompt":"根据画像薄弱点生成分步骤医案解析讲义","selectionReason":"八纲辨证薄弱且偏好案例学习"}}]}}
+{{"tasks":[{{"id":"01","resourceType":"ppt","resourceParams":{{"topic":"八纲辨证医案","prompt":"结合四诊信息分析证型、病机、治法与方药","pageCount":6}},"resourcePrompt":"根据画像薄弱点生成分步骤医案辨析课件","selectionReason":"八纲辨证薄弱且偏好案例学习"}}]}}
 """
         try:
             llm_result = call_llm_json(system, prompt, max_tokens=max(900, len(compact_nodes) * 380))
@@ -3045,6 +3059,16 @@ def default_resource_content(resource_type: str, weak_points: List[str]) -> str:
 ## 复述任务
 - 用自己的话解释每一步为什么发生
 - 记录仍需通过教材或经典核验的结论"""
+    if resource_type == "herb-model":
+        return f"""# {weak}药材模型辨识
+
+## 观察任务
+- 旋转模型观察整体形态、表面纹理与切面结构
+- 独立判断药材名称、药用部位和关键性状
+
+## 核对任务
+- 对照模型库标准答案检查辨识结果
+- 记录易混药材及其鉴别依据"""
     if resource_type == "code":
         return f"""# {weak}辨证示例
 
@@ -3086,14 +3110,14 @@ B. 否
 
 def fallback_resources(profile: Dict[str, Any], route: Dict[str, Any] | None = None) -> Dict[str, Any]:
     weak_points = profile.get("weaknesses") or profile.get("weakPoints") or ["八纲辨证", "时间管理"]
-    types = ["document", "mindmap", "ppt", "video", "animation", "quiz"]
+    types = ["mindmap", "ppt", "video", "animation", "quiz", "herb-model"]
     names = {
-        "document": "课程讲义",
         "mindmap": "思维导图",
-        "ppt": "PPT讲义",
+        "ppt": "PPT课件",
         "video": "视频微课",
         "animation": "动画微课",
         "quiz": "练习题",
+        "herb-model": "药材模型辨识",
     }
     resources = []
     for index, resource_type in enumerate(types):
@@ -3112,7 +3136,7 @@ def fallback_resources(profile: Dict[str, Any], route: Dict[str, Any] | None = N
         "source": "fallback-rule",
         "planner": {
             "targetWeakPoints": weak_points[:3],
-            "strategy": "先导图建模，再用讲义和视频理解，最后用代码与练习验证。",
+            "strategy": "先导图建模，再用课件和视频理解，最后用练习与药材模型辨识验证。",
         },
         "resources": resources,
     }
@@ -3135,7 +3159,7 @@ def generate_personalized_resources(payload: Dict[str, Any]) -> Dict[str, Any]:
     knowledge_context, knowledge_sources = grounded_prompt_block(knowledge_query, top_k=6)
     system = "你是个性化资源多智能体工作流。只返回严格 JSON。"
     prompt = f"""
-请模拟资源规划智能体、课程讲义智能体、思维导图智能体、PPT智能体、视频脚本智能体、代码/练习智能体协作，
+请模拟资源规划智能体、思维导图智能体、PPT智能体、视频脚本智能体、动画智能体、题库与药材模型智能体协作，
 根据学习画像生成 6 个可展示资源。
 学习画像: {json.dumps(profile, ensure_ascii=False)}
 学习路径: {json.dumps(route, ensure_ascii=False)}
@@ -3145,10 +3169,10 @@ def generate_personalized_resources(payload: Dict[str, Any]) -> Dict[str, Any]:
 返回 JSON 字段:
 agent, source, planner, resources。
 resources 是数组，每项包含 title, description, type, matchScore, content。
-type 只能是 document/mindmap/ppt/video/code/quiz。
+type 只能是 mindmap/ppt/video/animation/quiz/herb-model，禁止生成 document/课程讲义。
     mindmap 的 content 必须是 Markdown 层级导图：以一个一级标题开头，至少包含 4 个有具体含义的二级分支，
     每个分支包含二至三级节点；不得输出 Mermaid 代码，也不得使用“概述、简介、总结”作为空泛分支；
-document/ppt/video/code/quiz 的 content 必须是可渲染 Markdown。
+ppt/video/animation/quiz/herb-model 的 content 必须是可渲染 Markdown。
 关键知识结论必须使用 [KB1]、[KB2] 形式引用课程知识库，不得编造资料中没有的硬件参数或寄存器结论。
 """
     try:
@@ -3167,10 +3191,15 @@ document/ppt/video/code/quiz 的 content 必须是可渲染 Markdown。
             if not isinstance(item, dict):
                 continue
             base = fallback_items[index % len(fallback_items)]
+            resource_type = str(item.get("type") or base["type"])
+            if resource_type == "document":
+                resource_type = "ppt"
+            if resource_type not in {"mindmap", "ppt", "video", "animation", "quiz", "herb-model"}:
+                resource_type = base["type"]
             normalized_resources.append({
                 "title": str(item.get("title") or base["title"]),
                 "description": str(item.get("description") or base["description"]),
-                "type": str(item.get("type") or base["type"]),
+                "type": resource_type,
                 "matchScore": item.get("matchScore", base["matchScore"]),
                 "content": str(item.get("content") or base["content"]),
             })
@@ -3456,11 +3485,11 @@ def _stage_detail_fallback(stage: Dict[str, Any], profile: Dict[str, Any]) -> Di
             "content": f"# {title} 专项练习\n\n## 题目1\n**问题：** 学习 {topic} 时，哪种方法更符合辨证思维？\n\nA. 只记忆名词\nB. 能用四诊证据解释证型、病机与治法\nC. 只背一个方剂\nD. 跳过鉴别诊断\n\n**答案：** B\n**解析：** 中医学习需要把理论概念映射到四诊信息、病机和方药选择。\n\n---\n\n## 题目2\n**问题：** 完成学习后最应该做什么？\n\nA. 直接进入下一章\nB. 做题并记录错因\nC. 只看视频\nD. 不复盘\n\n**答案：** B",
         },
         {
-            "title": f"{title} - 医案辨析",
-            "description": "完成一份带依据和鉴别要点的医案辨析。",
-            "type": "document",
+            "title": f"{title} - 医案辨析动画",
+            "description": "通过动态辨证流程完成一份带依据和鉴别要点的医案辨析。",
+            "type": "animation",
             "matchScore": 82,
-            "content": f"# {title} 医案辨析\n\n1. 围绕 `{topic}` 阅读一则典型医案\n2. 提取主症、兼症、舌象与脉象\n3. 判断证型、病机、治法和代表方\n4. 记录鉴别诊断、依据与修正过程",
+            "content": f"# {title} 医案辨析动画\n\n1. 围绕 `{topic}` 展示一则典型医案\n2. 动态标记主症、兼症、舌象与脉象\n3. 逐步呈现证型、病机、治法和代表方\n4. 暂停完成鉴别诊断并记录修正过程",
         },
     ]
     if "mindmap" in preferred_types:
@@ -3586,6 +3615,8 @@ def generate_learning_path_stage_detail(payload: Dict[str, Any]) -> Dict[str, An
         "question-bank": "quiz",
         "question_bank": "quiz",
         "mcu": "simulator",
+        "document": "ppt",
+        "handout": "ppt",
     }
     raw_preferred_types = [
         *(stage.get("resourceTypes", []) if isinstance(stage.get("resourceTypes"), list) else []),
@@ -3599,7 +3630,7 @@ def generate_learning_path_stage_detail(payload: Dict[str, Any]) -> Dict[str, An
     for raw_type in raw_preferred_types:
         resource_type = resource_type_aliases.get(str(raw_type or "").strip(), str(raw_type or "").strip())
         if (
-            resource_type in {"document", "mindmap", "ppt", "video", "code", "quiz", "simulator"}
+            resource_type in {"mindmap", "ppt", "video", "code", "quiz", "simulator", "animation"}
             and resource_type not in preferred_resource_types
         ):
             preferred_resource_types.append(resource_type)
@@ -3680,7 +3711,7 @@ agent, source, stageId, title, summary, profileBasis, goals, weeks, resources, c
 要求:
 1. weeks 是数组，每项包含 week、focus、tasks；tasks 每项包含 name、detail、deliverable。
 2. resources 只负责资源编排，必须包含 4-6 项；每项只返回 id、nodeId、taskTitle、title、description、type、matchScore、metadata，不要生成完整资源正文或 content 字段。
-3. 如果“当前节点优先资源类型”不为空，至少 2 项应优先使用这些类型；其余可从 document、ppt、video、quiz、simulator、mindmap、code 中选择。
+3. 如果“当前节点优先资源类型”不为空，至少 2 项应优先使用这些类型；其余可从 ppt、video、quiz、mindmap、animation 中选择，禁止生成 document/课程讲义。
 4. 每项资源必须对应当前阶段中的具体任务，nodeId 与 taskTitle 应尽量匹配当前阶段 nodes。
 5. 必须根据 goals、weakPoints、resourcePreferences、timeBudget 调整任务顺序、资源类型和验收产出，并在 profileBasis 说明依据。
 6. checkpoints 返回 3-5 条可核验标准；知识库未支持的事实要标注为需核验。
@@ -3696,7 +3727,9 @@ agent, source, stageId, title, summary, profileBasis, goals, weeks, resources, c
                 continue
             base = fallback_resources_list[index % len(fallback_resources_list)]
             resource_type = str(item.get("type") or base["type"])
-            if resource_type not in {"document", "mindmap", "ppt", "video", "code", "quiz", "simulator"}:
+            if resource_type == "document":
+                resource_type = "ppt"
+            if resource_type not in {"mindmap", "ppt", "video", "quiz", "animation"}:
                 resource_type = base["type"]
             normalized_resources.append({
                 "id": str(item.get("id") or base.get("id") or f"{fallback['stageId']}-{index + 1}-{resource_type}"),

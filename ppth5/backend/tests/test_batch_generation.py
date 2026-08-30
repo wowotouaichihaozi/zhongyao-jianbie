@@ -43,11 +43,12 @@ class BatchGenerationTests(unittest.IsolatedAsyncioTestCase):
             "model": "test-model",
             "protocol": "openai",
         }
-        self.request = main.GenerateRequest(sessionId="test-session", topic="STM32", pageCount=5)
+        self.request = main.GenerateRequest(sessionId="test-session", topic="中药鉴别", pageCount=6)
 
-    async def test_five_slides_are_generated_as_three_plus_two_and_merged_in_order(self) -> None:
+    async def test_six_slides_use_one_non_thinking_request_with_full_budget(self) -> None:
         ranges: list[tuple[int, int]] = []
         completion_budgets: list[int] = []
+        thinking_modes: list[dict] = []
 
         def fake_call(_url: str, _headers: dict, payload: dict, _timeout: int) -> dict:
             prompt = payload["messages"][0]["content"]
@@ -55,6 +56,7 @@ class BatchGenerationTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNotNone(match)
             ranges.append(tuple(int(value) for value in match.groups()))
             completion_budgets.append(payload["max_tokens"])
+            thinking_modes.append(payload.get("thinking"))
             return _response_for_prompt(payload)
 
         with (
@@ -63,30 +65,28 @@ class BatchGenerationTests(unittest.IsolatedAsyncioTestCase):
             patch.dict(
                 os.environ,
                 {
-                    "OHMYPPT_LLM_BATCH_SIZE": "3",
-                    "OHMYPPT_LLM_MAX_PARALLEL": "2",
-                    "OHMYPPT_LLM_RETRIES": "1",
                     "OHMYPPT_LLM_MAX_TOKENS": "32768",
                 },
             ),
         ):
             pages = await main.call_llm(self.request, self.runtime)
 
-        self.assertEqual(sorted(ranges), [(1, 3), (4, 5)])
-        self.assertEqual(completion_budgets, [32768, 32768])
-        self.assertEqual([page["title"] for page in pages], [f"Page {index}" for index in range(1, 6)])
+        self.assertEqual(ranges, [(1, 6)])
+        self.assertEqual(completion_budgets, [128000])
+        self.assertEqual(thinking_modes, [{"type": "disabled"}])
+        self.assertEqual([page["title"] for page in pages], [f"Page {index}" for index in range(1, 7)])
 
     def test_completion_budget_defaults_to_verified_deepseek_limit_and_clamps_overrides(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(main._completion_token_budget(), 32768)
+            self.assertEqual(main._completion_token_budget(), 128000)
         with patch.dict(os.environ, {"OHMYPPT_LLM_MAX_TOKENS": "131072"}):
             self.assertEqual(main._completion_token_budget(), 131072)
         with patch.dict(os.environ, {"OHMYPPT_LLM_MAX_TOKENS": "262144"}):
             self.assertEqual(main._completion_token_budget(), 131072)
         with patch.dict(os.environ, {"OHMYPPT_LLM_MAX_TOKENS": "invalid"}):
-            self.assertEqual(main._completion_token_budget(), 32768)
+            self.assertEqual(main._completion_token_budget(), 128000)
 
-    async def test_failed_multi_page_batch_is_retried_one_page_at_a_time(self) -> None:
+    async def test_missing_slides_are_filled_without_additional_model_requests(self) -> None:
         ranges: list[tuple[int, int]] = []
 
         def fake_call(_url: str, _headers: dict, payload: dict, _timeout: int) -> dict:
@@ -94,47 +94,38 @@ class BatchGenerationTests(unittest.IsolatedAsyncioTestCase):
             match = re.search(r"Generate slides (\d+)-(\d+) of", prompt)
             self.assertIsNotNone(match)
             ranges.append(tuple(int(value) for value in match.groups()))
-            if "Generate slides 4-5" in prompt:
-                raise TimeoutError("read operation timed out")
-            return _response_for_prompt(payload)
+            response = _response_for_prompt(payload)
+            content = response["choices"][0]["message"]["content"]
+            response["choices"][0]["message"]["content"] = "\n---\n".join(content.split("\n---\n")[:4])
+            return response
 
         with (
             patch.object(main, "ANTHROPIC_AUTH_TOKEN", "test-token"),
             patch.object(main, "call_llm_sync", side_effect=fake_call),
-            patch.dict(
-                os.environ,
-                {
-                    "OHMYPPT_LLM_BATCH_SIZE": "3",
-                    "OHMYPPT_LLM_MAX_PARALLEL": "2",
-                    "OHMYPPT_LLM_RETRIES": "1",
-                },
-            ),
         ):
             pages = await main.call_llm(self.request, self.runtime)
 
-        self.assertEqual(ranges, [(1, 3), (4, 5), (4, 4), (5, 5)])
-        self.assertEqual([page["title"] for page in pages], [f"Page {index}" for index in range(1, 6)])
-        self.assertEqual([page.get("generationMode") for page in pages[3:]], ["recovered", "recovered"])
+        self.assertEqual(ranges, [(1, 6)])
+        self.assertEqual(len(pages), 6)
+        self.assertEqual([page.get("generationMode", "model") for page in pages[:4]], ["model"] * 4)
+        self.assertEqual([page.get("generationMode") for page in pages[4:]], ["fallback", "fallback"])
 
     async def test_persistent_empty_responses_create_marked_fallback_pages(self) -> None:
+        request_count = 0
+
         def fake_call(_url: str, _headers: dict, _payload: dict, _timeout: int) -> dict:
+            nonlocal request_count
+            request_count += 1
             return {"choices": [{"message": {"content": ""}}]}
 
         with (
             patch.object(main, "ANTHROPIC_AUTH_TOKEN", "test-token"),
             patch.object(main, "call_llm_sync", side_effect=fake_call),
-            patch.dict(
-                os.environ,
-                {
-                    "OHMYPPT_LLM_BATCH_SIZE": "3",
-                    "OHMYPPT_LLM_MAX_PARALLEL": "1",
-                    "OHMYPPT_LLM_RETRIES": "1",
-                },
-            ),
         ):
             pages = await main.call_llm(self.request, self.runtime)
 
-        self.assertEqual(len(pages), 5)
+        self.assertEqual(request_count, 1)
+        self.assertEqual(len(pages), 6)
         self.assertTrue(all(page.get("generationMode") == "fallback" for page in pages))
         self.assertTrue(all("保底页" in str(page.get("generationWarning")) for page in pages))
         self.assertTrue(all("自动恢复页" in page["h"] for page in pages))

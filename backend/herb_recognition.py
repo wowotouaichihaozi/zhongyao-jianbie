@@ -23,6 +23,7 @@ MAPPING_PATH = MODEL_PATH.with_name("medicine-class-mapping.csv")
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 DEEPSEEK_HERB_MODEL = "deepseek-v4-flash-vision-exp"
+DEFAULT_AGENT_MAX_TOKENS = 128000
 IMAGE_MEDIA_TYPES = {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
@@ -170,7 +171,7 @@ def _herb_ai_settings() -> tuple[str, str, int, int]:
         raise HerbRecognitionError("AI 校准服务地址未配置。", 503)
     if not api_key:
         raise HerbRecognitionError("AI 校准服务未配置 API Key。", 503)
-    return base_url, api_key, _positive_int_setting("HERB_AI_TIMEOUT", 120), _positive_int_setting("HERB_AI_MAX_TOKENS", 512)
+    return base_url, api_key, _positive_int_setting("HERB_AI_TIMEOUT", 120), _positive_int_setting("HERB_AI_MAX_TOKENS", DEFAULT_AGENT_MAX_TOKENS)
 
 
 def _extract_standard_herb_name(text: str, allowed_names: set[str]) -> str:
@@ -217,7 +218,7 @@ def recognize_herb_image_with_deepseek(filename: str, data: bytes) -> str:
             },
         ],
         "temperature": 0,
-        "max_tokens": max(32, min(512, max_tokens)),
+        "max_tokens": max(DEFAULT_AGENT_MAX_TOKENS, max_tokens),
     }
     try:
         response = requests.post(

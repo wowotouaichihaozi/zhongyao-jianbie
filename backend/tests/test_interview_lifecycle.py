@@ -248,7 +248,7 @@ def test_interview_openai_protocol_uses_deepseek_official_endpoint(monkeypatch):
     assert captured["headers"]["Authorization"] == "Bearer server-secret"
     assert "anthropic-version" not in captured["headers"]
     assert captured["json"]["model"] == "deepseek-v4-flash-vision-exp"
-    assert captured["json"]["max_tokens"] == 320
+    assert captured["json"]["max_tokens"] == 128000
 
 
 def test_interview_logging_tolerates_closed_stdout(monkeypatch):

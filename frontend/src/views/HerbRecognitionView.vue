@@ -110,7 +110,7 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, ref } from 'vue'
+import { nextTick, onActivated, onBeforeUnmount, onDeactivated, ref } from 'vue'
 import { Camera, Crosshair, ImageUp, LoaderCircle, RefreshCw, ScanSearch, TriangleAlert } from 'lucide-vue-next'
 import { calibrateHerbWithAi, recognizeHerb } from '../services/api.js'
 
@@ -247,6 +247,14 @@ async function recognize() {
 onBeforeUnmount(() => {
   clearPreview()
   stopCamera()
+})
+
+onDeactivated(stopCamera)
+
+onActivated(() => {
+  if (mode.value === 'camera' && !previewUrl.value && !cameraActive.value) {
+    startCamera()
+  }
 })
 </script>
 

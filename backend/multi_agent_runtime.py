@@ -125,6 +125,31 @@ def _json_safe(value: Any, max_chars: int = 6000) -> Any:
         return str(value)[:max_chars]
 
 
+def _conversation_citations(citations: Any) -> list[dict[str, Any]]:
+    """Keep citation evidence structured while bounding shared-chat payload size."""
+    compact: list[dict[str, Any]] = []
+    for item in citations if isinstance(citations, list) else []:
+        if not isinstance(item, dict):
+            continue
+        compact.append(
+            {
+                key: value
+                for key, value in {
+                    "id": item.get("id"),
+                    "title": item.get("title"),
+                    "source": item.get("source"),
+                    "sourceType": item.get("sourceType"),
+                    "route": item.get("route"),
+                    "page": item.get("page"),
+                    "section": item.get("section"),
+                    "excerpt": str(item.get("excerpt") or item.get("snippet") or "")[:320],
+                }.items()
+                if value not in (None, "")
+            }
+        )
+    return compact[:7]
+
+
 def _emit(
     state: MultiAgentState,
     agent_id: str,
@@ -145,7 +170,7 @@ def _emit(
         "status": status,
         "message": message,
         "progress": max(0, min(100, int(progress))),
-        "payload": _json_safe(payload or {}, 3000),
+        "payload": _json_safe(payload or {}, 8000),
     }
     state["events"].append(event)
     callback = state.get("on_event")
@@ -421,6 +446,7 @@ def node_retrieve_knowledge(state: MultiAgentState) -> MultiAgentState:
     citations = knowledge.get("citations") or []
     routing = knowledge.get("routing") or {}
     verification = routing.get("crossValidation") or {}
+    conversation_citations = _conversation_citations(citations)
     _emit(
         state,
         "course-knowledge-retrieval-agent",
@@ -428,7 +454,7 @@ def node_retrieve_knowledge(state: MultiAgentState) -> MultiAgentState:
         "complete" if citations else "warning",
         f"混合知识路由完成，命中 {len(citations)} 条可追溯证据；审核结论：{verification.get('status') or '待核验'}",
         30,
-        {"query": query, "citations": citations, "routing": routing},
+        {"query": query, "citations": conversation_citations, "routing": routing},
     )
     _handoff(
         state,
@@ -617,6 +643,45 @@ def _contains_sensitive_secret(output: dict[str, Any]) -> bool:
         r"(?i)bearer\s+[A-Za-z0-9._-]{24,}",
     ]
     return any(re.search(pattern, text) for pattern in patterns)
+
+
+def _specialist_quality_evaluation(output: dict[str, Any]) -> dict[str, Any]:
+    """Return the resource specialist's inspectable score instead of a template score."""
+    candidates: list[dict[str, Any]] = []
+
+    def collect(value: Any, depth: int = 0) -> None:
+        if depth > 3 or not isinstance(value, dict):
+            return
+        quality = value.get("qualityEvaluation")
+        if isinstance(quality, dict) and isinstance(quality.get("score"), (int, float)):
+            candidates.append(quality)
+        for key in (
+            "questionGenerator",
+            "ppt",
+            "document",
+            "animation",
+            "tutor",
+            "selectedResource",
+            "metadata",
+        ):
+            collect(value.get(key), depth + 1)
+        resources = value.get("resources")
+        if isinstance(resources, list):
+            for item in resources:
+                collect(item, depth + 1)
+
+    collect(output)
+    if not candidates:
+        return {}
+    if len(candidates) == 1:
+        return dict(candidates[0])
+    scores = [max(0, min(100, int(item["score"]))) for item in candidates]
+    return {
+        "score": round(sum(scores) / len(scores)),
+        "passed": all(item.get("passed") is not False for item in candidates),
+        "criteria": {"resourceAverage": round(sum(scores) / len(scores))},
+        "resourceCount": len(scores),
+    }
 
 
 def review_specialist_output(
@@ -845,6 +910,17 @@ def review_specialist_output(
         else:
             issues.append("课程知识库没有命中直接引用，具体事实需要人工核验")
 
+    specialist_quality = _specialist_quality_evaluation(output)
+    score_source = "orchestration-rubric"
+    if specialist_quality:
+        score_source = "resource-quality-evaluation"
+        strengths.append(
+            f"采用资源专家的可检查质量评分 {max(0, min(100, int(specialist_quality.get('score') or 0)))}"
+        )
+        if specialist_quality.get("passed") is False:
+            structural_ok = False
+            issues.append("资源专家质量评价未通过")
+
     sensitive = _contains_sensitive_secret(output)
     if sensitive:
         score -= 35
@@ -854,12 +930,21 @@ def review_specialist_output(
         score += 4
         strengths.append("未检测到明显敏感凭据泄露")
 
+    if specialist_quality:
+        score = max(0, min(100, int(specialist_quality.get("score") or 0)))
+        if TASK_POLICIES[task_type].get("knowledge") and not citations:
+            score = min(score, max(0, int(min_score) - 1))
+        if sensitive:
+            score -= 35
+
     score = max(0, min(100, score))
     retry_recommended = not structural_ok
     return {
         "agent": "quality-review-agent",
         "safetyAgent": "content-safety-agent",
         "score": score,
+        "scoreSource": score_source,
+        "qualityEvaluation": specialist_quality,
         "threshold": min_score,
         "passed": bool(structural_ok and score >= min_score),
         "structuralOk": structural_ok,

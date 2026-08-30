@@ -1,7 +1,13 @@
 <template>
   <div class="resources-page">
     <div class="resources-header">
-      <h1>个性化资源</h1>
+      <span class="resources-kicker">学习资源工作台</span>
+      <div class="resources-title-row">
+        <h1>个性化资源</h1>
+        <span class="profile-state" :class="{ ready: hasProfile }">
+          {{ profileLoading ? '画像同步中' : hasProfile ? '已关联学习画像' : '未关联学习画像' }}
+        </span>
+      </div>
     </div>
 
     <!-- 无学习画像引导提示条 -->
@@ -127,7 +133,7 @@
           <div class="resource-cover-frame">
             <div class="cover-loading" :class="{ hidden: isPreviewLoaded(resource.id) }" aria-hidden="true">
               <component :is="getResourceIcon(resource.type)" :size="28" :stroke-width="1.5" />
-              <span>{{ resource.type === 'generated_video' ? staticCoverLabel(resource) : '正在读取封面' }}</span>
+              <span>{{ usesStaticCover(resource) ? staticCoverLabel(resource) : '正在读取封面' }}</span>
             </div>
             <img
               v-if="usesStaticCover(resource)"
@@ -136,6 +142,7 @@
               :src="getResourceCoverImage(resource)"
               :alt="`${resource.title}封面`"
               loading="lazy"
+              decoding="async"
               @load="markPreviewLoaded(resource.id)"
               @error="retryStaticCover(resource)"
             />
@@ -286,7 +293,7 @@ const requestedCategory = String(route.query.category || '')
 const activeCategory = ref(categories.some(item => item.key === requestedCategory) ? requestedCategory : 'all')
 const searchQuery = ref('')
 const currentPage = ref(1)
-const pageSize = 9
+const pageSize = 12
 const generating = ref(false)
 const resources = ref([])
 const loadedResourcePreviews = ref(new Set())
@@ -658,7 +665,7 @@ const staticCoverRetries = new Map()
 const staticCoverRetryTimers = new Map()
 
 function usesStaticCover(resource) {
-  return ['video', 'generated_video'].includes(String(resource?.type || ''))
+  return String(resource?.type || '') === 'generated_video'
 }
 
 function proxiedCoverUrl(value) {
@@ -671,25 +678,14 @@ function getResourceCoverImage(resource) {
   const attempt = staticCoverRetries.get(previewResourceKey(resource?.id)) || 0
   const metadata = (resource?.metadata && typeof resource.metadata === 'object') ? resource.metadata : {}
   const content = (resource?.content && typeof resource.content === 'object') ? resource.content : {}
-  let cover = ''
-  if (resource?.type === 'video') {
-    cover = metadata?.results?.[0]?.cover
-      || content?.results?.[0]?.cover
-      || content?.cover
-      || metadata?.cover
-      || content?.thumbnailUrl
-      || metadata?.thumbnailUrl
-      || ''
-  } else if (resource?.type === 'generated_video') {
-    const taskId = String(resource?.metadata?.taskId || resource?.taskId || '')
-    cover = content?.posterUrl
-      || metadata?.posterUrl
-      || content?.cover
-      || metadata?.cover
-      || content?.thumbnailUrl
-      || metadata?.thumbnailUrl
-      || (taskId ? `/api/personalized-resources/generated-videos/${encodeURIComponent(taskId)}/poster` : '')
-  }
+  const taskId = String(metadata?.taskId || resource?.taskId || '')
+  const cover = (taskId ? `/api/personalized-resources/generated-videos/${encodeURIComponent(taskId)}/poster` : '')
+    || content?.posterUrl
+    || metadata?.posterUrl
+    || content?.cover
+    || metadata?.cover
+    || content?.thumbnailUrl
+    || metadata?.thumbnailUrl
   const url = proxiedCoverUrl(cover)
   if (!url || !attempt) return url
   return `${url}${url.includes('?') ? '&' : '?'}coverAttempt=${attempt}`
@@ -698,7 +694,6 @@ function getResourceCoverImage(resource) {
 function retryStaticCover(resource) {
   const key = previewResourceKey(resource?.id)
   const attempt = staticCoverRetries.get(key) || 0
-  if (resource?.type !== 'generated_video') return
   if (staticCoverRetryTimers.has(key)) return
   const timer = window.setTimeout(() => {
     staticCoverRetryTimers.delete(key)
@@ -711,11 +706,6 @@ function retryStaticCover(resource) {
 function staticCoverLabel() {
   return '首图生成中'
 }
-
-onUnmounted(() => {
-  for (const timer of staticCoverRetryTimers.values()) window.clearTimeout(timer)
-  staticCoverRetryTimers.clear()
-})
 
 function getResourcePreviewUrl(resource) {
   const target = String(resource?.route || '').trim()
@@ -747,6 +737,11 @@ function getResourcePreviewUrl(resource) {
     },
   }).href
 }
+
+onUnmounted(() => {
+  for (const timer of staticCoverRetryTimers.values()) window.clearTimeout(timer)
+  staticCoverRetryTimers.clear()
+})
 
 function resourceQualityScore(resource) {
   const score = Number(resourceQuality(resource).score)
@@ -2134,6 +2129,42 @@ function formatResourceTime(value) {
   }
 }
 
+.resources-kicker {
+  display: block;
+  margin-bottom: 7px;
+  color: #66736e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.resources-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.profile-state {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid #d9dfdc;
+  border-radius: 5px;
+  background: #f6f8f7;
+  color: #69736f;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.profile-state.ready {
+  border-color: #bed8cc;
+  background: #eef7f3;
+  color: #176f4b;
+}
+
 /* History browsing uses a quiet utility layout instead of decorative AI-dashboard chrome. */
 .history-head-actions {
   display: flex;
@@ -3148,10 +3179,14 @@ function formatResourceTime(value) {
   min-width: 0;
 }
 
+.archive-heading {
+  scroll-margin-top: 88px;
+}
+
 .resource-gallery {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .resource-cover-card {
@@ -3173,7 +3208,7 @@ function formatResourceTime(value) {
 .resource-cover-frame {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 2 / 1;
+  aspect-ratio: 16 / 9;
   border-bottom: 1px solid #e1e6e4;
   background: #f1f4f2;
   isolation: isolate;
@@ -3232,14 +3267,14 @@ function formatResourceTime(value) {
 }
 
 .resource-cover-copy {
-  padding: 12px 14px 11px;
+  padding: 9px 10px 8px;
 }
 
 .resource-cover-copy h3 {
   margin: 0;
   overflow: hidden;
   color: #1c2723;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1.45;
   text-overflow: ellipsis;
@@ -3250,7 +3285,7 @@ function formatResourceTime(value) {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   min-height: 20px;
   margin-top: 7px;
   color: #7b8581;
@@ -3286,7 +3321,7 @@ function formatResourceTime(value) {
 
 @media (max-width: 980px) {
   .resource-gallery {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -3309,6 +3344,11 @@ function formatResourceTime(value) {
   .resource-launcher-grid,
   .resource-gallery {
     grid-template-columns: 1fr;
+  }
+
+  .resources-title-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

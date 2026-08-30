@@ -887,7 +887,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Activity,
@@ -3462,6 +3462,8 @@ function applyRouteQuery() {
   activeOrb.value = null
 }
 
+let learningProfileActivatedOnce = false
+
 // 重新打开时恢复已保存的量表答案
 onMounted(() => {
   window.addEventListener('keydown', handleDeveloperShortcut)
@@ -3478,6 +3480,20 @@ onMounted(() => {
     ensureInitialChatQuestion()
     scrollChatToBottom({ retry: true })
   }
+})
+
+onActivated(() => {
+  window.addEventListener('keydown', handleDeveloperShortcut)
+  if (learningProfileActivatedOnce) {
+    startLearningAvatar({ replayLatest: false })
+    if (activeMenu.value === 'assess') scrollChatToBottom({ retry: true })
+  }
+  learningProfileActivatedOnce = true
+})
+
+onDeactivated(() => {
+  window.removeEventListener('keydown', handleDeveloperShortcut)
+  digitalHumanRef.value?.destroyAvatar?.()
 })
 
 // ???????????????????

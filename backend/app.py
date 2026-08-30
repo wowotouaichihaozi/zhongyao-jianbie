@@ -45,6 +45,11 @@ except ImportError:  # pragma: no cover - package import fallback
     from .herb_recognition import HerbRecognitionError, recognize_herb_image, recognize_herb_image_with_deepseek
 
 try:
+    from resource_cover import render_resource_task_cover
+except ImportError:  # pragma: no cover - package import fallback
+    from .resource_cover import render_resource_task_cover
+
+try:
     from api_config import setting_default
     from common import build_anthropic_messages_url, create_avatar_config, create_llm_headers, get_setting, now_iso, setting_overrides
     from database_schema import (
@@ -261,7 +266,9 @@ MOBILE_DIST_DIR = BASE_DIR / 'mobile' / 'dist'
 DEFAULT_AVATAR = "/userlogo.png"
 EXTRACT_CACHE_DIR = Path(__file__).resolve().parent / "data" / "extract_cache"
 MULTIMODAL_INPUT_DIR = Path(__file__).resolve().parent / "data" / "multimodal_inputs"
+RESOURCE_COVER_CACHE_DIR = Path(__file__).resolve().parent / "data" / "resource_covers"
 AUTH_DB_PATH = Path(__file__).resolve().parent / "data" / "auth.sqlite3"
+LLM_RESPONSE_TOKEN_BUDGET = 128000
 SESSION_COOKIE_NAME = "fswy_session"
 SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
 CODEX_PREVIEW_TOKEN = "codex-preview-token"
@@ -351,6 +358,45 @@ def proxy_video_cover():
         content_type=upstream.headers.get("content-type", "image/jpeg"),
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+@app.route("/ppt-api/<path:subpath>", methods=["GET", "POST", "OPTIONS"])
+def proxy_ohmyppt_api(subpath: str):
+    """Expose the loopback-only OhMyPPT API through the unified local origin."""
+    if subpath not in {"health", "generate"}:
+        return jsonify({"detail": "OhMyPPT endpoint not found"}), 404
+    if request.method == "OPTIONS":
+        return Response(status=204)
+
+    upstream_headers = {
+        name: value
+        for name, value in {
+            "Accept": request.headers.get("Accept"),
+            "Authorization": request.headers.get("Authorization"),
+            "Content-Type": request.headers.get("Content-Type"),
+            "Cookie": request.headers.get("Cookie"),
+            "Origin": request.headers.get("Origin"),
+        }.items()
+        if value
+    }
+    try:
+        upstream = requests.request(
+            request.method,
+            f"http://127.0.0.1:8765/api/{subpath}",
+            params=request.args,
+            data=request.get_data(cache=False) if request.method == "POST" else None,
+            headers=upstream_headers,
+            timeout=900 if subpath == "generate" else 10,
+            proxies={"http": "", "https": ""},
+        )
+    except requests.RequestException as exc:
+        return jsonify({"detail": f"OhMyPPT service unavailable: {str(exc)[:800]}"}), 502
+
+    response_headers = {}
+    content_type = upstream.headers.get("content-type")
+    if content_type:
+        response_headers["Content-Type"] = content_type
+    return Response(upstream.content, status=upstream.status_code, headers=response_headers)
 
 
 @app.get("/api-bili/<path:subpath>")
@@ -578,18 +624,18 @@ DEFAULT_STAGE_NODE_BLUEPRINTS = [
     ("目标拆解", "查找学习视频", "/personalized-resources/video-search", "通过导学视频明确本周主题、学习目标和验收标准。"),
     ("概念建模", "生成导图", "/personalized-resources/mind-map", "围绕本周主题整理知识结构图，标出关键概念、前置知识和易错点。"),
     ("案例跟学", "生成学习课件", "/personalized-resources/ppt", "通过典型医案理解四诊信息、病机、治法和方药之间的关系。"),
-    ("医案辨析", "生成医案讲义", "/personalized-resources/document", "完成一个基础医案辨析，记录证候依据、鉴别要点和治法方药。"),
+    ("医案辨析", "生成辨析课件", "/personalized-resources/ppt", "完成一个基础医案辨析，记录证候依据、鉴别要点和治法方药。"),
     ("专项测评", "生成练习题单", "/personalized-resources/question-bank", "完成针对性题目或医案辨析题，检查本周知识是否真正掌握。"),
     ("复盘迭代", "生成复盘导图", "/personalized-resources/mind-map", "通过复盘导图整理错因、医案证据和下一周要继续追踪的问题。"),
 ]
 
 DEFAULT_STAGE_NODE_RESOURCE_TYPES = {
     "目标拆解": ["video"],
-    "概念建模": ["mindmap", "document"],
+    "概念建模": ["mindmap", "ppt"],
     "案例跟学": ["ppt"],
-    "医案辨析": ["document"],
+    "医案辨析": ["ppt", "question-bank"],
     "专项测评": ["question-bank"],
-    "复盘迭代": ["mindmap", "document"],
+    "复盘迭代": ["mindmap", "ppt"],
 }
 
 LEARNING_PATH_REQUIRED_TASK_RESOURCE_TYPES = LEARNING_PATH_REQUIRED_RESOURCE_TYPES
@@ -656,11 +702,12 @@ LEARNING_PATH_NEXT_WEEK_LOCKS_GUARD = threading.Lock()
 LEARNING_PATH_TASK_RESOURCE_ALIASES = {
     "question_bank": "question-bank",
     "quiz": "question-bank",
-    "simulator": "document",
-    "code": "document",
+    "document": "ppt",
+    "simulator": "ppt",
+    "code": "ppt",
     "mind-map": "mindmap",
-    "handout": "document",
-    "learning-document": "document",
+    "handout": "ppt",
+    "learning-document": "ppt",
     "animated-lesson": "animation",
     "learning-animation": "animation",
     "herb_model": "herb-model",
@@ -670,7 +717,6 @@ LEARNING_PATH_TASK_RESOURCE_ACTIONS = {
     "generated_video": "生成 AI 视频讲解",
     "video": "查找学习视频",
     "animation": "生成动画微课",
-    "document": "生成课程讲义",
     "ppt": "生成学习课件",
     "mindmap": "生成思维导图",
     "question-bank": "生成练习题单",
@@ -681,7 +727,7 @@ LEARNING_PATH_RESOURCE_ROUTE_TYPES = {
     "/personalized-resources/video-generator": "generated_video",
     "/personalized-resources/video-search": "video",
     "/personalized-resources/animation": "animation",
-    "/personalized-resources/document": "document",
+    "/personalized-resources/document": "ppt",
     "/personalized-resources/ppt": "ppt",
     "/personalized-resources/mind-map": "mindmap",
     "/personalized-resources/question-bank": "question-bank",
@@ -710,10 +756,10 @@ def _canonical_learning_path_task_resource(raw_node: dict, node_index: int) -> s
         ]
     ).lower()
     semantic_rules = [
-        ("document", ["医案", "辨证", "病机", "方药", "经典", "病例"]),
+        ("ppt", ["医案", "辨证", "病机", "方药", "经典", "病例"]),
         ("question-bank", ["测评", "题", "错因", "诊断", "考试"]),
         ("animation", ["动画", "动态过程", "时序流程", "状态迁移", "信号流", "可视化"]),
-        ("document", ["讲义", "文档", "手册", "笔记", "总结"]),
+        ("ppt", ["讲义", "文档", "手册", "笔记", "总结"]),
         ("mindmap", ["导图", "建模", "结构", "概念", "复盘"]),
         ("ppt", ["课件", "汇报", "展示", "演示"]),
         ("video", ["视频", "导学", "讲解", "示例", "目标"]),
@@ -722,6 +768,27 @@ def _canonical_learning_path_task_resource(raw_node: dict, node_index: int) -> s
         if any(keyword in task_text for keyword in keywords):
             return resource_type
     return "video"
+
+
+def _is_legacy_learning_path_document_node(raw_node: dict) -> bool:
+    resource_type = str(raw_node.get("resourceType") or "").strip().lower()
+    route_path = urlparse(str(raw_node.get("actionRoute") or "")).path.rstrip("/")
+    task_route = ""
+    if isinstance(raw_node.get("resourceTask"), dict):
+        task_route = urlparse(str(raw_node["resourceTask"].get("route") or "")).path.rstrip("/")
+    return resource_type in {"document", "handout", "learning-document"} or route_path == "/personalized-resources/document" or task_route == "/personalized-resources/document"
+
+
+def _migrate_learning_path_document_text(value: object) -> str:
+    text = str(value or "")
+    for old, new in (
+        ("课程讲义", "学习课件"),
+        ("学习讲义", "学习课件"),
+        ("医案讲义", "医案课件"),
+        ("生成讲义", "生成课件"),
+    ):
+        text = text.replace(old, new)
+    return text
 
 
 def _learning_path_task_resource_route(
@@ -767,15 +834,6 @@ def _learning_path_task_resource_route(
             "topic": resource_topic,
             "prompt": resource_params.get("prompt") or resource_params.get("userMessage") or f"围绕{topic}生成本周学习课件",
             "pageCount": resource_params.get("pageCount") or resource_params.get("pages") or 6,
-            "autostart": "1",
-            **common,
-        }
-    elif resource_type == "document":
-        path = "/personalized-resources/document"
-        resource_topic = str(resource_params.get("topic") or topic).strip()
-        params = {
-            "topic": resource_topic,
-            "requirements": resource_params.get("requirements") or resource_params.get("prompt") or f"围绕{topic}生成可追溯学习讲义",
             "autostart": "1",
             **common,
         }
@@ -840,7 +898,7 @@ def _ensure_learning_path_task_resource_coverage(nodes: list[dict], topic: str, 
                 "actionText": LEARNING_PATH_TASK_RESOURCE_ACTIONS[resource_type],
                 "actionRoute": _learning_path_task_resource_route(resource_type, topic, stage_id, node_id, cache_key, params),
                 "resourcePrompt": f"根据当前学习画像完成“{node.get('title') or '学习任务'}”并生成对应学习资源。",
-                "resourceSelectionReason": "每周七类资源覆盖规则已补齐当前任务。",
+                "resourceSelectionReason": "每周六类资源覆盖规则已补齐当前任务。",
                 "resourceSelectionSource": "weekly-resource-coverage",
                 "resourceTask": {"status": "waiting", "progress": 0},
             }
@@ -1155,13 +1213,14 @@ def normalize_learning_path_config(raw_config: object) -> dict:
                 continue
             node_label = _clean_text(raw_node.get("label"), str(node_index).zfill(2))
             node_id = _clean_text(raw_node.get("id"), node_label)
+            legacy_document_node = _is_legacy_learning_path_document_node(raw_node)
             resource_type = _canonical_learning_path_task_resource(raw_node, node_index)
             default_cache_key = re.sub(
                 r"[^a-zA-Z0-9_.:-]+",
                 "-",
                 f"{week['id']}-{node_id}-{resource_type}",
             ).strip("-")
-            cache_key = re.sub(
+            cache_key = default_cache_key if legacy_document_node else re.sub(
                 r"[^a-zA-Z0-9_.:-]+",
                 "-",
                 _clean_text(raw_node.get("cacheKey"), default_cache_key),
@@ -1182,7 +1241,11 @@ def normalize_learning_path_config(raw_config: object) -> dict:
                         ]
                     ),
                 )
-            raw_resource_task = raw_node.get("resourceTask") if isinstance(raw_node.get("resourceTask"), dict) else {}
+            raw_resource_task = (
+                {}
+                if legacy_document_node
+                else raw_node.get("resourceTask") if isinstance(raw_node.get("resourceTask"), dict) else {}
+            )
             resource_task = {
                 "taskId": _clean_text(raw_resource_task.get("taskId"), ""),
                 "status": _clean_text(raw_resource_task.get("status"), ""),
@@ -1219,9 +1282,15 @@ def normalize_learning_path_config(raw_config: object) -> dict:
                     "cacheKey": cache_key,
                     "resourceType": resource_type,
                     "label": node_label,
-                    "title": _clean_text(raw_node.get("title"), "学习节点"),
+                    "title": _clean_text(
+                        _migrate_learning_path_document_text(raw_node.get("title")) if legacy_document_node else raw_node.get("title"),
+                        "学习节点",
+                    ),
                     "statusText": _clean_text(raw_node.get("statusText"), ""),
-                    "description": _clean_text(raw_node.get("description") or raw_node.get("desc"), ""),
+                    "description": _clean_text(
+                        _migrate_learning_path_document_text(raw_node.get("description") or raw_node.get("desc")) if legacy_document_node else raw_node.get("description") or raw_node.get("desc"),
+                        "",
+                    ),
                     "state": _clean_text(raw_node.get("state"), "locked"),
                     "x": int(_clean_number(raw_node.get("x"), 120 + node_index * 220, 0)),
                     "y": int(_clean_number(raw_node.get("y"), 320, 0)),
@@ -1231,9 +1300,18 @@ def normalize_learning_path_config(raw_config: object) -> dict:
                     "actionRoute": _clean_text(resource_task.get("route"), generated_route),
                     "resourceTypes": [resource_type],
                     "resourceParams": resource_params,
-                    "resourcePrompt": _clean_text(raw_node.get("resourcePrompt"), ""),
-                    "resourceSelectionReason": _clean_text(raw_node.get("resourceSelectionReason"), ""),
-                    "resourceSelectionSource": _clean_text(raw_node.get("resourceSelectionSource"), ""),
+                    "resourcePrompt": _clean_text(
+                        _migrate_learning_path_document_text(raw_node.get("resourcePrompt")) if legacy_document_node else raw_node.get("resourcePrompt"),
+                        "",
+                    ),
+                    "resourceSelectionReason": _clean_text(
+                        "课程讲义资源已下线，旧任务已迁移为学习课件。" if legacy_document_node else raw_node.get("resourceSelectionReason"),
+                        "",
+                    ),
+                    "resourceSelectionSource": _clean_text(
+                        "legacy-document-migration" if legacy_document_node else raw_node.get("resourceSelectionSource"),
+                        "",
+                    ),
                     "resourceTask": resource_task,
                     "deliverable": _clean_text(raw_node.get("deliverable"), ""),
                     "order": int(_clean_number(raw_node.get("order"), node_index, 0)),
@@ -2468,7 +2546,13 @@ def learning_evidence_for_user(conn: sqlite3.Connection, user_id: int) -> dict:
     return evidence_payload
 
 
-EFFECT_RADAR_LABELS = ["基础知识", "编程调试", "实验实践", "项目能力", "学习投入", "工程意识"]
+EFFECT_RADAR_LABELS = ["基础知识", "辨证思维", "方药应用", "医案实践", "学习投入", "综合素养"]
+EFFECT_DOMAIN_KEYWORDS = {
+    "foundation": ("中医基础", "阴阳", "五行", "藏象", "经络", "气血", "津液"),
+    "diagnosis": ("四诊", "望诊", "闻诊", "问诊", "切诊", "辨证", "八纲", "证候", "病机", "脏腑辨证"),
+    "medicine": ("中药", "药材", "药性", "性味", "归经", "方剂", "方药", "配伍", "君臣佐使"),
+    "cases": ("医案", "病例", "临床", "治法", "处方", "复盘"),
+}
 
 
 def _bounded_percentage(value: object) -> float:
@@ -2520,7 +2604,7 @@ def _effect_profile_weak_points(profile: dict) -> list[str]:
                 continue
             if "阶段" in concise and not any(
                 marker in concise.lower()
-                for marker in ("gpio", "uart", "spi", "i2c", "pwm", "中断", "寄存器", "调试", "代码", "外设", "实验")
+                for marker in ("中医", "中药", "辨证", "药材", "方剂", "四诊", "证候", "医案", "经络", "阴阳", "五行")
             ):
                 continue
             if any(point in concise or concise in point for point in points):
@@ -2597,11 +2681,11 @@ def _effect_path_adjustment_plan(profile: dict, evidence: dict, heatmap: list[di
     evidence_version = str(evidence.get("evidenceVersion") or "no-evidence")
     plan_seed = f"{profile_id}:{evidence_version}:{','.join(item['knowledgePoint'] for item in focus_points)}"
     plan_id = f"effect-{hashlib.sha256(plan_seed.encode('utf-8')).hexdigest()[:12]}"
-    resource_cycle = ["question-bank", "mindmap", "mcu"]
+    resource_cycle = ["question-bank", "mindmap", "ppt"]
     task_actions = {
         "question-bank": "完成 8 道专项题，正确率达到 80%，并复盘全部错题。",
-        "mindmap": "输出一张包含核心概念、配置流程和易错点的复盘导图。",
-        "mcu": "完成一次可运行实验，保存代码、关键配置、运行现象和问题定位记录。",
+        "mindmap": "输出一张包含核心概念、证候依据、方药联系和易错点的复盘导图。",
+        "ppt": "完成一套包含证候依据、方药联系与辨析要点的复习课件。",
     }
     tasks = []
     for index, point in enumerate(focus_points, start=1):
@@ -2659,14 +2743,18 @@ def _format_active_learning_duration(active_seconds: int, session_count: int) ->
 
 def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
     """Derive a transparent, deterministic assessment from persisted learning evidence."""
-    baseline = profile.get("effectAssessment", {}).get("radarScores") if isinstance(profile.get("effectAssessment"), dict) else None
-    if not isinstance(baseline, list) or len(baseline) != 6:
-        baseline = profile.get("scaleScores") if isinstance(profile.get("scaleScores"), list) else []
+    stored_assessment = profile.get("effectAssessment") if isinstance(profile.get("effectAssessment"), dict) else {}
+    profile_analysis = profile.get("aiAnalysis") if isinstance(profile.get("aiAnalysis"), dict) else {}
+    stored_labels = stored_assessment.get("labels") if isinstance(stored_assessment.get("labels"), list) else []
+    baseline_candidates = [
+        stored_assessment.get("radarScores") if stored_labels == EFFECT_RADAR_LABELS else None,
+        profile_analysis.get("radarScores"),
+        profile.get("scaleScores"),
+    ]
+    baseline = next((item for item in baseline_candidates if isinstance(item, list) and len(item) == 6), [])
     baseline = [max(1, min(5, float(baseline[index] if index < len(baseline) else 2))) for index in range(6)]
     exams = evidence.get("examResults") or []
     exam_accuracy = sum(float(item.get("accuracy") or 0) for item in exams) / len(exams) if exams else 0
-    experiments = evidence.get("mcuExperiments") or []
-    passed_experiments = sum(1 for item in experiments if item.get("passed"))
     generated_resources = evidence.get("resourceCalls") or []
     resource_visits = evidence.get("resourceVisits") or []
     learning_feedbacks = evidence.get("learningFeedbacks") or []
@@ -2675,23 +2763,95 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
     completed_nodes = int((evidence.get("pathProgress") or {}).get("completedNodes") or 0)
     tracked_nodes = int((evidence.get("pathProgress") or {}).get("trackedNodes") or 0)
     path_completion_rate = completed_nodes / tracked_nodes * 100 if tracked_nodes else 0
-    experiment_pass_rate = passed_experiments / len(experiments) * 100 if experiments else 0
     resource_types = {str(item.get("type") or "") for item in resource_visits if item.get("type")}
+    knowledge_stats = [item for item in (evidence.get("knowledgePointStats") or []) if isinstance(item, dict)]
+
+    def domain_mastery(domain: str) -> tuple[float, int]:
+        keywords = EFFECT_DOMAIN_KEYWORDS[domain]
+        matching = [
+            item for item in knowledge_stats
+            if any(keyword in str(item.get("knowledgePoint") or "") for keyword in keywords)
+        ]
+        attempts = sum(max(0, int(item.get("attempts") or 0)) for item in matching)
+        correct = sum(max(0, int(item.get("correctCount") or 0)) for item in matching)
+        return ((correct / attempts) if attempts else 0.0), attempts
+
+    def matching_evidence_count(items: list[dict], domain: str) -> int:
+        keywords = EFFECT_DOMAIN_KEYWORDS[domain]
+        return sum(
+            1 for item in items
+            if isinstance(item, dict)
+            and any(
+                keyword in " ".join(str(item.get(field) or "") for field in ("title", "topic", "route", "label", "type"))
+                for keyword in keywords
+            )
+        )
+
+    quantified_stats = [item for item in knowledge_stats if max(0, int(item.get("attempts") or 0)) > 0]
+    total_knowledge_attempts = sum(max(0, int(item.get("attempts") or 0)) for item in quantified_stats)
+    total_knowledge_correct = sum(max(0, int(item.get("correctCount") or 0)) for item in quantified_stats)
+    overall_knowledge_rate = total_knowledge_correct / total_knowledge_attempts if total_knowledge_attempts else 0.0
+    foundation_mastery, _ = domain_mastery("foundation")
+    diagnosis_mastery, _ = domain_mastery("diagnosis")
+    medicine_mastery, _ = domain_mastery("medicine")
+    case_mastery, _ = domain_mastery("cases")
+    completed_feedbacks = [item for item in learning_feedbacks if item.get("outcome") == "completed"]
+    medicine_visits = sum(
+        1
+        for item in resource_visits
+        if str(item.get("type") or "") in {"herb-model", "herb-recognition"}
+        or matching_evidence_count([item], "medicine") > 0
+    )
+    medicine_feedbacks = matching_evidence_count(completed_feedbacks, "medicine")
+    diagnosis_feedbacks = matching_evidence_count(completed_feedbacks, "diagnosis")
+    case_feedbacks = matching_evidence_count(completed_feedbacks, "cases")
+    exam_rate = exam_accuracy / 100
+    path_rate = path_completion_rate / 100
     activity_count = (
         len(evidence.get("recentChats") or [])
         + len(exams)
-        + len(experiments)
         + len(resource_visits)
         + len(learning_feedbacks)
         + min(20, active_learning_seconds // 900)
     )
     gains = [
-        min(1.6, exam_accuracy / 100 * 1.4 + len(resource_types) * 0.05),
-        min(1.6, exam_accuracy / 100 * 1.2 + completed_nodes * 0.06),
-        min(1.6, passed_experiments * 0.28 + len(experiments) * 0.05),
-        min(1.6, completed_nodes * 0.15 + passed_experiments * 0.12),
-        min(1.2, activity_count * 0.035),
-        min(1.5, len(resource_types) * 0.12 + completed_nodes * 0.07),
+        min(
+            1.6,
+            exam_rate * 0.55
+            + overall_knowledge_rate * 0.55
+            + foundation_mastery * 0.35
+            + min(0.2, len(quantified_stats) * 0.025),
+        ),
+        min(
+            1.6,
+            diagnosis_mastery * 0.75
+            + exam_rate * 0.35
+            + path_rate * 0.3
+            + min(0.2, diagnosis_feedbacks * 0.08),
+        ),
+        min(
+            1.6,
+            medicine_mastery * 0.75
+            + exam_rate * 0.25
+            + min(0.4, medicine_visits * 0.12)
+            + min(0.2, medicine_feedbacks * 0.08),
+        ),
+        min(
+            1.6,
+            case_mastery * 0.7
+            + path_rate * 0.45
+            + min(0.3, case_feedbacks * 0.12)
+            + min(0.25, completed_nodes * 0.025),
+        ),
+        min(1.5, activity_count * 0.025 + min(0.7, active_learning_seconds / 900 * 0.08)),
+        min(
+            1.5,
+            exam_rate * 0.35
+            + path_rate * 0.35
+            + min(0.4, len(resource_types) * 0.08)
+            + min(0.3, len(quantified_stats) * 0.03)
+            + min(0.2, len(completed_feedbacks) * 0.025),
+        ),
     ]
     scores = [round(min(5, baseline[index] + gains[index]), 1) for index in range(6)]
     improvements = [
@@ -2708,16 +2868,14 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
     )
     achievement_rate, achievement_breakdown = _weighted_evidence_rate(
         [
-            {"label": "学习路径任务", "rate": path_completion_rate, "weight": 0.5, "available": tracked_nodes > 0},
-            {"label": "题单与考试", "rate": exam_accuracy, "weight": 0.3, "available": bool(exams)},
-            {"label": "实验验证", "rate": experiment_pass_rate, "weight": 0.2, "available": bool(experiments)},
+            {"label": "学习路径任务", "rate": path_completion_rate, "weight": 0.6, "available": tracked_nodes > 0},
+            {"label": "题单与考试", "rate": exam_accuracy, "weight": 0.4, "available": bool(exams)},
         ]
     )
     mastery_rate, mastery_breakdown = _weighted_evidence_rate(
         [
-            {"label": "知识点答题", "rate": knowledge_mastery_rate, "weight": 0.55, "available": bool(quantified_points)},
+            {"label": "知识点答题", "rate": knowledge_mastery_rate, "weight": 0.7, "available": bool(quantified_points)},
             {"label": "综合考试", "rate": exam_accuracy, "weight": 0.3, "available": bool(exams)},
-            {"label": "实验通过", "rate": experiment_pass_rate, "weight": 0.15, "available": bool(experiments)},
         ]
     )
     timestamps = [
@@ -2726,7 +2884,6 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
             "recentChats",
             "questionSheets",
             "examResults",
-            "mcuExperiments",
             "resourceVisits",
             "activitySessions",
             "learningFeedbacks",
@@ -2758,14 +2915,14 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
             continue
     evidence_count = sum(
         len(evidence.get(key) or [])
-        for key in ("recentChats", "questionSheets", "examResults", "mcuExperiments", "resourceVisits", "learningFeedbacks")
+        for key in ("recentChats", "questionSheets", "examResults", "resourceVisits", "learningFeedbacks")
     )
     confidence_score = min(
         100,
         min(10, len(evidence.get("recentChats") or [])) * 2
         + min(5, len(evidence.get("questionSheets") or [])) * 4
         + min(5, len(exams)) * 8
-        + min(5, len(experiments)) * 8
+        + min(10, completed_nodes) * 2
         + min(10, len(resource_visits)) * 2
         + min(10, len(learning_feedbacks)) * 2
         + min(10, active_learning_seconds // 900) * 2
@@ -2781,7 +2938,7 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
         ]
     ))[:10]
     return {
-        "schemaVersion": "2.1",
+        "schemaVersion": "2.2",
         "profileReportId": int(profile.get("id") or profile.get("_profileReportId") or 0),
         "evidenceVersion": str(evidence.get("evidenceVersion") or ""),
         "labels": EFFECT_RADAR_LABELS,
@@ -2815,12 +2972,12 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
             "recentChats": len(evidence.get("recentChats") or []),
             "questionSheets": len(evidence.get("questionSheets") or []),
             "examResults": len(exams),
-            "mcuExperiments": len(experiments),
             "resourceVisits": len(resource_visits),
             "learningFeedbacks": len(learning_feedbacks),
             "generatedResources": len(generated_resources),
             "activitySessions": len(activity_sessions),
             "knowledgePoints": len(heatmap),
+            "legacyMcuExperimentsIgnored": len(evidence.get("mcuExperiments") or []),
         },
         "summary": (
             f"本次评估基于 {evidence_count} 条平台学习证据，"
@@ -2828,6 +2985,7 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
         ),
         "updatedAt": evidence.get("updatedAt") or now_iso(),
     }
+
 
 
 def _effect_assessment_records(
@@ -7505,15 +7663,15 @@ def _learning_path_background_task_status(
 def learning_path_config_get():
     user = g.get("current_user")
     with auth_db() as conn:
-        latest_profile = latest_learning_profile_for_user(conn, int(user["id"])) if user else {}
-        active_profile_id = int(latest_profile.get("id") or latest_profile.get("_profileReportId") or 0)
+        active_profile = active_profile_for_user(conn, int(user["id"])) if user else {}
+        active_profile_id = int(active_profile.get("id") or active_profile.get("_profileReportId") or 0)
         config = read_learning_path_config(
             conn,
             int(user["id"]) if user else None,
             profile_report_id=active_profile_id or None,
         )
         if user:
-            config = annotate_learning_path_personalization(config, latest_profile)
+            config = annotate_learning_path_personalization(config, active_profile)
             meta = config.setdefault("meta", {})
             path_profile_id = int(meta.get("profileReportId") or 0)
             refresh_recommended = bool(
@@ -7539,6 +7697,19 @@ def learning_path_config_get():
                 and active_profile_id > 0
                 and not background_pending
             )
+            config = _annotate_learning_path_week_view_progress(
+                conn,
+                int(user["id"]),
+                config,
+            )
+    if _optional_bool(request.args.get("summary")) is True:
+        config = {
+            "version": config.get("version", 2),
+            "meta": config.get("meta") or {},
+            "weeks": config.get("weeks") or [],
+            "stages": {},
+            "updatedAt": config.get("updatedAt") or "",
+        }
     return jsonify({"code": 0, "msg": "ok", "data": config})
 
 
@@ -7662,7 +7833,46 @@ def learning_path_node_cache_save(cache_key: str):
             saved = upsert_learning_path_node_cache(conn, user_id, cache_key, entry)
     except ValueError as exc:
         return jsonify({"code": 400, "msg": str(exc), "data": None}), 400
-    return jsonify({"code": 0, "msg": "ok", "data": {"entry": saved}})
+    next_week_task = None
+    view_progress = None
+    if saved.get("viewedAt") and saved.get("viewSource") == "learning-path-task-open":
+        try:
+            try:
+                saved_profile_report_id = int(saved.get("profileReportId") or 0)
+            except (TypeError, ValueError):
+                saved_profile_report_id = 0
+            with auth_db() as conn:
+                active_profile_report_id = _learning_path_active_profile_id(conn, user_id)
+                profile_report_id = saved_profile_report_id or active_profile_report_id
+                scoped_config = _read_profile_scoped_learning_path_config(
+                    conn,
+                    user_id,
+                    profile_report_id,
+                ) if profile_report_id > 0 else {}
+                view_progress = _learning_path_week_view_progress(
+                    conn,
+                    user_id,
+                    scoped_config,
+                    str(saved.get("stageId") or ""),
+                )
+            if profile_report_id > 0 and profile_report_id == active_profile_report_id:
+                next_week_task = _schedule_profile_learning_path_generation(
+                    user_id,
+                    profile_report_id,
+                    trigger="week_tasks_viewed",
+                    source_week_id=str(saved.get("stageId") or ""),
+                )
+        except Exception:
+            app.logger.exception("failed to schedule next week after task view user=%s", user_id)
+    return jsonify({
+        "code": 0,
+        "msg": "ok",
+        "data": {
+            "entry": saved,
+            "viewProgress": view_progress,
+            "nextWeekTask": next_week_task,
+        },
+    })
 
 
 def _prepare_learning_path_generation(user_id: int, raw_payload: dict) -> tuple[dict, dict]:
@@ -7735,7 +7945,16 @@ def _run_learning_path_generation(
         and isinstance(result.get("config"), dict)
         and payload.get("prepareResources", True) is not False
     ):
-        _queue_learning_path_week_resource_preparation(int(user_id), result["config"])
+        generated_stage_ids = [
+            str(week.get("id") or "")
+            for week in _visible_learning_path_weeks(result["config"])
+            if int(week.get("order") or 0) == int(payload.get("weekStart") or 1)
+        ]
+        _queue_learning_path_week_resource_preparation(
+            int(user_id),
+            result["config"],
+            stage_ids=generated_stage_ids,
+        )
     if isinstance(result, dict):
         saved_config = result.get("config") if isinstance(result.get("config"), dict) else config
         meta = saved_config.get("meta") if isinstance(saved_config, dict) and isinstance(saved_config.get("meta"), dict) else {}
@@ -7831,6 +8050,21 @@ def learning_path_generate_next_week():
                 int(profile_report_id),
             )
         visible_weeks = _visible_learning_path_weeks(existing_config)
+        if visible_weeks:
+            latest_week = max(visible_weeks, key=lambda item: int(item.get("order") or 0))
+            with auth_db() as conn:
+                view_progress = _learning_path_week_view_progress(
+                    conn,
+                    user_id,
+                    existing_config,
+                    str(latest_week.get("id") or ""),
+                )
+            if not view_progress.get("allViewed"):
+                return jsonify({
+                    "code": 409,
+                    "msg": "请先查看本周全部学习任务，再生成下一周",
+                    "data": {"viewProgress": view_progress},
+                }), 409
         next_week = max(
             [int(week.get("order") or 0) for week in visible_weeks] or [0]
         ) + 1
@@ -10290,6 +10524,113 @@ def _visible_learning_path_weeks(config: dict) -> list[dict]:
     ]
 
 
+def _learning_path_stage_view_progress(
+    conn: sqlite3.Connection,
+    user_id: int,
+    config: dict,
+    stage_id: str = "",
+) -> dict:
+    resolved_stage_id = str(stage_id or "")
+    stage = (config.get("stages") or {}).get(resolved_stage_id)
+    nodes = [
+        node
+        for node in ((stage or {}).get("nodes") or [])
+        if isinstance(node, dict) and node.get("enabled", True)
+    ]
+    required = {
+        str(node.get("cacheKey") or ""): str(node.get("id") or "")
+        for node in nodes
+        if str(node.get("cacheKey") or "")
+    }
+    if not nodes or len(required) != len(nodes):
+        return {
+            "stageId": resolved_stage_id,
+            "allViewed": False,
+            "viewedCount": 0,
+            "taskCount": len(nodes),
+            "missingNodeIds": [str(node.get("id") or "") for node in nodes],
+        }
+    placeholders = ",".join("?" for _ in required)
+    rows = conn.execute(
+        f"""
+        SELECT cache_key, payload_json
+        FROM learning_path_node_caches
+        WHERE user_id = ? AND cache_key IN ({placeholders})
+        """,
+        (int(user_id), *required.keys()),
+    ).fetchall()
+    expected_profile_id = learning_path_profile_report_id(config)
+    viewed_keys = set()
+    for row in rows:
+        cache_key = str(row["cache_key"])
+        payload = json_loads_safe(row["payload_json"], {}) or {}
+        if not payload.get("viewedAt") or payload.get("viewSource") != "learning-path-task-open":
+            continue
+        if str(payload.get("stageId") or "") != resolved_stage_id:
+            continue
+        if str(payload.get("nodeId") or "") != required.get(cache_key):
+            continue
+        if expected_profile_id > 0:
+            try:
+                payload_profile_id = int(payload.get("profileReportId") or 0)
+            except (TypeError, ValueError):
+                payload_profile_id = 0
+            if payload_profile_id != expected_profile_id:
+                continue
+        viewed_keys.add(cache_key)
+    missing_node_ids = [node_id for key, node_id in required.items() if key not in viewed_keys]
+    return {
+        "stageId": resolved_stage_id,
+        "allViewed": not missing_node_ids and len(viewed_keys) == len(nodes),
+        "viewedCount": len(viewed_keys),
+        "taskCount": len(nodes),
+        "missingNodeIds": missing_node_ids,
+    }
+
+
+def _learning_path_week_view_progress(
+    conn: sqlite3.Connection,
+    user_id: int,
+    config: dict,
+    stage_id: str = "",
+) -> dict:
+    visible_weeks = sorted(
+        _visible_learning_path_weeks(config),
+        key=lambda item: int(item.get("order") or 0),
+    )
+    latest_week = visible_weeks[-1] if visible_weeks else {}
+    resolved_stage_id = str(stage_id or latest_week.get("id") or "")
+    if not latest_week or resolved_stage_id != str(latest_week.get("id") or ""):
+        return {
+            "stageId": resolved_stage_id,
+            "isLatestWeek": False,
+            "allViewed": False,
+            "viewedCount": 0,
+            "taskCount": 0,
+            "missingNodeIds": [],
+        }
+    return {
+        **_learning_path_stage_view_progress(conn, user_id, config, resolved_stage_id),
+        "isLatestWeek": True,
+    }
+
+
+def _annotate_learning_path_week_view_progress(
+    conn: sqlite3.Connection,
+    user_id: int,
+    config: dict,
+) -> dict:
+    for week in _visible_learning_path_weeks(config):
+        stage_id = str(week.get("id") or "")
+        progress = _learning_path_stage_view_progress(conn, user_id, config, stage_id)
+        task_count = max(0, int(progress.get("taskCount") or 0))
+        viewed_count = max(0, min(task_count, int(progress.get("viewedCount") or 0)))
+        progress_percent = round((viewed_count / task_count) * 100) if task_count else 0
+        week["viewProgress"] = progress
+        week["progressPercent"] = max(0, min(100, progress_percent))
+    return config
+
+
 def _read_profile_scoped_learning_path_config(
     conn: sqlite3.Connection,
     user_id: int,
@@ -10323,16 +10664,20 @@ def _run_profile_learning_path_generation_task(
     user_id: int,
     profile_report_id: int,
     total_weeks: int = 6,
+    trigger: str = "profile_complete",
+    source_week_id: str = "",
 ) -> None:
     total_weeks = max(4, min(8, int(total_weeks or 6)))
+    is_view_advance = trigger == "week_tasks_viewed"
     base_result = {
         "profileReportId": int(profile_report_id),
         "progress": 1,
         "currentStage": "loading_profile",
         "completedWeeks": 0,
         "totalWeeks": total_weeks,
-        "message": "学习画像已完成，正在读取画像并规划学习路径",
-        "trigger": "profile_complete",
+        "message": "本周任务已全部查看，正在规划下一周" if is_view_advance else "学习画像已完成，正在读取画像并规划学习路径",
+        "trigger": trigger,
+        "sourceWeekId": str(source_week_id or ""),
     }
     xiaozhi_update_task(task_id, status="running", result_json=base_result, error="")
     try:
@@ -10355,6 +10700,29 @@ def _run_profile_learning_path_generation_task(
             )
         if learning_path_profile_report_id(current_config) not in {0, int(profile_report_id)}:
             current_config = default_learning_path_config()
+
+        if is_view_advance:
+            with auth_db() as conn:
+                view_progress = _learning_path_week_view_progress(
+                    conn,
+                    int(user_id),
+                    current_config,
+                    source_week_id,
+                )
+            if not view_progress.get("allViewed"):
+                xiaozhi_update_task(
+                    task_id,
+                    status="complete",
+                    result_json={
+                        **base_result,
+                        "progress": 100,
+                        "currentStage": "waiting_for_week_views",
+                        "message": "本周仍有未查看任务，未生成下一周",
+                        "viewProgress": view_progress,
+                    },
+                    error="",
+                )
+                return
 
         completed_weeks = len(_visible_learning_path_weeks(current_config))
         week_number = completed_weeks + 1
@@ -10404,7 +10772,16 @@ def _run_profile_learning_path_generation_task(
             active_profile_id = _learning_path_active_profile_id(conn, int(user_id))
         resources_queued = active_profile_id == int(profile_report_id)
         if resources_queued:
-            _queue_learning_path_week_resource_preparation(int(user_id), current_config)
+            generated_stage_ids = [
+                str(week.get("id") or "")
+                for week in _visible_learning_path_weeks(current_config)
+                if int(week.get("order") or 0) == week_number
+            ]
+            _queue_learning_path_week_resource_preparation(
+                int(user_id),
+                current_config,
+                stage_ids=generated_stage_ids,
+            )
 
         final_result = {
             **base_result,
@@ -10450,6 +10827,8 @@ def _schedule_profile_learning_path_generation(
     profile_report_id: int,
     *,
     total_weeks: int = 6,
+    trigger: str = "profile_complete",
+    source_week_id: str = "",
 ) -> dict | None:
     user_id = int(user_id)
     profile_report_id = int(profile_report_id)
@@ -10465,9 +10844,22 @@ def _schedule_profile_learning_path_generation(
             user_id,
             profile_report_id,
         )
+        total_weeks = max(
+            4,
+            min(8, int((saved_config.get("meta") or {}).get("totalWeeks") or total_weeks)),
+        )
         saved_weeks = _visible_learning_path_weeks(saved_config)
         if saved_weeks:
-            return None
+            if trigger != "week_tasks_viewed" or not source_week_id:
+                return None
+            view_progress = _learning_path_week_view_progress(
+                conn,
+                user_id,
+                saved_config,
+                source_week_id,
+            )
+            if not view_progress.get("allViewed") or len(saved_weeks) >= total_weeks:
+                return None
 
         active_rows = conn.execute(
             """
@@ -10486,15 +10878,25 @@ def _schedule_profile_learning_path_generation(
 
         task_id = f"xz_{int(time.time() * 1000)}_{secrets.token_hex(4)}"
         route = xiaozhi_route_with_task("/learning-path", task_id)
-        title = f"{str(profile.get('profileName') or '学习画像')[:32]} · 学习路径后台规划"
+        title = (
+            f"{str(profile.get('profileName') or '学习画像')[:32]} · 下一周学习路径规划"
+            if trigger == "week_tasks_viewed"
+            else f"{str(profile.get('profileName') or '学习画像')[:32]} · 学习路径后台规划"
+        )
+        task_prompt = (
+            f"{source_week_id} 的任务已全部查看，自动生成下一周个性化学习任务"
+            if trigger == "week_tasks_viewed"
+            else "根据刚完成的学习画像自动生成第一周个性化学习任务"
+        )
         initial_result = {
             "profileReportId": profile_report_id,
             "progress": 0,
             "currentStage": "queued",
             "completedWeeks": len(saved_weeks),
             "totalWeeks": total_weeks,
-            "message": "画像已保存，学习路径后台任务已排队",
-            "trigger": "profile_complete",
+            "message": "本周任务已全部查看，下一周规划已排队" if trigger == "week_tasks_viewed" else "画像已保存，学习路径后台任务已排队",
+            "trigger": trigger,
+            "sourceWeekId": str(source_week_id or ""),
         }
         conn.execute(
             """
@@ -10508,7 +10910,7 @@ def _schedule_profile_learning_path_generation(
                 user_id,
                 profile_report_id,
                 title,
-                "根据刚完成的学习画像自动生成第一周个性化学习任务",
+                task_prompt,
                 route,
                 json.dumps(initial_result, ensure_ascii=False),
                 timestamp,
@@ -10520,7 +10922,7 @@ def _schedule_profile_learning_path_generation(
         "taskId": task_id,
         "taskType": "learning_path",
         "title": title,
-        "prompt": "根据刚完成的学习画像自动生成第一周个性化学习任务",
+        "prompt": task_prompt,
         "status": "queued",
         "route": route,
         "result": initial_result,
@@ -10535,6 +10937,8 @@ def _schedule_profile_learning_path_generation(
             user_id,
             profile_report_id,
             total_weeks,
+            trigger,
+            source_week_id,
         )
     except Exception as exc:
         error_message = _sanitize_learning_path_error_message(exc)[:1000]
@@ -10848,6 +11252,7 @@ def learning_path_stage_resource_status(user_id: int, stage_id: str) -> dict:
             (user_id,),
         ).fetchall()
         caches = {row["cache_key"]: learning_path_node_cache_from_row(row) for row in cache_rows}
+        view_progress = _learning_path_week_view_progress(conn, user_id, config, stage_id)
         task_ids = []
         for node in stage_view.get("nodes") or []:
             cache = caches.get(str(node.get("cacheKey") or ""), {})
@@ -10945,6 +11350,7 @@ def learning_path_stage_resource_status(user_id: int, stage_id: str) -> dict:
         "needsPreparationRetry": needs_preparation_retry,
         "allPrepared": bool(total) and prepared_count == total,
         "allComplete": bool(total) and prepared_count == total and not orchestration_pending and all(task.get("status") == "complete" for task in tasks),
+        "viewProgress": view_progress,
     }
 
 
@@ -11559,27 +11965,62 @@ def _prepare_learning_path_week_resources_in_background(user_id: int, stage_id: 
         )
 
 
-def _queue_learning_path_week_resource_preparation(user_id: int, config: dict) -> int:
+def _queue_learning_path_week_resource_preparation(
+    user_id: int,
+    config: dict,
+    *,
+    stage_ids: list[str] | None = None,
+    only_incomplete: bool = False,
+    max_stages: int = 0,
+) -> int:
     """Start non-video weekly resources as soon as their path tasks are saved."""
     stages = config.get("stages") if isinstance(config.get("stages"), dict) else {}
     weeks = config.get("weeks") if isinstance(config.get("weeks"), list) else []
-    stage_ids = [
+    restrict_to_requested = stage_ids is not None
+    requested_stage_ids = {str(stage_id) for stage_id in (stage_ids or []) if str(stage_id)}
+    resolved_stage_ids = [
         str(week.get("id") or "")
         for week in weeks
         if isinstance(week, dict)
         and week.get("enabled", True)
         and not week.get("placeholder", False)
         and str(week.get("id") or "") in stages
+        and (not restrict_to_requested or str(week.get("id") or "") in requested_stage_ids)
+        and (
+            not only_incomplete
+            or _learning_path_stage_needs_resource_recovery(stages[str(week.get("id") or "")])
+        )
     ]
-    if not stage_ids:
-        stage_ids = [str(stage_id) for stage_id in stages if str(stage_id)]
-    for stage_id in dict.fromkeys(stage_ids):
+    if not resolved_stage_ids and not restrict_to_requested and not only_incomplete:
+        resolved_stage_ids = [str(stage_id) for stage_id in stages if str(stage_id)]
+    resolved_stage_ids = list(dict.fromkeys(resolved_stage_ids))
+    if int(max_stages or 0) > 0:
+        resolved_stage_ids = resolved_stage_ids[:int(max_stages)]
+    for stage_id in resolved_stage_ids:
         LEARNING_PATH_WEEK_PREPARATION_EXECUTOR.submit(
             _prepare_learning_path_week_resources_in_background,
             int(user_id),
             stage_id,
         )
-    return len(dict.fromkeys(stage_ids))
+    return len(resolved_stage_ids)
+
+
+def _learning_path_stage_needs_resource_recovery(stage: dict) -> bool:
+    nodes = [node for node in (stage.get("nodes") or []) if isinstance(node, dict) and node.get("enabled", True)]
+    if not nodes:
+        return False
+    preparation = stage.get("resourcePreparation") if isinstance(stage.get("resourcePreparation"), dict) else {}
+    if str(preparation.get("status") or "") in {"running", "initializing", "failed"}:
+        return True
+    for node in nodes:
+        task = node.get("resourceTask") if isinstance(node.get("resourceTask"), dict) else {}
+        status = str(task.get("status") or "")
+        route = str(task.get("route") or node.get("actionRoute") or "")
+        if not str(task.get("taskId") or "") or "xzTask=" not in route:
+            return True
+        if status in {"planning", "queued", "running", "failed"}:
+            return True
+    return False
 
 
 def _recover_learning_path_resource_generation_after_restart() -> dict:
@@ -11606,7 +12047,12 @@ def _recover_learning_path_resource_generation_after_restart() -> dict:
                 config = read_learning_path_config(conn, user_id)
             if not isinstance(config, dict) or learning_path_config_is_degraded(config):
                 continue
-            submitted = _queue_learning_path_week_resource_preparation(user_id, config)
+            submitted = _queue_learning_path_week_resource_preparation(
+                user_id,
+                config,
+                only_incomplete=True,
+                max_stages=1,
+            )
             if submitted:
                 queued_users += 1
                 queued_stages += submitted
@@ -12472,7 +12918,7 @@ def run_user_llm_completion(user_id: int, payload: dict) -> dict:
         max_tokens = int(payload.get("max_tokens") or payload.get("max_completion_tokens") or 2200)
     except (TypeError, ValueError):
         raise ValueError("max_tokens 必须是整数") from None
-    max_tokens = max(64, min(6000, max_tokens))
+    max_tokens = max(LLM_RESPONSE_TOKEN_BUDGET, min(131072, max_tokens))
     try:
         timeout = int(payload.get("timeout") or 90)
     except (TypeError, ValueError):
@@ -15117,6 +15563,41 @@ def xiaozhi_task_detail(task_id: str):
     })
 
 
+@app.get("/api/personalized-resources/task-covers/<task_id>.png")
+def personalized_resource_task_cover(task_id: str):
+    user, error_response = xiaozhi_current_user()
+    if error_response:
+        return error_response
+    with auth_db() as conn:
+        row = conn.execute(
+            """
+            SELECT task_id, profile_report_id, task_type, title, prompt, status, route,
+                   result_json, error, created_at, updated_at
+            FROM xiaozhi_tasks
+            WHERE user_id = ? AND task_id = ?
+            LIMIT 1
+            """,
+            (int(user["id"]), str(task_id or "")),
+        ).fetchone()
+    if not row:
+        return jsonify({"code": 404, "msg": "未找到资源任务"}), 404
+
+    cover_path, fingerprint = render_resource_task_cover(
+        xiaozhi_task_from_row(row),
+        RESOURCE_COVER_CACHE_DIR,
+    )
+    response = send_file(
+        cover_path,
+        mimetype="image/png",
+        conditional=True,
+        etag=fingerprint,
+        max_age=3600,
+    )
+    response.cache_control.public = False
+    response.cache_control.private = True
+    return response
+
+
 def _parse_profile_datetime(value: object) -> datetime | None:
     text = str(value or "").strip()
     if not text:
@@ -16302,7 +16783,7 @@ def ai_proxy():
 
     payload = request.get_json(silent=True) or {}
     prompt = payload.get("prompt", "")
-    max_tokens = int(payload.get("max_tokens", 2000))
+    max_tokens = max(LLM_RESPONSE_TOKEN_BUDGET, int(payload.get("max_tokens", LLM_RESPONSE_TOKEN_BUDGET)))
     system_prompt = payload.get("system", "")
 
     base_url = get_setting("ANTHROPIC_BASE_URL", setting_default("ANTHROPIC_BASE_URL")) or "https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic"
@@ -16344,7 +16825,7 @@ def ai_proxy_stream():
 
     payload = request.get_json(silent=True) or {}
     prompt = payload.get("prompt", "")
-    max_tokens = int(payload.get("max_tokens", 2000))
+    max_tokens = max(LLM_RESPONSE_TOKEN_BUDGET, int(payload.get("max_tokens", LLM_RESPONSE_TOKEN_BUDGET)))
     system_prompt = payload.get("system", "")
 
     base_url = get_setting("ANTHROPIC_BASE_URL", setting_default("ANTHROPIC_BASE_URL")) or "https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic"

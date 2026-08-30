@@ -31,9 +31,9 @@ except ImportError:  # pragma: no cover
             return (os.getenv(name) or default).strip()
 
 try:
-    from learning_agents import request_llm_image_understanding
+    from learning_agents import completion_token_budget, request_llm_image_understanding
 except ImportError:  # pragma: no cover - package-style import fallback
-    from .learning_agents import request_llm_image_understanding
+    from .learning_agents import completion_token_budget, request_llm_image_understanding
 
 try:
     from interview_profiles import DEFAULT_POSITION_KEY, DEFAULT_WEAK_SIGNALS, get_interview_profile, profile_to_prompt
@@ -450,6 +450,7 @@ def call_mimo_openai_text(
     max_tokens: int = 1024,
 ) -> str:
     started_at = time.perf_counter()
+    max_tokens = completion_token_budget(max_tokens)
     body = {
         "model": _get_anthropic_model(),
         "max_tokens": max_tokens,
@@ -526,6 +527,7 @@ def call_mimo_anthropic_text(
     max_tokens: int = 1024,
 ) -> str:
     started_at = time.perf_counter()
+    max_tokens = completion_token_budget(max_tokens)
     body = {
         "model": _get_anthropic_model(),
         "max_tokens": max_tokens,
@@ -600,7 +602,9 @@ def call_mimo_chat(
     temperature: float = 0.7,
     max_tokens: Optional[int] = None,
 ) -> str:
-    completion_tokens = max_tokens or int(os.getenv("MIMO_INTERVIEW_MAX_TOKENS", "1400") or "1400")
+    completion_tokens = completion_token_budget(
+        max_tokens or int(os.getenv("MIMO_INTERVIEW_MAX_TOKENS", "128000") or "128000")
+    )
     protocol = _get_llm_protocol()
     if protocol in {"openai", "auto"} and _is_openai_configured():
         return call_mimo_openai_text(

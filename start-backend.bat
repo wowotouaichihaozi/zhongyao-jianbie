@@ -27,6 +27,16 @@ if not exist "%BACKEND_DIR%\app.py" (
   goto :Fail
 )
 
+if not exist "%BASE_DIR%start-ohmyppt.bat" (
+  echo [ERROR] start-ohmyppt.bat was not found.
+  goto :Fail
+)
+
+echo [DEPENDENCY] Checking OhMyPPT...
+call "%BASE_DIR%start-ohmyppt.bat"
+if errorlevel 1 goto :Fail
+echo.
+
 call :CheckPort "%BACKEND_PORT%" "%BACKEND_URL%"
 if errorlevel 2 goto :Fail
 if errorlevel 1 goto :AlreadyRunning

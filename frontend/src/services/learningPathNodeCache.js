@@ -20,7 +20,7 @@ export function getNodeCache(cacheKey) {
   return readNodeCaches()[key] || null
 }
 
-export function setNodeCache(cacheKey, patch = {}) {
+function updateNodeCache(cacheKey, patch = {}, shouldPersist = true) {
   const key = String(cacheKey || '').trim()
   if (!key) return null
   const now = Date.now()
@@ -40,8 +40,12 @@ export function setNodeCache(cacheKey, patch = {}) {
   } catch {
     // Ignore quota failures; the resource page can still work without cache.
   }
-  persistNodeCache(entry)
+  if (shouldPersist) void persistNodeCache(entry)
   return entry
+}
+
+export function setNodeCache(cacheKey, patch = {}) {
+  return updateNodeCache(cacheKey, patch, true)
 }
 
 export function markNodeCacheStarted(cacheKey, metadata = {}) {
@@ -50,6 +54,28 @@ export function markNodeCacheStarted(cacheKey, metadata = {}) {
     return setNodeCache(cacheKey, { ...metadata, status: 'complete', lastOpenedAt: Date.now() })
   }
   return setNodeCache(cacheKey, { ...metadata, status: 'running', startedAt: previous?.startedAt || Date.now() })
+}
+
+export async function markNodeCacheViewed(cacheKey, metadata = {}) {
+  const previous = getNodeCache(cacheKey)
+  const now = Date.now()
+  const entry = updateNodeCache(cacheKey, {
+    ...metadata,
+    status: previous?.status === 'complete' ? 'complete' : 'running',
+    startedAt: previous?.startedAt || now,
+    lastOpenedAt: now,
+    viewedAt: metadata.viewedAt || now,
+    viewSource: 'learning-path-task-open',
+  }, false)
+  const result = await persistNodeCache(entry)
+  if (result?.entry) {
+    updateNodeCache(cacheKey, result.entry, false)
+  }
+  return {
+    entry: result?.entry || entry,
+    nextWeekTask: result?.nextWeekTask || null,
+    viewProgress: result?.viewProgress || null,
+  }
 }
 
 export function markNodeCacheComplete(cacheKey, metadata = {}) {
@@ -111,10 +137,8 @@ export function hydrateNodeCachesFromServer() {
 }
 
 function persistNodeCache(entry) {
-  if (!entry?.cacheKey) return
-  saveLearningPathNodeCache(entry.cacheKey, entry).catch(() => {
-    // Local cache is enough for the current browser session if the API is unavailable.
-  })
+  if (!entry?.cacheKey) return Promise.resolve(null)
+  return saveLearningPathNodeCache(entry.cacheKey, entry).catch(() => null)
 }
 
 function compareCacheTime(left, right) {

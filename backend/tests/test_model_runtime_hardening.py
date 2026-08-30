@@ -59,7 +59,7 @@ def test_json_model_calls_have_enough_budget_for_reasoning_models():
 
     request_body = json.loads(request_call.call_args.args[0].data.decode("utf-8"))
     assert result == '{"ok":true}'
-    assert request_body["max_tokens"] == 800
+    assert request_body["max_tokens"] == 128000
 
 
 def test_question_generator_ignores_request_model_url_and_credentials():

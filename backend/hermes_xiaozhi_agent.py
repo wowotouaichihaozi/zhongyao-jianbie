@@ -9,7 +9,7 @@ import requests
 try:
     from agent_manifest import PLATFORM_TOOLS
     from common import get_setting
-    from learning_agents import extract_json
+    from learning_agents import completion_token_budget, extract_json
     from question_generator_runtime import (
         _anthropic_base_to_chat_url,
         get_mimo_api_key,
@@ -19,7 +19,7 @@ try:
 except ImportError:  # pragma: no cover - package-style import fallback
     from .agent_manifest import PLATFORM_TOOLS
     from .common import get_setting
-    from .learning_agents import extract_json
+    from .learning_agents import completion_token_budget, extract_json
     from .question_generator_runtime import (
         _anthropic_base_to_chat_url,
         get_mimo_api_key,
@@ -209,7 +209,7 @@ class HermesXiaoZhiAgent:
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.2,
-            "max_tokens": 900,
+            "max_tokens": completion_token_budget(),
             "response_format": {"type": "json_object"},
         }
         try:

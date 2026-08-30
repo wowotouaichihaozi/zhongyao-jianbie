@@ -32,3 +32,20 @@ test('role and authentication choices use a strong shared selected state', () =>
   assert.match(source, /background: #174c3c !important;/)
   assert.match(source, /color: #fff !important;/)
 })
+
+test('password visibility controls stay inside the input without floating button chrome', () => {
+  assert.match(source, /\.password-field input\) \{\s*padding-right: 48px !important;/)
+  assert.match(source, /\.password-visibility-toggle\).*position: absolute !important;/s)
+  assert.match(source, /right: 11px !important;/)
+  assert.match(source, /width: 30px !important;/)
+  assert.match(source, /background: transparent !important;/)
+  assert.match(source, /transform: translateY\(-50%\) !important;/)
+})
+
+test('login card omits redundant explanatory and footer copy', () => {
+  assert.doesNotMatch(source, /登录后继续当前画像与学习路径/)
+  assert.doesNotMatch(source, /注册后开始建立你的中医学习画像/)
+  assert.doesNotMatch(source, /数据按账户隔离/)
+  assert.doesNotMatch(source, /进入学习工作台/)
+  assert.doesNotMatch(source, /class="console-meta"/)
+})

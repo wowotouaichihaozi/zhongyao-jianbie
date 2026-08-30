@@ -43,7 +43,11 @@ if errorlevel 1 (
 )
 popd
 
-echo [3/3] Starting or reusing the unified Flask entry...
+echo [3/4] Starting or reusing OhMyPPT...
+call "%BASE_DIR%start-ohmyppt.bat"
+if errorlevel 1 exit /b 1
+
+echo [4/4] Starting or reusing the unified Flask entry...
 call :CheckHttp "%HEALTH_URL%"
 if errorlevel 1 (
   start "QianZhiXueHang Unified %BACKEND_PORT%" /D "%BASE_DIR%" cmd /k "set BACKEND_PORT=%BACKEND_PORT%&& call start-backend.bat"

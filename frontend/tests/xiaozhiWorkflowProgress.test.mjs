@@ -19,6 +19,7 @@ const pathSource = fs.readFileSync(new URL('../src/views/LearningPathView.vue', 
 const pptSource = fs.readFileSync(new URL('../src/views/PptGeneratingView.vue', import.meta.url), 'utf8')
 const animationSource = fs.readFileSync(new URL('../src/views/LearningAnimationView.vue', import.meta.url), 'utf8')
 const apiSource = fs.readFileSync(new URL('../src/services/api.js', import.meta.url), 'utf8')
+const nodeCacheSource = fs.readFileSync(new URL('../src/services/learningPathNodeCache.js', import.meta.url), 'utf8')
 
 test('workflow progress is clamped and normalizes server terminal states', () => {
   assert.equal(clampWorkflowProgress(-5), 0)
@@ -151,6 +152,15 @@ test('the group composer supports agent mentions, Tab completion, and distinct a
   assert.match(launcherSource, /event\.key === 'Tab'/)
   assert.match(launcherSource, /completeAgentMention\(filteredMentionAgents/)
   assert.match(launcherSource, /class="agent-mention-menu"/)
+  assert.match(launcherSource, /@focus="updateMentionContext"/)
+  assert.match(launcherSource, /return Boolean\(activeMention\.value && filteredMentionAgents\.value\.length\)/)
+  assert.match(launcherSource, /class="composer-highlight-layer"/)
+  assert.match(launcherSource, /class="agent-mention-highlight"/)
+  assert.match(launcherSource, /function mentionHighlightSegments\(value\)/)
+  assert.match(launcherSource, /\.composer textarea\.has-highlight-mirror/)
+  assert.match(launcherSource, /\.composer-highlight-content \{[\s\S]{0,300}color: transparent/)
+  assert.match(launcherSource, /\.composer-highlight-content \.agent-mention-highlight \{[\s\S]{0,180}-webkit-text-fill-color: transparent/)
+  assert.match(launcherSource, /\.composer textarea\.has-highlight-mirror \{[\s\S]{0,180}-webkit-text-fill-color: #213a39/)
   assert.match(launcherSource, /class="message-avatar"/)
   assert.match(launcherSource, /const learnerVisual = \{/)
   assert.match(launcherSource, /icon: markRaw\(UserRound\)/)
@@ -160,6 +170,30 @@ test('the group composer supports agent mentions, Tab completion, and distinct a
   assert.match(launcherSource, /background: #eef2f0/)
   assert.match(launcherSource, /\.agent-mention-menu \{[\s\S]{0,300}border: 0/)
   assert.doesNotMatch(launcherSource, /filteredMentionAgents[\s\S]{0,260}\.slice\(0, 8\)/)
+})
+
+test('expanding an agent conversation card preserves the current scroll position', () => {
+  const toggleBody = launcherSource.match(/function toggleConversationGroup\(key\) \{([\s\S]*?)\n\}/)?.[1] || ''
+  assert.match(toggleBody, /expandedConversationGroups\.value = next/)
+  assert.doesNotMatch(toggleBody, /scrollToBottom/)
+})
+
+test('opening the assistant waits for all conversation cards before scrolling to the latest message', () => {
+  const openWatch = launcherSource.match(/watch\(isOpen, async \(open\) => \{([\s\S]*?)\n\}\)/)?.[1] || ''
+  assert.match(openWatch, /await loadHistory\(\)[\s\S]*await loadStatus\(\)[\s\S]*await scrollToBottom\(\)/)
+})
+
+test('conversation cards expose persisted citation counts as well as detailed citation arrays', () => {
+  assert.match(launcherSource, /function conversationCitationCount\(entry\)/)
+  assert.match(launcherSource, /Number\(payload\.citationCount \|\| 0\)/)
+  assert.match(launcherSource, /Number\(details\.citationCount \|\| 0\)/)
+  assert.match(launcherSource, /Math\.max\(count, conversationCitationCount\(entry\)\)/)
+  assert.match(launcherSource, /function taskQualityEvaluation\(task\)/)
+  assert.match(launcherSource, /taskQuality\?\.score \?\? reviewEntry\?\.payload\?\.score/)
+  assert.match(launcherSource, /taskCitationCount\(relatedTask\)/)
+  assert.match(launcherSource, /conversationCollaborationStep\(entry, taskQuality\?\.score\)/)
+  assert.match(launcherSource, /function conversationEntryContent\(entry, group\)/)
+  assert.match(launcherSource, /资源质量分 \$\{Number\(group\.qualityScore\)\}/)
 })
 
 test('chat uses the signed-in avatar, one streaming bubble, and reloadable server history', () => {
@@ -210,9 +244,10 @@ test('the harness panel renders persisted runs and handoffs instead of a static 
   assert.doesNotMatch(launcherSource, /class="handoff-list"/)
 })
 
-test('learning paths stop after week one and expose an explicit next-week action', () => {
+test('learning paths stop after week one and advance only from task view evidence', () => {
   assert.doesNotMatch(pathSource, /generateRemainingWeeks/)
-  assert.match(pathSource, /generateNextLearningPathWeek/)
-  assert.match(pathSource, /更新画像后再规划/)
-  assert.match(apiSource, /\/api\/learning-path\/generate-next-week/)
+  assert.doesNotMatch(pathSource, /generateNextLearningPathWeek/)
+  assert.match(pathSource, /查看完当前周的全部任务后/)
+  assert.match(pathSource, /markNodeCacheViewed\(week\.cacheKey/)
+  assert.match(nodeCacheSource, /viewSource: 'learning-path-task-open'/)
 })

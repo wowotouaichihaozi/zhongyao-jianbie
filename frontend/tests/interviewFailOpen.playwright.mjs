@@ -4,11 +4,6 @@ import { chromium } from 'playwright'
 
 const baseUrl = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'
 const browser = await chromium.launch({ headless: true })
-const pendingAvatarRequests = []
-
-function releaseAvatarRequests() {
-  pendingAvatarRequests.splice(0).forEach((release) => release())
-}
 
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -25,11 +20,7 @@ try {
     localStorage.setItem('appMode', 'user')
   })
 
-  await page.route('**/api/avatar/config', (route) => new Promise((resolve) => {
-    pendingAvatarRequests.push(() => {
-      Promise.resolve(route.abort('failed')).catch(() => {}).finally(resolve)
-    })
-  }))
+  await page.route('**/api/avatar/config', (route) => route.abort('failed'))
   await page.route('**/api/interview/session/start', async (route) => {
     await route.fulfill({
       status: 200,
@@ -74,10 +65,9 @@ try {
   })
 
   await page.goto(`${baseUrl}/digital-human-interview?codexPreview=1`, { waitUntil: 'domcontentloaded' })
-  const standbyAvatar = page.locator('.avatar-standby')
-  await standbyAvatar.waitFor({ state: 'visible' })
-  assert.equal(await standbyAvatar.isVisible(), true, '数字人连接期间应显示人物海报，不能只剩空白舞台')
-  const startButton = page.getByRole('button', { name: '开始面试' })
+  await page.getByText('数字人连接失败', { exact: true }).last().waitFor()
+  assert.equal(await page.locator('.avatar-standby').count(), 0, '数字人连接失败时不应渲染人物占位图')
+  const startButton = page.getByRole('button', { name: '开始访谈' })
   try {
     await startButton.waitFor({ timeout: 15000 })
   } catch (error) {
@@ -88,7 +78,8 @@ try {
   await startButton.click()
 
   await page.getByText('请解释 GPIO 推挽输出与开漏输出的区别。').waitFor()
-  assert.equal(await standbyAvatar.isVisible(), true, '数字人连接未完成时，面试开始后仍应保留人物海报')
+  await page.getByText('数字人连接失败', { exact: true }).last().waitFor()
+  assert.equal(await page.locator('.avatar-standby').count(), 0, '访谈进行中连接失败也不应回退到人物海报')
   const answerInput = page.getByPlaceholder('请输入你的回答，或点击语音回答')
   await answerInput.waitFor()
   assert.equal(await answerInput.isDisabled(), false, '首题出现后文字输入应立即可用')
@@ -105,11 +96,8 @@ try {
   assert.equal((await page.locator('.status-strip > span').textContent())?.trim(), '已结束')
   assert.equal(await page.getByRole('button', { name: '重新开始' }).isDisabled(), false)
 
-  releaseAvatarRequests()
-  await page.waitForTimeout(50)
   await context.close()
-  console.log('AI interview fail-open flow passed with avatar config intentionally left pending.')
+  console.log('AI interview fail-open flow passed without a placeholder avatar image.')
 } finally {
-  releaseAvatarRequests()
   await browser.close()
 }

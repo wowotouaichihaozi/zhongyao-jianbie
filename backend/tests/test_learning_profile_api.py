@@ -1203,6 +1203,7 @@ class LearningProfileApiTests(unittest.TestCase):
             queue_resources.assert_called_once()
             queued_config = queue_resources.call_args.args[1]
             self.assertEqual(len(queued_config["weeks"]), 1)
+            self.assertEqual(queue_resources.call_args.kwargs["stage_ids"], ["week-1"])
             final_updates = [
                 call.kwargs
                 for call in update_task.call_args_list
@@ -1234,7 +1235,15 @@ class LearningProfileApiTests(unittest.TestCase):
                     "enabled": True,
                 }
             ],
-            "stages": {stage_id: {"id": stage_id, "nodes": []}},
+            "stages": {
+                stage_id: {
+                    "id": stage_id,
+                    "nodes": [
+                        {"id": "01", "cacheKey": "next-week-viewed-01", "enabled": True},
+                        {"id": "02", "cacheKey": "next-week-viewed-02", "enabled": True},
+                    ],
+                }
+            },
         }
         generated = {
             **existing,
@@ -1263,6 +1272,19 @@ class LearningProfileApiTests(unittest.TestCase):
                 101,
                 profile_report_id=profile_id,
             )
+            for node_id in ("01", "02"):
+                app_module.upsert_learning_path_node_cache(
+                    conn,
+                    101,
+                    f"next-week-viewed-{node_id}",
+                    {
+                        "stageId": stage_id,
+                        "nodeId": node_id,
+                        "profileReportId": profile_id,
+                        "viewedAt": 1788076800000,
+                        "viewSource": "learning-path-task-open",
+                    },
+                )
         captured = {}
 
         def fake_generation(user_id, payload, context, **_kwargs):
@@ -1284,6 +1306,171 @@ class LearningProfileApiTests(unittest.TestCase):
             self.assertEqual(len(captured["payload"]["existingConfig"]["weeks"]), 1)
         finally:
             with app_module.auth_db() as conn:
+                conn.execute(
+                    "DELETE FROM learning_path_profile_configs WHERE user_id = ? AND profile_report_id = ?",
+                    (101, profile_id),
+                )
+                conn.execute(
+                    "DELETE FROM learning_path_node_caches WHERE user_id = 101 AND cache_key LIKE 'next-week-viewed-%'"
+                )
+                app_module.write_learning_path_config(conn, original_config, 101)
+                if original_active:
+                    app_module.activate_profile(conn, 101, original_active["id"])
+
+    def test_generate_next_week_requires_every_current_week_task_to_be_viewed(self) -> None:
+        profile_id = int(self.profile_one["id"])
+        stage_id = "week-view-gate"
+        config = {
+            "version": 2,
+            "meta": {"profileReportId": profile_id, "totalWeeks": 6, "generationState": "partial"},
+            "weeks": [{"id": stage_id, "order": 1, "enabled": True}],
+            "stages": {
+                stage_id: {
+                    "id": stage_id,
+                    "nodes": [
+                        {"id": "01", "cacheKey": "view-gate-01", "enabled": True},
+                        {"id": "02", "cacheKey": "view-gate-02", "enabled": True},
+                    ],
+                }
+            },
+        }
+        with app_module.auth_db() as conn:
+            original_active = app_module.active_profile_for_user(conn, 101)
+            original_config = app_module.read_learning_path_config(conn, 101)
+            app_module.activate_profile(conn, 101, profile_id)
+            app_module.write_learning_path_config(conn, config, 101, profile_report_id=profile_id)
+            app_module.upsert_learning_path_node_cache(
+                conn,
+                101,
+                "view-gate-01",
+                {
+                    "stageId": stage_id,
+                    "nodeId": "01",
+                    "profileReportId": profile_id,
+                    "viewedAt": 1788076800000,
+                    "viewSource": "learning-path-task-open",
+                },
+            )
+        try:
+            with patch.object(app_module, "_run_learning_path_generation") as generation:
+                response = self.client.post(
+                    "/api/learning-path/generate-next-week",
+                    headers=self.headers,
+                    json={"profileReportId": profile_id},
+                )
+
+            self.assertEqual(response.status_code, 409)
+            payload = response.get_json()
+            self.assertEqual(payload["data"]["viewProgress"]["viewedCount"], 1)
+            self.assertEqual(payload["data"]["viewProgress"]["taskCount"], 2)
+            self.assertEqual(payload["data"]["viewProgress"]["missingNodeIds"], ["02"])
+            generation.assert_not_called()
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute("DELETE FROM learning_path_node_caches WHERE user_id = 101 AND cache_key LIKE 'view-gate-%'")
+                conn.execute(
+                    "DELETE FROM learning_path_profile_configs WHERE user_id = ? AND profile_report_id = ?",
+                    (101, profile_id),
+                )
+                app_module.write_learning_path_config(conn, original_config, 101)
+                if original_active:
+                    app_module.activate_profile(conn, 101, original_active["id"])
+
+    def test_learning_path_summary_omits_heavy_stage_payloads(self) -> None:
+        response = self.client.get("/api/learning-path/config?summary=1", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        config = response.get_json()["data"]
+        self.assertEqual(config["stages"], {})
+        self.assertIn("weeks", config)
+        self.assertIn("meta", config)
+
+    def test_last_task_view_queues_exactly_one_next_week_background_job(self) -> None:
+        profile_id = int(self.profile_one["id"])
+        stage_id = "week-auto-advance"
+        config = {
+            "version": 2,
+            "meta": {"profileReportId": profile_id, "totalWeeks": 6, "generationState": "partial"},
+            "weeks": [{"id": stage_id, "order": 1, "enabled": True}],
+            "stages": {
+                stage_id: {
+                    "id": stage_id,
+                    "nodes": [
+                        {"id": "01", "cacheKey": "auto-advance-01", "enabled": True},
+                        {"id": "02", "cacheKey": "auto-advance-02", "enabled": True},
+                    ],
+                }
+            },
+        }
+        submitted = []
+
+        class FakeExecutor:
+            def submit(self, callback, *args):
+                submitted.append((callback, args))
+
+        task_id = ""
+        with app_module.auth_db() as conn:
+            original_active = app_module.active_profile_for_user(conn, 101)
+            original_config = app_module.read_learning_path_config(conn, 101)
+            app_module.activate_profile(conn, 101, profile_id)
+            app_module.write_learning_path_config(conn, config, 101, profile_report_id=profile_id)
+            app_module.upsert_learning_path_node_cache(
+                conn,
+                101,
+                "auto-advance-01",
+                {
+                    "stageId": stage_id,
+                    "nodeId": "01",
+                    "profileReportId": profile_id,
+                    "viewedAt": 1788076800000,
+                    "viewSource": "learning-path-task-open",
+                },
+            )
+        try:
+            with (
+                patch.object(app_module, "LEARNING_PATH_GENERATION_EXECUTOR", FakeExecutor()),
+                patch.object(app_module, "xiaozhi_insert_event"),
+            ):
+                response = self.client.put(
+                    "/api/learning-path/node-caches/auto-advance-02",
+                    headers=self.headers,
+                    json={
+                        "entry": {
+                            "stageId": stage_id,
+                            "nodeId": "02",
+                            "profileReportId": profile_id,
+                            "viewedAt": 1788076801000,
+                            "viewSource": "learning-path-task-open",
+                        }
+                    },
+                )
+                repeated = self.client.put(
+                    "/api/learning-path/node-caches/auto-advance-02",
+                    headers=self.headers,
+                    json={
+                        "entry": {
+                            "stageId": stage_id,
+                            "nodeId": "02",
+                            "profileReportId": profile_id,
+                            "viewedAt": 1788076802000,
+                            "viewSource": "learning-path-task-open",
+                        }
+                    },
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(repeated.status_code, 200)
+            first_task = response.get_json()["data"]["nextWeekTask"]
+            second_task = repeated.get_json()["data"]["nextWeekTask"]
+            task_id = str(first_task["taskId"])
+            self.assertEqual(second_task["taskId"], task_id)
+            self.assertEqual(len(submitted), 1)
+            self.assertEqual(submitted[0][1][-2:], ("week_tasks_viewed", stage_id))
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute("DELETE FROM learning_path_node_caches WHERE user_id = 101 AND cache_key LIKE 'auto-advance-%'")
+                if task_id:
+                    conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
                 conn.execute(
                     "DELETE FROM learning_path_profile_configs WHERE user_id = ? AND profile_report_id = ?",
                     (101, profile_id),

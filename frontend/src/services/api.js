@@ -598,8 +598,10 @@ export async function generateLearningPathStream(payload, onEvent, options = {})
   return result
 }
 
-export async function getLearningPathConfig() {
-  const { data } = await apiClient.get('/api/learning-path/config')
+export async function getLearningPathConfig(options = {}) {
+  const { data } = await apiClient.get('/api/learning-path/config', {
+    params: { summary: options.summary === true ? 1 : 0 },
+  })
   return data?.data || data
 }
 
@@ -649,6 +651,7 @@ export async function saveLearningPathNodeCache(cacheKey, entry) {
   if (!token) return null
   const response = await fetch(makeApiUrl(`/api/learning-path/node-caches/${encodeURIComponent(cacheKey)}`), {
     method: 'PUT',
+    keepalive: true,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
@@ -658,7 +661,7 @@ export async function saveLearningPathNodeCache(cacheKey, entry) {
   })
   if (!response.ok) return null
   const data = await response.json().catch(() => ({}))
-  return data?.data?.entry || data?.data || data
+  return data?.data || data
 }
 
 export async function generateLearningPathStageDetail(payload) {
