@@ -35,6 +35,9 @@ try {
       }),
     })
   })
+  await page.route('**/api/xiaozhi/events', route => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
+  await page.route('**/api/xiaozhi/status', route => route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{"tasks":[],"agents":[]}}' }))
+  await page.route('**/api/learning-activity/pulse', route => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
 
   await page.goto(`${baseUrl}${targetPath}`, { waitUntil: 'domcontentloaded' })
   await page.locator('.auth-modal-panel').waitFor({ state: 'visible' })

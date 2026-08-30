@@ -3,7 +3,7 @@ import { getCurrentUser } from '../services/api.js'
 import { clearAuthSession, getAuthToken, readCurrentUser, setAuthSession } from '../stores/auth.js'
 import { safeInternalRedirect } from '../utils/authRedirect.js'
 
-const AuthPage = () => import('../views/AuthPage.vue')
+const AuthPage = () => import('../views/HerbWiseLoginPage.vue')
 const QuestionGeneratorView = () => import('../views/QuestionGeneratorView.vue')
 const QuestionExamSessionView = () => import('../views/QuestionExamSessionView.vue')
 const LearningProfileView = () => import('../views/LearningProfileView.vue')
