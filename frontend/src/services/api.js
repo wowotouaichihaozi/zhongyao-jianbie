@@ -28,10 +28,6 @@ function makeDirectApiUrl(path) {
   return `${directApiBaseUrl}${normalizedPath}`
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 function clearAuthAndRedirect() {
   const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
   if (isLocalHost && localStorage.getItem(CODEX_PREVIEW_AUTH_KEY) === '1') return
@@ -339,90 +335,6 @@ export async function streamLearningProfileBackgroundChat(payload, onEvent, opti
     body: JSON.stringify(payload),
   })
 
-  if (!response.ok) {
-    let errorPayload = null
-    try {
-      errorPayload = await response.clone().json()
-    } catch {
-      errorPayload = null
-    }
-
-    const message = errorPayload?.msg || errorPayload?.message || ''
-    const streamRouteMissing = response.status === 404 && /删除|not found|missing/i.test(message)
-    if (!streamRouteMissing) {
-      await consumeSseResponse(response, onEvent)
-      return
-    }
-
-    if (typeof onEvent === 'function') {
-      await onEvent({
-        event: 'progress',
-        data: {
-          agent: 'learning-background-dialogue-agent',
-          stage: 'stream_route_missing',
-          source: 'http-fallback',
-          message: '当前后端未注册流式接口，已切换到普通大模型接口并在前端模拟流式输出',
-          originalError: errorPayload,
-        },
-      })
-    }
-
-    const { data } = await apiClient.post('/api/learning-profile/background-chat', payload, {
-      signal: options.signal,
-    })
-    if (data?.code !== 0 || !data?.data) {
-      throw new Error(data?.msg || data?.message || '调用学习背景对话智能体失败')
-    }
-
-    const result = data.data
-    const reply = String(result.reply || result.question || '')
-    if (typeof onEvent === 'function') {
-      await onEvent({
-        event: 'progress',
-        data: {
-          agent: 'learning-background-dialogue-agent',
-          stage: 'stream_reply',
-          source: result.source || 'llm',
-          message: '普通接口已返回，正在前端模拟流式输出',
-          status: result.status,
-          completeness: result.completeness,
-          missingFields: result.missingFields || [],
-        },
-      })
-      for (let index = 0; index < reply.length; index += 4) {
-        await onEvent({
-          event: 'delta',
-          data: {
-            agent: 'learning-background-dialogue-agent',
-            source: result.source || 'llm',
-            text: reply.slice(index, index + 4),
-          },
-        })
-        await sleep(40)
-      }
-      await onEvent({
-        event: 'result',
-        data: {
-          agent: 'learning-background-dialogue-agent',
-          stage: 'complete',
-          source: result.source || 'llm',
-          message: '学习背景对话本轮输出完成',
-          data: result,
-        },
-      })
-      await onEvent({
-        event: 'done',
-        data: {
-          agent: 'learning-background-dialogue-agent',
-          stage: 'done',
-          source: result.source || 'llm',
-          message: '学习背景对话流已结束',
-        },
-      })
-    }
-    return
-  }
-
   await consumeSseResponse(response, async (parsed) => {
     if (typeof onEvent === 'function') {
       await onEvent(parsed)
@@ -485,6 +397,26 @@ export async function getLearningProfileSession(sessionId) {
 export async function sendLearningProfileSessionMessage(sessionId, content, attachments = []) {
   const { data } = await apiClient.post(`/api/learning-profile/sessions/${sessionId}/messages`, { content, attachments }, { timeout: 120000 })
   return data?.data
+}
+
+export async function streamLearningProfileSessionMessage(sessionId, content, attachments = [], onEvent, options = {}) {
+  const token = getAuthToken()
+  const response = await fetch(makeApiUrl(`/api/learning-profile/sessions/${sessionId}/messages-stream`), {
+    method: 'POST',
+    credentials: 'include',
+    signal: options.signal,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ content, attachments }),
+  })
+
+  await consumeSseResponse(response, async (parsed) => {
+    if (typeof onEvent === 'function') {
+      await onEvent(parsed)
+    }
+  })
 }
 
 export async function uploadMultimodalInputs(files, context = 'chat', route = '') {
@@ -589,6 +521,11 @@ export async function applyEffectAssessmentAdjustment(profileId, planId) {
 
 export async function renameLearningProfile(reportId, profileName) {
   const { data } = await apiClient.patch(`/api/learning-profile/profiles/${reportId}`, { profileName })
+  return data.data
+}
+
+export async function deleteLearningProfile(reportId) {
+  const { data } = await apiClient.delete(`/api/learning-profile/profiles/${reportId}`)
   return data.data
 }
 
@@ -909,6 +846,26 @@ export async function pulseLearningActivity(payload, options = {}) {
 export async function chatWithXiaoZhi(payload) {
   const { data } = await apiClient.post('/api/xiaozhi/chat', payload, { timeout: 90000 })
   return data
+}
+
+export async function streamXiaoZhiChat(payload, onEvent, options = {}) {
+  const token = getAuthToken()
+  const response = await fetch(makeApiUrl('/api/xiaozhi/chat-stream'), {
+    method: 'POST',
+    credentials: 'include',
+    signal: options.signal,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  })
+
+  await consumeSseResponse(response, async (parsed) => {
+    if (typeof onEvent === 'function') {
+      await onEvent(parsed)
+    }
+  })
 }
 
 export async function getXiaoZhiHistory(taskLimit = 20) {

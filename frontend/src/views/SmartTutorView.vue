@@ -187,7 +187,7 @@ import {
   Volume2,
   Workflow,
 } from 'lucide-vue-next'
-import { chatWithXiaoZhi, getXiaoZhiTask } from '../services/api.js'
+import { getXiaoZhiTask, streamXiaoZhiChat } from '../services/api.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -250,11 +250,15 @@ async function submitFollowUp() {
       firstQuestion ? `当前追问：${firstQuestion}` : '',
       `我的回答或追问：${learnerReply}`,
     ].filter(Boolean).join('\n')
-    const response = await chatWithXiaoZhi({ message, route: route.fullPath })
-    const cards = response?.data?.cards || []
+    let result = null
+    await streamXiaoZhiChat({ message, route: route.fullPath }, async ({ event, data }) => {
+      if (event === 'result') result = data?.data || data || {}
+      if (event === 'error') throw new Error(data?.message || data?.error || '岐小智智能体调用失败')
+    })
+    const cards = result?.cards || []
     const nextTask = cards.find(item => String(item?.type || item?.taskType || '') === 'smart_tutor')
     if (!nextTask?.taskId) {
-      throw new Error(response?.data?.reply || '岐小智没有创建下一轮辅导任务')
+      throw new Error(result?.reply || '岐小智没有创建下一轮辅导任务')
     }
     followUpDraft.value = ''
     await router.push({

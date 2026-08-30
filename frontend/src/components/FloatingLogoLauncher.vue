@@ -3,136 +3,47 @@
     class="xiaozhi-float"
     :class="{ dragging: isDragging, open: isOpen }"
     :style="floatStyle"
-    @pointerdown="handlePointerDown"
   >
-    <button class="xiaozhi-orb" type="button" aria-label="打开岐小智" @click.prevent>
+    <button
+      class="xiaozhi-orb"
+      type="button"
+      :aria-label="isOpen ? '关闭岐小智' : '打开岐小智'"
+      :aria-expanded="isOpen"
+      @pointerdown="handlePointerDown"
+      @click.stop="handleOrbClick"
+    >
       <picture>
         <img class="xiaozhi-orb-logo" src="/qihuang-zhijing-mark-512.png" alt="岐小智" draggable="false" decoding="async" />
       </picture>
       <span class="orb-pulse" aria-hidden="true"></span>
-      <span v-if="runningTaskCount" class="task-dot">{{ runningTaskCount }}</span>
+      <span v-if="unreadCount" class="task-dot" :aria-label="`${unreadCount} 条未读动态`">{{ unreadBadgeText }}</span>
     </button>
 
     <Transition name="motion-pop">
-    <section v-if="isOpen" class="xiaozhi-window" :class="windowPlacement" :style="windowStyle" @pointerdown.stop>
+    <section v-if="isOpen" class="xiaozhi-window" :class="[windowPlacement, { wide: activeTab === 'status' }]" :style="windowStyle" @pointerdown.stop>
       <header class="window-head">
         <div class="title-block">
-          <span class="eyebrow">Learning Companion</span>
           <strong>岐小智</strong>
-          <p>陪你研读经典、辨析方药的中医学习伙伴</p>
         </div>
         <div class="window-head-actions">
-          <button type="button" class="icon-btn" aria-label="智能体运行设置" title="智能体运行设置" @click.stop="openRuntimeSettings">
-            <Settings :size="18" />
-          </button>
           <button type="button" class="icon-btn" aria-label="关闭岐小智" @click.stop="isOpen = false">
             <X :size="18" />
           </button>
         </div>
       </header>
 
-      <div class="mode-tabs" role="tablist" aria-label="岐小智功能">
-        <button type="button" :class="{ active: activeTab === 'chat' }" @click="activeTab = 'chat'">
-          <MessageCircle :size="16" />
-          陪伴式助手
-        </button>
-        <button type="button" :class="{ active: activeTab === 'status' }" @click="openStatusTab">
-          <Activity :size="16" />
-          Agent Harness
-        </button>
-      </div>
-
-      <Transition name="motion-panel" mode="out-in">
-      <form v-if="showRuntimeSettings" key="settings" class="runtime-settings-panel" @submit.prevent="saveRuntimeSettings">
-        <header class="runtime-settings-head">
-          <div>
-            <span>Agent Harness</span>
-            <strong>智能体运行设置</strong>
-          </div>
-          <button type="button" class="icon-btn" aria-label="关闭设置" @click="showRuntimeSettings = false">
-            <X :size="17" />
-          </button>
-        </header>
-
-        <label class="runtime-toggle">
-          <span>
-            <strong>使用自定义模型配置</strong>
-            <small>关闭后使用平台统一配置</small>
-          </span>
-          <input v-model="runtimeSettings.enabled" type="checkbox" />
-        </label>
-
-        <label>
-          <span>调用协议</span>
-          <select v-model="runtimeSettings.protocol" :disabled="!runtimeSettings.enabled">
-            <option value="openai">讯飞 OpenAI 兼容接口</option>
-            <option value="anthropic">讯飞 Anthropic 兼容接口</option>
-          </select>
-        </label>
-
-        <label>
-          <span>API 地址</span>
-          <input
-            v-model.trim="runtimeSettings.baseUrl"
-            type="url"
-            :disabled="!runtimeSettings.enabled"
-            placeholder="https://maas-coding-api.cn-huabei-1.xf-yun.com/v2"
-          />
-        </label>
-
-        <label>
-          <span>模型名</span>
-          <input
-            v-model.trim="runtimeSettings.model"
-            type="text"
-            :disabled="!runtimeSettings.enabled"
-            placeholder="astron-code-latest"
-          />
-        </label>
-
-        <div class="runtime-security-note">
-          <ShieldCheck :size="16" />
-          <span>沿用平台服务端凭据；API 地址必须位于安全白名单，不会在浏览器保存密钥。</span>
-        </div>
-
-        <p v-if="runtimeSettingsMessage" :class="['runtime-settings-message', runtimeSettingsState]">
-          {{ runtimeSettingsMessage }}
-        </p>
-
-        <footer class="runtime-settings-actions">
-          <button type="button" class="ghost-btn" @click="usePlatformRuntime">平台默认</button>
-          <button type="button" class="ghost-btn" :disabled="testingRuntime" @click="testRuntimeSettings">
-            {{ testingRuntime ? '测试中' : '测试连接' }}
-          </button>
-          <button class="send-btn" type="submit" :disabled="savingRuntime || testingRuntime">
-            {{ savingRuntime ? (runtimeSettings.enabled ? '测试并保存中' : '保存中') : (runtimeSettings.enabled ? '测试并保存' : '保存设置') }}
-          </button>
-        </footer>
-      </form>
-
-      <div v-else-if="activeTab === 'chat'" key="chat" class="chat-panel">
+      <div v-if="activeTab === 'chat'" key="chat" class="chat-panel">
         <div ref="messageListRef" class="chat-scroll-area">
           <div class="message-list">
           <div v-if="messages.length === 0 && agentConversationGroups.length === 0 && !agentConversation?.summary" class="empty-chat">
             <Sparkles :size="22" />
             <strong>你好，我是岐小智</strong>
-            <p>我会记录你的学习画像、答题和研读状态。你也可以直接让我生成 PPT、思维导图、视频或题库。</p>
           </div>
 
           <section
             class="agent-group-chat"
             aria-label="当前学习画像的多智能体群聊"
           >
-            <header class="agent-group-chat-head">
-              <span><Network :size="15" />画像协同群聊</span>
-              <small>{{ agentConversation?.messageCount || 0 }} 条记录</small>
-            </header>
-
-            <article v-if="!agentConversationGroups.length && !agentConversation?.summary" class="agent-conversation-empty">
-              <strong>暂无协同记录</strong>
-              <span>发送消息、生成学习路径或创建资源后，岐小智和各专家智能体的动作会写入这里。</span>
-            </article>
-
             <article v-if="agentConversation?.summary" class="agent-conversation-card compacted-history">
               <button type="button" class="agent-conversation-main" @click="toggleConversationGroup('compacted-summary')">
                 <span class="agent-conversation-icon"><Archive :size="15" /></span>
@@ -155,15 +66,28 @@
               :class="['agent-conversation-card', group.status]"
             >
               <button type="button" class="agent-conversation-main" @click="toggleConversationGroup(group.key)">
-                <span class="agent-conversation-icon">
-                  <LoaderCircle v-if="group.status === 'running'" class="spin" :size="15" />
-                  <CircleAlert v-else-if="group.status === 'failed'" :size="15" />
-                  <Network v-else :size="15" />
+                <span class="agent-conversation-icon" :style="agentAvatarStyle(group.primaryAgentId)">
+                  <component :is="agentVisual(group.primaryAgentId).icon" :size="15" />
                 </span>
                 <span class="agent-conversation-copy">
-                  <small>{{ group.agentNames }} · {{ conversationStatusLabel(group.status) }}</small>
-                  <strong>{{ group.title }}</strong>
+                  <small>{{ group.flowLabel }}</small>
+                  <strong>{{ group.collaborationTitle }}</strong>
                   <em>{{ group.summary }}</em>
+                  <span class="conversation-handoff-strip" aria-label="协同交接动态">
+                    <i
+                      v-for="step in group.collaborationSteps"
+                      :key="`${group.key}-${step.agent}-${step.text}`"
+                      :class="step.status"
+                    >
+                      <b></b>
+                      {{ step.text }}
+                    </i>
+                  </span>
+                  <span class="conversation-card-meta">
+                    <i v-if="group.resourceLabel">{{ group.resourceLabel }}</i>
+                    <i v-if="group.citationCount">引用 {{ group.citationCount }}</i>
+                    <i v-if="group.qualityScore !== null">评分 {{ group.qualityScore }}</i>
+                  </span>
                 </span>
                 <ChevronUp v-if="isConversationGroupExpanded(group.key)" :size="17" />
                 <ChevronDown v-else :size="17" />
@@ -176,7 +100,13 @@
               <div v-if="isConversationGroupExpanded(group.key)" class="agent-conversation-details">
                 <ol>
                   <li v-for="entry in group.messages" :key="entry.id || `${group.key}-${entry.sequence}`">
-                    <span class="conversation-entry-marker"></span>
+                    <span
+                      class="conversation-entry-avatar"
+                      :style="agentAvatarStyle(entry.agentId)"
+                      :title="compactAgentName(entry.agentName, entry.agentId)"
+                    >
+                      <component :is="agentVisual(entry.agentId).icon" :size="13" />
+                    </span>
                     <div>
                       <header>
                         <strong>{{ entry.agentName || entry.agentId }}</strong>
@@ -184,6 +114,12 @@
                       </header>
                       <p>{{ entry.content }}</p>
                       <small v-if="conversationDetailText(entry)">{{ conversationDetailText(entry) }}</small>
+                      <span v-if="conversationCitations(entry).length" class="conversation-citations">
+                        <span v-for="citation in conversationCitations(entry).slice(0, 4)" :key="citation.id || citation.title || citation.excerpt">
+                          <strong>{{ citation.title || citation.source || '知识库引用' }}</strong>
+                          <small>{{ citation.excerpt || citation.content || citation.snippet }}</small>
+                        </span>
+                      </span>
                       <span v-if="entry.resourceReferences?.length" class="conversation-references">
                         <i v-for="reference in entry.resourceReferences.slice(0, 6)" :key="`${reference.type}-${reference.id}`">
                           {{ reference.type }} · {{ reference.id }}
@@ -192,24 +128,40 @@
                     </div>
                   </li>
                 </ol>
-                <a
+                <button
                   v-if="group.route"
+                  type="button"
                   class="conversation-resource-link"
-                  :href="resolveRouteHref(group.route)"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  @click="openConversationRoute(group)"
                 >
                   打开对应资源
                   <ExternalLink :size="14" />
-                </a>
+                </button>
               </div>
             </article>
           </section>
 
           <template v-for="(message, index) in messages" :key="`${message.createdAt || index}-${index}`">
             <article class="message" :class="message.role">
+              <span
+                class="message-avatar"
+                :class="{ learner: message.role === 'user' }"
+                :style="messageAvatarStyle(message)"
+                :title="messageAgentVisual(message).name"
+              >
+                <img
+                  v-if="message.role === 'user'"
+                  :src="learnerAvatar"
+                  alt="我的头像"
+                  @error="resetLearnerAvatar"
+                />
+                <component v-else :is="messageAgentVisual(message).icon" :size="16" />
+              </span>
               <div class="bubble">
-                <p>{{ message.content }}</p>
+                <p v-if="message.content">{{ message.content }}</p>
+                <p v-else-if="message.streaming" class="typing-ellipsis" aria-label="正在回复">
+                  <span></span><span></span><span></span>
+                </p>
                 <div v-if="message.attachments?.length" class="message-attachments">
                   <a
                     v-for="attachment in message.attachments"
@@ -268,12 +220,6 @@
 
           <ResourceTaskStatusBanner embedded />
 
-          <article v-if="isSending" class="message assistant pending">
-            <div class="bubble">
-              <LoaderCircle :size="16" class="spin" />
-              <p>岐小智正在分析你的学习上下文...</p>
-            </div>
-          </article>
           </div>
         </div>
 
@@ -289,11 +235,34 @@
           <input ref="assistantVideoInputRef" type="file" accept="video/*" multiple hidden @change="queueAssistantAttachments" />
           <input ref="assistantFileInputRef" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md" multiple hidden @change="queueAssistantAttachments" />
           <textarea
+            ref="composerInputRef"
             v-model="draft"
             rows="2"
-            placeholder="告诉岐小智你的学习情况，或说：生成八纲辨证课程的 PPT..."
+            placeholder="输入 @ 选择智能体；不点名时由岐小智回复"
+            @input="updateMentionContext"
+            @click="updateMentionContext"
+            @select="updateMentionContext"
+            @blur="closeMentionMenu"
             @keydown="handleComposerKeydown"
           ></textarea>
+          <div v-if="mentionMenuOpen" class="agent-mention-menu" role="listbox" aria-label="选择智能体">
+            <button
+              v-for="(agent, index) in filteredMentionAgents"
+              :key="agent.id"
+              type="button"
+              class="agent-mention-option"
+              role="option"
+              :aria-selected="index === mentionSelectionIndex"
+              :class="{ active: index === mentionSelectionIndex }"
+              @mouseenter="mentionSelectionIndex = index"
+              @mousedown.prevent="completeAgentMention(agent)"
+            >
+              <span class="mention-agent-avatar" :style="agentAvatarStyle(agent.id)">
+                <component :is="agent.icon" :size="15" />
+              </span>
+              <strong>{{ agent.name }}</strong>
+            </button>
+          </div>
           <p v-if="sendError" class="composer-error" role="alert">
             <CircleAlert :size="15" />
             <span>{{ sendError }}</span>
@@ -314,65 +283,149 @@
         </form>
       </div>
 
-      <div v-else key="status" class="status-panel">
+      <div v-else key="status" class="status-panel real-runtime-panel">
         <div class="status-toolbar">
           <div>
-            <strong>智能体连接状态</strong>
-            <p>岐小智总控与专项智能体实时编排拓扑</p>
+            <strong>真实协作记录</strong>
+            <p>仅展示 Harness 已保存的实际调用与交接</p>
           </div>
-          <button type="button" class="refresh-btn icon-only" title="刷新智能体状态" aria-label="刷新智能体状态" @click="loadStatus">
+          <button type="button" class="refresh-btn icon-only" title="刷新协作记录" aria-label="刷新协作记录" @click="loadStatus">
             <RefreshCw :size="16" />
           </button>
         </div>
 
-        <div v-if="harnessStatus" class="harness-summary">
-          <span><strong>Harness</strong>{{ harnessStatus.version || '1.0.0' }}</span>
-          <span><strong>{{ harnessStatus.skillRegistry?.skillCount || 0 }}</strong> Skills</span>
-          <span><strong>{{ harnessStatus.mcpGateway?.toolCount || 0 }}</strong> MCP Tools</span>
-          <span><strong>{{ harnessStatus.mcpGateway?.servers?.length || 0 }}</strong> MCP Servers</span>
+        <div v-if="selectedOrchestrationRun" class="runtime-run-picker">
+          <label for="xiaozhi-real-run">查看任务</label>
+          <select id="xiaozhi-real-run" v-model="selectedRunId">
+            <option v-for="run in realOrchestrationRuns" :key="run.runId" :value="run.runId">
+              {{ runOptionLabel(run) }}
+            </option>
+          </select>
         </div>
 
-        <section class="agent-topology" aria-label="岐小智智能体连接流程图">
+        <section class="agent-topology" aria-label="岐小智真实智能体协作记录">
           <div class="topology-activity">
             <Activity :size="15" />
             <span>{{ harnessActivityText }}</span>
           </div>
 
-          <article :class="['master-agent-node', normalizeStatus(masterAgent.status)]">
-            <span class="agent-node-icon"><BrainCircuit :size="20" /></span>
-            <span class="agent-node-copy">
-              <small>Supervisor</small>
-              <strong>{{ agentDisplayName(masterAgent) }}</strong>
-              <span>{{ masterAgent.detail }}</span>
-            </span>
-            <em><i :class="['agent-light', normalizeStatus(masterAgent.status)]"></i>{{ statusText(masterAgent.status) }}</em>
-          </article>
-
-          <div class="flow-trunk" aria-hidden="true">
-            <span></span>
-            <small>Harness 调度通道</small>
-          </div>
-
-          <div class="specialist-flow-grid">
-            <article
-              v-for="agent in specialistAgents"
-              :key="agent.id"
-              :class="['specialist-agent-node', normalizeStatus(agent.status)]"
-              :title="agent.detail"
-            >
-              <span class="agent-node-icon"><component :is="agentIcon(agent)" :size="17" /></span>
-              <span class="agent-node-copy">
-                <small>{{ agentRoleText(agent) }}</small>
-                <strong>{{ agentDisplayName(agent) }}</strong>
-              <span>{{ agentDetail(agent) }}</span>
-              </span>
-              <i :class="['agent-light', normalizeStatus(agent.status)]" :title="statusText(agent.status)"></i>
+          <template v-if="selectedOrchestrationRun">
+            <article class="real-run-summary">
+              <header>
+                <span>{{ runTaskLabel(selectedOrchestrationRun) }}</span>
+                <em :class="normalizeStatus(selectedOrchestrationRun.status)">
+                  {{ statusText(selectedOrchestrationRun.status) }}
+                </em>
+              </header>
+              <strong>{{ selectedOrchestrationRun.topic || '未命名协作任务' }}</strong>
+              <p>
+                {{ formatRunTime(selectedOrchestrationRun.updatedAt || selectedOrchestrationRun.createdAt) }}
+                <span v-if="selectedOrchestrationRun.harness?.skillId">· {{ selectedOrchestrationRun.harness.skillId }}</span>
+              </p>
+              <dl>
+                <div><dt>实际参与</dt><dd>{{ selectedRunAgents.length }}</dd></div>
+                <div><dt>真实交接</dt><dd>{{ selectedRunHandoffs.length }}</dd></div>
+                <div><dt>执行事件</dt><dd>{{ selectedOrchestrationRun.eventCount || selectedOrchestrationRun.events?.length || 0 }}</dd></div>
+                <div><dt>审核得分</dt><dd>{{ selectedOrchestrationRun.review?.score ?? '--' }}</dd></div>
+              </dl>
             </article>
+
+            <section class="harness-flow-section" aria-label="Agent Harness 智能体协作流程">
+              <header>
+                <strong>真实协作流程</strong>
+                <span>点击节点查看详情 · 含审核回退与学习反馈闭环</span>
+              </header>
+
+              <div class="harness-flow-canvas" role="list">
+                <template v-for="(node, index) in harnessFlowNodes" :key="node.id">
+                  <button
+                    v-if="index > 0"
+                    type="button"
+                    class="harness-flow-link"
+                    :title="node.edgeLabel || '协作流转'"
+                    @click="openHarnessNodeDetail(node.edgeNode)"
+                  >
+                    <MoveRight v-if="node.edgeDirection !== 'both'" :size="14" />
+                    <MoveHorizontal v-else :size="15" />
+                    <span>{{ node.edgeLabel }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="listitem"
+                    :class="['harness-flow-node', node.kind, normalizeStatus(node.status), { active: selectedHarnessNodeId === node.id }]"
+                    @click="openHarnessNodeDetail(node)"
+                  >
+                    <span class="harness-node-icon"><component :is="agentIcon(node.agent)" :size="15" /></span>
+                    <strong>{{ node.label }}</strong>
+                    <small>{{ statusText(node.status) }}</small>
+                    <i class="harness-node-light" aria-hidden="true"></i>
+                  </button>
+                </template>
+              </div>
+
+              <div class="harness-loop-rail">
+                <button type="button" class="harness-loop-edge review" @click="openHarnessNodeDetail(harnessLoopEdges.reviewRevision.from)">
+                  <RotateCcw :size="13" />
+                  <span>未通过 · 携带问题回退生成</span>
+                </button>
+                <button type="button" class="harness-loop-edge assessment" @click="openHarnessNodeDetail(harnessLoopEdges.assessmentFeedback.from)">
+                  <RefreshCw :size="13" />
+                  <span>评估反馈 · 更新画像后重新调度</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="harness-runtime-brief" aria-label="真实交接摘要">
+              <div class="harness-brief-card">
+                <strong>真实交接</strong>
+                <p>{{ selectedRunHandoffs.length ? selectedRunHandoffs[0].summary || '已完成结构化上下文交接' : '本次运行暂无交接记录' }}</p>
+              </div>
+              <div class="harness-brief-card">
+                <strong>最近产物</strong>
+                <p>{{ latestHarnessArtifact || '等待资源生成完成' }}</p>
+              </div>
+            </section>
+          </template>
+
+          <div v-else class="real-run-empty">
+            <Network :size="28" />
+            <strong>暂无真实协作记录</strong>
+            <p>创建一次画像、路径或资源任务后，这里将显示实际参与者和交接关系。</p>
           </div>
         </section>
       </div>
-      </Transition>
     </section>
+    </Transition>
+    <Transition name="fade">
+      <div v-if="selectedHarnessNodeDetail" class="harness-node-overlay" @click.self="closeHarnessNodeDetail">
+        <article class="harness-node-detail" role="dialog" aria-modal="true" :aria-label="selectedHarnessNodeDetail.label">
+          <header>
+            <span><component :is="agentIcon(selectedHarnessNodeDetail.agent)" :size="17" /></span>
+            <div>
+              <small>{{ selectedHarnessNodeDetail.stage }}</small>
+              <strong>{{ selectedHarnessNodeDetail.label }}</strong>
+            </div>
+            <button type="button" @click="closeHarnessNodeDetail">
+              <X :size="16" />
+            </button>
+          </header>
+          <dl>
+            <div><dt>运行状态</dt><dd>{{ statusText(selectedHarnessNodeDetail.status) }}</dd></div>
+            <div><dt>运行详情</dt><dd>{{ selectedHarnessNodeDetail.description }}</dd></div>
+            <div><dt>执行事件</dt><dd>{{ selectedHarnessNodeDetail.eventCount }} 个</dd></div>
+            <div><dt>更新时间</dt><dd>{{ selectedHarnessNodeDetail.time }}</dd></div>
+          </dl>
+          <div class="harness-node-handoffs">
+            <strong>相关交接</strong>
+            <p v-for="handoff in selectedHarnessNodeDetail.handoffs" :key="`${handoff.sequence}-${handoff.fromAgent}-${handoff.toAgent}`">
+              {{ handoffAgentName(handoff.fromAgent, handoff.fromAgentName) }} → {{ handoffAgentName(handoff.toAgent, handoff.toAgentName) }}
+              · {{ handoffArtifactLabel(handoff.artifactType) }}
+              <small>{{ handoff.summary }}</small>
+            </p>
+            <p v-if="!selectedHarnessNodeDetail.handoffs.length" class="empty">本次运行未保存该节点的结构化交接。</p>
+          </div>
+        </article>
+      </div>
     </Transition>
   </div>
 </template>
@@ -383,6 +436,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   Activity,
   Archive,
+  ArrowRight,
   BrainCircuit,
   BookOpenCheck,
   ChevronDown,
@@ -397,31 +451,33 @@ import {
   Map as MapIcon,
   MessageCircle,
   Mic,
+  MoveHorizontal,
+  MoveRight,
   Network,
   Paperclip,
   Presentation,
   RefreshCw,
+  RotateCcw,
   Search,
   SendHorizontal,
-  Settings,
   ShieldCheck,
   Sparkles,
   Video,
+  UserRound,
   X,
 } from 'lucide-vue-next'
 import ResourceTaskStatusBanner from './ResourceTaskStatusBanner.vue'
 import {
-  chatWithXiaoZhi,
   getXiaoZhiHistory,
-  getXiaoZhiRuntimeSettings,
   getXiaoZhiStatus,
   logXiaoZhiEvent,
-  saveXiaoZhiRuntimeSettings,
-  testXiaoZhiRuntimeSettings,
+  streamXiaoZhiChat,
   uploadMultimodalInputs,
 } from '../services/api.js'
 import { useGlobalDebug } from '../stores/globalDebug.js'
+import { readCurrentUser } from '../stores/auth.js'
 import { XIAOZHI_WORKFLOW_EVENT } from '../utils/xiaozhiWorkflowProgress.js'
+import { XIAOZHI_PROFILE_CONTEXT_EVENT } from '../utils/profileContextEvents.js'
 
 const STORAGE_KEY = 'qianxiaozhiFloatingPosition:v2'
 const DESKTOP_ORB_SIZE = 66
@@ -443,23 +499,18 @@ const pendingAttachments = ref([])
 const assistantImageInputRef = ref(null)
 const assistantVideoInputRef = ref(null)
 const assistantFileInputRef = ref(null)
+const composerInputRef = ref(null)
+const mentionCaretPosition = ref(0)
+const mentionSelectionIndex = ref(0)
+const activeMention = ref(null)
 const messages = ref([])
 const agentConversation = ref(null)
 const expandedConversationGroups = ref(new Set())
 const tasks = ref([])
 const agents = ref([])
+const orchestrationRuns = ref([])
+const selectedRunId = ref('')
 const harnessStatus = ref(null)
-const showRuntimeSettings = ref(false)
-const savingRuntime = ref(false)
-const testingRuntime = ref(false)
-const runtimeSettingsMessage = ref('')
-const runtimeSettingsState = ref('info')
-const runtimeSettings = reactive({
-  enabled: false,
-  protocol: 'openai',
-  baseUrl: 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2',
-  model: 'astron-code-latest',
-})
 const messageListRef = ref(null)
 const viewport = reactive({ width: window.innerWidth, height: window.innerHeight })
 const position = reactive(loadPosition())
@@ -467,6 +518,14 @@ let pointerState = null
 let statusTimer = null
 let recognition = null
 let lastWorkflowCardId = ''
+let suppressOrbClickUntil = 0
+let profileRequestEpoch = 0
+let activeChatController = null
+const activeProfileReportId = ref(0)
+const unreadCount = ref(0)
+const pendingTargetAgentId = ref('xiaozhi-companion-agent')
+const DEFAULT_USER_AVATAR = '/userlogo.png'
+const learnerAvatar = ref(DEFAULT_USER_AVATAR)
 
 const iconMap = {
   learning_background: markRaw(MessageCircle),
@@ -512,11 +571,37 @@ const resourceLabels = {
   knowledge_base: '知识库',
 }
 
+const handoffArtifactLabels = {
+  task_plan: '任务计划',
+  learner_context: '学习上下文',
+  grounded_knowledge: '知识依据',
+  specialist_output: '资源产物',
+  revision_request: '修订要求',
+  review_result: '审核结论',
+  feedback_summary: '反馈摘要',
+}
+
 const companionTaskTypes = new Set(
   Object.keys(resourceLabels).filter(type => !['profile_management', 'learning_feedback', 'mcu'].includes(type)),
 )
 
 const agentNameAliases = {
+  'xiaozhi-companion-agent': '岐小智总控智能体',
+  'learning-background-dialogue-agent': '学习背景采集智能体',
+  'learning-profile-agent': '学习画像智能体',
+  'learning-route-agent': '学习路径规划智能体',
+  'learning-path-stage-agent': '周任务规划智能体',
+  'personalized-resource-workflow': '个性化资源调度智能体',
+  'question-generator-workflow': '题库生成智能体',
+  'ppt-agent': 'PPT 生成智能体',
+  'learning-document-agent': '课程讲义智能体',
+  'mindmap-agent': '思维导图智能体',
+  'video-search-agent': '视频检索智能体',
+  'generated-video-agent': 'AI 视频生成智能体',
+  'interview-agent': '学习访谈智能体',
+  'smart-tutor-agent': '智能辅导智能体',
+  'learning-effect-assessment-agent': '效果评估智能体',
+  'private-knowledge-agent': '私有知识库智能体',
   'learner-context-agent': '学习上下文智能体',
   'course-knowledge-retrieval-agent': '课程知识检索智能体',
   'skill-registry-agent': 'Skill 注册智能体',
@@ -524,6 +609,74 @@ const agentNameAliases = {
   'quality-review-agent': '质量审核智能体',
   'content-safety-agent': '内容安全智能体',
   'learning-feedback-agent': '学习反馈智能体',
+  'qwen-multimodal-evidence-agent': '多模态证据智能体',
+  'document-text-extraction-agent': '文档解析智能体',
+  'spark-text-reasoning-agent': '文本推理智能体',
+}
+
+const mentionableAgents = [
+  { id: 'xiaozhi-companion-agent', name: '岐小智', taskType: '', icon: markRaw(Sparkles), color: '#17684f', background: '#dcece5' },
+  { id: 'learning-background-dialogue-agent', name: '学习背景智能体', taskType: 'learning_background', icon: markRaw(MessageCircle), color: '#3b6f9b', background: '#dce8f0' },
+  { id: 'learning-profile-agent', name: '学习画像智能体', taskType: 'profile_update', icon: markRaw(BrainCircuit), color: '#7a5c9e', background: '#e8e1ef' },
+  { id: 'learning-route-agent', name: '学习路径智能体', taskType: 'learning_path', icon: markRaw(MapIcon), color: '#9a672f', background: '#eee4d5' },
+  { id: 'learning-path-stage-agent', name: '周任务规划智能体', taskType: 'learning_path_stage', icon: markRaw(MoveRight), color: '#397965', background: '#dcece6' },
+  { id: 'personalized-resource-workflow', name: '个性化资源智能体', taskType: 'personalized_resources', icon: markRaw(Network), color: '#386d87', background: '#dce9ee' },
+  { id: 'question-generator-workflow', name: '题库生成智能体', taskType: 'question_bank', icon: markRaw(BookOpenCheck), color: '#946338', background: '#efe3d8' },
+  { id: 'ppt-agent', name: 'PPT生成智能体', taskType: 'ppt', icon: markRaw(Presentation), color: '#a14f52', background: '#f0dddd' },
+  { id: 'learning-document-agent', name: '课程讲义智能体', taskType: 'document', icon: markRaw(FileText), color: '#586f43', background: '#e4eadc' },
+  { id: 'mindmap-agent', name: '思维导图智能体', taskType: 'mindmap', icon: markRaw(Network), color: '#75649a', background: '#e6e1ef' },
+  { id: 'video-search-agent', name: '视频检索智能体', taskType: 'video', icon: markRaw(Search), color: '#3e7194', background: '#dce8ef' },
+  { id: 'generated-video-agent', name: 'AI视频生成智能体', taskType: 'generated_video', icon: markRaw(Film), color: '#9b5d73', background: '#eedde3' },
+  { id: 'interview-agent', name: '学习访谈智能体', taskType: 'interview', icon: markRaw(Mic), color: '#47796f', background: '#dceae6' },
+  { id: 'smart-tutor-agent', name: '智能辅导智能体', taskType: 'smart_tutor', icon: markRaw(BrainCircuit), color: '#6b659d', background: '#e4e2ef' },
+  { id: 'learning-effect-assessment-agent', name: '效果评估智能体', taskType: 'effect_assessment', icon: markRaw(Activity), color: '#9a6a35', background: '#eee4d6' },
+  { id: 'learning-feedback-agent', name: '学习反馈智能体', taskType: 'learning_feedback', icon: markRaw(RefreshCw), color: '#447b58', background: '#dce9df' },
+  { id: 'private-knowledge-agent', name: '私有知识库智能体', taskType: 'knowledge_base', icon: markRaw(Archive), color: '#4e6b85', background: '#dfe6ec' },
+]
+
+const agentVisualsById = new Map(mentionableAgents.map(agent => [agent.id, agent]))
+const learnerVisual = {
+  id: 'learner',
+  name: '我',
+  icon: markRaw(UserRound),
+  color: '#ffffff',
+  background: '#17684f',
+}
+
+function normalizeLearnerAvatar(value) {
+  const avatar = String(value || '').trim()
+  if (!avatar || avatar.startsWith('data:image/svg+xml')) return DEFAULT_USER_AVATAR
+  return avatar
+}
+
+function syncLearnerAvatar() {
+  const user = readCurrentUser()
+  learnerAvatar.value = normalizeLearnerAvatar(user.avatar || user.avatarUrl)
+}
+
+function resetLearnerAvatar() {
+  learnerAvatar.value = DEFAULT_USER_AVATAR
+}
+
+function agentVisual(agentId) {
+  return agentVisualsById.get(String(agentId || '')) || mentionableAgents[0]
+}
+
+function agentAvatarStyle(agentId) {
+  const visual = agentVisual(agentId)
+  return { color: visual.color, background: visual.background }
+}
+
+function messageAgentVisual(message) {
+  if (message?.role === 'user') return learnerVisual
+  const target = message?.targetAgent || message?.intent?.targetAgent || {}
+  return agentVisual(target.id)
+}
+
+function messageAvatarStyle(message) {
+  if (message?.role === 'user') return {}
+  const visual = messageAgentVisual(message)
+  return { color: visual.color, background: visual.background }
 }
 
 const floatStyle = computed(() => ({
@@ -548,8 +701,9 @@ const windowStyle = computed(() => {
   const viewportPadding = 16
   const orbGap = 18
   const size = orbSize()
-  const width = Math.max(1, Math.min(440, viewport.width - viewportPadding * 2))
-  const height = Math.max(1, Math.min(660, viewport.height - viewportPadding * 2))
+  const isStatusTab = activeTab.value === 'status'
+  const width = Math.max(1, Math.min(isStatusTab ? 820 : 440, viewport.width - viewportPadding * 2))
+  const height = Math.max(1, Math.min(isStatusTab ? 520 : 660, viewport.height - viewportPadding * 2))
   const opensLeft = windowPlacement.value.left
   const opensUp = windowPlacement.value.up
 
@@ -575,23 +729,137 @@ const windowStyle = computed(() => {
 })
 
 const runningTaskCount = computed(() => tasks.value.filter(task => ['queued', 'running'].includes(task.status)).length)
+const unreadBadgeText = computed(() => unreadCount.value > 99 ? '99+' : String(unreadCount.value))
 const canSendMessage = computed(() => !isSending.value && Boolean(draft.value.trim() || pendingAttachments.value.length))
-const masterAgent = computed(() => agents.value.find(agent => agent.role === 'supervisor') || {
-  id: 'xiaozhi-companion-agent',
-  name: '岐小智总控智能体',
-  status: 'idle',
-  detail: '正在连接 Agent Harness',
+const filteredMentionAgents = computed(() => {
+  if (!activeMention.value) return []
+  const query = activeMention.value.query
+  return mentionableAgents
+    .filter(agent => !query || `${agent.name} ${agent.taskType}`.toLowerCase().includes(query))
 })
-const specialistAgents = computed(() => agents.value.filter(agent => {
-  const identity = `${agent.id || ''} ${agent.type || ''}`.toLowerCase()
-  return agent.id !== masterAgent.value.id && !identity.includes('mcu') && !identity.includes('simulator')
-}))
+const mentionMenuOpen = computed(() => {
+  if (!activeMention.value || !filteredMentionAgents.value.length) return false
+  const caret = Math.max(0, Math.min(Number(mentionCaretPosition.value || 0), draft.value.length))
+  return /(^|\s)@([^\s@]*)$/.test(draft.value.slice(0, caret))
+})
+const hiddenAgentIds = computed(() => new Set(
+  agents.value.filter(agent => agent.hidden).map(agent => String(agent.id || '')),
+))
+const realOrchestrationRuns = computed(() => orchestrationRuns.value.filter(run => (
+  run?.runId
+  && (
+    (Array.isArray(run.agentRuns) && run.agentRuns.length)
+    || (Array.isArray(run.handoffs) && run.handoffs.length)
+    || (Array.isArray(run.events) && run.events.length)
+  )
+)))
+const selectedHarnessNodeId = ref('')
+const selectedOrchestrationRun = computed(() => (
+  realOrchestrationRuns.value.find(run => run.runId === selectedRunId.value)
+  || realOrchestrationRuns.value[0]
+  || null
+))
+const selectedRunAgents = computed(() => {
+  const unique = new Map()
+  for (const agent of selectedOrchestrationRun.value?.agentRuns || []) {
+    const agentId = String(agent?.id || '').trim()
+    if (!agentId || hiddenAgentIds.value.has(agentId)) continue
+    unique.set(agentId, agent)
+  }
+  return Array.from(unique.values())
+})
+const selectedRunHandoffs = computed(() => (
+  (selectedOrchestrationRun.value?.handoffs || []).filter(handoff => (
+    handoff?.fromAgent
+    && handoff?.toAgent
+    && !hiddenAgentIds.value.has(String(handoff.fromAgent))
+    && !hiddenAgentIds.value.has(String(handoff.toAgent))
+  ))
+))
 const harnessActivityText = computed(() => {
-  const activeAgent = agents.value.find(agent => ['running', 'queued'].includes(agent.status))
-  if (activeAgent) return `${agentDisplayName(activeAgent)}：${activeAgent.detail || statusText(activeAgent.status)}`
-  const failedAgent = agents.value.find(agent => agent.status === 'failed')
-  if (failedAgent) return `${agentDisplayName(failedAgent)}需要处理：${failedAgent.detail || '执行失败'}`
-  return '所有智能体已连接，等待岐小智总控调度'
+  const run = selectedOrchestrationRun.value
+  if (!run) return '没有运行记录，不展示模拟连接关系'
+  const taskLabel = runTaskLabel(run)
+  if (['running', 'queued'].includes(run.status)) return `${taskLabel}正在由 ${selectedRunAgents.value.length} 个智能体协作执行`
+  if (run.status === 'failed') return `${taskLabel}执行失败，以下记录来自真实运行链路`
+  return `${taskLabel}已完成，以下为本次真实调用与交接`
+})
+const harnessFlowNodes = computed(() => {
+  const run = selectedOrchestrationRun.value
+  if (!run) return []
+  const runAgentMap = new Map(selectedRunAgents.value.map(agent => [String(agent.id), agent]))
+  const definitions = [
+    { id: 'user', label: '用户', kind: 'actor', stage: '学习起点', role: '发起学习请求与反馈' },
+    { id: 'learning-profile-agent', label: '学习画像智能体', kind: 'stage', stage: '画像构建', role: '整合采集信息与历史证据' },
+    { id: 'xiaozhi-companion-agent', label: '岐小智总控智能体', kind: 'master', stage: '总控调度', role: '拆解任务并分发专家智能体' },
+    { id: 'learning-route-agent', label: '学习路径智能体', kind: 'stage', stage: '路径规划', role: '规划周目标与阶段任务' },
+    { id: 'personalized-resource-workflow', label: '资源生成智能体', kind: 'generate', stage: '资源生成', role: '生成题库、课件、导图、视频与药材辨识资源' },
+    { id: 'quality-review-agent', label: '质量审核智能体', kind: 'review', stage: '质量审核', role: '校验引用、结构与内容安全' },
+    { id: 'learning-effect-assessment-agent', label: '效果评估智能体', kind: 'stage', stage: '效果评估', role: '汇总学习结果与薄弱点' },
+  ]
+  const edgeLabels = ['', '发起', '画像上下文', '路径调度', '周任务', '调用知识', '审核结论', '学习反馈']
+  const nodes = definitions.map((definition, index) => {
+    const agent = runAgentMap.get(definition.id) || agents.value.find(item => String(item.id) === definition.id)
+      || { id: definition.id, name: definition.label, status: 'idle' }
+    const status = runAgentMap.has(definition.id) ? normalizeStatus(agent.status) : 'idle'
+    return {
+      ...definition,
+      agent,
+      status,
+      eventCount: Number(agent?.eventCount || 0),
+      description: runAgentMap.has(definition.id) ? actualAgentDetail(agent) : definition.role,
+      time: formatRunTime(agent?.lastRunAt || run.updatedAt || run.createdAt),
+      edgeLabel: edgeLabels[index] || '协作',
+      edgeDirection: index === 5 ? 'both' : 'forward',
+      edgeNode: null,
+    }
+  })
+  nodes.forEach((node, index) => {
+    if (index > 0) node.edgeNode = nodes[index - 1]
+  })
+  return nodes
+})
+const harnessLoopEdges = computed(() => ({
+  reviewRevision: {
+    from: harnessFlowNodes.value.find(node => node.id === 'quality-review-agent') || null,
+    to: harnessFlowNodes.value.find(node => node.id === 'personalized-resource-workflow') || null,
+    label: '质量回退闭环',
+    detail: selectedRunHandoffs.value.some(handoff => handoff.artifactType === 'revision_request')
+      ? '本次已保存审核修订交接，未通过内容会携带问题回退资源生成。'
+      : '审核未通过时，质量审核智能体会携带问题回退资源生成智能体重新处理。',
+  },
+  assessmentFeedback: {
+    from: harnessFlowNodes.value.find(node => node.id === 'learning-effect-assessment-agent') || null,
+    to: harnessFlowNodes.value.find(node => node.id === 'xiaozhi-companion-agent') || null,
+    label: '学习反馈闭环',
+    detail: selectedRunHandoffs.value.some(handoff => ['feedback_summary', 'learner_context'].includes(handoff.artifactType))
+      ? '本次已保存学习反馈/上下文交接，评估结论会更新画像并进入下一轮调度。'
+      : '学习完成后，效果评估智能体会把成绩、行为与薄弱点写回画像，再由总控智能体调整后续任务。',
+  },
+}))
+const latestHarnessArtifact = computed(() => {
+  for (const handoff of [...selectedRunHandoffs.value].reverse()) {
+    if (handoff.artifactType) return handoffArtifactLabel(handoff.artifactType)
+  }
+  return harnessFlowNodes.value.find(node => node.id === 'personalized-resource-workflow')?.agent?.detail || ''
+})
+const selectedHarnessNodeDetail = computed(() => {
+  if (!selectedOrchestrationRun.value || !selectedHarnessNodeId.value) return null
+  const node = harnessFlowNodes.value.find(item => item.id === selectedHarnessNodeId.value)
+  if (!node) return null
+  const handoffs = selectedRunHandoffs.value.filter(handoff => (
+    String(handoff.fromAgent) === node.id || String(handoff.toAgent) === node.id
+  ))
+  return {
+    ...node,
+    handoffs,
+    description: node.id === 'user'
+      ? (selectedOrchestrationRun.value.topic || '用户发起了本次学习协作')
+      : node.description,
+    time: node.id === 'user'
+      ? formatRunTime(selectedOrchestrationRun.value.updatedAt || selectedOrchestrationRun.value.createdAt)
+      : node.time,
+  }
 })
 const agentConversationGroups = computed(() => {
   const recentMessages = Array.isArray(agentConversation.value?.recentMessages)
@@ -600,7 +868,7 @@ const agentConversationGroups = computed(() => {
   const grouped = new Map()
   for (const entry of recentMessages) {
     if (!entry || ['user_message', 'supervisor_reply'].includes(String(entry.type || ''))) continue
-    const key = String(entry.runId || entry.taskId || `message-${entry.id || entry.sequence}`)
+    const key = String(entry.taskId || entry.runId || `message-${entry.id || entry.sequence}`)
     if (!grouped.has(key)) {
       grouped.set(key, {
         key,
@@ -616,12 +884,18 @@ const agentConversationGroups = computed(() => {
       .flatMap(entry => Array.isArray(entry.resourceReferences) ? entry.resourceReferences : [])
       .find(reference => reference?.type === 'task')?.id || ''
     const relatedTask = tasks.value.find(task => String(task.taskId || '') === String(relatedTaskId))
-    const statuses = group.messages.map(entry => String(entry.status || ''))
-    const status = statuses.some(value => ['failed', 'error', 'needs_attention'].includes(value))
+    const latestStatus = String([...group.messages].reverse().find(entry => entry.status)?.status || '')
+    const runtimeStatus = String(relatedTask?.status || latestStatus)
+    const statusSource = ['failed', 'error', 'needs_attention'].includes(latestStatus)
+      ? latestStatus
+      : runtimeStatus
+    const status = ['failed', 'error', 'needs_attention'].includes(statusSource)
       ? 'failed'
-      : statuses.some(value => ['running', 'queued'].includes(value))
+      : ['running', 'queued'].includes(statusSource)
         ? 'running'
-        : statuses.some(value => value === 'warning') ? 'warning' : 'complete'
+        : ['waiting', 'waiting_for_user'].includes(statusSource)
+          ? 'waiting'
+          : ['warning', 'needs-verification'].includes(statusSource) ? 'warning' : 'complete'
     const progress = Math.max(
       0,
       ...group.messages.map(entry => Number(entry.payload?.progress || entry.payload?.details?.progress || 0)),
@@ -631,14 +905,42 @@ const agentConversationGroups = computed(() => {
       .flatMap(entry => Array.isArray(entry.resourceReferences) ? entry.resourceReferences : [])
       .find(reference => reference?.type === 'route')
     const lastMessage = group.messages.at(-1) || {}
+    const reviewEntry = [...group.messages].reverse().find(entry => entry.type === 'review')
+    const qualityScoreValue = Number(reviewEntry?.payload?.score)
+    const resourceType = String(
+      relatedTask?.taskType
+      || group.messages.find(entry => entry.payload?.resourceType)?.payload?.resourceType
+      || '',
+    )
+    const citationCount = group.messages.reduce(
+      (count, entry) => Math.max(count, conversationCitations(entry).length),
+      0,
+    )
+    const collaborationSteps = group.messages
+      .map(entry => conversationCollaborationStep(entry))
+      .filter(Boolean)
+      .slice(-3)
+    const baseTitle = relatedTask?.title
+      || group.messages.find(entry => entry.payload?.title)?.payload?.title
+      || group.messages.find(entry => entry.type === 'review')?.content
+      || lastMessage.content
+      || '智能体协同任务'
     return {
       ...group,
+      primaryAgentId: String(lastMessage.agentId || 'xiaozhi-companion-agent'),
       status,
       progress,
       agentNames: names.slice(0, 2).join('、') + (names.length > 2 ? ` 等 ${names.length} 个智能体` : ''),
-      title: relatedTask?.title || group.messages.find(entry => entry.type === 'review')?.content || lastMessage.content || '智能体协同任务',
-      summary: lastMessage.content || '协作记录已更新',
+      flowLabel: `${names.length ? `${names.length} 个智能体协同` : '多智能体协同'} · ${conversationStatusLabel(status)}`,
+      title: baseTitle,
+      collaborationTitle: collaborationSteps.at(-1)?.text || conciseConversationText(baseTitle, 36),
+      summary: conversationGroupSummary(group.messages, relatedTask),
+      collaborationSteps,
       route: relatedTask?.route || routeReference?.id || '',
+      resourceType,
+      resourceLabel: resourceLabels[resourceType] || '',
+      citationCount,
+      qualityScore: Number.isFinite(qualityScoreValue) ? qualityScoreValue : null,
     }
   })
 })
@@ -716,6 +1018,7 @@ function handlePointerDown(event) {
   event.currentTarget.setPointerCapture?.(event.pointerId)
   window.addEventListener('pointermove', handlePointerMove)
   window.addEventListener('pointerup', handlePointerUp)
+  window.addEventListener('pointercancel', handlePointerCancel)
 }
 
 function handlePointerMove(event) {
@@ -736,15 +1039,33 @@ function handlePointerMove(event) {
 
 function handlePointerUp(event) {
   if (!pointerState || event.pointerId !== pointerState.id) return
-  const shouldToggle = !pointerState.moved
+  const moved = pointerState.moved
   pointerState = null
   isDragging.value = false
   persistPosition()
+  removePointerListeners()
+  if (moved) suppressOrbClickUntil = Date.now() + 250
+}
+
+function handlePointerCancel(event) {
+  if (!pointerState || event.pointerId !== pointerState.id) return
+  pointerState = null
+  isDragging.value = false
+  removePointerListeners()
+}
+
+function removePointerListeners() {
   window.removeEventListener('pointermove', handlePointerMove)
   window.removeEventListener('pointerup', handlePointerUp)
-  if (shouldToggle) {
-    isOpen.value = !isOpen.value
-  }
+  window.removeEventListener('pointercancel', handlePointerCancel)
+}
+
+function handleOrbClick() {
+  if (Date.now() < suppressOrbClickUntil) return
+  activeTab.value = 'chat'
+  const opening = !isOpen.value
+  isOpen.value = opening
+  if (opening) unreadCount.value = 0
 }
 
 function handleResize() {
@@ -756,24 +1077,53 @@ function handleResize() {
   persistPosition()
 }
 
-function openStatusTab() {
-  activeTab.value = 'status'
-  loadStatus()
-}
-
 function handleWorkflowCardOpen(event) {
   const workflowId = String(event?.detail?.workflowId || event?.detail?.task?.taskId || '')
   if (!workflowId || workflowId === lastWorkflowCardId) return
   lastWorkflowCardId = workflowId
-  showRuntimeSettings.value = false
-  activeTab.value = 'chat'
-  isOpen.value = true
-  nextTick(scrollToBottom)
+  if (!isOpen.value) unreadCount.value += 1
+}
+
+function acceptsProfileResponse(response, requestEpoch) {
+  if (requestEpoch !== profileRequestEpoch) return false
+  const responseProfileId = Number(response?.data?.profileReportId || 0)
+  if (!activeProfileReportId.value && responseProfileId) {
+    activeProfileReportId.value = responseProfileId
+  }
+  return responseProfileId === Number(activeProfileReportId.value || 0)
+}
+
+function clearProfileAssistantState() {
+  messages.value = []
+  tasks.value = []
+  agents.value = []
+  agentConversation.value = null
+  orchestrationRuns.value = []
+  selectedRunId.value = ''
+  selectedHarnessNodeId.value = ''
+  expandedConversationGroups.value = new Set()
+  harnessStatus.value = null
+  sendError.value = ''
+  unreadCount.value = 0
+}
+
+async function handleProfileContextChanged(event) {
+  activeChatController?.abort()
+  activeChatController = null
+  profileRequestEpoch += 1
+  activeProfileReportId.value = Number(event?.detail?.profileReportId || 0)
+  isSending.value = false
+  pendingTargetAgentId.value = 'xiaozhi-companion-agent'
+  clearProfileAssistantState()
+  await Promise.all([loadHistory(), loadStatus()])
+  if (isOpen.value) await scrollToBottom()
 }
 
 async function loadHistory() {
+  const requestEpoch = profileRequestEpoch
   try {
     const response = await getXiaoZhiHistory()
+    if (!acceptsProfileResponse(response, requestEpoch)) return
     messages.value = response?.data?.messages || []
     tasks.value = response?.data?.tasks || []
     agentConversation.value = response?.data?.agentConversation || agentConversation.value
@@ -784,11 +1134,19 @@ async function loadHistory() {
 }
 
 async function loadStatus() {
+  const requestEpoch = profileRequestEpoch
   try {
     const response = await getXiaoZhiStatus()
+    if (!acceptsProfileResponse(response, requestEpoch)) return
     agents.value = response?.data?.agents || []
     tasks.value = response?.data?.tasks || tasks.value
     harnessStatus.value = response?.data?.architecture || null
+    orchestrationRuns.value = Array.isArray(response?.data?.orchestrationRuns)
+      ? response.data.orchestrationRuns
+      : []
+    if (!orchestrationRuns.value.some(run => run?.runId === selectedRunId.value)) {
+      selectedRunId.value = orchestrationRuns.value[0]?.runId || ''
+    }
     agentConversation.value = response?.data?.agentConversation || agentConversation.value
     if (statusTimer && !isOpen.value && !runningTaskCount.value) {
       stopStatusPolling()
@@ -813,10 +1171,102 @@ function isConversationGroupExpanded(key) {
 function conversationStatusLabel(status) {
   return {
     running: '协同中',
+    waiting: '待用户确认',
     failed: '需处理',
     warning: '待核验',
     complete: '已完成',
   }[status] || '已记录'
+}
+
+function compactAgentName(value, fallbackId = '') {
+  const raw = String(value || fallbackId || '').trim()
+  if (!raw) return '智能体'
+  const alias = agentNameAliases[raw]
+  const normalized = alias || raw
+  const englishMap = {
+    'Quality Review Agent': '质量审核智能体',
+    'Skill Registry': 'Skill 注册智能体',
+    'MCP Tool Gateway': 'MCP 工具网关',
+  }
+  return englishMap[normalized] || normalized
+}
+
+function handoffActionText(targetName, artifactType) {
+  const target = String(targetName || '')
+  const artifact = String(artifactType || '')
+  if (target.includes('学习路径')) return '规划任务'
+  if (target.includes('PPT')) return '生成课件'
+  if (target.includes('题库')) return '生成题库'
+  if (target.includes('导图')) return '生成导图'
+  if (target.includes('视频')) return '生成视频'
+  if (target.includes('审核') || artifact === 'review_result') return '审核质量'
+  if (target.includes('知识') || artifact === 'grounded_knowledge') return '补充知识依据'
+  if (target.includes('总控')) return '重新调度'
+  return '继续处理'
+}
+
+function runningActionText(entry) {
+  const payload = entry?.payload && typeof entry.payload === 'object' ? entry.payload : {}
+  const stage = String(payload.stage || payload.details?.stage || entry?.content || '').trim()
+  const agent = compactAgentName(entry?.agentName, entry?.agentId)
+  if (stage.includes('retrieve') || stage.includes('检索')) return `${agent}正在检索知识库`
+  if (stage.includes('review') || stage.includes('审核')) return `${agent}正在核验内容质量`
+  if (stage.includes('path') || stage.includes('路径')) return `${agent}正在规划学习任务`
+  if (stage.includes('profile') || stage.includes('画像')) return `${agent}正在更新学习画像`
+  if (stage.includes('resource') || stage.includes('生成')) return `${agent}正在生成学习资源`
+  return `${agent}正在协同处理`
+}
+
+function conversationCollaborationStep(entry) {
+  if (!entry) return null
+  const payload = entry.payload && typeof entry.payload === 'object' ? entry.payload : {}
+  const status = normalizeStatus(entry.status)
+  if (entry.type === 'handoff') {
+    const from = compactAgentName(entry.agentName, entry.agentId)
+    const to = compactAgentName(payload.toAgentName, payload.toAgent)
+    return {
+      agent: from,
+      status: 'complete',
+      text: `${from}已完成，交接给${to}${handoffActionText(to, payload.artifactType)}`,
+    }
+  }
+  if (entry.type === 'review') {
+    const score = Number(payload.score)
+    const passed = payload.passed !== false && !['failed', 'needs_attention'].includes(String(entry.status || ''))
+    return {
+      agent: '质量审核智能体',
+      status: passed ? 'complete' : 'warning',
+      text: Number.isFinite(score)
+        ? `质量审核智能体${passed ? '已通过' : '要求修改'}，评分 ${score}`
+        : `质量审核智能体${passed ? '已通过' : '要求修改'}`,
+    }
+  }
+  if (['running', 'queued'].includes(status)) {
+    return {
+      agent: compactAgentName(entry.agentName, entry.agentId),
+      status: 'running',
+      text: runningActionText(entry),
+    }
+  }
+  const agent = compactAgentName(entry.agentName, entry.agentId)
+  const text = String(entry.content || '').trim()
+  return {
+    agent,
+    status: status === 'failed' ? 'failed' : 'complete',
+    text: text ? `${agent}已完成：${conciseConversationText(text, 24)}` : `${agent}已完成协同处理`,
+  }
+}
+
+function conversationGroupSummary(messages, relatedTask) {
+  const taskLabel = relatedTask?.title ? `产物：${relatedTask.title}` : ''
+  const latest = messages.at(-1)
+  const latestStep = conversationCollaborationStep(latest)
+  return conciseConversationText(taskLabel || latestStep?.text || latest?.content || '协同记录已更新', 42)
+}
+
+function conciseConversationText(value, maxLength = 42) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text
 }
 
 function formatConversationTime(value) {
@@ -839,77 +1289,38 @@ function conversationDetailText(entry) {
   return parts.join(' · ')
 }
 
-async function openRuntimeSettings() {
-  showRuntimeSettings.value = true
-  runtimeSettingsMessage.value = ''
-  try {
-    const response = await getXiaoZhiRuntimeSettings()
-    const settings = response?.data?.settings || {}
-    runtimeSettings.enabled = Boolean(settings.enabled)
-    runtimeSettings.protocol = settings.protocol || 'openai'
-    runtimeSettings.baseUrl = settings.baseUrl || 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2'
-    runtimeSettings.model = settings.model || 'astron-code-latest'
-  } catch (error) {
-    runtimeSettingsState.value = 'error'
-    runtimeSettingsMessage.value = error?.response?.data?.msg || error?.message || '运行配置加载失败'
-  }
+function conversationCitations(entry) {
+  const payload = entry?.payload && typeof entry.payload === 'object' ? entry.payload : {}
+  const details = payload.details && typeof payload.details === 'object' ? payload.details : {}
+  const candidates = [payload.citations, payload.knowledgeSources, details.citations, details.knowledgeSources]
+  return candidates.find(value => Array.isArray(value)) || []
 }
 
-function runtimeSettingsPayload() {
-  return {
-    enabled: runtimeSettings.enabled,
-    protocol: runtimeSettings.protocol,
-    baseUrl: runtimeSettings.baseUrl,
-    model: runtimeSettings.model,
+async function openConversationRoute(group) {
+  const routeTarget = taskRoute({
+    route: group?.route,
+    taskId: group?.taskId,
+    taskType: group?.resourceType,
+    title: group?.title,
+  })
+  if (!routeTarget) return
+  logTaskOpen({
+    taskId: group.taskId,
+    taskType: group.resourceType,
+    title: group.title,
+    route: routeTarget,
+  })
+  if (/^https?:\/\//i.test(routeTarget)) {
+    const targetUrl = new URL(routeTarget, window.location.origin)
+    if (targetUrl.origin !== window.location.origin) {
+      window.open(targetUrl.href, '_blank', 'noopener,noreferrer')
+      return
+    }
+    await router.push(`${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`)
+  } else {
+    await router.push(routeTarget)
   }
-}
-
-function usePlatformRuntime() {
-  runtimeSettings.enabled = false
-  runtimeSettingsState.value = 'info'
-  runtimeSettingsMessage.value = '保存后将恢复平台统一模型配置。'
-}
-
-async function testRuntimeSettings() {
-  testingRuntime.value = true
-  runtimeSettingsMessage.value = ''
-  try {
-    const response = await testXiaoZhiRuntimeSettings(runtimeSettingsPayload())
-    const result = response?.data || {}
-    runtimeSettingsState.value = 'success'
-    runtimeSettingsMessage.value = `${result.message || '连接成功'} · ${result.model || runtimeSettings.model} · ${result.elapsedMs || 0}ms`
-  } catch (error) {
-    runtimeSettingsState.value = 'error'
-    runtimeSettingsMessage.value = error?.response?.data?.msg || error?.response?.data?.data?.error || error?.message || '模型连接失败'
-  } finally {
-    testingRuntime.value = false
-  }
-}
-
-async function saveRuntimeSettings() {
-  savingRuntime.value = true
-  runtimeSettingsMessage.value = ''
-  try {
-    const response = await saveXiaoZhiRuntimeSettings(runtimeSettingsPayload())
-    const settings = response?.data?.settings || {}
-    const connection = response?.data?.connection || null
-    runtimeSettings.enabled = Boolean(settings.enabled)
-    runtimeSettings.protocol = settings.protocol || runtimeSettings.protocol
-    runtimeSettings.baseUrl = settings.baseUrl || runtimeSettings.baseUrl
-    runtimeSettings.model = settings.model || runtimeSettings.model
-    runtimeSettingsState.value = 'success'
-    runtimeSettingsMessage.value = connection
-      ? `连接通过并已保存 · ${connection.model || runtimeSettings.model} · ${connection.elapsedMs || 0}ms`
-      : (response?.msg || '智能体运行配置已保存')
-    await loadStatus()
-  } catch (error) {
-    runtimeSettingsState.value = 'error'
-    const message = error?.response?.data?.msg || error?.message || '保存失败'
-    const detail = error?.response?.data?.data?.error || ''
-    runtimeSettingsMessage.value = detail ? `${message}：${detail}` : message
-  } finally {
-    savingRuntime.value = false
-  }
+  isOpen.value = false
 }
 
 function startStatusPolling() {
@@ -1052,10 +1463,70 @@ function fallbackTaskRoute(task) {
 }
 
 function handleComposerKeydown(event) {
+  if (mentionMenuOpen.value) {
+    if (event.key === 'Tab' || event.key === 'Enter') {
+      event.preventDefault()
+      completeAgentMention(filteredMentionAgents.value[mentionSelectionIndex.value] || filteredMentionAgents.value[0])
+      return
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      const direction = event.key === 'ArrowDown' ? 1 : -1
+      const total = filteredMentionAgents.value.length
+      mentionSelectionIndex.value = (mentionSelectionIndex.value + direction + total) % total
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      activeMention.value = null
+      return
+    }
+  }
   if (event.key !== 'Enter' || event.shiftKey) return
   if (event.isComposing || event.keyCode === 229) return
   event.preventDefault()
   sendMessage()
+}
+
+function updateMentionContext(event) {
+  const inputValue = String(event?.target?.value ?? draft.value)
+  const caret = Math.max(0, Math.min(Number(event?.target?.selectionStart ?? inputValue.length), inputValue.length))
+  mentionCaretPosition.value = caret
+  mentionSelectionIndex.value = 0
+  const match = inputValue.slice(0, caret).match(/(^|\s)@([^\s@]*)$/)
+  activeMention.value = match
+    ? {
+        query: String(match[2] || '').toLowerCase(),
+        start: match.index + String(match[1] || '').length,
+        end: caret,
+      }
+    : null
+}
+
+function closeMentionMenu() {
+  activeMention.value = null
+  mentionSelectionIndex.value = 0
+}
+
+function completeAgentMention(agent) {
+  if (!agent || !activeMention.value) return
+  const mention = activeMention.value
+  const insertion = `@${agent.name} `
+  draft.value = `${draft.value.slice(0, mention.start)}${insertion}${draft.value.slice(mention.end)}`
+  const nextCaret = mention.start + insertion.length
+  mentionCaretPosition.value = nextCaret
+  mentionSelectionIndex.value = 0
+  activeMention.value = null
+  nextTick(() => {
+    composerInputRef.value?.focus()
+    composerInputRef.value?.setSelectionRange?.(nextCaret, nextCaret)
+  })
+}
+
+function mentionedAgent(content) {
+  const match = String(content || '').match(/(^|\s)@([^\s，,：:]+)/)
+  const name = String(match?.[2] || '').toLowerCase()
+  return mentionableAgents.find(agent => agent.name.toLowerCase() === name) || mentionableAgents[0]
 }
 
 async function sendMessage() {
@@ -1063,6 +1534,13 @@ async function sendMessage() {
   const queuedFiles = pendingAttachments.value.slice()
   if ((!content && !queuedFiles.length) || isSending.value) return
   const displayContent = content || '请分析我上传的学习材料。'
+  const targetAgent = mentionedAgent(displayContent)
+  const sendEpoch = profileRequestEpoch
+  const sendProfileReportId = Number(activeProfileReportId.value || 0)
+  const chatController = new AbortController()
+  activeChatController?.abort()
+  activeChatController = chatController
+  pendingTargetAgentId.value = targetAgent.id
   sendError.value = ''
   const userMessage = {
     role: 'user',
@@ -1081,32 +1559,82 @@ async function sendMessage() {
       ? await uploadMultimodalInputs(queuedFiles, 'xiaozhi', route.fullPath)
       : []
     userMessage.attachments = attachments
-    const response = await chatWithXiaoZhi({ message: displayContent, attachments, route: route.fullPath })
-    const data = response?.data || {}
-    messages.value.push({
+
+    const assistantMessage = reactive({
       role: 'assistant',
-      content: data.reply || '我已经收到，会继续跟进你的学习状态。',
-      cards: data.cards || [],
-      intent: data.intent || {},
+      content: '',
+      cards: [],
+      intent: {},
       createdAt: new Date().toISOString(),
+      streaming: true,
+      targetAgent,
     })
+    messages.value.push(assistantMessage)
+    await scrollToBottom()
+
+    await streamXiaoZhiChat({
+      message: displayContent,
+      attachments,
+      route: route.fullPath,
+      profileReportId: sendProfileReportId,
+    }, async ({ event, data }) => {
+      if (sendEpoch !== profileRequestEpoch || chatController.signal.aborted) return
+      if (event === 'delta') {
+        assistantMessage.content += String(data?.text || '')
+        await scrollToBottom()
+        return
+      }
+      if (event === 'result') {
+        const result = data?.data || data || {}
+        if (Number(result.profileReportId || 0) !== Number(activeProfileReportId.value || 0)) return
+        if (result.agentConversation) agentConversation.value = result.agentConversation
+        assistantMessage.cards = result.cards || []
+        assistantMessage.intent = result.intent || {}
+        assistantMessage.targetAgent = result.targetAgent || targetAgent
+        if (!assistantMessage.content && result.reply) assistantMessage.content = result.reply
+        return
+      }
+      if (event === 'error') {
+        const serverProfileId = data?.data?.profileReportId
+        if (serverProfileId !== undefined && Number(serverProfileId) !== Number(activeProfileReportId.value || 0)) {
+          await handleProfileContextChanged({ detail: { profileReportId: Number(serverProfileId || 0) } })
+          return
+        }
+        throw new Error(data?.message || data?.error || '岐小智智能体调用失败')
+      }
+    }, { signal: chatController.signal })
+    if (sendEpoch !== profileRequestEpoch || chatController.signal.aborted) return
+    assistantMessage.streaming = false
+    if (!assistantMessage.content.trim()) {
+      throw new Error('岐小智智能体没有返回有效回复')
+    }
     await loadStatus()
     if (runningTaskCount.value) startStatusPolling()
     await scrollToBottom()
   } catch (error) {
+    if (chatController.signal.aborted || sendEpoch !== profileRequestEpoch || error?.name === 'AbortError') return
     const errorMessage = error?.response?.data?.msg || error?.message || '岐小智暂时连接失败，请稍后再试。'
     sendError.value = errorMessage
     if (!draft.value.trim()) draft.value = content
     if (queuedFiles.length) pendingAttachments.value = queuedFiles
-    messages.value.push({
+    const lastMessage = messages.value[messages.value.length - 1]
+    const failedAssistantMessage = lastMessage?.role === 'assistant' && lastMessage.streaming ? lastMessage : null
+    const errorPayload = {
       role: 'assistant',
       content: errorMessage,
       cards: [],
       createdAt: new Date().toISOString(),
-    })
+      streaming: false,
+    }
+    if (failedAssistantMessage) Object.assign(failedAssistantMessage, errorPayload)
+    else messages.value.push(errorPayload)
     addLog(error?.message || '岐小智对话失败', 'error', '岐小智')
   } finally {
-    isSending.value = false
+    if (activeChatController === chatController) {
+      activeChatController = null
+      isSending.value = false
+      pendingTargetAgentId.value = 'xiaozhi-companion-agent'
+    }
   }
 }
 
@@ -1230,7 +1758,7 @@ function resolveRouteHref(routeTarget) {
 }
 
 function normalizeStatus(status) {
-  if (['running', 'queued', 'ready', 'complete', 'failed'].includes(status)) return status
+  if (['running', 'queued', 'ready', 'complete', 'failed', 'warning'].includes(status)) return status
   if (['waiting', 'waiting_for_user'].includes(status)) return 'ready'
   return status === 'idle' ? 'idle' : 'ready'
 }
@@ -1242,6 +1770,7 @@ function statusText(status) {
     ready: '已就绪',
     complete: '已完成',
     failed: '失败',
+    warning: '待核验',
     idle: '待命',
     waiting: '等待确认',
     waiting_for_user: '等待确认',
@@ -1250,7 +1779,17 @@ function statusText(status) {
 }
 
 function agentIcon(agent) {
-  return agent?.type ? resourceIcon(agent.type) : Activity
+  if (agent?.type) return resourceIcon(agent.type)
+  const agentId = String(agent?.id || '')
+  if (agentId === 'xiaozhi-companion-agent') return BrainCircuit
+  if (agentId.includes('knowledge')) return BookOpenCheck
+  if (agentId.includes('review') || agentId.includes('safety')) return ShieldCheck
+  if (agentId.includes('context') || agentId.includes('profile')) return BrainCircuit
+  if (agentId.includes('ppt')) return Presentation
+  if (agentId.includes('mindmap')) return MapIcon
+  if (agentId.includes('question')) return BookOpenCheck
+  if (agentId.includes('video')) return Film
+  return Activity
 }
 
 function agentDisplayName(agent) {
@@ -1280,6 +1819,7 @@ function agentRoleText(agent) {
   }
   if (idRoleMap[agent?.id]) return idRoleMap[agent.id]
   const roleMap = {
+    supervisor: 'Supervisor',
     context: 'Context',
     gateway: 'MCP Gateway',
     registry: 'Skill Registry',
@@ -1288,6 +1828,57 @@ function agentRoleText(agent) {
     specialist: 'Specialist',
   }
   return roleMap[agent?.role] || 'Agent'
+}
+
+function runTaskLabel(run) {
+  return resourceLabels[run?.taskType] || run?.taskType || '协作任务'
+}
+
+function runOptionLabel(run) {
+  const topic = String(run?.topic || '未命名任务').trim()
+  const compactTopic = topic.length > 22 ? `${topic.slice(0, 22)}...` : topic
+  return `${runTaskLabel(run)} · ${compactTopic}`
+}
+
+function formatRunTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '时间未记录'
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+function actualAgentDetail(agent) {
+  const detail = String(agent?.detail || '').trim()
+  if (detail) return detail
+  const eventCount = Number(agent?.eventCount || 0)
+  return eventCount > 0 ? `记录 ${eventCount} 个执行事件` : '已参与本次实际运行'
+}
+
+function handoffAgentName(agentId, recordedName) {
+  const persistedName = String(recordedName || '').trim()
+  if (persistedName && persistedName !== agentId) return persistedName
+  const runtimeAgent = selectedRunAgents.value.find(agent => String(agent.id) === String(agentId))
+    || agents.value.find(agent => String(agent.id) === String(agentId))
+  return agentDisplayName(runtimeAgent || { id: agentId, name: persistedName })
+}
+
+function handoffArtifactLabel(artifactType) {
+  const type = String(artifactType || '').trim()
+  return handoffArtifactLabels[type] || type.replaceAll('_', ' ') || '结构化交接'
+}
+
+function openHarnessNodeDetail(node) {
+  if (!node) return
+  selectedHarnessNodeId.value = String(node.id || '')
+}
+
+function closeHarnessNodeDetail() {
+  selectedHarnessNodeId.value = ''
 }
 
 function taskTypeLabel(task) {
@@ -1325,19 +1916,24 @@ function compactTaskTitle(task) {
 }
 
 onMounted(() => {
+  syncLearnerAvatar()
   window.addEventListener('resize', handleResize)
+  window.addEventListener('current-user-change', syncLearnerAvatar)
   window.addEventListener('xiaozhi-task-updated', handleExternalTaskUpdate)
   window.addEventListener(XIAOZHI_WORKFLOW_EVENT, handleWorkflowCardOpen)
+  window.addEventListener(XIAOZHI_PROFILE_CONTEXT_EVENT, handleProfileContextChanged)
   handleResize()
   loadStatus()
 })
 
 onBeforeUnmount(() => {
+  activeChatController?.abort()
+  removePointerListeners()
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('current-user-change', syncLearnerAvatar)
   window.removeEventListener('xiaozhi-task-updated', handleExternalTaskUpdate)
   window.removeEventListener(XIAOZHI_WORKFLOW_EVENT, handleWorkflowCardOpen)
-  window.removeEventListener('pointermove', handlePointerMove)
-  window.removeEventListener('pointerup', handlePointerUp)
+  window.removeEventListener(XIAOZHI_PROFILE_CONTEXT_EVENT, handleProfileContextChanged)
   stopStatusPolling()
   recognition?.stop?.()
 })
@@ -1429,6 +2025,12 @@ onBeforeUnmount(() => {
   width: min(760px, calc(100vw - 32px));
 }
 
+.xiaozhi-window.wide {
+  width: min(820px, calc(100vw - 32px));
+  height: min(520px, calc(100dvh - 28px));
+  max-height: min(520px, calc(100dvh - 28px));
+}
+
 .xiaozhi-window.right {
   left: 84px;
 }
@@ -1457,8 +2059,8 @@ onBeforeUnmount(() => {
 
 .window-head {
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .window-head-actions {
@@ -1467,27 +2069,11 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 
-.title-block .eyebrow {
-  display: block;
-  margin-bottom: 2px;
-  color: #10b981;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .title-block strong {
   display: block;
   color: #172033;
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1.1;
-}
-
-.title-block p {
-  margin: 5px 0 0;
-  color: #667a77;
-  font-size: 13px;
 }
 
 .runtime-settings-panel {
@@ -1745,10 +2331,7 @@ onBeforeUnmount(() => {
 }
 
 .empty-chat {
-  padding: 22px;
-  border: 1px solid #e3f2ee;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #f5fffb, #ffffff);
+  padding: 16px;
   text-align: center;
 }
 
@@ -1758,21 +2341,14 @@ onBeforeUnmount(() => {
 
 .empty-chat strong {
   display: block;
-  margin-top: 8px;
+  margin-top: 6px;
   color: #172033;
-}
-
-.empty-chat p {
-  margin: 8px 0 0;
-  color: #667a77;
-  font-size: 13px;
-  line-height: 1.6;
 }
 
 .agent-group-chat {
   display: grid;
   gap: 8px;
-  margin: 4px 0 12px;
+  margin: 2px 0 12px;
 }
 
 .agent-group-chat-head {
@@ -1819,41 +2395,43 @@ onBeforeUnmount(() => {
 
 .agent-conversation-card {
   overflow: hidden;
-  border: 1px solid #d9e4e0;
-  border-left: 3px solid #2a8a6c;
-  border-radius: 7px;
-  background: #fff;
+  border: 1px solid #e4ede9;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ffffff, #fbfefd);
 }
 
 .agent-conversation-card.running {
-  border-left-color: #3182ce;
+  border-color: #cfe3f2;
+  background: linear-gradient(135deg, #ffffff, #f7fbff);
 }
 
 .agent-conversation-card.failed {
-  border-left-color: #c84b4b;
+  border-color: #efcccc;
+  background: linear-gradient(135deg, #ffffff, #fff8f8);
 }
 
 .agent-conversation-card.warning,
 .agent-conversation-card.compacted-history {
-  border-left-color: #b47a1f;
+  border-color: #eadbb6;
+  background: linear-gradient(135deg, #ffffff, #fffaf0);
 }
 
 .agent-conversation-main {
   width: 100%;
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 18px;
-  align-items: center;
-  gap: 9px;
-  padding: 10px;
+  grid-template-columns: 28px minmax(0, 1fr) 16px;
+  align-items: start;
+  gap: 8px;
+  padding: 10px 11px;
   border: 0;
-  background: #fff;
+  background: transparent;
   color: #263a35;
   text-align: left;
   cursor: pointer;
 }
 
 .agent-conversation-main:hover {
-  background: #f7faf9;
+  background: rgba(241, 249, 246, .72);
 }
 
 .agent-conversation-main > svg {
@@ -1861,8 +2439,8 @@ onBeforeUnmount(() => {
 }
 
 .agent-conversation-icon {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -1896,21 +2474,80 @@ onBeforeUnmount(() => {
 
 .agent-conversation-copy small {
   color: #397866;
-  font-size: 10px;
-  font-weight: 750;
+  font-size: 9px;
+  font-weight: 850;
 }
 
 .agent-conversation-copy strong {
-  margin-top: 3px;
+  margin-top: 2px;
   color: #21332f;
   font-size: 12px;
 }
 
 .agent-conversation-copy em {
-  margin-top: 3px;
+  margin-top: 2px;
   color: #71817d;
-  font-size: 11px;
+  font-size: 10px;
   font-style: normal;
+}
+
+.conversation-handoff-strip {
+  display: grid;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.conversation-handoff-strip i {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: #4f625c;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-handoff-strip b {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #2a8a6c;
+}
+
+.conversation-handoff-strip i.running b {
+  background: #3182ce;
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, .1);
+}
+
+.conversation-handoff-strip i.warning b {
+  background: #b47a1f;
+}
+
+.conversation-handoff-strip i.failed b {
+  background: #c84b4b;
+}
+
+.conversation-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.conversation-card-meta i {
+  padding: 2px 5px;
+  border: 1px solid #e1e9e5;
+  border-radius: 999px;
+  color: #5e746d;
+  background: rgba(255,255,255,.72);
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1.2;
 }
 
 .agent-conversation-progress {
@@ -2028,6 +2665,36 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.conversation-citations {
+  display: grid;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.conversation-citations > span {
+  display: grid;
+  gap: 2px;
+  padding: 6px 7px;
+  border-left: 2px solid #7eaa9c;
+  background: #f3f8f6;
+}
+
+.conversation-citations strong {
+  color: #365d51;
+  font-size: 9px;
+}
+
+.conversation-citations small {
+  display: -webkit-box !important;
+  overflow: hidden;
+  margin: 0 !important;
+  color: #667771 !important;
+  font-size: 9px !important;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
 .conversation-resource-link {
   width: fit-content;
   display: inline-flex;
@@ -2041,16 +2708,64 @@ onBeforeUnmount(() => {
   background: #fff;
   font-size: 10px;
   font-weight: 800;
+  cursor: pointer;
   text-decoration: none;
 }
 
 .message {
   display: flex;
+  align-items: flex-end;
+  gap: 8px;
   margin: 10px 0;
 }
 
 .message.user {
   justify-content: flex-end;
+}
+
+.message.user .message-avatar {
+  order: 2;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.message-avatar,
+.conversation-entry-avatar,
+.mention-agent-avatar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(39, 76, 65, 0.09);
+  border-radius: 50%;
+}
+
+.message-avatar {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 2px;
+  box-shadow: 0 4px 12px rgba(31, 72, 66, 0.08);
+}
+
+.message-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.conversation-entry-avatar {
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
+}
+
+.mention-agent-avatar {
+  width: 30px;
+  height: 30px;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .message.assistant {
@@ -2113,11 +2828,42 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-.message.pending .bubble {
+.typing-ellipsis {
+  min-width: 32px;
+  min-height: 22px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 4px;
   color: #536b68;
+}
+
+.typing-ellipsis span {
+  width: 5px;
+  height: 5px;
+  display: block;
+  border-radius: 50%;
+  background: currentColor;
+  animation: xiaozhiTypingDot 1.05s infinite ease-in-out both;
+}
+
+.typing-ellipsis span:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.typing-ellipsis span:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+@keyframes xiaozhiTypingDot {
+  0%, 60%, 100% {
+    transform: translateY(0) scale(.72);
+    opacity: .35;
+  }
+  30% {
+    transform: translateY(-4px) scale(1);
+    opacity: 1;
+  }
 }
 
 .spin {
@@ -2368,10 +3114,60 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 4;
   flex: 0 0 auto;
-  padding: 10px;
-  border: 1px solid #d9eee8;
-  border-radius: 18px;
-  background: #fff;
+  padding: 8px 0 0;
+  border: 0;
+  background: transparent;
+}
+
+.agent-mention-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 94px;
+  z-index: 12;
+  max-height: 278px;
+  overflow-y: auto;
+  padding: 4px 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #eef2f0;
+  box-shadow: none !important;
+}
+
+.agent-mention-menu > button {
+  width: 100%;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #31443e;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-mention-menu > button.active,
+.agent-mention-menu > button:hover {
+  border: 0 !important;
+  outline: 0 !important;
+  background: #dfe8e3 !important;
+  box-shadow: none !important;
+}
+
+.agent-mention-menu > button > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #31423d;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pending-attachments {
@@ -2397,19 +3193,28 @@ onBeforeUnmount(() => {
 
 .composer textarea {
   width: 100%;
-  min-height: 58px;
+  min-height: 52px;
   resize: none;
-  border: 0;
+  border: 1px solid #e1eae6;
+  border-radius: 12px;
+  padding: 9px 10px;
+  box-sizing: border-box;
   outline: 0;
   color: #213a39;
   font-size: 14px;
   line-height: 1.55;
 }
 
+.composer textarea:focus {
+  border-color: #b7d9ca;
+}
+
 .composer-actions {
   justify-content: space-between;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
+  border-top: 1px solid #eef3f0;
+  padding-top: 6px;
 }
 
 .composer-input-tools {
@@ -2419,12 +3224,12 @@ onBeforeUnmount(() => {
 }
 
 .composer-tool {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: 6px;
   background: transparent;
   color: #55706a;
@@ -3255,181 +4060,508 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.master-agent-node,
-.specialist-agent-node {
-  position: relative;
-  min-width: 0;
+.runtime-run-picker {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  box-sizing: border-box;
-  border: 1px solid #dfe4e2;
-  border-radius: 8px;
+  gap: 9px;
+  padding: 0 4px 10px;
+}
+
+.runtime-run-picker label {
+  color: #5d6965;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.runtime-run-picker select {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid #d9dfdc;
+  border-radius: 6px;
+  padding: 0 28px 0 9px;
+  background: #ffffff;
+  color: #26302d;
+  font-size: 10px;
+  outline: none;
+}
+
+.runtime-run-picker select:focus {
+  border-color: #79a995;
+  box-shadow: 0 0 0 2px rgba(23, 111, 75, 0.09);
+}
+
+.real-run-summary {
+  padding: 12px;
+  border: 1px solid #dce4e0;
+  border-radius: 7px;
   background: #ffffff;
 }
 
-.master-agent-node {
-  grid-template-columns: 42px minmax(0, 1fr) auto;
-  gap: 10px;
-  min-height: 76px;
-  padding: 11px 12px;
-  border-color: #a9c8ba;
-  box-shadow: 0 8px 18px rgba(25, 63, 48, 0.07);
-}
-
-.master-agent-node .agent-node-icon {
-  width: 42px;
-  height: 42px;
-  background: #176f4b;
-  color: #ffffff;
-}
-
-.master-agent-node > em {
-  display: inline-flex;
+.real-run-summary header,
+.actual-agent-section > header,
+.handoff-section > header {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  color: #4e5754;
-  font-size: 10px;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.real-run-summary header span,
+.real-run-summary header em,
+.actual-agent-section > header span,
+.handoff-section > header span {
+  color: #67736f;
+  font-size: 9px;
   font-style: normal;
   font-weight: 800;
 }
 
-.agent-node-copy {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
+.real-run-summary header em {
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #edf3f0;
 }
 
-.agent-node-copy small {
-  color: #73807c;
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
+.real-run-summary header em.complete {
+  color: #176f4b;
+  background: #eaf5f0;
 }
 
-.agent-node-copy strong {
-  overflow: hidden;
-  color: #202525;
-  font-size: 12px;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.real-run-summary header em.failed {
+  color: #9b3f3f;
+  background: #fff0f0;
 }
 
-.agent-node-copy > span {
+.real-run-summary > strong {
   display: -webkit-box;
   overflow: hidden;
-  color: #737a79;
-  font-size: 10px;
-  line-height: 1.35;
+  margin-top: 8px;
+  color: #1f2825;
+  font-size: 13px;
+  line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-.flow-trunk {
-  position: relative;
-  height: 46px;
-  display: grid;
-  place-items: center;
-}
-
-.flow-trunk::before,
-.flow-trunk span {
-  content: '';
-  position: absolute;
-  left: 50%;
-  width: 1px;
-  background: #b8c8c2;
-  transform: translateX(-50%);
-}
-
-.flow-trunk::before {
-  top: 0;
-  bottom: 0;
-}
-
-.flow-trunk span {
-  top: 21px;
-  width: 7px;
-  height: 7px;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-  background: #176f4b;
-}
-
-.flow-trunk small {
-  position: relative;
-  z-index: 1;
-  margin-left: 112px;
-  padding: 2px 5px;
-  background: #ffffff;
-  color: #7a8380;
+.real-run-summary > p {
+  margin: 5px 0 0;
+  color: #7b8481;
   font-size: 9px;
 }
 
-.specialist-flow-grid {
-  position: relative;
+.real-run-summary dl {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 24px;
-  row-gap: 9px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 12px 0 0;
+  border-top: 1px solid #edf0ee;
+  padding-top: 10px;
 }
 
-.specialist-flow-grid::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  bottom: 37px;
-  left: 50%;
-  width: 1px;
-  background: #c9d3d0;
-  transform: translateX(-50%);
+.real-run-summary dl div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  text-align: center;
 }
 
-.specialist-agent-node {
-  grid-template-columns: 30px minmax(0, 1fr) 8px;
-  gap: 7px;
-  min-height: 74px;
-  padding: 8px;
+.real-run-summary dt {
+  color: #7b8581;
+  font-size: 8px;
 }
 
-.specialist-agent-node::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 12px;
-  height: 1px;
-  background: #c9d3d0;
+.real-run-summary dd {
+  margin: 0;
+  color: #26332f;
+  font-size: 14px;
+  font-weight: 900;
 }
 
-.specialist-agent-node:nth-child(odd)::before {
-  right: -12px;
+.harness-flow-section {
+  display: grid;
+  gap: 9px;
+  margin-top: 2px;
+  padding: 10px;
+  border: 1px solid #e2efe9;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f7fffc, #fff);
 }
 
-.specialist-agent-node:nth-child(even)::before {
-  left: -12px;
+.harness-flow-section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.specialist-agent-node .agent-node-icon {
-  width: 30px;
-  height: 30px;
-  background: #eef2f0;
-  color: #53625d;
+.harness-flow-section > header strong {
+  color: #26332f;
+  font-size: 11px;
 }
 
-.specialist-agent-node.running,
-.specialist-agent-node.queued {
-  border-color: #9fc8e2;
+.harness-flow-section > header span {
+  color: #6f7a76;
+  font-size: 9px;
+}
+
+.harness-flow-canvas {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.harness-flow-node {
+  position: relative;
+  flex: 1 0 76px;
+  min-width: 76px;
+  min-height: 78px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border: 1px solid #dfe8e4;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.harness-flow-node:hover,
+.harness-flow-node.active {
+  border-color: #6fbf9c;
+  box-shadow: 0 8px 18px rgba(23,111,75,.11);
+  transform: translateY(-1px);
+}
+
+.harness-flow-node.master {
+  border-color: #176f4b;
+  background: #176f4b;
+  color: #fff;
+}
+
+.harness-flow-node.master small {
+  color: #d7f0e5;
+}
+
+.harness-flow-node.generate {
+  border-color: #a8c8db;
+  background: #f6fbff;
+}
+
+.harness-flow-node.review {
+  border-color: #c9ad77;
+  background: #fffaf0;
+}
+
+.harness-flow-node.idle {
+  border-style: dashed;
+  opacity: .74;
+}
+
+.harness-flow-node.running,
+.harness-flow-node.queued {
+  border-color: #72b8e0;
   background: #f8fcff;
 }
 
-.specialist-agent-node.running::before,
-.specialist-agent-node.queued::before {
-  background: #4c90bc;
+.harness-flow-node.failed {
+  border-color: #d98282;
+  background: #fff8f8;
 }
 
-.specialist-agent-node.failed {
-  border-color: #e5b6b6;
-  background: #fffafa;
+.harness-node-icon {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: #ecf5f0;
+  color: #3b705e;
+}
+
+.harness-flow-node.master .harness-node-icon {
+  background: rgba(255,255,255,.15);
+  color: #fff;
+}
+
+.harness-flow-node strong {
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-size: 9px;
+  line-height: 1.25;
+  text-align: center;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.harness-flow-node small {
+  color: #72807b;
+  font-size: 8px;
+}
+
+.harness-node-light {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b7c1bd;
+}
+
+.harness-flow-node.running .harness-node-light,
+.harness-flow-node.queued .harness-node-light { background: #3aa0dc; }
+.harness-flow-node.complete .harness-node-light { background: #16a34a; }
+.harness-flow-node.failed .harness-node-light { background: #dc2626; }
+.harness-flow-node.review .harness-node-light { background: #c8a267; }
+
+.harness-flow-link {
+  flex: 0 0 auto;
+  min-width: 43px;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  border: 0;
+  background: transparent;
+  color: #4e7d6b;
+  cursor: pointer;
+}
+
+.harness-flow-link span {
+  color: #73827c;
+  font-size: 7px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.harness-loop-rail {
+  display: flex;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed #d7e5de;
+}
+
+.harness-loop-edge {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 27px;
+  padding: 4px 7px;
+  border: 1px solid #d9c48f;
+  border-radius: 999px;
+  background: #fffaf0;
+  color: #7a5d22;
+  cursor: pointer;
+}
+
+.harness-loop-edge.assessment {
+  border-color: #9ec5dd;
+  background: #f5fbff;
+  color: #38607a;
+}
+
+.harness-loop-edge span {
+  overflow: hidden;
+  font-size: 8px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.harness-loop-edge:hover {
+  filter: brightness(.985);
+}
+
+.harness-runtime-brief {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.harness-brief-card {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #e3e8e5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.harness-brief-card strong {
+  color: #33413c;
+  font-size: 9px;
+}
+
+.harness-brief-card p {
+  margin: 4px 0 0;
+  color: #6f7a76;
+  font-size: 9px;
+  line-height: 1.4;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.harness-node-overlay {
+  position: fixed;
+  z-index: 1290;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(18, 27, 24, .44);
+}
+
+.harness-node-detail {
+  width: min(430px, 100%);
+  max-height: min(430px, calc(100vh - 48px));
+  overflow-y: auto;
+  border: 1px solid #d8e5df;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 20px 42px rgba(15,23,20,.22);
+}
+
+.harness-node-detail header {
+  position: sticky;
+  top: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0,1fr) 32px;
+  gap: 9px;
+  align-items: center;
+  padding: 13px;
+  border-bottom: 1px solid #e9eeec;
+  background: #fff;
+}
+
+.harness-node-detail header span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #e8f4ef;
+  color: #176f4b;
+}
+
+.harness-node-detail header small {
+  color: #71807a;
+  font-size: 9px;
+}
+
+.harness-node-detail header strong {
+  color: #22302c;
+  font-size: 13px;
+}
+
+.harness-node-detail header button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e0e7e3;
+  border-radius: 8px;
+  background: #fff;
+  color: #5c6b65;
+  cursor: pointer;
+}
+
+.harness-node-detail dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 11px 13px;
+}
+
+.harness-node-detail dl div {
+  display: grid;
+  gap: 2px;
+}
+
+.harness-node-detail dt {
+  color: #77827d;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.harness-node-detail dd {
+  margin: 0;
+  color: #2a3531;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.harness-node-handoffs {
+  padding: 0 13px 13px;
+}
+
+.harness-node-handoffs strong {
+  color: #33413c;
+  font-size: 9px;
+}
+
+.harness-node-handoffs p {
+  margin: 6px 0 0;
+  padding: 8px;
+  border: 1px solid #e6ebe8;
+  border-radius: 7px;
+  background: #fbfdfc;
+  color: #47544f;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.harness-node-handoffs small {
+  display: block;
+  margin-top: 3px;
+  color: #727d78;
+}
+
+.harness-node-handoffs p.empty {
+  border-style: dashed;
+  color: #76817c;
+}
+
+.real-run-empty {
+  border: 1px dashed #d8dfdc;
+  border-radius: 7px;
+  padding: 18px 14px;
+  color: #6f7a76;
+  background: #fafbfa;
+  font-size: 10px;
+  text-align: center;
+}
+
+.real-run-empty {
+  min-height: 180px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 7px;
+}
+
+.real-run-empty svg {
+  color: #568371;
+}
+
+.real-run-empty strong {
+  color: #2b3732;
+  font-size: 12px;
+}
+
+.real-run-empty p {
+  max-width: 270px;
+  margin: 0;
+  line-height: 1.55;
 }
 
 .agent-light.running,
@@ -3513,6 +4645,38 @@ onBeforeUnmount(() => {
   .xiaozhi-window.left {
     left: 12px;
     right: 12px;
+  }
+
+  .harness-flow-canvas {
+    align-items: stretch;
+    overflow-x: hidden;
+  }
+
+  .harness-flow-node {
+    flex: 1 1 62px;
+    min-width: 62px;
+    min-height: 70px;
+    padding: 6px 4px;
+  }
+
+  .harness-flow-link {
+    min-width: 28px;
+  }
+
+  .harness-flow-link span {
+    display: none;
+  }
+
+  .harness-loop-rail {
+    flex-direction: column;
+  }
+
+  .harness-runtime-brief {
+    grid-template-columns: 1fr;
+  }
+
+  .harness-node-overlay {
+    padding: 12px;
   }
 
   .task-preview-bubble {

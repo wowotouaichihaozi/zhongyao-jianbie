@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFile } from 'node:fs/promises'
 
 import {
   buildProfileSessionChatMessages,
   INITIAL_CHAT_OPENING,
 } from '../src/utils/learningProfileChat.js'
+
+const profileViewSource = await readFile(
+  new URL('../src/views/LearningProfileView.vue', import.meta.url),
+  'utf8',
+)
 
 test('keeps the opening before the first persisted conversation turn', () => {
   const messages = buildProfileSessionChatMessages([
@@ -34,4 +40,19 @@ test('moves a persisted opening to the front and removes duplicates', () => {
 
 test('leaves an empty session empty so the existing first-entry flow can speak the opening', () => {
   assert.deepEqual(buildProfileSessionChatMessages([], { now: 100 }), [])
+})
+
+test('shows animated dots inside an empty streaming profile-agent reply', () => {
+  assert.match(profileViewSource, /'typing-indicator': isPendingProfileReply\(m\)/)
+  assert.match(profileViewSource, /<span class="profile-typing-dots"[^>]*><\/span>/)
+  assert.match(profileViewSource, /message\?\.source === 'llm-streaming'/)
+  assert.match(profileViewSource, /color: #111111/)
+  assert.match(profileViewSource, /@keyframes profileTypingCycle/)
+  assert.match(profileViewSource, /0%, 24% \{ content: '\\00a0\\00a0\\00a0'; \}/)
+  assert.match(profileViewSource, /25%, 49% \{ content: '\.'; \}/)
+  assert.match(profileViewSource, /50%, 74% \{ content: '\.\.'; \}/)
+  assert.match(profileViewSource, /75%, 100% \{ content: '\.\.\.'; \}/)
+  assert.match(profileViewSource, /width: 48px !important/)
+  assert.match(profileViewSource, /min-width: 48px !important/)
+  assert.match(profileViewSource, /max-width: 48px !important/)
 })

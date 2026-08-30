@@ -115,6 +115,7 @@ import {
   profileStageIndex,
   workflowStatus,
 } from '../utils/xiaozhiWorkflowProgress.js'
+import { XIAOZHI_PROFILE_CONTEXT_EVENT } from '../utils/profileContextEvents.js'
 
 const props = defineProps({
   embedded: {
@@ -290,23 +291,6 @@ function rememberTaskId(taskId) {
   }
 }
 
-function restoredTaskId() {
-  try {
-    return String(sessionStorage.getItem(XIAOZHI_ACTIVE_TASK_KEY) || '')
-  } catch {
-    return ''
-  }
-}
-
-function restoredWorkflowState() {
-  try {
-    const raw = sessionStorage.getItem(XIAOZHI_WORKFLOW_STATE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
 function rememberDismissedKey(value) {
   try {
     if (value) sessionStorage.setItem(dismissedStorageKey, value)
@@ -401,6 +385,16 @@ async function loadTask() {
   if (!trackedTaskId.value) return
   try {
     const response = await getXiaoZhiTask(trackedTaskId.value)
+    const taskProfileId = Number(response?.data?.profileReportId || 0)
+    const activeProfileId = Number(response?.data?.activeProfileReportId || 0)
+    if (!activeProfileId || taskProfileId !== activeProfileId) {
+      trackedTaskId.value = ''
+      task.value = null
+      streamState.value = null
+      rememberTaskId('')
+      stopPolling()
+      return
+    }
     const nextTask = response?.data?.task || null
     if (nextTask && Array.isArray(response?.data?.orchestrationRuns)) {
       nextTask.orchestrationRuns = response.data.orchestrationRuns
@@ -458,6 +452,29 @@ function dismissCard() {
   rememberDismissedKey(dismissedKey.value)
 }
 
+function clearWorkflowCache() {
+  try {
+    sessionStorage.removeItem(XIAOZHI_ACTIVE_TASK_KEY)
+    sessionStorage.removeItem(XIAOZHI_WORKFLOW_STATE_KEY)
+    sessionStorage.removeItem(dismissedStorageKey)
+  } catch {
+    // Storage can be unavailable in privacy-restricted webviews.
+  }
+}
+
+function handleProfileContextChanged() {
+  stopPolling()
+  if (completeTimer) window.clearTimeout(completeTimer)
+  completeTimer = 0
+  task.value = null
+  trackedTaskId.value = ''
+  streamState.value = null
+  dismissedKey.value = ''
+  auditExpanded.value = false
+  clearWorkflowCache()
+  loadTaskFromStatus()
+}
+
 function goTaskRoute() {
   const targetRoute = task.value?.route || streamState.value?.route
   if (!targetRoute) return
@@ -466,19 +483,16 @@ function goTaskRoute() {
 
 onMounted(() => {
   window.addEventListener(XIAOZHI_WORKFLOW_EVENT, handleWorkflowProgress)
+  window.addEventListener(XIAOZHI_PROFILE_CONTEXT_EVENT, handleProfileContextChanged)
   dismissedKey.value = restoredDismissedKey()
-  const initialTaskId = String(route.query.xzTask || restoredTaskId())
+  const initialTaskId = String(route.query.xzTask || '')
   if (initialTaskId) trackTaskId(initialTaskId)
-  else {
-    const restored = restoredWorkflowState()
-    if (restored?.taskId) trackTaskId(restored.taskId)
-    else if (restored?.workflowId) handleWorkflowProgress({ detail: restored })
-    else loadTaskFromStatus()
-  }
+  else loadTaskFromStatus()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener(XIAOZHI_WORKFLOW_EVENT, handleWorkflowProgress)
+  window.removeEventListener(XIAOZHI_PROFILE_CONTEXT_EVENT, handleProfileContextChanged)
   stopPolling()
   if (completeTimer) window.clearTimeout(completeTimer)
 })

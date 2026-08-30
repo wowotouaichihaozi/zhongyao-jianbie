@@ -349,6 +349,7 @@ class LearningProfileApiTests(unittest.TestCase):
                     },
                 ) as generate_cover,
                 patch.object(app_module, "execute_generated_video_task") as execute_video,
+                patch.object(app_module, "xiaozhi_append_task_conversation") as append_conversation,
             ):
                 app_module.xiaozhi_generate_generated_video_cover(
                     task_id,
@@ -384,6 +385,13 @@ class LearningProfileApiTests(unittest.TestCase):
             self.assertEqual(poster.mimetype, "image/png")
             generate_cover.assert_called_once()
             execute_video.assert_not_called()
+            lifecycle_steps = {
+                call.kwargs.get("dedupe_suffix")
+                for call in append_conversation.call_args_list
+            }
+            self.assertIn("cover:generating", lifecycle_steps)
+            self.assertIn("cover:ready", lifecycle_steps)
+            self.assertNotIn("cover:failed", lifecycle_steps)
         finally:
             if task_id:
                 with app_module.auth_db() as conn:
@@ -676,6 +684,54 @@ class LearningProfileApiTests(unittest.TestCase):
         )
         self.assertEqual(renamed.status_code, 200)
         self.assertEqual(renamed.get_json()["data"]["profile"]["profileName"], "重命名画像")
+
+    def test_delete_profile_requires_auth_and_ownership(self) -> None:
+        with app_module.auth_db() as conn:
+            temporary = create_profile_version(
+                conn,
+                101,
+                {
+                    "timestamp": "2026-08-29T10:00:00+08:00",
+                    "aiAnalysis": {"source": "llm", "summary": "待删除画像"},
+                },
+                profile_name="待删除画像",
+                start_new_profile=True,
+                timestamp="2026-08-29T10:00:00+08:00",
+            )
+
+        try:
+            unauthorized = self.client.delete(
+                f"/api/learning-profile/profiles/{temporary['id']}"
+            )
+            self.assertEqual(unauthorized.status_code, 401)
+
+            forbidden = self.client.delete(
+                f"/api/learning-profile/profiles/{self.other_profile['id']}",
+                headers=self.headers,
+            )
+            self.assertEqual(forbidden.status_code, 404)
+
+            deleted = self.client.delete(
+                f"/api/learning-profile/profiles/{temporary['id']}",
+                headers=self.headers,
+            )
+            self.assertEqual(deleted.status_code, 200)
+            result = deleted.get_json()["data"]
+            self.assertEqual(result["deletedReportId"], temporary["id"])
+            self.assertTrue(result["deletedActiveProfile"])
+            self.assertNotEqual(result["activeReportId"], temporary["id"])
+            with app_module.auth_db() as conn:
+                self.assertEqual(
+                    app_module.get_profile_for_user(conn, 101, temporary["id"]),
+                    {},
+                )
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute(
+                    "DELETE FROM learning_profile_reports WHERE id = ? AND user_id = ?",
+                    (temporary["id"], 101),
+                )
+                app_module.activate_profile(conn, 101, self.profile_two["id"])
 
     def test_refresh_updates_existing_profile_and_reset_keeps_history(self) -> None:
         fake_analysis = {
@@ -1448,6 +1504,60 @@ class LearningProfileApiTests(unittest.TestCase):
             self.assertEqual(result["harness"]["skill"]["id"], "learner.profile.manage")
             self.assertEqual(result["harness"]["mcp"]["toolCalls"][0]["status"], "complete")
             self.assertEqual(result["orchestration"]["rootAgent"], "xiaozhi-companion-agent")
+            recent_run = next(
+                item
+                for item in app_module.xiaozhi_recent_orchestration_runs(101)
+                if item["runId"] == run_id
+            )
+            self.assertGreaterEqual(len(recent_run["agentRuns"]), 1)
+            self.assertGreaterEqual(len(recent_run["handoffs"]), 1)
+            self.assertGreaterEqual(len(recent_run["events"]), 1)
+            self.assertNotIn("payload", recent_run["handoffs"][0])
+            self.assertNotIn("payload", recent_run["events"][0])
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute("DELETE FROM agent_orchestration_runs WHERE run_id = ?", (run_id,))
+
+    def test_large_orchestration_keeps_structured_trace_when_persisted(self) -> None:
+        run_id = "mar_large_trace_contract"
+        event = {
+            "sequence": 1,
+            "time": app_module.now_iso(),
+            "agentId": "profile-management-agent",
+            "stage": "specialist_complete",
+            "status": "complete",
+            "message": "profile trace complete",
+            "progress": 100,
+            "payload": {"context": "x" * 260000},
+        }
+        result = {
+            "orchestration": {
+                "runId": run_id,
+                "rootAgent": "xiaozhi-companion-agent",
+                "taskType": "profile_management",
+                "topic": "profile history",
+                "status": "complete",
+                "agentRuns": [{"agentId": "profile-management-agent", "status": "complete"}],
+                "handoffs": [{"sequence": 1, "summary": "profile handoff", "payload": event["payload"]}],
+                "events": [event],
+            },
+            "harness": {"name": "test-harness", "skill": {"id": "learner.profile.manage"}},
+        }
+        try:
+            app_module.xiaozhi_persist_orchestration(
+                101,
+                result,
+                task_type="profile_management",
+                topic="profile history",
+            )
+            persisted = next(
+                item
+                for item in app_module.xiaozhi_recent_orchestration_runs(101, limit=50)
+                if item["runId"] == run_id
+            )
+            self.assertEqual(persisted["agentRuns"][0]["agentId"], "profile-management-agent")
+            self.assertEqual(persisted["handoffs"][0]["summary"], "profile handoff")
+            self.assertEqual(persisted["events"][0]["stage"], "specialist_complete")
         finally:
             with app_module.auth_db() as conn:
                 conn.execute("DELETE FROM agent_orchestration_runs WHERE run_id = ?", (run_id,))
@@ -1479,6 +1589,26 @@ class LearningProfileApiTests(unittest.TestCase):
             matched = [item for item in messages if item["content"] in {prompt, reply}]
             self.assertEqual([item["type"] for item in matched], ["user_message", "supervisor_reply"])
             self.assertEqual(matched[1]["agentName"], "岐小智总控智能体")
+            history_response = self.client.get("/api/xiaozhi/history", headers=self.headers)
+            self.assertEqual(history_response.status_code, 200)
+            persisted_messages = [
+                item
+                for item in history_response.get_json()["data"]["messages"]
+                if item["content"] in {prompt, reply}
+            ]
+            self.assertEqual([item["role"] for item in persisted_messages], ["user", "assistant"])
+            self.assertEqual(persisted_messages[1]["targetAgent"]["id"], "xiaozhi-companion-agent")
+            with app_module.auth_db() as conn:
+                scoped_rows = conn.execute(
+                    """
+                    SELECT role, profile_report_id
+                    FROM xiaozhi_messages
+                    WHERE user_id = ? AND content IN (?, ?)
+                    ORDER BY id
+                    """,
+                    (101, prompt, reply),
+                ).fetchall()
+            self.assertEqual([int(row["profile_report_id"]) for row in scoped_rows], [profile_id, profile_id])
         finally:
             with app_module.auth_db() as conn:
                 conn.execute("DELETE FROM xiaozhi_messages WHERE user_id = ? AND content IN (?, ?)", (101, prompt, reply))
@@ -1492,6 +1622,359 @@ class LearningProfileApiTests(unittest.TestCase):
                         "DELETE FROM profile_agent_messages WHERE conversation_id = ? AND content IN (?, ?)",
                         (int(conversation["id"]), prompt, reply),
                     )
+
+    def test_xiaozhi_agent_mention_routes_to_real_ppt_task_and_active_profile(self) -> None:
+        prompt = "@PPT生成智能体 生成八纲辨证入门课件"
+        task_id = ""
+        with app_module.auth_db() as conn:
+            active = app_module.active_profile_for_user(conn, 101)
+        profile_id = int(active["id"])
+        try:
+            with patch.object(app_module.threading, "Thread") as thread_class:
+                response = self.client.post(
+                    "/api/xiaozhi/chat",
+                    headers=self.headers,
+                    json={
+                        "message": prompt,
+                        "route": "/learning-path",
+                        "profileReportId": profile_id,
+                    },
+                )
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()["data"]
+            self.assertEqual(data["targetAgent"]["id"], "ppt-agent")
+            self.assertEqual(data["targetAgent"]["taskType"], "ppt")
+            self.assertEqual(data["intent"]["source"], "explicit-agent-mention")
+            self.assertEqual(data["cards"][0]["type"], "ppt")
+            task_id = data["cards"][0]["taskId"]
+            self.assertEqual(thread_class.call_args.kwargs["args"][2], "ppt")
+            with app_module.auth_db() as conn:
+                task = conn.execute(
+                    "SELECT profile_report_id, task_type FROM xiaozhi_tasks WHERE task_id = ?",
+                    (task_id,),
+                ).fetchone()
+            self.assertEqual(int(task["profile_report_id"]), profile_id)
+            self.assertEqual(task["task_type"], "ppt")
+        finally:
+            with app_module.auth_db() as conn:
+                if task_id:
+                    conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
+                conn.execute("DELETE FROM xiaozhi_messages WHERE user_id = ? AND content = ?", (101, prompt))
+                conn.execute("DELETE FROM knowledge_growth_memories WHERE user_id = ? AND user_message = ?", (101, prompt))
+
+    def test_all_mentionable_agents_have_personas_and_named_agent_can_chat_without_creating_task(self) -> None:
+        configured_ids = {str(item["id"]) for item in app_module.XIAOZHI_MENTIONABLE_AGENTS}
+        self.assertEqual(configured_ids, set(app_module.XIAOZHI_AGENT_PERSONAS))
+        self.assertEqual(len(configured_ids), 17)
+
+        prompt = "@PPT生成智能体 你能帮我解决哪些学习问题"
+        reply = "我可以帮助你梳理课程结构、逐页内容和讲解顺序。"
+        with app_module.auth_db() as conn:
+            active = app_module.active_profile_for_user(conn, 101)
+            task_count_before = conn.execute(
+                "SELECT COUNT(*) FROM xiaozhi_tasks WHERE user_id = ?",
+                (101,),
+            ).fetchone()[0]
+        profile_id = int(active["id"])
+        try:
+            with patch.object(app_module, "xiaozhi_agent_chat_reply", return_value=reply) as agent_chat:
+                response = self.client.post(
+                    "/api/xiaozhi/chat",
+                    headers=self.headers,
+                    json={
+                        "message": prompt,
+                        "route": "/learning-path",
+                        "profileReportId": profile_id,
+                    },
+                )
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()["data"]
+            self.assertEqual(data["reply"], reply)
+            self.assertEqual(data["cards"], [])
+            self.assertEqual(data["targetAgent"]["id"], "ppt-agent")
+            self.assertEqual(data["intent"]["source"], "explicit-agent-conversation")
+            self.assertEqual(agent_chat.call_args.args[1]["id"], "ppt-agent")
+            with app_module.auth_db() as conn:
+                task_count_after = conn.execute(
+                    "SELECT COUNT(*) FROM xiaozhi_tasks WHERE user_id = ?",
+                    (101,),
+                ).fetchone()[0]
+            self.assertEqual(task_count_after, task_count_before)
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute("DELETE FROM xiaozhi_messages WHERE user_id = ? AND content IN (?, ?)", (101, prompt, reply))
+                conn.execute("DELETE FROM knowledge_growth_memories WHERE user_id = ? AND user_message = ?", (101, prompt))
+                conversation = conn.execute(
+                    "SELECT id FROM profile_agent_conversations WHERE user_id = ? AND profile_report_id = ?",
+                    (101, profile_id),
+                ).fetchone()
+                if conversation:
+                    conn.execute(
+                        "DELETE FROM profile_agent_messages WHERE conversation_id = ? AND content IN (?, ?)",
+                        (int(conversation["id"]), prompt, reply),
+                    )
+
+    def test_xiaozhi_rejects_stale_profile_chat_request(self) -> None:
+        with app_module.auth_db() as conn:
+            active = app_module.active_profile_for_user(conn, 101)
+        active_id = int(active["id"])
+        stale_id = self.profile_one["id"] if active_id != self.profile_one["id"] else self.profile_two["id"]
+        response = self.client.post(
+            "/api/xiaozhi/chat",
+            headers=self.headers,
+            json={
+                "message": "这条消息来自切换前的旧画像",
+                "profileReportId": stale_id,
+            },
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.get_json()["data"]["profileReportId"], active_id)
+
+    def test_empty_profile_does_not_expose_legacy_unscoped_tasks(self) -> None:
+        task_id = "xz_legacy_unscoped_empty_profile"
+        with app_module.auth_db() as conn:
+            active_before = app_module.active_profile_for_user(conn, 101)
+            timestamp = app_module.now_iso()
+            conn.execute(
+                """
+                INSERT INTO xiaozhi_tasks
+                    (task_id, user_id, profile_report_id, task_type, title, prompt,
+                     status, route, result_json, error, created_at, updated_at)
+                VALUES (?, 101, 0, 'question_bank', '旧画像题库', '', 'complete',
+                        '/personalized-resources/question-bank', '{}', '', ?, ?)
+                """,
+                (task_id, timestamp, timestamp),
+            )
+            conn.execute(
+                "UPDATE user_learning_profile_state SET active_report_id = NULL WHERE user_id = ?",
+                (101,),
+            )
+        try:
+            history = self.client.get("/api/xiaozhi/history", headers=self.headers)
+            status = self.client.get("/api/xiaozhi/status", headers=self.headers)
+            self.assertEqual(history.status_code, 200)
+            self.assertEqual(status.status_code, 200)
+            self.assertEqual(history.get_json()["data"]["profileReportId"], 0)
+            self.assertEqual(history.get_json()["data"]["tasks"], [])
+            self.assertEqual(status.get_json()["data"]["tasks"], [])
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
+                if active_before:
+                    app_module.activate_profile(conn, 101, int(active_before["id"]))
+
+    def test_xiaozhi_model_context_switches_with_active_profile(self) -> None:
+        first_text = "画像一专属群聊上下文"
+        second_text = "画像二专属群聊上下文"
+        with app_module.auth_db() as conn:
+            active_before = app_module.active_profile_for_user(conn, 101)
+        store = app_module.ProfileAgentContextStore(app_module.AUTH_DB_PATH)
+        try:
+            store.append(
+                101,
+                self.profile_one["id"],
+                agent_id="learner",
+                agent_name="API 用户一",
+                message_type="user_message",
+                content=first_text,
+                dedupe_key="test:profile-context:first",
+            )
+            store.append(
+                101,
+                self.profile_two["id"],
+                agent_id="learner",
+                agent_name="API 用户一",
+                message_type="user_message",
+                content=second_text,
+                dedupe_key="test:profile-context:second",
+            )
+            with app_module.auth_db() as conn:
+                app_module.activate_profile(conn, 101, self.profile_one["id"])
+            first_messages = [item["content"] for item in app_module.xiaozhi_latest_context(101)["recentMessages"]]
+            self.assertIn(first_text, first_messages)
+            self.assertNotIn(second_text, first_messages)
+
+            with app_module.auth_db() as conn:
+                app_module.activate_profile(conn, 101, self.profile_two["id"])
+            second_messages = [item["content"] for item in app_module.xiaozhi_latest_context(101)["recentMessages"]]
+            self.assertIn(second_text, second_messages)
+            self.assertNotIn(first_text, second_messages)
+        finally:
+            with app_module.auth_db() as conn:
+                conn.execute(
+                    "DELETE FROM profile_agent_messages WHERE dedupe_key IN (?, ?)",
+                    ("test:profile-context:first", "test:profile-context:second"),
+                )
+                if active_before:
+                    app_module.activate_profile(conn, 101, int(active_before["id"]))
+
+    def test_xiaozhi_supervisor_retries_the_real_model_without_local_chat_fallback(self) -> None:
+        model_chat = {
+            "intent": "chat",
+            "resourceType": "none",
+            "topic": "问候",
+            "reply": "你好，我是岐小智。",
+            "source": "hermes_agent",
+        }
+        with patch.object(
+            app_module,
+            "run_xiaozhi_hermes_agent",
+            side_effect=[RuntimeError("temporary upstream failure"), model_chat],
+        ) as model_call:
+            result = app_module.xiaozhi_detect_intent("你好", {})
+        self.assertEqual(model_call.call_count, 2)
+        self.assertEqual(result["reply"], model_chat["reply"])
+        self.assertEqual(result["source"], "hermes_agent")
+        self.assertNotEqual(result["source"], "fallback")
+
+    def test_xiaozhi_resource_command_returns_task_card_in_profile_group(self) -> None:
+        prompt = "请生成一份麻黄与桂枝功效对比的 PPT"
+        reply = "我会创建 PPT 任务，并持续汇报知识检索、生成和审核进度。"
+        intent = {
+            "intent": "generate_resource",
+            "resourceType": "ppt",
+            "resourceTypes": ["ppt"],
+            "topic": "麻黄与桂枝功效对比",
+            "reply": reply,
+        }
+        task_id = ""
+        with app_module.auth_db() as conn:
+            active = app_module.active_profile_for_user(conn, 101)
+        profile_id = int(active["id"])
+        try:
+            with (
+                patch.object(app_module, "xiaozhi_detect_intent", return_value=intent),
+                patch.object(app_module.threading, "Thread") as thread_class,
+            ):
+                response = self.client.post(
+                    "/api/xiaozhi/chat",
+                    headers=self.headers,
+                    json={"message": prompt, "route": "/learning-path"},
+                )
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()["data"]
+            self.assertEqual(len(data["cards"]), 1)
+            task_id = data["cards"][0]["taskId"]
+            self.assertEqual(data["cards"][0]["type"], "ppt")
+            self.assertIn("/personalized-resources/ppt", data["cards"][0]["route"])
+            self.assertEqual(data["agentConversation"]["profileReportId"], profile_id)
+            created = next(
+                item
+                for item in data["agentConversation"]["recentMessages"]
+                if item["type"] == "task_created" and item["taskId"] == task_id
+            )
+            self.assertEqual(created["status"], "queued")
+            self.assertIn({"type": "task", "id": task_id}, created["resourceReferences"])
+            self.assertTrue(any(ref["type"] == "route" for ref in created["resourceReferences"]))
+            resource_threads = [
+                call
+                for call in thread_class.call_args_list
+                if call.kwargs.get("target") is app_module.xiaozhi_run_resource_task
+            ]
+            self.assertEqual(len(resource_threads), 1)
+            self.assertGreaterEqual(thread_class.return_value.start.call_count, 1)
+        finally:
+            with app_module.auth_db() as conn:
+                if task_id:
+                    conn.execute("DELETE FROM xiaozhi_tasks WHERE task_id = ?", (task_id,))
+                    conversation = conn.execute(
+                        "SELECT id FROM profile_agent_conversations WHERE user_id = ? AND profile_report_id = ?",
+                        (101, profile_id),
+                    ).fetchone()
+                    if conversation:
+                        conversation_id = int(conversation["id"])
+                        conn.execute(
+                            "DELETE FROM profile_agent_messages WHERE conversation_id = ? AND (task_id = ? OR content IN (?, ?))",
+                            (conversation_id, task_id, prompt, reply),
+                        )
+                        remaining = conn.execute(
+                            "SELECT COUNT(*) AS count, COALESCE(MAX(sequence), 0) AS max_sequence FROM profile_agent_messages WHERE conversation_id = ?",
+                            (conversation_id,),
+                        ).fetchone()
+                        conn.execute(
+                            "UPDATE profile_agent_conversations SET message_count = ? WHERE id = ?",
+                            (int(remaining["max_sequence"] or 0), conversation_id),
+                        )
+                conn.execute("DELETE FROM xiaozhi_messages WHERE user_id = ? AND content IN (?, ?)", (101, prompt, reply))
+                conn.execute("DELETE FROM knowledge_growth_memories WHERE user_id = ? AND user_message = ?", (101, prompt))
+
+    def test_xiaozhi_video_command_waits_for_manual_start_and_creates_group_card(self) -> None:
+        prompt = "请生成一段麻黄与桂枝辨析的 AI 视频"
+        reply = "我已创建 AI 视频任务，先生成首图，完整视频等待你手动确认。"
+        intent = {
+            "intent": "generate_resource",
+            "resourceType": "generated_video",
+            "resourceTypes": ["generated_video"],
+            "topic": "麻黄与桂枝辨析",
+            "reply": reply,
+        }
+        task_id = "xz_video_group_chat_test"
+        route = f"/personalized-resources/video-generator?xzTask={task_id}"
+        with app_module.auth_db() as conn:
+            active = app_module.active_profile_for_user(conn, 101)
+        profile_id = int(active["id"])
+        try:
+            with (
+                patch.object(app_module, "xiaozhi_detect_intent", return_value=intent),
+                patch.object(
+                    app_module,
+                    "xiaozhi_create_resource_agent_task",
+                    return_value={
+                        "taskId": task_id,
+                        "taskType": "generated_video",
+                        "title": "麻黄与桂枝辨析 · AI 视频生成智能体",
+                        "status": "waiting",
+                        "route": route,
+                        "result": {
+                            "currentStage": "waiting_for_user",
+                            "coverStatus": "queued",
+                        },
+                    },
+                ) as create_task,
+                patch.object(app_module.threading, "Thread") as thread_class,
+            ):
+                response = self.client.post(
+                    "/api/xiaozhi/chat",
+                    headers=self.headers,
+                    json={"message": prompt, "route": "/learning-path"},
+                )
+
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()["data"]
+            self.assertEqual(data["cards"][0]["status"], "waiting")
+            self.assertEqual(data["cards"][0]["taskId"], task_id)
+            self.assertIn("/personalized-resources/video-generator", data["cards"][0]["route"])
+            created = next(
+                item
+                for item in data["agentConversation"]["recentMessages"]
+                if item["type"] == "task_created" and item["taskId"] == task_id
+            )
+            self.assertEqual(created["status"], "waiting")
+            self.assertEqual(created["payload"]["resourceType"], "generated_video")
+            create_task.assert_called_once()
+            thread_class.assert_not_called()
+        finally:
+            with app_module.auth_db() as conn:
+                conversation = conn.execute(
+                    "SELECT id FROM profile_agent_conversations WHERE user_id = ? AND profile_report_id = ?",
+                    (101, profile_id),
+                ).fetchone()
+                if conversation:
+                    conversation_id = int(conversation["id"])
+                    conn.execute(
+                        "DELETE FROM profile_agent_messages WHERE conversation_id = ? AND (task_id = ? OR content IN (?, ?))",
+                        (conversation_id, task_id, prompt, reply),
+                    )
+                    remaining = conn.execute(
+                        "SELECT COALESCE(MAX(sequence), 0) AS max_sequence FROM profile_agent_messages WHERE conversation_id = ?",
+                        (conversation_id,),
+                    ).fetchone()
+                    conn.execute(
+                        "UPDATE profile_agent_conversations SET message_count = ? WHERE id = ?",
+                        (int(remaining["max_sequence"] or 0), conversation_id),
+                    )
+                conn.execute("DELETE FROM xiaozhi_messages WHERE user_id = ? AND content IN (?, ?)", (101, prompt, reply))
+                conn.execute("DELETE FROM knowledge_growth_memories WHERE user_id = ? AND user_message = ?", (101, prompt))
 
     def test_profile_sessions_keep_chat_and_dimensions_isolated(self) -> None:
         first = self.client.post(

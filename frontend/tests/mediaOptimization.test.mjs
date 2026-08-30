@@ -25,14 +25,11 @@ test('keeps optimized landing media within the initial-load budget', () => {
   assert.ok(fs.existsSync(path.join(imageDir, 'logogif.gif')), 'the original GIF fallback must remain available')
 })
 
-test('prefers WebP while retaining original media fallbacks', () => {
-  const authSource = fs.readFileSync(path.join(frontendDir, 'src/views/AuthPage.vue'), 'utf8')
+test('uses the imported HerbWise login scene while retaining optimized media elsewhere', () => {
+  const authSource = fs.readFileSync(path.join(frontendDir, 'src/views/HerbWiseLoginPage.vue'), 'utf8')
   const launcherSource = fs.readFileSync(path.join(frontendDir, 'src/components/FloatingLogoLauncher.vue'), 'utf8')
 
-  optimizedLandingImages.forEach((filename) => {
-    assert.match(authSource, new RegExp(`srcset="/${filename}"`))
-  })
-  assert.equal((authSource.match(/loading="lazy" decoding="async"/g) || []).length, 5)
-  assert.match(launcherSource, /srcset="\/logogif-128\.webp"/)
-  assert.match(launcherSource, /src="\/logogif\.gif"/)
+  assert.match(authSource, /url\('\/images\/herbwise-login-scene\.jpg'\)/)
+  assert.ok(fs.statSync(path.join(imageDir, 'images/herbwise-login-scene.jpg')).size < 900_000)
+  assert.match(launcherSource, /src="\/qihuang-zhijing-mark-512\.png"/)
 })

@@ -8,6 +8,7 @@ from learning_profile_versions import (
     activate_profile,
     active_profile_for_user,
     create_profile_version,
+    delete_profile,
     list_profiles_for_user,
     rename_profile,
     reset_profile_state,
@@ -95,6 +96,53 @@ class LearningProfileVersionTests(unittest.TestCase):
         )
         with self.assertRaises(LookupError):
             activate_profile(self.conn, 2, profile["id"])
+
+    def test_delete_profile_cascades_scoped_data_and_reselects_active_profile(self) -> None:
+        root = create_profile_version(
+            self.conn,
+            1,
+            {"timestamp": "2026-07-10T10:01:00+08:00", "aiAnalysis": {"summary": "root"}},
+            profile_name="基础画像",
+            timestamp="2026-07-10T10:01:00+08:00",
+        )
+        current = create_profile_version(
+            self.conn,
+            1,
+            {"timestamp": "2026-07-10T10:02:00+08:00", "aiAnalysis": {"summary": "current"}},
+            parent_report_id=root["id"],
+            profile_name="当前画像",
+            timestamp="2026-07-10T10:02:00+08:00",
+        )
+        self.conn.execute(
+            """
+            INSERT INTO learning_path_profile_configs
+                (user_id, profile_report_id, config_json, created_at, updated_at)
+            VALUES (?, ?, '{}', ?, ?)
+            """,
+            (1, current["id"], "2026-07-10T10:02:00+08:00", "2026-07-10T10:02:00+08:00"),
+        )
+
+        deleted = delete_profile(
+            self.conn,
+            1,
+            current["id"],
+            timestamp="2026-07-10T10:03:00+08:00",
+        )
+
+        self.assertTrue(deleted["deletedActiveProfile"])
+        self.assertEqual(deleted["activeReportId"], root["id"])
+        self.assertEqual(active_profile_for_user(self.conn, 1)["id"], root["id"])
+        self.assertIsNone(self.conn.execute(
+            "SELECT id FROM learning_profile_reports WHERE id = ?",
+            (current["id"],),
+        ).fetchone())
+        self.assertIsNone(self.conn.execute(
+            "SELECT profile_report_id FROM learning_path_profile_configs WHERE profile_report_id = ?",
+            (current["id"],),
+        ).fetchone())
+
+        with self.assertRaises(LookupError):
+            delete_profile(self.conn, 2, root["id"])
 
     def test_save_updates_active_profile_in_place_and_merges_dimensions(self) -> None:
         root = create_profile_version(

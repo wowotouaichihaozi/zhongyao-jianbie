@@ -1,5 +1,5 @@
 {
-    "manifestVersion":  "1.6.1",
+    "manifestVersion":  "1.6.2",
     "rootAgentId":  "xiaozhi-companion-agent",
     "architecture":  "supervisor-shared-blackboard",
     "agents":  [
@@ -79,13 +79,17 @@
                        "id":  "learning-animation-agent",
                        "name":  "学习动画智能体",
                        "role":  "specialist",
-                       "description":  "Platform agent learning-animation-agent"
+                       "description":  "Platform agent learning-animation-agent",
+                       "hidden":  true,
+                       "hiddenReason":  "当前中医药学习平台不展示独立动画智能体"
                    },
                    {
                        "id":  "mcu-agent",
                        "name":  "实验资源智能体",
                        "role":  "specialist",
-                       "description":  "Platform agent mcu-agent"
+                       "description":  "Platform agent mcu-agent",
+                       "hidden":  true,
+                       "hiddenReason":  "旧单片机实验模块已下线，仅保留历史任务兼容"
                    },
                    {
                        "id":  "interview-agent",

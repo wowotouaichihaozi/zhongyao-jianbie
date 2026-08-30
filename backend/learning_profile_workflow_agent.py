@@ -767,20 +767,27 @@ def node_llm_agent_decide(state: WorkflowState) -> WorkflowState:
             )
             parsed = _extract_json(raw)
             validated = validate_agent_json(parsed)
+            if is_greeting_only(latest):
+                # A greeting may advance the conversation but cannot fill evidence.
+                validated["candidate_evidence"] = []
             reply = str(validated.get("reply") or "").strip()
             next_dimension = str(validated.get("next_dimension") or "").strip()
+            projected = merge_agent_result(
+                state.get("profile") or {},
+                validated,
+                state.get("rule_result") or {},
+            )
+            projected_missing = projected.get("missing_dimensions") or []
             if not reply:
                 raise ValueError("大模型未返回可显示回复")
             if previous_assistant and reply == previous_assistant.strip():
                 raise ValueError("大模型连续返回重复回复")
-            if missing and next_dimension not in missing:
+            if projected_missing and next_dimension not in projected_missing:
                 raise ValueError("大模型未返回有效的下一采集维度")
+            if not projected_missing:
+                validated["next_dimension"] = ""
             state["agent_raw"] = raw
-            state["agent_json"] = parsed
-            if is_greeting_only(latest):
-                # A greeting may advance the conversation but cannot fill evidence.
-                state["agent_json"]["evidence"] = []
-                state["agent_json"]["candidate_evidence"] = []
+            state["agent_json"] = validated
             break
         except Exception as exc:
             last_error = exc

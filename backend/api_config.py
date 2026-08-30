@@ -90,7 +90,7 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     # ── Anthropic / Mimo AI Configuration ───────────────────────────────────
     "ANTHROPIC_BASE_URL": "https://api.deepseek.com",
     "ANTHROPIC_AUTH_TOKEN": "",
-    "ANTHROPIC_MODEL": "deepseek-v4-flash-vision-exp",
+    "ANTHROPIC_MODEL": "deepseek-chat",
     "OPENAI_BASE_URL": "https://api.deepseek.com",
     "LLM_PROTOCOL": "openai",
     "LLM_CONTEXT_WINDOW": "262144",
@@ -125,7 +125,7 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     "HERMES_AGENT_API_URL": "",
     "HERMES_AGENT_BASE_URL": "",
     "HERMES_AGENT_AUTH_TOKEN": "",
-    "HERMES_AGENT_MODEL": "",
+    "HERMES_AGENT_MODEL": "deepseek-chat",
     "HERMES_XIAOZHI_AGENT_ID": "xiaozhi-companion-agent",
     "HERMES_XIAOZHI_AGENT_NAME": "岐小智陪伴式助手",
 

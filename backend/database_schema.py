@@ -177,6 +177,7 @@ CREATE TABLE IF NOT EXISTS learning_feedback_records (
 CREATE TABLE IF NOT EXISTS xiaozhi_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
+    profile_report_id INTEGER NOT NULL DEFAULT 0,
     role TEXT NOT NULL,
     content TEXT NOT NULL,
     intent_json TEXT NOT NULL DEFAULT '{}',
@@ -218,6 +219,7 @@ CREATE TABLE IF NOT EXISTS xiaozhi_tasks (
 CREATE TABLE IF NOT EXISTS generated_video_covers (
     task_id TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,
+    profile_report_id INTEGER NOT NULL DEFAULT 0,
     image_blob BLOB,
     mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
     model TEXT NOT NULL DEFAULT 'z-image-turbo',
@@ -875,6 +877,68 @@ def init_auth_schema(conn: sqlite3.Connection) -> None:
             "policy_json": "policy_json TEXT NOT NULL DEFAULT '{}'",
             "profile_report_id": "profile_report_id INTEGER NOT NULL DEFAULT 0",
         },
+    )
+    ensure_columns(
+        conn,
+        "xiaozhi_tasks",
+        {"profile_report_id": "profile_report_id INTEGER NOT NULL DEFAULT 0"},
+    )
+    ensure_columns(
+        conn,
+        "xiaozhi_messages",
+        {"profile_report_id": "profile_report_id INTEGER NOT NULL DEFAULT 0"},
+    )
+    conn.execute(
+        """
+        UPDATE xiaozhi_messages AS chat
+        SET profile_report_id = COALESCE(
+            (
+                SELECT conversation.profile_report_id
+                FROM profile_agent_messages AS message
+                JOIN profile_agent_conversations AS conversation
+                  ON conversation.id = message.conversation_id
+                WHERE message.dedupe_key IN (
+                    'chat:user:' || chat.id,
+                    'chat:assistant:' || chat.id
+                )
+                  AND conversation.user_id = chat.user_id
+                ORDER BY message.id DESC LIMIT 1
+            ),
+            0
+        )
+        WHERE chat.profile_report_id = 0
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_xiaozhi_messages_user_profile_id "
+        "ON xiaozhi_messages(user_id, profile_report_id, id DESC)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_xiaozhi_tasks_user_profile_id "
+        "ON xiaozhi_tasks(user_id, profile_report_id, id DESC)"
+    )
+    conn.execute(
+        """
+        UPDATE xiaozhi_tasks AS task
+        SET profile_report_id = COALESCE(
+            (
+                SELECT NULLIF(run.profile_report_id, 0)
+                FROM agent_orchestration_runs AS run
+                WHERE run.task_id = task.task_id AND run.user_id = task.user_id
+                ORDER BY run.id DESC LIMIT 1
+            ),
+            (
+                SELECT conversation.profile_report_id
+                FROM profile_agent_messages AS message
+                JOIN profile_agent_conversations AS conversation
+                  ON conversation.id = message.conversation_id
+                WHERE message.task_id = task.task_id AND conversation.user_id = task.user_id
+                ORDER BY message.id DESC LIMIT 1
+            ),
+            0
+        )
+        WHERE task.profile_report_id = 0
+        """
     )
     ensure_columns(
         conn,

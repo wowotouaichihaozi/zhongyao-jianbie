@@ -91,6 +91,7 @@ try:
         activate_profile,
         active_profile_for_user,
         create_profile_version,
+        delete_profile,
         get_profile_for_user,
         list_profiles_for_user,
         profile_state_for_user,
@@ -192,6 +193,7 @@ except ImportError:  # pragma: no cover - package-style import fallback
         activate_profile,
         active_profile_for_user,
         create_profile_version,
+        delete_profile,
         get_profile_for_user,
         list_profiles_for_user,
         profile_state_for_user,
@@ -7015,6 +7017,24 @@ def learning_profile_rename(report_id: int):
     return jsonify({"code": 0, "msg": "画像名称已更新", "data": {"profile": profile}})
 
 
+@app.delete("/api/learning-profile/profiles/<int:report_id>")
+def learning_profile_delete(report_id: int):
+    user = g.get("current_user")
+    if not user:
+        return jsonify({"code": 401, "msg": "未登录"}), 401
+    try:
+        with auth_db() as conn:
+            result = delete_profile(
+                conn,
+                int(user["id"]),
+                report_id,
+                timestamp=now_iso(),
+            )
+    except LookupError as exc:
+        return jsonify({"code": 404, "msg": str(exc)}), 404
+    return jsonify({"code": 0, "msg": "学习画像已删除", "data": result})
+
+
 @app.post("/api/learning-profile/reset")
 def learning_profile_reset():
     user = g.get("current_user")
@@ -7271,6 +7291,112 @@ def learning_profile_session_message(session_id: int):
             "learningPathTask": learning_path_task,
         },
     })
+
+
+@app.post("/api/learning-profile/sessions/<int:session_id>/messages-stream")
+def learning_profile_session_message_stream(session_id: int):
+    @stream_with_context
+    def generate_events():
+        yield _sse_event("start", {
+            "agent": "learning-background-dialogue-agent",
+            "stage": "start",
+            "message": "学习画像智能体已启动",
+            "sessionId": session_id,
+        })
+        try:
+            yield _sse_event("progress", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "call_agent",
+                "message": "正在读取会话上下文并调用学习画像智能体",
+                "sessionId": session_id,
+            })
+            raw_response = learning_profile_session_message(session_id)
+            status_code = 200
+            response = raw_response
+            if isinstance(raw_response, tuple):
+                response = raw_response[0]
+                if len(raw_response) > 1:
+                    try:
+                        status_code = int(raw_response[1])
+                    except (TypeError, ValueError):
+                        status_code = 500
+            payload = {}
+            try:
+                payload = json.loads(response.get_data(as_text=True))
+            except Exception:
+                payload = {}
+            if status_code >= 400:
+                yield _sse_event("error", {
+                    "agent": "learning-background-dialogue-agent",
+                    "stage": "failed",
+                    "message": payload.get("msg") or payload.get("message") or "学习画像智能体调用失败",
+                    "data": payload.get("data") or {},
+                    "errorCode": payload.get("errorCode") or "",
+                })
+                yield _sse_event("done", {
+                    "agent": "learning-background-dialogue-agent",
+                    "stage": "done",
+                    "status": "failed",
+                })
+                return
+            data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+            workflow = data.get("workflow") if isinstance(data.get("workflow"), dict) else {}
+            reply = str(workflow.get("reply") or workflow.get("question") or "")
+            if not reply.strip():
+                yield _sse_event("error", {
+                    "agent": "learning-background-dialogue-agent",
+                    "stage": "empty_reply",
+                    "message": "学习画像智能体未返回可显示内容",
+                    "data": data,
+                })
+                yield _sse_event("done", {
+                    "agent": "learning-background-dialogue-agent",
+                    "stage": "done",
+                    "status": "failed",
+                })
+                return
+            yield _sse_event("progress", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "stream_reply",
+                "message": "学习画像智能体已返回，正在流式输出",
+                "source": workflow.get("source") or "",
+                "status": workflow.get("status") or "",
+                "completeness": workflow.get("completeness"),
+                "missingFields": workflow.get("missingProfileDimensions") or [],
+            })
+            for index in range(0, len(reply), 4):
+                yield _sse_event("delta", {
+                    "agent": "learning-background-dialogue-agent",
+                    "text": reply[index:index + 4],
+                    "source": workflow.get("source") or "",
+                })
+                time.sleep(0.04)
+            yield _sse_event("result", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "complete",
+                "message": "学习画像会话本轮输出完成",
+                "data": data,
+            })
+            yield _sse_event("done", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "done",
+                "message": "学习画像会话流已结束",
+            })
+        except Exception as exc:
+            app.logger.exception("learning profile session message stream failed")
+            yield _sse_event("error", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "failed",
+                "message": "学习画像智能体调用失败，请重试本轮对话。",
+                "error": str(exc),
+            })
+            yield _sse_event("done", {
+                "agent": "learning-background-dialogue-agent",
+                "stage": "done",
+                "status": "failed",
+            })
+
+    return Response(generate_events(), mimetype="text/event-stream")
 
 
 @app.post("/api/learning-profile/background-chat")
@@ -9000,6 +9126,147 @@ XIAOZHI_RESOURCE_LABELS = {
     for tool_type, tool in PLATFORM_TOOLS.items()
 }
 
+XIAOZHI_MENTIONABLE_AGENTS = (
+    {"id": XIAOZHI_MASTER_AGENT_ID, "name": "岐小智总控智能体", "taskType": "", "aliases": ["岐小智", "总控智能体"]},
+    {"id": "learning-background-dialogue-agent", "name": "学习背景智能体", "taskType": "learning_background", "aliases": ["学习背景采集智能体"]},
+    {"id": "learning-profile-agent", "name": "学习画像智能体", "taskType": "profile_update", "aliases": ["画像智能体"]},
+    {"id": "learning-route-agent", "name": "学习路径智能体", "taskType": "learning_path", "aliases": ["学习路径规划智能体", "路径智能体"]},
+    {"id": "learning-path-stage-agent", "name": "周任务规划智能体", "taskType": "learning_path_stage", "aliases": ["周任务智能体"]},
+    {"id": "personalized-resource-workflow", "name": "个性化资源智能体", "taskType": "personalized_resources", "aliases": ["资源生成智能体", "资源智能体"]},
+    {"id": "question-generator-workflow", "name": "题库生成智能体", "taskType": "question_bank", "aliases": ["题库智能体"]},
+    {"id": "ppt-agent", "name": "PPT生成智能体", "taskType": "ppt", "aliases": ["PPT智能体", "ppt生成智能体"]},
+    {"id": "learning-document-agent", "name": "课程讲义智能体", "taskType": "document", "aliases": ["讲义智能体"]},
+    {"id": "mindmap-agent", "name": "思维导图智能体", "taskType": "mindmap", "aliases": ["导图智能体"]},
+    {"id": "video-search-agent", "name": "视频检索智能体", "taskType": "video", "aliases": ["视频查找智能体"]},
+    {"id": "generated-video-agent", "name": "AI视频生成智能体", "taskType": "generated_video", "aliases": ["AI视频智能体"]},
+    {"id": "interview-agent", "name": "学习访谈智能体", "taskType": "interview", "aliases": ["访谈智能体"]},
+    {"id": "smart-tutor-agent", "name": "智能辅导智能体", "taskType": "smart_tutor", "aliases": ["辅导智能体"]},
+    {"id": "learning-effect-assessment-agent", "name": "效果评估智能体", "taskType": "effect_assessment", "aliases": ["评估智能体"]},
+    {"id": "learning-feedback-agent", "name": "学习反馈智能体", "taskType": "learning_feedback", "aliases": ["反馈智能体"]},
+    {"id": "private-knowledge-agent", "name": "私有知识库智能体", "taskType": "knowledge_base", "aliases": ["知识库智能体", "知识检索智能体"]},
+)
+
+XIAOZHI_AGENT_PERSONAS = {
+    XIAOZHI_MASTER_AGENT_ID: "负责汇总上下文、判断意图并协调平台智能体。",
+    "learning-background-dialogue-agent": "负责通过自然对话了解学习经历、目标、基础、偏好与约束。",
+    "learning-profile-agent": "负责解释十维学习画像、证据来源、能力特征与待补充信息。",
+    "learning-route-agent": "负责依据画像规划阶段目标、周次节奏和平台能力闭环。",
+    "learning-path-stage-agent": "负责把当前周目标拆成不同要求的具体任务和验收标准。",
+    "personalized-resource-workflow": "负责协调知识检索、资源生成、审核和异步质量评分。",
+    "question-generator-workflow": "负责中医药题目设计、难度分层、答案解析和错因诊断。",
+    "ppt-agent": "负责中医药课程 PPT 的结构、逐页内容、讲解顺序和视觉表达。",
+    "learning-document-agent": "负责基于可靠知识证据组织课程讲义、医案和复习材料。",
+    "mindmap-agent": "负责梳理中医概念层级、药物关系、辨证链路和易混知识点。",
+    "video-search-agent": "负责提炼检索关键词、筛选讲解视频并说明推荐依据。",
+    "generated-video-agent": "负责设计 AI 讲解视频脚本、分镜、首图和生成参数；视频只在用户确认后生成。",
+    "interview-agent": "负责开展学习访谈，通过追问获取可用于画像和路径调整的证据。",
+    "smart-tutor-agent": "负责针对当前问题逐步启发、讲解和纠错，不直接替代用户完成学习。",
+    "learning-effect-assessment-agent": "负责结合任务完成、测评和反馈分析学习效果及薄弱点。",
+    "learning-feedback-agent": "负责记录资源体验、难度、完成结果并提炼后续调整信号。",
+    "private-knowledge-agent": "负责拆分关键词，检索文档切块、QA 对、私有资料与知识图谱并说明证据来源。",
+}
+
+
+def xiaozhi_public_target_agent(agent: dict | None = None) -> dict:
+    resolved = agent or XIAOZHI_MENTIONABLE_AGENTS[0]
+    return {
+        "id": str(resolved.get("id") or XIAOZHI_MASTER_AGENT_ID),
+        "name": str(resolved.get("name") or "岐小智"),
+        "taskType": str(resolved.get("taskType") or ""),
+        "actionable": True,
+    }
+
+
+def xiaozhi_parse_agent_mention(message: str) -> tuple[dict, str, bool]:
+    text = str(message or "").strip()
+    match = re.search(r"(^|\s)@([^\s，,：:]+)", text)
+    if not match:
+        return xiaozhi_public_target_agent(), text, False
+    requested_name = str(match.group(2) or "").strip()
+    normalized = requested_name.casefold()
+    for agent in XIAOZHI_MENTIONABLE_AGENTS:
+        names = [str(agent.get("name") or ""), *(agent.get("aliases") or [])]
+        if normalized not in {name.casefold() for name in names if name}:
+            continue
+        clean_message = (text[:match.start()] + " " + text[match.end():]).strip()
+        return xiaozhi_public_target_agent(agent), clean_message, True
+    return xiaozhi_public_target_agent(), text, False
+
+
+def xiaozhi_agent_chat_reply(
+    user_id: int,
+    target_agent: dict,
+    message: str,
+    context: dict,
+    runtime_settings: dict[str, str] | None = None,
+) -> str:
+    agent_id = str(target_agent.get("id") or XIAOZHI_MASTER_AGENT_ID)
+    agent_name = str(target_agent.get("name") or "岐小智")
+    role = XIAOZHI_AGENT_PERSONAS.get(agent_id)
+    if not role:
+        raise RuntimeError(f"{agent_name}尚未配置专家对话角色")
+
+    knowledge_context = ""
+    citation_labels: list[str] = []
+    try:
+        retrieved = retrieve_course_knowledge(
+            message,
+            top_k=5,
+            max_context_chars=6000,
+            user_id=int(user_id),
+            db_path=AUTH_DB_PATH,
+        )
+        knowledge_context = str(retrieved.get("context") or "").strip()
+        citation_labels = [
+            str(item.get("label") or item.get("id") or "").strip()
+            for item in (retrieved.get("citations") or [])
+            if isinstance(item, dict) and str(item.get("label") or item.get("id") or "").strip()
+        ][:8]
+    except Exception as exc:
+        app.logger.warning("agent chat knowledge retrieval failed for %s: %s", agent_id, exc)
+
+    active_profile = context.get("profile") if isinstance(context.get("profile"), dict) else {}
+    recent_messages = context.get("recentMessages") if isinstance(context.get("recentMessages"), list) else []
+    system = f"""
+你是岐黄智境多智能体群聊中的“{agent_name}”。
+你的唯一职责：{role}
+
+要求：
+1. 以该专家身份直接回答当前问题，不冒充岐小智，也不声称已经创建或完成任何任务。
+2. 只有用户明确要求生成、创建、规划、搜索、评估或执行时，平台才会另行创建任务；本次是专家交流。
+3. 回答使用简体中文，清楚、具体、简洁。需要用户补充信息时，只问最关键的问题。
+4. 中医药事实优先依据提供的混合知识库内容；证据不足时明确说“当前知识库证据不足”，不要编造。
+5. 不提供替代临床诊断或处方的结论。
+""".strip()
+    prompt = f"""
+用户问题：
+{message}
+
+当前学习画像摘要：
+{json.dumps(active_profile, ensure_ascii=False)[:3500] or "尚无激活画像"}
+
+当前画像最近群聊：
+{json.dumps(recent_messages[-6:], ensure_ascii=False)[:3000] or "暂无"}
+
+混合知识库检索结果：
+{knowledge_context[:6000] or "未检索到直接相关片段"}
+
+可引用证据编号：{", ".join(citation_labels) or "无"}
+""".strip()
+    with setting_overrides(runtime_settings):
+        reply = request_llm_text(
+            system,
+            prompt,
+            max_tokens=1800,
+            timeout=90,
+            json_mode=False,
+            allow_anthropic_fallback=False,
+        )
+    reply = str(reply or "").strip()
+    if not reply:
+        raise RuntimeError(f"{agent_name}未返回有效内容")
+    return reply
+
 RESOURCE_AGENT_TYPE_ALIASES = {
     "question-bank": "question_bank",
     "questionBank": "question_bank",
@@ -9436,15 +9703,25 @@ def record_learning_activity_pulse(conn: sqlite3.Connection, user_id: int, paylo
     }
 
 
-def xiaozhi_insert_message(user_id: int, role: str, content: str, intent=None, cards=None) -> int:
+def xiaozhi_insert_message(
+    user_id: int,
+    role: str,
+    content: str,
+    intent=None,
+    cards=None,
+    *,
+    profile_report_id: int = 0,
+) -> int:
     with auth_db() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO xiaozhi_messages (user_id, role, content, intent_json, cards_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO xiaozhi_messages
+                (user_id, profile_report_id, role, content, intent_json, cards_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
+                int(profile_report_id or 0),
                 role,
                 content,
                 json.dumps(intent or {}, ensure_ascii=False),
@@ -9481,17 +9758,87 @@ def xiaozhi_profile_agent_context(
     return conversation
 
 
-def xiaozhi_create_task(user_id: int, task_type: str, title: str, prompt: str, route: str) -> str:
+def xiaozhi_append_task_conversation(
+    user_id: int,
+    task_id: str,
+    *,
+    profile_report_id: int = 0,
+    agent_id: str,
+    agent_name: str,
+    message_type: str,
+    status: str,
+    content: str,
+    payload: dict | None = None,
+    dedupe_suffix: str,
+) -> dict | None:
+    try:
+        resolved_profile_report_id = int(profile_report_id or 0)
+        if resolved_profile_report_id <= 0:
+            context = xiaozhi_latest_context(int(user_id))
+            resolved_profile_report_id = int(
+                context.get("profileReportId")
+                or (context.get("profile") or {}).get("id")
+                or 0
+            )
+        if resolved_profile_report_id <= 0:
+            return None
+        details = dict(payload) if isinstance(payload, dict) else {}
+        details["taskId"] = str(task_id or "")
+        return ProfileAgentContextStore(AUTH_DB_PATH).append(
+            int(user_id),
+            resolved_profile_report_id,
+            agent_id=agent_id,
+            agent_name=agent_name,
+            message_type=message_type,
+            status=status,
+            content=content,
+            payload=details,
+            task_id=str(task_id or ""),
+            dedupe_key=f"task:{task_id}:{dedupe_suffix}",
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "failed to append task lifecycle to profile group chat task=%s error=%s",
+            task_id,
+            exc,
+        )
+        return None
+
+
+def xiaozhi_create_task(
+    user_id: int,
+    task_type: str,
+    title: str,
+    prompt: str,
+    route: str,
+    profile_report_id: int | None = None,
+) -> str:
     task_id = f"xz_{int(time.time() * 1000)}_{secrets.token_hex(4)}"
     timestamp = now_iso()
     route = xiaozhi_route_with_task(route, task_id)
     with auth_db() as conn:
+        resolved_profile_report_id = int(profile_report_id or 0)
+        if profile_report_id is None:
+            active_profile = active_profile_for_user(conn, int(user_id))
+            resolved_profile_report_id = int(active_profile.get("id") or 0) if active_profile else 0
         conn.execute(
             """
-            INSERT INTO xiaozhi_tasks (task_id, user_id, task_type, title, prompt, status, route, result_json, error, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, 'queued', ?, '{}', '', ?, ?)
+            INSERT INTO xiaozhi_tasks
+                (task_id, user_id, profile_report_id, task_type, title, prompt, status,
+                 route, result_json, error, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, '{}', '', ?, ?)
             """,
-            (task_id, user_id, task_type, title, prompt, route, timestamp, timestamp),
+            (
+                task_id,
+                user_id,
+                resolved_profile_report_id,
+                task_type,
+                title,
+                prompt,
+                route,
+                timestamp,
+                timestamp,
+            ),
         )
     return task_id
 
@@ -9509,6 +9856,7 @@ def xiaozhi_task_from_row(row) -> dict:
         )
     return {
         "taskId": row["task_id"],
+        "profileReportId": int(row["profile_report_id"] or 0) if "profile_report_id" in keys else 0,
         "taskType": row["task_type"],
         "title": row["title"],
         "prompt": row["prompt"] if "prompt" in keys else "",
@@ -9614,6 +9962,26 @@ def xiaozhi_generate_generated_video_cover(
             int(user_id),
             status="generating",
         )
+    xiaozhi_append_task_conversation(
+        int(user_id),
+        str(task_id),
+        profile_report_id=(params or {}).get("profileReportId") or 0,
+        agent_id="generated-video-agent",
+        agent_name="AI 视频生成智能体",
+        message_type="resource_progress",
+        status="running",
+        content="正在根据学习任务生成 AI 视频首图封面。",
+        payload={
+            "resourceType": "generated_video",
+            "stage": "cover_generating",
+            "progress": 10,
+            "route": xiaozhi_route_with_task(
+                _resource_agent_route("generated_video", str(topic), params or {}),
+                str(task_id),
+            ),
+        },
+        dedupe_suffix="cover:generating",
+    )
     try:
         cover_result = generate_generated_video_cover(
             str(task_id),
@@ -9686,6 +10054,46 @@ def xiaozhi_generate_generated_video_cover(
                 int(user_id),
                 str(task_id),
             ),
+        )
+    if cover_error:
+        xiaozhi_append_task_conversation(
+            int(user_id),
+            str(task_id),
+            profile_report_id=(params or {}).get("profileReportId") or 0,
+            agent_id="generated-video-agent",
+            agent_name="AI 视频生成智能体",
+            message_type="resource_failed",
+            status="failed",
+            content=f"AI 视频首图封面生成失败：{cover_error}",
+            payload={
+                "resourceType": "generated_video",
+                "stage": "cover_failed",
+                "progress": 100,
+                "error": cover_error,
+            },
+            dedupe_suffix="cover:failed",
+        )
+    else:
+        xiaozhi_append_task_conversation(
+            int(user_id),
+            str(task_id),
+            profile_report_id=(params or {}).get("profileReportId") or 0,
+            agent_id="generated-video-agent",
+            agent_name="AI 视频生成智能体",
+            message_type="resource_ready",
+            status="waiting",
+            content="AI 视频首图封面已生成，完整视频等待用户手动确认。",
+            payload={
+                "resourceType": "generated_video",
+                "stage": "waiting_for_user",
+                "progress": 20,
+                "route": xiaozhi_route_with_task(
+                    _resource_agent_route("generated_video", str(topic), params or {}),
+                    str(task_id),
+                ),
+                "posterUrl": str(cover_result.get("posterUrl") or ""),
+            },
+            dedupe_suffix="cover:ready",
         )
 
 
@@ -10173,13 +10581,14 @@ def _schedule_profile_learning_path_generation(
         conn.execute(
             """
             INSERT INTO xiaozhi_tasks
-                (task_id, user_id, task_type, title, prompt, status, route,
+                (task_id, user_id, profile_report_id, task_type, title, prompt, status, route,
                  result_json, error, created_at, updated_at)
-            VALUES (?, ?, 'learning_path', ?, ?, 'queued', ?, ?, '', ?, ?)
+            VALUES (?, ?, ?, 'learning_path', ?, ?, 'queued', ?, ?, '', ?, ?)
             """,
             (
                 task_id,
                 user_id,
+                profile_report_id,
                 title,
                 "根据刚完成的学习画像自动生成第一周个性化学习任务",
                 route,
@@ -11729,6 +12138,7 @@ def prepare_learning_path_stage_resources_for_user(
 def xiaozhi_latest_context(user_id: int) -> dict:
     with auth_db() as conn:
         profile = active_profile_for_user(conn, int(user_id))
+        active_profile_report_id = int(profile.get("id") or 0) if profile else 0
         profile_state = profile_state_for_user(conn, int(user_id))
         questionnaire_row = conn.execute(
             "SELECT questionnaire_data, created_at FROM learning_profile_questionnaires WHERE user_id = ? ORDER BY id DESC LIMIT 1",
@@ -11748,17 +12158,40 @@ def xiaozhi_latest_context(user_id: int) -> dict:
             """,
             (user_id,),
         ).fetchall()
-        messages = conn.execute(
-            "SELECT role, content, created_at FROM xiaozhi_messages WHERE user_id = ? ORDER BY id DESC LIMIT 8",
-            (user_id,),
-        ).fetchall()
-        tasks = conn.execute(
-            """
-            SELECT task_id, task_type, title, status, route, result_json, error, created_at, updated_at
-            FROM xiaozhi_tasks WHERE user_id = ? ORDER BY id DESC LIMIT 10
-            """,
-            (user_id,),
-        ).fetchall()
+        if active_profile_report_id > 0:
+            messages = conn.execute(
+                """
+                SELECT
+                    CASE message.message_type
+                        WHEN 'user_message' THEN 'user'
+                        ELSE 'assistant'
+                    END AS role,
+                    message.content,
+                    message.created_at
+                FROM profile_agent_messages AS message
+                JOIN profile_agent_conversations AS conversation
+                  ON conversation.id = message.conversation_id
+                WHERE conversation.user_id = ?
+                  AND conversation.profile_report_id = ?
+                  AND message.compacted = 0
+                  AND message.message_type IN ('user_message', 'supervisor_reply')
+                ORDER BY message.sequence DESC
+                LIMIT 8
+                """,
+                (user_id, active_profile_report_id),
+            ).fetchall()
+            tasks = conn.execute(
+                """
+                SELECT task_id, task_type, title, status, route, result_json, error, created_at, updated_at
+                FROM xiaozhi_tasks
+                WHERE user_id = ? AND profile_report_id = ?
+                ORDER BY id DESC LIMIT 10
+                """,
+                (user_id, active_profile_report_id),
+            ).fetchall()
+        else:
+            messages = []
+            tasks = []
         private_knowledge = private_knowledge_service.list_knowledge_collections(conn, int(user_id))
         learning_evidence = learning_evidence_for_user(conn, int(user_id))
         long_term_memories = knowledge_growth.recent_memory_context(conn, int(user_id), limit=12)
@@ -12242,6 +12675,35 @@ def _orchestration_json(value, max_chars: int = 240000) -> str:
     )
 
 
+def _orchestration_output_json(result: dict, max_chars: int = 240000) -> str:
+    try:
+        text = json.dumps(result, ensure_ascii=False, default=str)
+    except Exception:
+        return _orchestration_json(result, max_chars)
+    if len(text) <= max_chars:
+        return text
+
+    trace = result.get("orchestration") if isinstance(result.get("orchestration"), dict) else {}
+    compact_trace = dict(trace)
+    compact_trace["handoffs"] = [
+        {key: value for key, value in item.items() if key != "payload"}
+        for item in trace.get("handoffs") or []
+        if isinstance(item, dict)
+    ]
+    compact_trace["events"] = [
+        {key: value for key, value in item.items() if key != "payload"}
+        for item in trace.get("events") or []
+        if isinstance(item, dict)
+    ]
+    compact_result = {
+        "truncated": True,
+        "originalChars": len(text),
+        "orchestration": compact_trace,
+        "harness": result.get("harness") if isinstance(result.get("harness"), dict) else {},
+    }
+    return _orchestration_json(compact_result, max_chars)
+
+
 def xiaozhi_persist_orchestration(
     user_id: int,
     result: dict,
@@ -12312,7 +12774,7 @@ def xiaozhi_persist_orchestration(
                 _orchestration_json(policy),
                 profile_report_id,
                 _orchestration_json(payload or {}),
-                _orchestration_json(result),
+                _orchestration_output_json(result),
                 _orchestration_json(review),
                 _orchestration_json(feedback),
                 created_at,
@@ -12364,13 +12826,21 @@ def xiaozhi_persist_orchestration(
             )
 
 
-def xiaozhi_recent_orchestration_runs(user_id: int, limit: int = 12, task_id: str = "") -> list[dict]:
+def xiaozhi_recent_orchestration_runs(
+    user_id: int,
+    limit: int = 12,
+    task_id: str = "",
+    profile_report_id: int | None = None,
+) -> list[dict]:
     limit = max(1, min(50, int(limit or 12)))
     where = "WHERE user_id = ?"
     values: list = [int(user_id)]
     if task_id:
         where += " AND task_id = ?"
         values.append(str(task_id))
+    if profile_report_id is not None:
+        where += " AND profile_report_id = ?"
+        values.append(int(profile_report_id or 0))
     values.append(limit)
     with auth_db() as conn:
         rows = conn.execute(
@@ -12391,6 +12861,8 @@ def xiaozhi_recent_orchestration_runs(user_id: int, limit: int = 12, task_id: st
     for row in rows:
         output = json_loads_safe(row["output_json"], {})
         trace = output.get("orchestration") if isinstance(output, dict) else {}
+        trace_handoffs = trace.get("handoffs") if isinstance(trace, dict) else []
+        trace_events = trace.get("events") if isinstance(trace, dict) else []
         runs.append(
             {
                 "runId": row["run_id"],
@@ -12412,6 +12884,34 @@ def xiaozhi_recent_orchestration_runs(user_id: int, limit: int = 12, task_id: st
                 "review": json_loads_safe(row["review_json"], {}),
                 "feedback": json_loads_safe(row["feedback_json"], {}),
                 "agentRuns": trace.get("agentRuns") if isinstance(trace, dict) else [],
+                "handoffs": [
+                    {
+                        "sequence": int(item.get("sequence") or index + 1),
+                        "time": str(item.get("time") or ""),
+                        "fromAgent": str(item.get("fromAgent") or ""),
+                        "fromAgentName": str(item.get("fromAgentName") or ""),
+                        "toAgent": str(item.get("toAgent") or ""),
+                        "toAgentName": str(item.get("toAgentName") or ""),
+                        "artifactType": str(item.get("artifactType") or ""),
+                        "summary": str(item.get("summary") or "")[:300],
+                    }
+                    for index, item in enumerate(trace_handoffs or [])
+                    if isinstance(item, dict)
+                ],
+                "events": [
+                    {
+                        "sequence": int(item.get("sequence") or index + 1),
+                        "time": str(item.get("time") or ""),
+                        "agentId": str(item.get("agentId") or ""),
+                        "agentName": str(item.get("agentName") or ""),
+                        "stage": str(item.get("stage") or ""),
+                        "status": str(item.get("status") or ""),
+                        "message": str(item.get("message") or "")[:300],
+                        "progress": _safe_progress(item.get("progress"), 0),
+                    }
+                    for index, item in enumerate(trace_events or [])
+                    if isinstance(item, dict)
+                ],
                 "handoffCount": row["handoff_count"],
                 "eventCount": row["event_count"],
                 "createdAt": row["created_at"],
@@ -12525,7 +13025,12 @@ def xiaozhi_run_orchestrated(
     def shared_conversation_event(event: dict) -> None:
         if profile_report_id > 0 and isinstance(event, dict):
             try:
-                profile_context_store.append_event(int(user_id), profile_report_id, event)
+                profile_context_store.append_event(
+                    int(user_id),
+                    profile_report_id,
+                    event,
+                    task_id=task_id,
+                )
             except Exception as exc:
                 app.logger.warning(
                     "[ProfileAgentContext] append event failed user=%s profile=%s error=%s",
@@ -13009,8 +13514,22 @@ def xiaozhi_extract_explicit_topic(message: str, resource_type: str) -> str:
 
 def xiaozhi_detect_intent(message: str, context: dict, runtime_settings: dict[str, str] | None = None) -> dict:
     try:
-        with setting_overrides(runtime_settings):
-            data = run_xiaozhi_hermes_agent(message, context)
+        data = None
+        model_errors = []
+        for attempt in range(2):
+            try:
+                with setting_overrides(runtime_settings):
+                    data = run_xiaozhi_hermes_agent(message, context)
+                break
+            except Exception as exc:
+                model_errors.append(str(exc))
+                app.logger.warning(
+                    "XiaoZhi supervisor model attempt %s/2 failed: %s",
+                    attempt + 1,
+                    public_llm_error(exc),
+                )
+        if not isinstance(data, dict):
+            raise RuntimeError("; ".join(model_errors) or "XiaoZhi supervisor model returned no result")
         fallback = xiaozhi_fallback_intent(message)
         deterministic_fallback = bool(
             fallback.get("intent") != "chat"
@@ -13099,7 +13618,7 @@ def xiaozhi_detect_intent(message: str, context: dict, runtime_settings: dict[st
             "feedbackDifficulty": str(fallback.get("feedbackDifficulty") or "").strip(),
             "feedbackHelpful": fallback.get("feedbackHelpful"),
             "topic": resolved_topic,
-            "reply": str((fallback.get("reply") if deterministic_fallback else data.get("reply")) or fallback["reply"]).strip(),
+            "reply": str((fallback.get("reply") if deterministic_fallback else data.get("reply") or (fallback["reply"] if intent != "chat" else ""))).strip(),
             "weakPointSummary": str(data.get("weakPointSummary") or "").strip(),
             "suggestions": data.get("suggestions") if isinstance(data.get("suggestions"), list) else [],
             "selectedAction": selected_action,
@@ -14125,14 +14644,58 @@ def xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic:
 def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic: str, params: dict | None = None) -> None:
     params = params if isinstance(params, dict) else {}
     if task_type == "generated_video":
+        route = xiaozhi_route_with_task(
+            _resource_agent_route(task_type, topic, params),
+            task_id,
+        )
         try:
             context = xiaozhi_latest_context(user_id)
             knowledge_payload = retrieve_course_knowledge(topic, top_k=6, user_id=int(user_id), db_path=AUTH_DB_PATH)
             knowledge_sources = knowledge_payload.get("citations") or [] if isinstance(knowledge_payload, dict) else []
             if not isinstance(knowledge_sources, list):
                 knowledge_sources = []
+            xiaozhi_append_task_conversation(
+                int(user_id),
+                task_id,
+                profile_report_id=params.get("profileReportId") or 0,
+                agent_id="knowledge-retrieval-agent",
+                agent_name="知识检索智能体",
+                message_type="knowledge_retrieval",
+                status="complete",
+                content=f"已为 AI 视频检索 {len(knowledge_sources)} 条知识依据，交给视频生成智能体。",
+                payload={
+                    "resourceType": "generated_video",
+                    "stage": "knowledge_retrieval",
+                    "progress": 5,
+                    "route": route,
+                    "citations": knowledge_sources,
+                },
+                dedupe_suffix="video:knowledge-retrieval",
+            )
+
             def update_video_task(**fields) -> None:
                 xiaozhi_update_task(task_id, **fields)
+                state = fields.get("result_json") if isinstance(fields.get("result_json"), dict) else {}
+                stage = str(state.get("currentStage") or "generating")
+                progress = max(0, min(100, int(state.get("progress") or 0)))
+                message = str(state.get("message") or "AI 视频生成进度已更新")
+                xiaozhi_append_task_conversation(
+                    int(user_id),
+                    task_id,
+                    profile_report_id=params.get("profileReportId") or 0,
+                    agent_id="generated-video-agent",
+                    agent_name="AI 视频生成智能体",
+                    message_type="resource_progress",
+                    status=str(fields.get("status") or "running"),
+                    content=message,
+                    payload={
+                        "resourceType": "generated_video",
+                        "stage": stage,
+                        "progress": progress,
+                        "route": route,
+                    },
+                    dedupe_suffix=f"video:{stage}:{progress}",
+                )
 
             result = execute_generated_video_task(
                 task_id,
@@ -14143,14 +14706,33 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
                 knowledge_sources,
                 update_video_task,
             )
-            route = _resource_agent_route(task_type, topic, params)
-            xiaozhi_update_task(task_id, status="complete", result_json=result, route=xiaozhi_route_with_task(route, task_id))
+            xiaozhi_update_task(task_id, status="complete", result_json=result, route=route)
+            xiaozhi_append_task_conversation(
+                int(user_id),
+                task_id,
+                profile_report_id=params.get("profileReportId") or 0,
+                agent_id="generated-video-agent",
+                agent_name="AI 视频生成智能体",
+                message_type="resource_complete",
+                status="complete",
+                content=str(result.get("message") or "AI 视频已生成完成。"),
+                payload={
+                    "resourceType": "generated_video",
+                    "stage": "complete",
+                    "progress": 100,
+                    "route": route,
+                    "knowledgeSources": knowledge_sources,
+                    "selectedResource": result.get("selectedResource"),
+                },
+                dedupe_suffix="video:complete",
+            )
         except Exception as exc:
+            error_message = str(exc) or "AI 视频生成失败"
             xiaozhi_update_task(
                 task_id,
                 status="failed",
                 result_json={
-                    "message": str(exc) or "AI 视频生成失败",
+                    "message": error_message,
                     "topic": topic,
                     "progress": 100,
                     "currentStage": "error",
@@ -14160,11 +14742,29 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
                     "logs": [{
                         "time": now_iso(),
                         "stage": "error",
-                        "message": str(exc) or "AI 视频生成失败",
+                        "message": error_message,
                         "progress": 100,
                     }],
                 },
-                error=str(exc) or "AI 视频生成失败",
+                error=error_message,
+            )
+            xiaozhi_append_task_conversation(
+                int(user_id),
+                task_id,
+                profile_report_id=params.get("profileReportId") or 0,
+                agent_id="generated-video-agent",
+                agent_name="AI 视频生成智能体",
+                message_type="resource_failed",
+                status="failed",
+                content=f"AI 视频生成失败：{error_message}",
+                payload={
+                    "resourceType": "generated_video",
+                    "stage": "error",
+                    "progress": 100,
+                    "route": route,
+                    "error": error_message,
+                },
+                dedupe_suffix="video:failed",
             )
         return
     with auth_db() as conn:
@@ -14531,34 +15131,6 @@ def xiaozhi_history():
     if error_response:
         return error_response
     task_limit = max(1, min(100, request.args.get("taskLimit", default=20, type=int) or 20))
-    with auth_db() as conn:
-        message_rows = conn.execute(
-            """
-            SELECT role, content, intent_json, cards_json, created_at
-            FROM xiaozhi_messages WHERE user_id = ? ORDER BY id DESC LIMIT 40
-            """,
-            (user["id"],),
-        ).fetchall()
-        task_rows = conn.execute(
-            """
-            SELECT task_id, task_type, title, prompt, status, route, result_json, error, created_at, updated_at
-            FROM xiaozhi_tasks WHERE user_id = ? ORDER BY id DESC LIMIT ?
-            """,
-            (user["id"], task_limit),
-        ).fetchall()
-    messages = [
-        {
-            "role": row["role"],
-            "content": row["content"],
-            "intent": json_loads_safe(row["intent_json"], {}),
-            "attachments": json_loads_safe(row["intent_json"], {}).get("attachments", []),
-            "cards": json_loads_safe(row["cards_json"], []),
-            "createdAt": row["created_at"],
-        }
-        for row in reversed(message_rows)
-    ]
-    tasks = [xiaozhi_task_from_row(row) for row in task_rows]
-    orchestration_runs = xiaozhi_recent_orchestration_runs(int(user["id"]), limit=20)
     latest_context = xiaozhi_latest_context(int(user["id"]))
     profile_report_id = int(
         latest_context.get("profileReportId")
@@ -14569,6 +15141,47 @@ def xiaozhi_history():
         int(user["id"]),
         profile_report_id,
     )
+    task_rows = []
+    if profile_report_id > 0:
+        with auth_db() as conn:
+            task_rows = conn.execute(
+                """
+                SELECT task_id, task_type, title, prompt, status, route, result_json, error, created_at, updated_at
+                FROM xiaozhi_tasks
+                WHERE user_id = ? AND profile_report_id = ?
+                ORDER BY id DESC LIMIT ?
+                """,
+                (user["id"], profile_report_id, task_limit),
+            ).fetchall()
+    with auth_db() as conn:
+        message_rows = conn.execute(
+            """
+            SELECT role, content, intent_json, cards_json, created_at
+            FROM xiaozhi_messages
+            WHERE user_id = ? AND profile_report_id = ?
+            ORDER BY id DESC LIMIT 100
+            """,
+            (int(user["id"]), profile_report_id),
+        ).fetchall()
+    messages = []
+    for row in reversed(message_rows):
+        intent = parse_json_safely(row["intent_json"], {})
+        cards = parse_json_safely(row["cards_json"], [])
+        messages.append({
+            "role": str(row["role"] or "assistant"),
+            "content": str(row["content"] or ""),
+            "intent": intent,
+            "attachments": intent.get("attachments") if isinstance(intent.get("attachments"), list) else [],
+            "cards": cards if isinstance(cards, list) else [],
+            "targetAgent": intent.get("targetAgent") if isinstance(intent.get("targetAgent"), dict) else {},
+            "createdAt": str(row["created_at"] or ""),
+        })
+    tasks = [xiaozhi_task_from_row(row) for row in task_rows]
+    orchestration_runs = xiaozhi_recent_orchestration_runs(
+        int(user["id"]),
+        limit=20,
+        profile_report_id=profile_report_id,
+    )
     return jsonify({
         "code": 0,
         "data": {
@@ -14576,6 +15189,7 @@ def xiaozhi_history():
             "tasks": tasks,
             "orchestrationRuns": orchestration_runs,
             "agentConversation": agent_conversation,
+            "profileReportId": profile_report_id,
         },
     })
 
@@ -14588,19 +15202,23 @@ def xiaozhi_task_detail(task_id: str):
     with auth_db() as conn:
         row = conn.execute(
             """
-            SELECT task_id, task_type, title, prompt, status, route, result_json, error, created_at, updated_at
+            SELECT task_id, profile_report_id, task_type, title, prompt, status, route,
+                   result_json, error, created_at, updated_at
             FROM xiaozhi_tasks
             WHERE user_id = ? AND task_id = ?
             LIMIT 1
             """,
             (user["id"], task_id),
         ).fetchone()
+        active_profile = active_profile_for_user(conn, int(user["id"]))
     if not row:
         return jsonify({"code": 404, "msg": "未找到岐小智任务"}), 404
     return jsonify({
         "code": 0,
         "data": {
             "task": xiaozhi_task_from_row(row),
+            "profileReportId": int(row["profile_report_id"] or 0),
+            "activeProfileReportId": int(active_profile.get("id") or 0) if active_profile else 0,
             "orchestrationRuns": xiaozhi_recent_orchestration_runs(
                 int(user["id"]),
                 limit=10,
@@ -14740,8 +15358,36 @@ def xiaozhi_chat():
     if not message and not attachment_rows:
         return jsonify({"code": 400, "msg": "请输入内容"}), 400
     message = message or "请分析我上传的学习材料。"
-    agent_message = _message_with_multimodal_context(message, attachment_rows)
-    user_message_id = xiaozhi_insert_message(user["id"], "user", message, intent={"attachments": public_attachments})
+    target_agent, routed_message, has_agent_mention = xiaozhi_parse_agent_mention(message)
+    if re.search(r"(^|\s)@([^\s，,：:]+)", message) and not has_agent_mention:
+        return jsonify({"code": 400, "msg": "该智能体不可用，请从群聊的 @ 列表中选择"}), 400
+    requested_profile_id = payload.get("profileReportId")
+    context = xiaozhi_latest_context(user["id"])
+    profile_report_id = int(
+        context.get("profileReportId")
+        or (context.get("profile") or {}).get("id")
+        or 0
+    )
+    if requested_profile_id not in (None, ""):
+        try:
+            requested_profile_id = int(requested_profile_id)
+        except (TypeError, ValueError):
+            return jsonify({"code": 400, "msg": "profileReportId 必须是整数"}), 400
+        if requested_profile_id != profile_report_id:
+            return jsonify({
+                "code": 409,
+                "msg": "学习画像已切换，请在当前画像中重新发送",
+                "data": {"profileReportId": profile_report_id},
+            }), 409
+    routed_message = routed_message or f"请根据当前画像执行{target_agent.get('name') or '学习任务'}的工作"
+    agent_message = _message_with_multimodal_context(routed_message, attachment_rows)
+    user_message_id = xiaozhi_insert_message(
+        user["id"],
+        "user",
+        message,
+        intent={"attachments": public_attachments, "targetAgent": target_agent},
+        profile_report_id=profile_report_id,
+    )
     memory_source_key = str(user_message_id)
     with auth_db() as conn:
         knowledge_growth.record_conversation_memory(
@@ -14761,12 +15407,6 @@ def xiaozhi_chat():
         "用户向岐小智提问",
         {"message": message, "attachmentIds": [item["id"] for item in public_attachments]},
     )
-    context = xiaozhi_latest_context(user["id"])
-    profile_report_id = int(
-        context.get("profileReportId")
-        or (context.get("profile") or {}).get("id")
-        or 0
-    )
     if profile_report_id > 0:
         try:
             ProfileAgentContextStore(AUTH_DB_PATH).append(
@@ -14780,16 +15420,66 @@ def xiaozhi_chat():
                 payload={
                     "route": route,
                     "attachments": public_attachments,
+                    "targetAgent": target_agent,
                 },
                 dedupe_key=f"chat:user:{user_message_id}",
             )
         except Exception as exc:
             app.logger.warning("failed to append learner group-chat message: %s", exc)
-    intent = xiaozhi_detect_intent(
-        agent_message,
-        context,
-        xiaozhi_runtime_setting_overrides(int(user["id"])),
-    )
+    target_task_type = str(target_agent.get("taskType") or "")
+    if has_agent_mention and target_task_type:
+        if xiaozhi_has_explicit_task_command(routed_message):
+            intent = {
+                "intent": "update_profile" if target_task_type == "profile_update" else "generate_resource",
+                "resourceType": target_task_type,
+                "resourceTypes": [target_task_type],
+                "topic": routed_message,
+                "reply": f"已由{target_agent['name']}接收任务，执行进度会继续写入当前画像群聊。",
+                "source": "explicit-agent-mention",
+                "routingSource": "agent-mention",
+            }
+        else:
+            try:
+                expert_reply = xiaozhi_agent_chat_reply(
+                    int(user["id"]),
+                    target_agent,
+                    routed_message,
+                    context,
+                    xiaozhi_runtime_setting_overrides(int(user["id"])),
+                )
+            except Exception as exc:
+                app.logger.warning("named agent chat failed for %s: %s", target_agent.get("id"), exc)
+                return jsonify({
+                    "code": 502,
+                    "msg": f"{target_agent['name']}大模型不可用，请检查模型服务后重试",
+                    "data": {
+                        "targetAgent": target_agent,
+                        "profileReportId": profile_report_id,
+                        "error": public_llm_error(exc),
+                    },
+                }), 502
+            intent = {
+                "intent": "chat",
+                "resourceType": "none",
+                "resourceTypes": [],
+                "topic": routed_message,
+                "reply": expert_reply,
+                "source": "explicit-agent-conversation",
+                "routingSource": "agent-mention",
+            }
+    else:
+        intent = xiaozhi_detect_intent(
+            agent_message,
+            context,
+            xiaozhi_runtime_setting_overrides(int(user["id"])),
+        )
+    intent["targetAgent"] = target_agent
+    if intent.get("intent") == "chat" and intent.get("source") == "fallback":
+        return jsonify({
+            "code": 502,
+            "msg": "岐小智智能体未返回可用回复，请检查模型服务后重试",
+            "data": {"intent": intent},
+        }), 502
     intent["attachments"] = public_attachments
     cards = []
     if intent["intent"] == "profile_management":
@@ -14857,7 +15547,10 @@ def xiaozhi_chat():
                 )
         title_topic = intent.get("topic") or message
         for task_type in task_types:
-            task_params = {"attachmentIds": [item["id"] for item in public_attachments]}
+            task_params = {
+                "attachmentIds": [item["id"] for item in public_attachments],
+                "profileReportId": profile_report_id,
+            }
             task_topic = title_topic
             if task_type == "knowledge_base":
                 task_params = {
@@ -14885,6 +15578,25 @@ def xiaozhi_chat():
                 task_params["attachmentIds"] = [item["id"] for item in public_attachments]
             if task_type == "mcu":
                 task_params = resolve_mcu_agent_params_for_user(int(user["id"]), task_params, task_topic)
+            if task_type in {"generated_video", "herb_model"}:
+                task = xiaozhi_create_resource_agent_task(
+                    int(user["id"]),
+                    task_type,
+                    task_topic,
+                    task_params,
+                    prompt=agent_message,
+                )
+                cards.append(
+                    xiaozhi_build_card(
+                        str(task.get("taskId") or ""),
+                        task_type,
+                        str(task.get("title") or task_topic),
+                        str(task.get("route") or ""),
+                        status=str(task.get("status") or "queued"),
+                        result=task.get("result") if isinstance(task.get("result"), dict) else {},
+                    )
+                )
+                continue
             route_to = _resource_agent_route(task_type, _resource_agent_topic(task_topic), task_params)
             title = f"{task_topic[:32]} · {XIAOZHI_RESOURCE_LABELS.get(task_type, '学习任务')}"
             task_id = xiaozhi_create_task(user["id"], task_type, title, agent_message, route_to)
@@ -14897,24 +15609,58 @@ def xiaozhi_chat():
         if len(cards) > 1 and "resourceTypes" in intent:
             intent["reply"] = intent.get("reply") or f"我已创建 {len(cards)} 个资源任务，会在悬浮窗里分别显示小窗口预览。"
     assistant_reply = intent.get("reply") or ""
-    assistant_message_id = xiaozhi_insert_message(user["id"], "assistant", assistant_reply, intent=intent, cards=cards)
-    if profile_report_id > 0 and assistant_reply:
+    assistant_message_id = xiaozhi_insert_message(
+        user["id"],
+        "assistant",
+        assistant_reply,
+        intent=intent,
+        cards=cards,
+        profile_report_id=profile_report_id,
+    )
+    agent_conversation = None
+    if profile_report_id > 0:
         try:
-            ProfileAgentContextStore(AUTH_DB_PATH).append(
-                int(user["id"]),
-                profile_report_id,
-                agent_id=XIAOZHI_MASTER_AGENT_ID,
-                agent_name="岐小智总控智能体",
-                message_type="supervisor_reply",
-                status="complete",
-                content=assistant_reply,
-                payload={
-                    "intent": intent.get("intent") or "chat",
-                    "topic": intent.get("topic") or "",
-                    "cards": cards,
-                },
-                dedupe_key=f"chat:assistant:{assistant_message_id}",
-            )
+            profile_store = ProfileAgentContextStore(AUTH_DB_PATH)
+            if assistant_reply:
+                profile_store.append(
+                    int(user["id"]),
+                    profile_report_id,
+                    agent_id=str(target_agent.get("id") or XIAOZHI_MASTER_AGENT_ID),
+                    agent_name=str(target_agent.get("name") or "岐小智"),
+                    message_type="supervisor_reply",
+                    status="complete",
+                    content=assistant_reply,
+                    payload={
+                        "intent": intent.get("intent") or "chat",
+                        "topic": intent.get("topic") or "",
+                        "cards": cards,
+                        "targetAgent": target_agent,
+                    },
+                    dedupe_key=f"chat:assistant:{assistant_message_id}",
+                )
+            for card in cards:
+                card_task_id = str(card.get("taskId") or "")
+                card_type = str(card.get("type") or "")
+                card_title = str(card.get("title") or "学习资源任务")
+                profile_store.append(
+                    int(user["id"]),
+                    profile_report_id,
+                    agent_id=XIAOZHI_MASTER_AGENT_ID,
+                    agent_name="岐小智总控智能体",
+                    message_type="task_created",
+                    status=str(card.get("status") or "queued"),
+                    content=f"已派发{XIAOZHI_RESOURCE_LABELS.get(card_type, '学习资源')}任务：{card_title}",
+                    payload={
+                        "taskId": card_task_id,
+                        "resourceType": card_type,
+                        "title": card_title,
+                        "route": str(card.get("route") or ""),
+                        "progress": 0,
+                    },
+                    task_id=card_task_id,
+                    dedupe_key=f"chat:task-created:{card_task_id}",
+                )
+            agent_conversation = profile_store.context(int(user["id"]), profile_report_id)
         except Exception as exc:
             app.logger.warning("failed to append supervisor group-chat reply: %s", exc)
     with auth_db() as conn:
@@ -14935,7 +15681,120 @@ def xiaozhi_chat():
             },
             timestamp=now_iso(),
         )
-    return jsonify({"code": 0, "data": {"reply": intent.get("reply") or "", "intent": intent, "cards": cards, "attachments": public_attachments}})
+    return jsonify({
+        "code": 0,
+        "data": {
+            "reply": intent.get("reply") or "",
+            "intent": intent,
+            "cards": cards,
+            "attachments": public_attachments,
+            "agentConversation": agent_conversation,
+            "targetAgent": target_agent,
+            "profileReportId": profile_report_id,
+        },
+    })
+
+
+@app.post("/api/xiaozhi/chat-stream")
+def xiaozhi_chat_stream():
+    @stream_with_context
+    def generate_events():
+        yield _sse_event("start", {
+            "agent": XIAOZHI_MASTER_AGENT_ID,
+            "stage": "start",
+            "message": "岐小智总控智能体已启动",
+        })
+        try:
+            yield _sse_event("progress", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "route_intent",
+                "message": "正在调用岐小智智能体识别意图并调度任务",
+            })
+            raw_response = xiaozhi_chat()
+            status_code = 200
+            response = raw_response
+            if isinstance(raw_response, tuple):
+                response = raw_response[0]
+                if len(raw_response) > 1:
+                    try:
+                        status_code = int(raw_response[1])
+                    except (TypeError, ValueError):
+                        status_code = 500
+            payload = {}
+            try:
+                payload = json.loads(response.get_data(as_text=True))
+            except Exception:
+                payload = {}
+            if status_code >= 400:
+                yield _sse_event("error", {
+                    "agent": XIAOZHI_MASTER_AGENT_ID,
+                    "stage": "failed",
+                    "message": payload.get("msg") or payload.get("message") or "岐小智智能体调用失败",
+                    "data": payload.get("data") or {},
+                })
+                yield _sse_event("done", {
+                    "agent": XIAOZHI_MASTER_AGENT_ID,
+                    "stage": "done",
+                    "status": "failed",
+                })
+                return
+            data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+            intent = data.get("intent") if isinstance(data.get("intent"), dict) else {}
+            reply = str(data.get("reply") or "")
+            if intent.get("intent") == "chat" and intent.get("source") == "fallback":
+                yield _sse_event("error", {
+                    "agent": XIAOZHI_MASTER_AGENT_ID,
+                    "stage": "llm_required",
+                    "message": "岐小智聊天必须调用真实智能体，已禁止本地兜底回复",
+                    "data": intent,
+                })
+                yield _sse_event("done", {
+                    "agent": XIAOZHI_MASTER_AGENT_ID,
+                    "stage": "done",
+                    "status": "failed",
+                })
+                return
+            yield _sse_event("progress", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "stream_reply",
+                "message": "岐小智智能体已返回，正在流式输出",
+                "intent": intent.get("intent") or "",
+                "source": intent.get("source") or "",
+                "routingSource": intent.get("routingSource") or "",
+            })
+            for index in range(0, len(reply), 4):
+                yield _sse_event("delta", {
+                    "agent": XIAOZHI_MASTER_AGENT_ID,
+                    "text": reply[index:index + 4],
+                    "source": intent.get("source") or "",
+                })
+                time.sleep(0.035)
+            yield _sse_event("result", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "complete",
+                "message": "岐小智本轮回复完成",
+                "data": data,
+            })
+            yield _sse_event("done", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "done",
+                "message": "岐小智对话流已结束",
+            })
+        except Exception as exc:
+            app.logger.exception("xiaozhi chat stream failed")
+            yield _sse_event("error", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "failed",
+                "message": "岐小智智能体调用失败，请检查模型服务后重试。",
+                "error": str(exc),
+            })
+            yield _sse_event("done", {
+                "agent": XIAOZHI_MASTER_AGENT_ID,
+                "stage": "done",
+                "status": "failed",
+            })
+
+    return Response(generate_events(), mimetype="text/event-stream")
 
 
 @app.post("/api/xiaozhi/tutor")
@@ -15420,22 +16279,40 @@ def xiaozhi_status():
     with setting_overrides(runtime_overrides):
         xiaozhi_runtime = hermes_xiaozhi_runtime_status()
     orchestration_runtime = DEFAULT_AGENT_HARNESS.status()
-    recent_runs = xiaozhi_recent_orchestration_runs(int(user["id"]), limit=12)
     profile_report_id = int(
         context.get("profileReportId")
         or (context.get("profile") or {}).get("id")
         or 0
     )
+    recent_runs = xiaozhi_recent_orchestration_runs(
+        int(user["id"]),
+        limit=12,
+        profile_report_id=profile_report_id,
+    )
     agent_conversation = xiaozhi_profile_agent_context(
         int(user["id"]),
         profile_report_id,
     )
+    latest_agent_runs: dict[str, dict] = {}
+    latest_agent_context: dict[str, dict] = {}
+    for orchestration_run in recent_runs:
+        for agent_run in orchestration_run.get("agentRuns") or []:
+            if not isinstance(agent_run, dict):
+                continue
+            agent_id = str(agent_run.get("id") or "").strip()
+            if not agent_id or agent_id in latest_agent_runs:
+                continue
+            latest_agent_runs[agent_id] = agent_run
+            latest_agent_context[agent_id] = orchestration_run
+
+    master_run = latest_agent_runs.pop(XIAOZHI_MASTER_AGENT_ID, {})
+    master_context = latest_agent_context.get(XIAOZHI_MASTER_AGENT_ID) or {}
     agents = [
         {
             "id": XIAOZHI_MASTER_AGENT_ID,
             "name": "岐小智总控智能体",
-            "status": "ready" if xiaozhi_runtime.get("hasToken") else "idle",
-            "detail": (
+            "status": master_run.get("status") or ("ready" if xiaozhi_runtime.get("hasToken") else "idle"),
+            "detail": master_run.get("detail") or (
                 f"总控编排 / {xiaozhi_runtime.get('model') or DEFAULT_TEXT_MODEL_ID} / "
                 f"{'用户自定义 ' + user_runtime_settings.get('protocol', '') if user_runtime_settings.get('enabled') else '平台默认'}"
             ),
@@ -15444,54 +16321,28 @@ def xiaozhi_status():
                 "orchestration": orchestration_runtime,
             },
             "role": "supervisor",
+            "source": "orchestration-run" if master_run else "runtime",
+            "lastRunId": str(master_context.get("runId") or ""),
+            "lastRunAt": str(master_context.get("updatedAt") or ""),
         },
     ]
-    for tool_type, tool in PLATFORM_TOOLS.items():
-        status, detail = xiaozhi_tool_agent_status(tool_type, tasks, context, question_status)
-        agents.append(
-            {
-                "id": tool["agent"],
-                "type": tool_type,
-                "name": tool.get("label") or XIAOZHI_RESOURCE_LABELS.get(tool_type, tool_type),
-                "status": status,
-                "detail": detail,
-                "route": tool["route"],
-                "orchestratedBy": "xiaozhi-companion-agent",
-                "runtime": "hermes-agent",
-                "role": AGENT_CATALOG.get(tool["agent"], {}).get("role") or "specialist",
-            }
-        )
-    existing_agent_ids = {item["id"] for item in agents}
-    for agent_id in [
-        "learner-context-agent",
-        "course-knowledge-retrieval-agent",
-        "skill-registry-agent",
-        "mcp-tool-gateway",
-        "quality-review-agent",
-        "content-safety-agent",
-        "learning-feedback-agent",
-    ]:
-        if agent_id in existing_agent_ids:
-            continue
+    for agent_id, agent_run in latest_agent_runs.items():
         metadata = AGENT_CATALOG.get(agent_id) or {}
-        latest = next(
-            (
-                run
-                for orchestration_run in recent_runs
-                for run in (orchestration_run.get("agentRuns") or [])
-                if run.get("id") == agent_id
-            ),
-            None,
-        )
+        run_context = latest_agent_context.get(agent_id) or {}
         agents.append(
             {
                 "id": agent_id,
-                "name": metadata.get("name") or agent_id,
-                "status": (latest or {}).get("status") or "ready",
-                "detail": (latest or {}).get("detail") or metadata.get("description") or "",
-                "orchestratedBy": XIAOZHI_MASTER_AGENT_ID,
-                "runtime": (orchestration_runtime.get("orchestration") or {}).get("framework"),
-                "role": metadata.get("role") or "specialist",
+                "name": str(agent_run.get("name") or metadata.get("name") or agent_id),
+                "status": str(agent_run.get("status") or "complete"),
+                "detail": str(agent_run.get("detail") or ""),
+                "progress": _safe_progress(agent_run.get("progress"), 0),
+                "eventCount": int(agent_run.get("eventCount") or 0),
+                "role": metadata.get("role") or str(agent_run.get("role") or "specialist"),
+                "hidden": bool(metadata.get("hidden")),
+                "hiddenReason": str(metadata.get("hiddenReason") or ""),
+                "source": "orchestration-run",
+                "lastRunId": str(run_context.get("runId") or ""),
+                "lastRunAt": str(run_context.get("updatedAt") or ""),
             }
         )
     return jsonify({
@@ -15504,6 +16355,7 @@ def xiaozhi_status():
             "architecture": orchestration_runtime,
             "modelRuntime": user_runtime_settings,
             "agentConversation": agent_conversation,
+            "profileReportId": profile_report_id,
         },
     })
 

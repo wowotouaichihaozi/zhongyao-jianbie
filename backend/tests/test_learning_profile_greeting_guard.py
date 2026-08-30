@@ -88,6 +88,50 @@ class LearningProfileGreetingGuardTests(unittest.TestCase):
 
         self.assertEqual(request_model.call_count, 2)
 
+    def test_last_dimension_can_complete_without_another_question(self) -> None:
+        existing_profile = {
+            dimension: f"已采集的{dimension}"
+            for dimension in workflow_agent.PROFILE_DIMENSIONS
+            if dimension != "难度接受程度"
+        }
+        completed = {
+            "reply": "已记录你偏好适中难度，十个维度的信息已经收集完整。",
+            "evidence": [
+                {
+                    "dimension": "难度接受程度",
+                    "value": "适中，先巩固基础再逐步进阶",
+                    "confidence": 0.96,
+                }
+            ],
+            "next_dimension": "",
+            "user_intent": "补充画像信息",
+        }
+
+        with patch.object(
+            workflow_agent,
+            "_request_llm_text",
+            return_value=json.dumps(completed, ensure_ascii=False),
+        ) as request_model:
+            result = workflow_agent.run_learning_profile_workflow(
+                [
+                    {"role": "assistant", "content": "你更喜欢基础、适中还是挑战性较高的任务？"},
+                    {"role": "user", "content": "适中"},
+                ],
+                user_id="last-dimension-user",
+                profile=existing_profile,
+                verbose=False,
+            )
+
+        self.assertEqual(request_model.call_count, 1)
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["completeness"], 100)
+        self.assertEqual(result["missingProfileDimensions"], [])
+        self.assertEqual(result["nextDimension"], "")
+        self.assertEqual(
+            result["studentProfile"]["难度接受程度"],
+            "适中，先巩固基础再逐步进阶",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

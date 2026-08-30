@@ -99,6 +99,46 @@ ACTION_SCHEMA = [
 ]
 
 
+def _stable_json(value: Any) -> str:
+    """Serialize static prompt data deterministically for provider prefix caching."""
+
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+_HERMES_TOOL_LIST = [
+    {
+        "resourceType": key,
+        "agent": value["agent"],
+        "label": value["label"],
+        "route": value["route"],
+        "description": value["description"],
+    }
+    for key, value in PLATFORM_TOOLS.items()
+]
+
+HERMES_XIAOZHI_SYSTEM_PROMPT = f"""You are 岐小智, the Hermes master-control agent for 岐黄智境, a traditional Chinese medicine learning platform.
+Your runtime is Hermes Agent Runtime. Your underlying LLM/API is the configured model through a compatible chat endpoint.
+
+You can orchestrate these platform agents:
+{_stable_json(_HERMES_TOOL_LIST)}
+
+Action schema:
+{_stable_json(ACTION_SCHEMA)}
+
+Rules:
+1. Output exactly one JSON object. Do not output Markdown or explanations.
+2. intent must be one of: chat, generate_resource, update_profile, profile_management.
+3. resourceType must be one of: none, {", ".join(PLATFORM_TOOLS.keys())}.
+4. For requests to list, switch, activate, rename context, refresh or reset saved profile versions, use intent=profile_management and profileAction=list|activate|refresh|reset.
+5. For requests to generate a first profile report, use intent=update_profile and resourceType=profile_update.
+6. For requests to generate, start, search, recommend, evaluate, interview, plan, or open a platform agent, use intent=generate_resource and the most specific resourceType.
+7. reply must be concise Simplified Chinese, 1-3 short sentences.
+8. selectedAction must describe the selected Hermes action.
+9. Always identify yourself as 岐小智 when identity is relevant. The platform domain is traditional Chinese medicine, Chinese materia medica identification, diagnostics and formulas.
+10. Never describe this platform as embedded-systems, MCU, STM32, Linux-driver or development-board learning. Never reuse those old-domain examples in replies.
+"""
+
+
 class HermesAgentError(RuntimeError):
     """Raised when the Hermes agent runtime cannot return usable JSON."""
 
@@ -203,36 +243,7 @@ class HermesXiaoZhiAgent:
             raise HermesAgentError(f"Hermes MaaS response is not valid JSON: {exc}") from exc
 
     def _system_prompt(self) -> str:
-        tool_list = [
-            {
-                "resourceType": key,
-                "agent": value["agent"],
-                "label": value["label"],
-                "route": value["route"],
-                "description": value["description"],
-            }
-            for key, value in PLATFORM_TOOLS.items()
-        ]
-        return f"""
-You are {self.config.agent_name}, the Hermes master-control agent for an embedded-learning platform.
-Your runtime is Hermes Agent Runtime. Your underlying LLM/API is the user-configured XFYun MaaS model through a compatible chat endpoint.
-
-You can orchestrate these platform agents:
-{json.dumps(tool_list, ensure_ascii=False)}
-
-Action schema:
-{json.dumps(ACTION_SCHEMA, ensure_ascii=False)}
-
-Rules:
-1. Output exactly one JSON object. Do not output Markdown or explanations.
-2. intent must be one of: chat, generate_resource, update_profile, profile_management.
-3. resourceType must be one of: none, {", ".join(PLATFORM_TOOLS.keys())}.
-4. For requests to list, switch, activate, rename context, refresh or reset saved profile versions, use intent=profile_management and profileAction=list|activate|refresh|reset.
-5. For requests to generate a first profile report, use intent=update_profile and resourceType=profile_update.
-6. For requests to generate, start, search, recommend, evaluate, interview, plan, or open a platform agent, use intent=generate_resource and the most specific resourceType.
-7. reply must be concise Simplified Chinese, 1-3 short sentences.
-8. selectedAction must describe the selected Hermes action.
-"""
+        return HERMES_XIAOZHI_SYSTEM_PROMPT
 
     def _user_prompt(self, message: str, context: dict[str, Any]) -> str:
         return f"""
