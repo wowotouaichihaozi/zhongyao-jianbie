@@ -10,6 +10,7 @@ backend/data/*.sqlite3
 backend/data/*.sqlite3-*
 backend/data/*.db
 backend/data/extract_cache/
+backend/data/multimodal_inputs/
 backend/__pycache__/
 backend/tests/__pycache__/
 

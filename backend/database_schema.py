@@ -575,6 +575,8 @@ CREATE INDEX IF NOT EXISTS idx_multimodal_inputs_user_created ON multimodal_inpu
 CREATE INDEX IF NOT EXISTS idx_xiaozhi_tasks_user_id ON xiaozhi_tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_xiaozhi_tasks_task_id ON xiaozhi_tasks(task_id);
 CREATE INDEX IF NOT EXISTS idx_xiaozhi_tasks_user_type_id ON xiaozhi_tasks(user_id, task_type, id DESC);
+CREATE INDEX IF NOT EXISTS idx_xiaozhi_tasks_status_id ON xiaozhi_tasks(status, id);
+CREATE INDEX IF NOT EXISTS idx_xiaozhi_tasks_user_type_status_id ON xiaozhi_tasks(user_id, task_type, status, id DESC);
 CREATE INDEX IF NOT EXISTS idx_generated_video_covers_user_status ON generated_video_covers(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_user_id ON agent_orchestration_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_task_id ON agent_orchestration_runs(task_id);

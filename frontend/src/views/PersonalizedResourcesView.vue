@@ -122,6 +122,7 @@
         <article
           v-for="resource in paginatedResources"
           :key="resource.id"
+          :ref="element => observePreviewCard(resource.id, element)"
           class="resource-cover-card"
           role="link"
           tabindex="0"
@@ -146,7 +147,7 @@
               @error="retryStaticCover(resource)"
             />
             <iframe
-              v-else
+              v-else-if="isPreviewEligible(resource.id)"
               class="resource-live-cover"
               :class="{ loaded: isPreviewLoaded(resource.id) }"
               :src="getResourcePreviewUrl(resource)"
@@ -222,6 +223,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import {
+  getApiErrorMessage,
   getLearningProfiles,
   getGeneratedVideoTaskHistory,
   getXiaoZhiHistory,
@@ -289,6 +291,7 @@ const pageSize = 12
 const generating = ref(false)
 const resources = ref([])
 const loadedResourcePreviews = ref(new Set())
+const eligibleResourcePreviews = ref(new Set())
 const hasProfile = ref(false)
 const profileData = ref(null)
 const evaluations = ref([])
@@ -299,10 +302,43 @@ const resourcesError = ref('')
 const resourcesWarning = ref('')
 const hiddenResourceTypes = new Set(['document', 'animation', 'code', 'simulator', 'mcu'])
 
+let previewObserver = null
+
 onMounted(async () => {
+  if (typeof window.IntersectionObserver === 'function') {
+    previewObserver = new window.IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        const resourceId = entry.target?.dataset?.previewResourceId
+        if (resourceId) {
+          const next = new Set(eligibleResourcePreviews.value)
+          next.add(previewResourceKey(resourceId))
+          eligibleResourcePreviews.value = next
+        }
+        previewObserver?.unobserve(entry.target)
+      }
+    }, { rootMargin: '320px 0px', threshold: 0.01 })
+  }
   loadEvaluations()
   await Promise.all([loadProfile(), loadResources()])
 })
+
+function observePreviewCard(resourceId, element) {
+  if (!element) return
+  if (isPreviewEligible(resourceId)) return
+  if (!previewObserver) {
+    const next = new Set(eligibleResourcePreviews.value)
+    next.add(previewResourceKey(resourceId))
+    eligibleResourcePreviews.value = next
+    return
+  }
+  element.dataset.previewResourceId = previewResourceKey(resourceId)
+  previewObserver.observe(element)
+}
+
+function isPreviewEligible(resourceId) {
+  return eligibleResourcePreviews.value.has(previewResourceKey(resourceId))
+}
 
 async function loadProfile() {
   profileLoading.value = true
@@ -316,7 +352,7 @@ async function loadProfile() {
   } catch (error) {
     hasProfile.value = false
     profileData.value = null
-    profileError.value = error?.response?.data?.msg || error?.message || '学习画像暂时无法读取，当前不能确认个性化生成条件。'
+    profileError.value = getApiErrorMessage(error, '学习画像暂时无法读取，当前不能确认个性化生成条件。')
   } finally {
     profileLoading.value = false
   }
@@ -366,7 +402,7 @@ async function loadResources() {
       resourcesWarning.value = `${failedSources.join('、')}暂时未同步，当前列表可能不完整。`
     }
   } catch (error) {
-    resourcesError.value = error?.message || '历史资源解析失败，请重试。'
+    resourcesError.value = getApiErrorMessage(error, '历史资源解析失败，请重试。')
   } finally {
     resourcesLoading.value = false
   }
@@ -734,6 +770,8 @@ function getResourcePreviewUrl(resource) {
 }
 
 onUnmounted(() => {
+  previewObserver?.disconnect()
+  previewObserver = null
   for (const timer of staticCoverRetryTimers.values()) window.clearTimeout(timer)
   staticCoverRetryTimers.clear()
 })

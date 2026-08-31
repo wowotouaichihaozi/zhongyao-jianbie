@@ -1,0 +1,5 @@
+body.exam-scroll-override,
+body.exam-scroll-override .app-shell {
+  overflow: auto !important;
+  height: auto !important;
+}

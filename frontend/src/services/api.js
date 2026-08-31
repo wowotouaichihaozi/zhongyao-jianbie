@@ -18,6 +18,39 @@ const apiClient = axios.create({
 
 const CODEX_PREVIEW_AUTH_KEY = 'codexPreviewAuth'
 
+const API_STATUS_MESSAGES = {
+  400: '请求内容不完整或格式有误，请检查后重试',
+  403: '当前账号没有执行此操作的权限',
+  404: '请求的内容不存在或已被移除',
+  409: '数据状态已发生变化，请刷新后重试',
+  413: '上传内容过大，请缩小文件后重试',
+  429: '操作过于频繁，请稍后再试',
+  500: '服务处理失败，请稍后重试',
+  502: '上游智能服务暂时不可用，请稍后重试',
+  503: '当前任务较多，服务暂时繁忙，请稍后重试',
+  504: '智能服务响应超时，请稍后重试',
+}
+
+function isTechnicalErrorMessage(value) {
+  const message = String(value || '').trim()
+  return !message
+    || /<!doctype|<html|traceback|connectionpool|newconnectionerror|ECONN|ENOTFOUND|method not allowed|request failed with status/i.test(message)
+}
+
+export function getApiErrorMessage(error, fallback = '请求失败，请稍后重试') {
+  const status = Number(error?.response?.status || error?.status || 0)
+  const payload = error?.response?.data
+  const serverMessage = typeof payload === 'string'
+    ? payload
+    : payload?.msg || payload?.message || payload?.error?.message || payload?.error
+  if (!isTechnicalErrorMessage(serverMessage)) return String(serverMessage).trim()
+  if (error?.code === 'ECONNABORTED' || /timeout/i.test(String(error?.message || ''))) {
+    return API_STATUS_MESSAGES[504]
+  }
+  if (!error?.response) return '网络连接失败，请检查网络后重试'
+  return API_STATUS_MESSAGES[status] || fallback
+}
+
 function makeApiUrl(path) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   return `${apiBaseUrl}${normalizedPath}`
@@ -56,6 +89,16 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401 && !isAuthEntryRequest(error.config)) {
       clearAuthAndRedirect()
+    }
+    error.userMessage = getApiErrorMessage(error)
+    const responsePayload = error.response?.data
+    const isPlainPayload = Object.prototype.toString.call(responsePayload) === '[object Object]'
+    if (error.response && !isPlainPayload) {
+      error.response.data = { msg: error.userMessage }
+    } else if (isPlainPayload && isTechnicalErrorMessage(
+      responsePayload.msg || responsePayload.message || responsePayload.error,
+    )) {
+      responsePayload.msg = error.userMessage
     }
     return Promise.reject(error)
   },
@@ -96,10 +139,11 @@ function parseSseChunk(chunk) {
 
 export async function consumeSseResponse(response, onEvent) {
   if (!response.ok || !response.body) {
-    let message = `Request failed with status ${response.status}`
+    let message = API_STATUS_MESSAGES[response.status] || `请求失败（${response.status}）`
     try {
       const payload = await response.json()
-      message = payload?.msg || payload?.message || message
+      const candidate = payload?.msg || payload?.message
+      if (!isTechnicalErrorMessage(candidate)) message = candidate
     } catch {
       // Keep the status message when the response body is not JSON.
     }

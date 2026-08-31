@@ -414,6 +414,10 @@ python -m py_compile app.py ppt_h5.py
 
 每一周学习路径保存后，后端只把该周投入资源准备线程池，不会预先规划后续周次。当前周先在一次短事务中为全部节点创建持久化任务记录和带 `xzTask` 的页面入口，再把题库、PPT、导图和视频查找等普通资源提交后台执行器；接口不会等待资源生成完成。PPT 任务在数据库记录和 OhMyPPT 会话参数写入完成后立即提交专用后台执行器，用户不需要打开课件页面才能开始生成；该执行器默认串行，避免多份长课件各自拆批后放大模型侧超时，可通过 `PPT_RESOURCE_MAX_WORKERS` 在 1-2 之间调整。服务重启时，后端会先释放已中断的进程内任务，并且一次只恢复最早的一个入口缺失、中断或失败周次；完整周次不会重复入队，也不会因此生成新的周次。失败的路径资源仍遵守最多两次生成尝试的边界，不会无限重试。不同周写回时通过用户级短锁重读最新配置并只合并当前周，避免并发覆盖任务 ID 或进度。`generated_video` 入口立即可点击，但状态为 `waiting_for_user`，用户进入视频工作台并手动确认后才启动原任务。
 
+后台生成执行器由 `backend/runtime_control.py` 统一管理，同时限制工作线程与等待队列；普通资源和 PPT 的排队上限可分别用 `RESOURCE_AGENT_MAX_PENDING`、`PPT_RESOURCE_MAX_PENDING` 调整。队列达到容量时接口返回明确的 `503 / RESOURCE_QUEUE_FULL`，任务不会永久停留在“生成中”；相同用户重复提交等价的活动任务时会复用原任务。`GET /api/health` 会以只读方式检查 SQLite，并返回各执行器的活动数、等待数、剩余容量和拒绝次数，不包含模型地址或密钥。
+
+后端主应用按业务域渐进拆分：数字人配置、服务诊断、旧版会话、心跳和播报接口集中在 `backend/avatar_routes.py`，通过 Flask Blueprint 装配到原有 `/api/avatar/*` 地址；全局登录校验仍由主应用统一执行。验证命令：`python -m pytest backend/tests/test_agent_manifest_and_harness.py backend/tests/test_interview_lifecycle.py -q`。
+
 本批状态管理可用 `python -m pytest backend/tests/test_learning_profile_api.py backend/tests/test_ohmyppt_client.py -q`、`python -m unittest discover -s ppth5/backend/tests -p test_batch_generation.py -v`、`cd ppth5 && npm run typecheck:web` 和 `cd frontend && npm run build -- --emptyOutDir=false` 验证；PPT H5 生产构建需直接调用 Vite 并传入 `--emptyOutDir=false`，避免清理既有输出目录。
 
 主站 `/personalized-resources/ppt?tab=history` 会把 `tab=history` 映射到带版本参数的精确 `/ppt/index.html#/sessions` 地址，避免 `/ppt/` 被错误的 SPA fallback 接管，也避免复用浏览器中已加载的旧工作台文档。Nginx 对 `/ppt/` 与 `/ppt/index.html` 明确发送 `no-cache, no-store, must-revalidate`，哈希静态资源仍由独立文件名控制版本；因此发布新会话状态逻辑后不再需要用户手动清缓存。
