@@ -27,15 +27,18 @@
           placeholder="请输入密码"
           required
         />
-        <button
-          type="button"
+        <span
           class="password-visibility-toggle"
+          role="button"
+          tabindex="0"
           :aria-label="showPassword ? '隐藏密码' : '显示密码'"
           @click="showPassword = !showPassword"
+          @keydown.enter.prevent="showPassword = !showPassword"
+          @keydown.space.prevent="showPassword = !showPassword"
         >
           <Eye v-if="showPassword" :size="18" :stroke-width="2" />
           <EyeOff v-else :size="18" :stroke-width="2" />
-        </button>
+        </span>
       </span>
     </label>
 
@@ -114,31 +117,41 @@ const showPassword = ref(false)
 
 <style scoped>
 .password-field .password-visibility-toggle {
-  position: absolute;
+  position: relative;
   z-index: 1;
-  right: 10px;
-  top: 50%;
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: end;
   display: grid;
   width: 32px;
   height: 32px;
-  transform: translateY(-50%);
+  margin-right: 10px;
   place-items: center;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   color: #64748b;
   cursor: pointer;
+  transform: none !important;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.password-field {
+  display: grid !important;
+}
+
+.password-field > :is(input, svg) {
+  grid-area: 1 / 1;
 }
 
 .password-field .password-visibility-toggle:hover,
 .password-field .password-visibility-toggle:focus-visible {
-  background: #ecfdf5;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   color: #047857;
-  outline: none;
-}
-
-.password-field .password-visibility-toggle:focus-visible {
-  box-shadow: 0 0 0 2px #a7f3d0;
 }
 </style>

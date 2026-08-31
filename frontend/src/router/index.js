@@ -4,6 +4,7 @@ import { clearAuthSession, getAuthToken, readCurrentUser, setAuthSession } from 
 import { safeInternalRedirect } from '../utils/authRedirect.js'
 
 const AuthPage = () => import('../views/HerbWiseLoginPage.vue')
+const ArchifyLandingView = () => import('../views/ArchifyLandingView.vue')
 const QuestionGeneratorView = () => import('../views/QuestionGeneratorView.vue')
 const QuestionExamSessionView = () => import('../views/QuestionExamSessionView.vue')
 const LearningProfileView = () => import('../views/LearningProfileView.vue')
@@ -77,7 +78,7 @@ const routes = [
   {
     path: '/login',
     name: 'login',
-    component: AuthPage,
+    component: ArchifyLandingView,
   },
   {
     path: '/question-generator',
