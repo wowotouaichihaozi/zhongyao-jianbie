@@ -385,7 +385,7 @@ function resourceLabel(value) {
     'question-bank': '题库',
     simulator: 'MCU 实验',
     mcu: 'MCU 实验',
-    document: '课程讲义',
+    document: 'PPT 课件',
     animation: '动画讲解',
     'knowledge-base': '私有知识库',
   })[value] || value

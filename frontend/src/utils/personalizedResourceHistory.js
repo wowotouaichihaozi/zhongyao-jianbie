@@ -22,7 +22,7 @@ const RESOURCE_TITLES = {
 }
 
 const RESOURCE_TYPE_NAMES = {
-  document: '课程讲义',
+  document: 'PPT 课件',
   mindmap: '思维导图',
   ppt: 'PPT',
   video: '视频',

@@ -386,7 +386,7 @@ def xiaozhi_detect_requested_resource_types(message: str) -> list[str]:
     requested: list[str] = []
     checks = [
         ("generated_video", ["生成视频", "制作视频", "创建视频", "生成讲解视频", "制作讲解视频", "ai视频", "AI视频"]),
-        ("document", ["课程讲义", "学习讲义", "讲义", "学习文档", "课程文档", "handout"]),
+        ("ppt", ["课程讲义", "学习讲义", "讲义", "学习文档", "课程文档", "handout"]),
         ("ppt", ["ppt", "课件", "演示文稿"]),
         ("mindmap", ["思维导图", "导图", "mindmap", "mind map"]),
         ("animation", ["动画讲解", "动画微课", "h5动画", "h5 动画", "生成动画", "动态讲解"]),
@@ -2620,7 +2620,7 @@ def xiaozhi_fallback_intent(message: str) -> dict:
     if any(word in text for word in ["学习路径", "学习计划", "路线", "路径规划", "阶段计划"]):
         return {"intent": "generate_resource", "resourceType": "learning_path", "topic": message, "reply": "我会调用学习路径智能体，为你生成一条可执行的学习路线。"}
     if any(word in text for word in ["面试", "模拟面试", "ai面试", "数字人面试"]):
-        return {"intent": "generate_resource", "resourceType": "interview", "topic": message, "reply": "我会启动数字人学习访谈，并生成进入访谈页面的卡片。"}
+        return {"intent": "generate_resource", "resourceType": "interview", "topic": message, "reply": "我会启动数字人 AI 面试，并生成进入面试页面的卡片。"}
     if any(word in text for word in ["效果评估", "学习效果", "掌握情况", "评估一下", "学习诊断"]):
         return {"intent": "generate_resource", "resourceType": "effect_assessment", "topic": message, "reply": "我会汇总答题、实验和学习记录，生成学习效果评估与路径调整建议。"}
     if any(word in text for word in ["辅导", "答疑", "不会", "讲解一下", "怎么理解", "为什么"]):
@@ -2628,7 +2628,7 @@ def xiaozhi_fallback_intent(message: str) -> dict:
     if any(word in text for word in ["背景对话", "学习背景", "采集背景", "补充背景"]):
         return {"intent": "generate_resource", "resourceType": "learning_background", "topic": message, "reply": "我会调用学习背景对话智能体，帮你继续补全画像上下文。"}
     if any(word in text for word in ["课程讲义", "学习讲义", "讲义", "学习文档", "课程文档", "handout"]):
-        return {"intent": "generate_resource", "resourceType": "document", "topic": message, "reply": "我会结合当前画像和课程知识库生成一份可追溯的个性化学习讲义。"}
+        return {"intent": "generate_resource", "resourceType": "ppt", "topic": message, "reply": "课程讲义入口已合并到 PPT，我会为你准备一份可追溯的学习课件。"}
     if any(word in text for word in ["ppt", "课件", "演示文稿"]):
         return {"intent": "generate_resource", "resourceType": "ppt", "topic": message, "reply": "我会先为你准备 PPT 课件任务，生成完成后可以从卡片进入。"}
     if any(word in text for word in ["思维导图", "导图", "mind"]):
@@ -2643,7 +2643,7 @@ def xiaozhi_fallback_intent(message: str) -> dict:
         return {"intent": "generate_resource", "resourceType": "mcu", "topic": message, "reply": "我会根据当前画像推荐可直接运行的单片机实验。"}
     if any(word in text for word in ["画像", "重新评估", "更新评估", "更新报告"]):
         return {"intent": "update_profile", "resourceType": "profile_update", "topic": message, "reply": "我会调用学习画像智能体，在后台汇总现有对话和学习证据。"}
-    return {"intent": "chat", "resourceType": "none", "topic": "", "reply": "我在。你可以告诉我最近学到哪一步，或者直接让我生成讲义、题库、PPT、思维导图和视频资源。"}
+    return {"intent": "chat", "resourceType": "none", "topic": "", "reply": "我在。你可以告诉我最近学到哪一步，或者直接让我生成题库、PPT、思维导图、视频和单片机实验资源。"}
 
 
 def xiaozhi_extract_explicit_topic(message: str, resource_type: str) -> str:
@@ -3583,7 +3583,7 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
                 "position": "嵌入式开发学习者",
             },
         )
-        result.update({"message": "数字人学习访谈已启动。", "interview": interview_result})
+        result.update({"message": "数字人 AI 面试已启动。", "interview": interview_result})
         return result
 
     if task_type == "smart_tutor":

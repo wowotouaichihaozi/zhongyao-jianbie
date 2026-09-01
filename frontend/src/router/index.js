@@ -24,7 +24,6 @@ const VideoSearchView = () => import('../views/VideoSearchView.vue')
 const VideoGeneratorView = () => import('../views/VideoGeneratorView.vue')
 const LearningAnimationView = () => import('../views/LearningAnimationView.vue')
 const EffectAssessmentView = () => import('../views/EffectAssessmentView.vue')
-const LearningDocumentView = () => import('../views/LearningDocumentView.vue')
 const SmartTutorView = () => import('../views/SmartTutorView.vue')
 const KnowledgeBaseView = () => import('../views/KnowledgeBaseView.vue')
 const KnowledgeNetworkView = () => import('../views/KnowledgeNetworkView.vue')
@@ -184,7 +183,7 @@ const routes = [
   },
   {
     path: '/herb-recognition',
-    redirect: '/knowledge-network',
+    redirect: '/personalized-resources/mcu-simulator',
   },
   {
     path: '/knowledge-network',
@@ -199,10 +198,6 @@ const routes = [
   {
     path: '/personalized-resources/herb-model',
     redirect: '/personalized-resources/mcu-simulator',
-  },
-  {
-    path: '/life-tree',
-    redirect: '/agent-digital-twin',
   },
   {
     path: '/agent-digital-twin',
@@ -230,9 +225,7 @@ const routes = [
   },
   {
     path: '/personalized-resources/document',
-    name: 'personalized-resource-document',
-    component: LearningDocumentView,
-    meta: { requiresAuth: true, noNavbar: true, resourceTool: true },
+    redirect: '/personalized-resources/ppt',
   },
   {
     path: '/personalized-resources/mind-map',

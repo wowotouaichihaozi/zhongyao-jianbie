@@ -10,11 +10,9 @@ const embeddedStaticRoots = {
   '/mind-map-wizard/': path.resolve(__dirname, '../img/mind-map-wizard'),
   '/video-search/': path.resolve(__dirname, '../img/video-search'),
   '/vendor/': path.resolve(__dirname, 'public/vendor'),
-  '/wu-xing-holo-core-original/': path.resolve(__dirname, 'public/wu-xing-holo-core-original'),
 }
 
 const vendoredAssetsDir = path.resolve(__dirname, 'public/vendor')
-const wuXingOriginalAssetsDir = path.resolve(__dirname, 'public/wu-xing-holo-core-original')
 
 function vendoredAssets(dir = vendoredAssetsDir) {
   if (!fs.existsSync(dir)) return []
@@ -77,7 +75,6 @@ function createEmbeddedStaticPlugin() {
       if (!isBuild) return
       [
         ['vendor', vendoredAssetsDir],
-        ['wu-xing-holo-core-original', wuXingOriginalAssetsDir],
       ].forEach(([outputDirectory, sourceDirectory]) => {
         vendoredAssets(sourceDirectory).forEach((absolutePath) => {
           const relativePath = path.relative(sourceDirectory, absolutePath).split(path.sep).join('/')

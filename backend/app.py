@@ -1994,7 +1994,7 @@ def learning_document_detail(document_id: int):
     with auth_db() as conn:
         document = get_learning_document(conn, user_id=int(user["id"]), document_id=document_id)
     if not document:
-        return jsonify({"code": 404, "msg": "课程讲义不存在"}), 404
+        return jsonify({"code": 404, "msg": "旧版学习文档不存在"}), 404
     return jsonify({"code": 0, "data": {"document": document}})
 
 
@@ -2255,12 +2255,11 @@ XIAOZHI_MENTIONABLE_AGENTS = (
     {"id": "personalized-resource-workflow", "name": "个性化资源智能体", "taskType": "personalized_resources", "aliases": ["资源生成智能体", "资源智能体"]},
     {"id": "question-generator-workflow", "name": "题库生成智能体", "taskType": "question_bank", "aliases": ["题库智能体"]},
     {"id": "ppt-agent", "name": "PPT生成智能体", "taskType": "ppt", "aliases": ["PPT智能体", "ppt生成智能体"]},
-    {"id": "learning-document-agent", "name": "课程讲义智能体", "taskType": "document", "aliases": ["讲义智能体"]},
     {"id": "mindmap-agent", "name": "思维导图智能体", "taskType": "mindmap", "aliases": ["导图智能体"]},
     {"id": "video-search-agent", "name": "视频检索智能体", "taskType": "video", "aliases": ["视频查找智能体"]},
     {"id": "generated-video-agent", "name": "AI视频生成智能体", "taskType": "generated_video", "aliases": ["AI视频智能体"]},
     {"id": "mcu-agent", "name": "单片机实验智能体", "taskType": "mcu", "aliases": ["MCU智能体", "实验智能体", "模拟器智能体"]},
-    {"id": "interview-agent", "name": "学习访谈智能体", "taskType": "interview", "aliases": ["访谈智能体"]},
+    {"id": "interview-agent", "name": "AI 面试智能体", "taskType": "interview", "aliases": ["AI面试智能体", "访谈智能体"]},
     {"id": "smart-tutor-agent", "name": "智能辅导智能体", "taskType": "smart_tutor", "aliases": ["辅导智能体"]},
     {"id": "learning-effect-assessment-agent", "name": "效果评估智能体", "taskType": "effect_assessment", "aliases": ["评估智能体"]},
     {"id": "learning-feedback-agent", "name": "学习反馈智能体", "taskType": "learning_feedback", "aliases": ["反馈智能体"]},
@@ -2276,12 +2275,11 @@ XIAOZHI_AGENT_PERSONAS = {
     "personalized-resource-workflow": "负责协调知识检索、资源生成、审核和异步质量评分。",
     "question-generator-workflow": "负责嵌入式题目设计、难度分层、答案解析和错因诊断。",
     "ppt-agent": "负责嵌入式课程 PPT 的结构、逐页内容、讲解顺序和视觉表达。",
-    "learning-document-agent": "负责基于可靠知识证据组织课程讲义、实验手册和复习材料。",
     "mindmap-agent": "负责梳理嵌入式概念层级、软硬件关系、调试链路和易混知识点。",
     "mcu-agent": "负责根据画像推荐合法实验预设，提供接线、代码、运行和调试入口。",
     "video-search-agent": "负责提炼检索关键词、筛选讲解视频并说明推荐依据。",
     "generated-video-agent": "负责设计 AI 讲解视频脚本、分镜、首图和生成参数；视频只在用户确认后生成。",
-    "interview-agent": "负责开展学习访谈，通过追问获取可用于画像和路径调整的证据。",
+    "interview-agent": "负责开展数字人 AI 面试，通过追问获取可用于画像、能力评估和路径调整的证据。",
     "smart-tutor-agent": "负责针对当前问题逐步启发、讲解和纠错，不直接替代用户完成学习。",
     "learning-effect-assessment-agent": "负责结合任务完成、测评和反馈分析学习效果及薄弱点。",
     "learning-feedback-agent": "负责记录资源体验、难度、完成结果并提炼后续调整信号。",
@@ -2324,6 +2322,7 @@ del _service_module, _service_modules, _service_name
 
 
 RESOURCE_AGENT_TYPE_ALIASES = {
+    "document": "ppt",
     "question-bank": "question_bank",
     "questionBank": "question_bank",
     "question": "question_bank",
@@ -2331,9 +2330,9 @@ RESOURCE_AGENT_TYPE_ALIASES = {
     "exam": "question_bank",
     "ppt_h5": "ppt",
     "presentation": "ppt",
-    "handout": "document",
-    "learning-document": "document",
-    "learning_document": "document",
+    "handout": "ppt",
+    "learning-document": "ppt",
+    "learning_document": "ppt",
     "mind-map": "mindmap",
     "mind_map": "mindmap",
     "video-search": "video",
@@ -2365,7 +2364,6 @@ RESOURCE_AGENT_ALLOWED_TYPES = {
     "personalized_resources",
     "question_bank",
     "ppt",
-    "document",
     "mindmap",
     "video",
     "generated_video",
@@ -2771,7 +2769,7 @@ def xiaozhi_tool_agent_status(tool_type: str, tasks: list[dict], context: dict, 
     if tool_type == "question_bank" and question_status:
         return (question_status.get("status") or "idle", question_status.get("payload", {}).get("message") or "等待生成任务")
     if tool_type == "interview":
-        return "ready", "学习访谈问答、追问、视觉分析与评分接口可用"
+        return "ready", "AI 面试问答、追问、视觉分析与评分接口可用"
     if tool_type == "learning_background":
         return "ready", "可继续采集学习背景并补全画像上下文"
     if tool_type == "learning_path":

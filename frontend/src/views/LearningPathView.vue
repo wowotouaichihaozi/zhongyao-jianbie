@@ -785,7 +785,7 @@ function taskResourceLabel(resourceType, index) {
     video: '视频查找',
     generated_video: 'AI 视频生成',
     animation: '动画微课',
-    document: '课程讲义',
+    document: 'PPT 课件',
     ppt: 'PPT生成',
     mindmap: '思维导图',
     'question-bank': '题库生成',

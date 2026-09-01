@@ -185,6 +185,7 @@ def _migrate_learning_path_document_text(value: object) -> str:
         ("学习讲义", "学习课件"),
         ("实验讲义", "实验课件"),
         ("生成讲义", "生成课件"),
+        ("讲义", "课件"),
     ):
         text = text.replace(old, new)
     return text
@@ -681,7 +682,7 @@ def normalize_learning_path_config(raw_config: object) -> dict:
                         "",
                     ),
                     "resourceSelectionReason": _clean_text(
-                        "课程讲义资源已下线，旧任务已迁移为学习课件。" if legacy_document_node else raw_node.get("resourceSelectionReason"),
+                        "旧版文档资源已下线，旧任务已迁移为学习课件。" if legacy_document_node else raw_node.get("resourceSelectionReason"),
                         "",
                     ),
                     "resourceSelectionSource": _clean_text(
@@ -1589,7 +1590,7 @@ RESOURCE_VISIT_ROUTES = (
     ("/personalized-resources/video-search", "video", "学习视频"),
     ("/personalized-resources/mcu-simulator", "mcu", "单片机实验"),
     ("/personalized-resources/knowledge-base", "knowledge-base", "私有知识库"),
-    ("/personalized-resources/document", "document", "课程讲义"),
+    ("/personalized-resources/document", "document", "PPT 课件"),
     ("/personalized-resources/animation", "animation", "动画讲解"),
     ("/personalized-resources/ppt", "ppt", "PPT"),
     ("/smart-tutor", "smart-tutor", "智能辅导"),

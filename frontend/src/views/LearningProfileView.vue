@@ -1640,7 +1640,7 @@ const currentReportStudentProfile = computed(() => {
   return chatStudentProfile.value
 })
 const reportPortraitUrl = ref('')
-const DEFAULT_PROFILE_PORTRAIT_URL = '/default-profile-avatar.webp'
+const DEFAULT_PROFILE_PORTRAIT_URL = '/userlogo.png'
 const reportPortraitStates = reactive({})
 let reportPortraitObjectUrl = ''
 let reportPortraitRequestToken = 0

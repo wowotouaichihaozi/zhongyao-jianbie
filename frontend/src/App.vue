@@ -56,7 +56,6 @@ const routesWithoutFloatingAssistant = new Set([
   'login',
   'agent-digital-twin',
   'knowledge-network',
-  'life-tree',
   'ai-coding',
   'herb-recognition',
   'personalized-resource-video-generator',

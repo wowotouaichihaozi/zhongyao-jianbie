@@ -52,12 +52,6 @@
                        "description":  "Platform agent ppt-agent"
                    },
                    {
-                       "id":  "learning-document-agent",
-                       "name":  "课程讲义智能体",
-                       "role":  "specialist",
-                       "description":  "Platform agent learning-document-agent"
-                   },
-                   {
                        "id":  "mindmap-agent",
                        "name":  "思维导图智能体",
                        "role":  "specialist",
@@ -93,7 +87,7 @@
                    },
                    {
                        "id":  "interview-agent",
-                       "name":  "学习访谈智能体",
+                       "name":  "AI 面试智能体",
                        "role":  "specialist",
                        "description":  "Platform agent interview-agent"
                    },
@@ -586,15 +580,15 @@
                    },
                    {
                        "id":  "resource.document.generate",
-                       "name":  "document",
+                       "name":  "ppt-compatibility",
                        "taskType":  "document",
-                       "agentId":  "learning-document-agent",
-                       "description":  "Platform task document",
-                       "label":  "document",
-                       "route":  "/personalized-resources/document",
+                       "agentId":  "ppt-agent",
+                       "description":  "Legacy document requests are handled by the PPT agent",
+                       "label":  "PPT compatibility",
+                       "route":  "/personalized-resources/ppt",
                        "mcpServer":  "platform-mcp",
-                       "mcpTool":  "resource.document.generate",
-                       "handlerKey":  "resource.document.generate",
+                       "mcpTool":  "resource.document.compatibility",
+                       "handlerKey":  "resource.ppt.generate",
                        "inputSchema":  {
                                            "type":  "object",
                                            "required":  [
@@ -627,7 +621,7 @@
                        "permissions":  [
                                            "profile:read",
                                            "knowledge:read",
-                                           "document:write"
+                                           "ppt:write"
                                        ],
                        "riskLevel":  "low",
                        "timeoutSeconds":  180,

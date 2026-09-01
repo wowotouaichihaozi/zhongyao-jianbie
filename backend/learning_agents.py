@@ -1319,6 +1319,7 @@ PATH_NODE_BLUEPRINTS = [
 ]
 
 LEARNING_PATH_RESOURCE_ALIASES = {
+    "document": "ppt",
     "question_bank": "question-bank",
     "quiz": "question-bank",
     "simulator": "mcu",
@@ -1329,7 +1330,7 @@ LEARNING_PATH_RESOURCE_ALIASES = {
     "animated-lesson": "animation",
     "learning-animation": "animation",
 }
-LEARNING_PATH_RESOURCE_TYPES = {"video", "generated_video", "animation", "document", "ppt", "mindmap", "question-bank", "mcu"}
+LEARNING_PATH_RESOURCE_TYPES = {"video", "generated_video", "animation", "ppt", "mindmap", "question-bank", "mcu"}
 LEARNING_PATH_REQUIRED_RESOURCE_TYPES = ("question-bank", "ppt", "mindmap", "video", "mcu", "generated_video")
 LEARNING_PATH_RESOURCE_PLAN_VERSION = "profile-routed-resources-v19-weekly-six-resource-coverage"
 LEARNING_PATH_RESOURCE_CONCENTRATION_LIMIT = 2
@@ -1401,7 +1402,7 @@ def _task_allowed_resource_types(node_title: str, description: str) -> set[str]:
         (["ppt", "课件", "幻灯片", "演示文稿"], {"ppt"}),
         (["题库", "题单", "专项测评", "测试卷", "考试", "测验"], {"question-bank"}),
         (["学习视频", "视频学习", "讲解视频", "教学视频", "视频讲解", "视频演示", "观看视频"], {"video"}),
-        (["课程讲义", "学习讲义", "实验手册", "学习手册"], {"document"}),
+        (["课程讲义", "学习讲义", "实验手册", "学习手册"], {"ppt"}),
         (["实验", "实操", "仿真", "开发板", "烧录", "波形", "示波器", "电路搭建"], {"mcu", "video"}),
     ]
     for keywords, resource_types in explicit_title_rules:
@@ -1414,7 +1415,7 @@ def _task_allowed_resource_types(node_title: str, description: str) -> set[str]:
         (["ppt", "课件", "幻灯片", "演示文稿"], {"ppt"}),
         (["题库", "题单", "专项测评", "测试卷", "考试", "测验"], {"question-bank"}),
         (["学习视频", "视频学习", "讲解视频", "教学视频", "视频讲解", "视频演示", "观看视频"], {"video"}),
-        (["课程讲义", "学习讲义", "实验手册", "学习手册"], {"document"}),
+        (["课程讲义", "学习讲义", "实验手册", "学习手册"], {"ppt"}),
     ]
     for keywords, resource_types in explicit_artifact_rules:
         if any(keyword in task_text for keyword in keywords):
@@ -1430,11 +1431,11 @@ def _task_allowed_resource_types(node_title: str, description: str) -> set[str]:
 
     title_rules = [
         (["专项测评"], {"question-bank"}),
-        (["错因诊断", "错题诊断", "错误诊断"], {"question-bank", "mindmap", "document", "video", "animation"}),
+        (["错因诊断", "错题诊断", "错误诊断"], {"question-bank", "mindmap", "video", "animation"}),
         (["迁移挑战", "综合挑战", "项目迁移"], {"mcu", "question-bank", "video"}),
-        (["复盘迭代", "复盘"], {"mindmap", "document", "ppt", "video", "animation"}),
-        (["概念建模"], {"mindmap", "document", "ppt", "video", "animation"}),
-        (["目标拆解"], {"document", "ppt", "video", "mindmap", "animation"}),
+        (["复盘迭代", "复盘"], {"mindmap", "ppt", "video", "animation"}),
+        (["概念建模"], {"mindmap", "ppt", "video", "animation"}),
+        (["目标拆解"], {"ppt", "video", "mindmap", "animation"}),
         (["示例跟做", "案例跟做"], {"video", "animation", "ppt", "mcu"}),
         (["实操验证", "实验验证"], {"mcu", "video"}),
     ]
@@ -1482,7 +1483,6 @@ def _profile_routed_resource_type(
     preference_rules = {
         "video": ["视频", "讲解", "演示", "视听", "visual", "video"],
         "animation": ["动画", "动态", "可视化", "微课", "交互演示", "animation"],
-        "document": ["讲义", "文档", "阅读", "文字", "手册", "笔记"],
         "ppt": ["ppt", "课件", "演示文稿", "幻灯片"],
         "mindmap": ["思维导图", "导图", "图谱", "结构化", "知识树", "mindmap"],
         "question-bank": ["题库", "练习", "刷题", "测评", "考试", "quiz"],
@@ -1499,7 +1499,6 @@ def _profile_routed_resource_type(
     task_rules = {
         "video": ["导学", "讲解", "观察", "跟做", "示例", "演示"],
         "animation": ["动画", "动态过程", "时序流程", "状态迁移", "信号流", "可视化"],
-        "document": ["讲义", "文档", "笔记", "手册", "归纳", "总结"],
         "ppt": ["课件", "汇报", "展示", "演示"],
         "mindmap": ["建模", "结构", "概念", "关联", "复盘", "知识图"],
         "question-bank": ["测评", "题", "错因", "诊断", "检验", "考试"],
@@ -1540,7 +1539,7 @@ def _profile_routed_resource_type(
             previous_resource_types.count(resource_type)
             * LEARNING_PATH_RESOURCE_CONCENTRATION_PENALTY
         )
-    tie_order = [item for item in ["video", "animation", "document", "mindmap", "ppt", "mcu", "question-bank"] if item in allowed_types]
+    tie_order = [item for item in ["video", "animation", "mindmap", "ppt", "mcu", "question-bank", "generated_video"] if item in allowed_types]
     rotation = max(0, index - 1) % len(tie_order)
     tie_order = tie_order[rotation:] + tie_order[:rotation]
     resource_type = max(tie_order, key=lambda item: (scores[item], -tie_order.index(item)))
@@ -2716,11 +2715,11 @@ def plan_learning_path_stage_resources(payload: Dict[str, Any]) -> Dict[str, Any
 {knowledge_context}
 
 要求:
-1. resourceType 只能是 generated_video、video、animation、document、ppt、mindmap、question-bank、mcu。
-2. 必须按画像偏好、薄弱点、学习目标和任务产出逐项选择；允许重复，不得套用固定节点顺序。资源必须适合任务产出：测评/测试卷优先题库，动态过程/时序/状态迁移可选动画微课，概念建模优先导图/讲义/PPT/动画，实操验证优先 MCU，复盘优先导图/讲义，不能仅因用户偏好实验就把所有任务都选成 MCU。参考已编排类型避免单一资源过度集中；每周必须安排 1 项 generated_video 的 AI 视频讲解任务。该任务只创建待确认入口，用户打开并确认后才会调用 Seedance 1.5 生成视频，不能在路径编排阶段自动生成。video 仍表示视频查找，不能替代 generated_video。
-   如果任务标题明确包含视频、动画、PPT、思维导图、题库、讲义或实验，resourceType 必须与标题指定的产物一致。
+1. resourceType 只能是 generated_video、video、animation、ppt、mindmap、question-bank、mcu，禁止生成 document 或课程讲义。
+2. 必须按画像偏好、薄弱点、学习目标和任务产出逐项选择；允许重复，不得套用固定节点顺序。资源必须适合任务产出：测评/测试卷优先题库，动态过程/时序/状态迁移可选动画微课，概念建模优先导图/PPT/动画，实操验证优先 MCU，复盘优先导图/PPT，不能仅因用户偏好实验就把所有任务都选成 MCU。参考已编排类型避免单一资源过度集中；每周必须安排 1 项 generated_video 的 AI 视频讲解任务。该任务只创建待确认入口，用户打开并确认后才会调用 Seedance 1.5 生成视频，不能在路径编排阶段自动生成。video 仍表示视频查找，不能替代 generated_video。
+   如果任务标题明确包含视频、动画、PPT、思维导图、题库、讲义或实验，resourceType 必须与标题指定的产物一致；讲义类任务统一改用 PPT 课件承载。
 3. 每项必须返回与子智能体匹配的 resourceParams，参数要完整到后台能立即生成，不能让用户进入页面后再填写。
-4. generated_video 至少给 topic/duration/style/voice/resolution；video 至少给 topic/keyword；animation 至少给 topic/requirements；document 至少给 topic/requirements；ppt 至少给 topic/prompt/pageCount；mindmap 至少给 topic/keyword/prompt；question-bank 至少给 course/chapter/count/constraints；mcu 至少给 topic/board/requirements，并设置 autoRecommend=true，由后台结合画像和实验历史选择合法 projectId；如果任务明确指定某个预设，才直接给 projectId 并设置 autoRecommend=false。
+4. generated_video 至少给 topic/duration/style/voice/resolution；video 至少给 topic/keyword；animation 至少给 topic/requirements；ppt 至少给 topic/prompt/pageCount；mindmap 至少给 topic/keyword/prompt；question-bank 至少给 course/chapter/count/constraints；mcu 至少给 topic/board/requirements，并设置 autoRecommend=true，由后台结合画像和实验历史选择合法 projectId；如果任务明确指定某个预设，才直接给 projectId 并设置 autoRecommend=false。
 5. selectionReason 必须明确指出使用了哪项画像依据，resourcePrompt 必须是可直接交给子智能体的指令。
 
 只返回:
@@ -3107,7 +3106,7 @@ def generate_personalized_resources(payload: Dict[str, Any]) -> Dict[str, Any]:
     knowledge_context, knowledge_sources = grounded_prompt_block(knowledge_query, top_k=6)
     system = "你是个性化资源多智能体工作流。只返回严格 JSON。"
     prompt = f"""
-请模拟资源规划智能体、课程讲义智能体、思维导图智能体、PPT智能体、视频脚本智能体、代码/练习智能体协作，
+请模拟资源规划智能体、思维导图智能体、PPT 智能体、视频脚本智能体、单片机实验智能体和题库智能体协作，
 根据学习画像生成 6 个可展示资源。
 学习画像: {json.dumps(profile, ensure_ascii=False)}
 学习路径: {json.dumps(route, ensure_ascii=False)}

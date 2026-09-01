@@ -126,7 +126,7 @@ def create_interview_blueprint(dependencies: InterviewRouteDependencies) -> Blue
         user_id = current_user_id()
         result = dependencies.run_orchestrated(
             "interview",
-            str(payload.get("topic") or payload.get("direction") or "开始数字人学习访谈"),
+            str(payload.get("topic") or payload.get("direction") or "开始数字人 AI 面试"),
             payload,
             user_id,
             lambda managed_payload, _progress: start_interview_session(user_id, managed_payload),
@@ -140,7 +140,7 @@ def create_interview_blueprint(dependencies: InterviewRouteDependencies) -> Blue
         user_id = current_user_id()
         result = dependencies.run_orchestrated(
             "interview",
-            str(payload.get("topic") or payload.get("answer") or "学习访谈追问与评分"),
+            str(payload.get("topic") or payload.get("answer") or "AI 面试追问与评分"),
             payload,
             user_id,
             lambda managed_payload, _progress: handle_interview_message(user_id, managed_payload),
@@ -154,7 +154,7 @@ def create_interview_blueprint(dependencies: InterviewRouteDependencies) -> Blue
         user_id = current_user_id()
         result = dependencies.run_orchestrated(
             "interview",
-            str(payload.get("topic") or "结束学习访谈并评估学习效果"),
+            str(payload.get("topic") or "结束 AI 面试并评估学习效果"),
             payload,
             user_id,
             lambda managed_payload, _progress: end_interview_session(user_id, managed_payload),
@@ -261,7 +261,7 @@ def create_interview_blueprint(dependencies: InterviewRouteDependencies) -> Blue
             orchestration_payload["frameBytes"] = len(decoded_image)
             result = dependencies.run_orchestrated(
                 "interview",
-                str(context.get("topic") or "学习访谈关键帧分析"),
+                str(context.get("topic") or "AI 面试关键帧分析"),
                 orchestration_payload,
                 user_id,
                 lambda _managed_payload, _progress: dependencies.analyze_frame(
