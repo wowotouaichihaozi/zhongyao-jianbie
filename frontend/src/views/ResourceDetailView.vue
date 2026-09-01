@@ -1,5 +1,5 @@
 <template>
-  <main :class="['resource-detail-page', { 'cover-preview-mode': isCoverPreview }]">
+  <main class="resource-detail-page">
     <header class="detail-header">
       <button type="button" class="icon-button back-button" aria-label="返回个性化资源" title="返回个性化资源" @click="goBack">
         <ArrowLeft :size="20" aria-hidden="true" />
@@ -7,6 +7,8 @@
       <div class="header-copy">
         <div class="header-meta">
           <span v-if="resource.id" class="type-tag">{{ resourceTypeName(resource.type) }}</span>
+          <span v-if="sourceMode === 'task'" class="source-tag"><Database :size="14" />任务记录</span>
+          <span v-else-if="sourceMode === 'legacy'" class="source-tag legacy"><HardDrive :size="14" />本机历史</span>
         </div>
         <h1>{{ resource.title || stateTitle }}</h1>
         <p v-if="resource.description">{{ resource.description }}</p>
@@ -19,7 +21,7 @@
     <section v-if="viewState === 'loading'" class="state-panel" aria-live="polite">
       <LoaderCircle class="spin" :size="28" aria-hidden="true" />
       <h2>正在恢复资源记录</h2>
-      <p>正在读取本次学习内容。</p>
+      <p>正在读取对应任务及其审核证据。</p>
     </section>
 
     <section v-else-if="viewState === 'error'" class="state-panel error-state" role="alert">
@@ -94,7 +96,6 @@
               <div class="video-main">
                 <div v-if="currentVideo" class="video-frame-wrap">
                   <iframe
-                    v-if="playingVideoIndex === currentVideoIndex"
                     class="video-frame"
                     :src="currentVideo.embedUrl || currentVideo.url"
                     :title="currentVideo.title || '学习视频'"
@@ -102,17 +103,6 @@
                     allow="fullscreen"
                     allowfullscreen
                   ></iframe>
-                  <button
-                    v-else
-                    type="button"
-                    class="video-poster-button"
-                    :aria-label="`播放${currentVideo.title || '学习视频'}`"
-                    @click="playingVideoIndex = currentVideoIndex"
-                  >
-                    <img v-if="currentVideo.cover" :src="currentVideo.cover" :alt="`${currentVideo.title || '学习视频'}封面`" referrerpolicy="no-referrer" />
-                    <span v-else class="video-poster-fallback"><VideoOff :size="32" />暂无视频封面</span>
-                    <i><CirclePlay :size="42" fill="currentColor" />播放视频</i>
-                  </button>
                 </div>
                 <div v-else class="content-empty compact">
                   <VideoOff :size="28" />
@@ -130,7 +120,7 @@
                   type="button"
                   :class="['playlist-item', { active: index === currentVideoIndex }]"
                   :aria-pressed="index === currentVideoIndex"
-                  @click="selectVideo(index)"
+                  @click="currentVideoIndex = index"
                 >
                   <span>{{ index + 1 }}</span>
                   <span><strong>{{ video.title }}</strong><small>{{ [video.author, video.duration].filter(Boolean).join(' · ') }}</small></span>
@@ -140,28 +130,10 @@
             <div class="markdown-content video-notes" v-html="renderedContent"></div>
           </div>
 
-          <div v-else-if="resource.type === 'generated_video' && (generatedVideoPoster || generatedVideoUrl)" class="artifact-surface generated-video-surface">
-            <img v-if="isCoverPreview || !generatedVideoUrl" :src="generatedVideoPoster" :alt="`${resource.title}封面`" />
-            <video v-else :src="generatedVideoUrl" :poster="generatedVideoPoster" controls preload="none">
+          <div v-else-if="resource.type === 'generated_video' && generatedVideoUrl" class="artifact-surface generated-video-surface">
+            <video :src="generatedVideoUrl" :poster="generatedVideoPoster" controls preload="metadata">
               当前浏览器无法播放该视频。
             </video>
-          </div>
-
-          <div v-else-if="resource.type === 'quiz' && quizQuestions.length" class="artifact-surface quiz-surface">
-            <article v-for="(question, index) in quizQuestions" :key="question.id || index" class="quiz-question">
-              <header>
-                <span>{{ String(index + 1).padStart(2, '0') }}</span>
-                <em v-if="question.type">{{ question.type }}</em>
-              </header>
-              <h2>{{ question.stem }}</h2>
-              <ol v-if="question.options.length" class="quiz-options">
-                <li v-for="option in question.options" :key="option">{{ option }}</li>
-              </ol>
-              <dl v-if="question.answer || question.analysis" class="quiz-solution">
-                <div v-if="question.answer"><dt>答案</dt><dd>{{ question.answer }}</dd></div>
-                <div v-if="question.analysis"><dt>解析</dt><dd>{{ question.analysis }}</dd></div>
-              </dl>
-            </article>
           </div>
 
           <div v-else class="artifact-surface markdown-content" v-html="renderedContent"></div>
@@ -239,6 +211,74 @@
           </section>
         </section>
 
+        <aside class="evidence-column" aria-label="生成依据与可信度">
+          <section class="evidence-panel">
+            <div class="section-heading compact-heading">
+              <div>
+                <span class="eyebrow">EVIDENCE</span>
+                <h2>生成依据</h2>
+              </div>
+              <span v-if="Number.isFinite(resource.matchScore)" class="score-badge">匹配 {{ resource.matchScore }}%</span>
+            </div>
+            <dl class="evidence-list">
+              <div><dt>画像版本</dt><dd>{{ profileReportLabel }}</dd></div>
+              <div><dt>目标薄弱点</dt><dd>{{ weakPoints.length ? weakPoints.join('、') : '未返回' }}</dd></div>
+              <div><dt>生成策略</dt><dd>{{ plannerStrategy || '未返回' }}</dd></div>
+            </dl>
+          </section>
+
+          <section class="evidence-panel">
+            <div class="section-heading compact-heading">
+              <div>
+                <span class="eyebrow">ORCHESTRATION</span>
+                <h2>智能体协作</h2>
+              </div>
+              <span class="count-badge">{{ handoffLabel }}</span>
+            </div>
+            <dl class="evidence-list">
+              <div><dt>总控智能体</dt><dd>{{ rootAgentLabel }}</dd></div>
+              <div><dt>资源智能体</dt><dd>{{ specialistAgentLabel }}</dd></div>
+              <div><dt>运行编号</dt><dd class="mono">{{ runId || '未返回' }}</dd></div>
+              <div><dt>Skill</dt><dd>{{ harness.skillId || '未返回' }}</dd></div>
+              <div><dt>MCP</dt><dd>{{ mcpLabel }}</dd></div>
+            </dl>
+          </section>
+
+          <section :class="['evidence-panel', 'quality-panel', { warning: verificationRequired || reviewFailed }]">
+            <div class="section-heading compact-heading">
+              <div>
+                <span class="eyebrow">QUALITY</span>
+                <h2>质量与核验</h2>
+              </div>
+              <span :class="['review-badge', reviewTone]">{{ reviewLabel }}</span>
+            </div>
+            <div v-if="qualityScore !== null" class="quality-score"><strong>{{ qualityScore }}</strong><span>/ 100</span></div>
+            <dl class="criteria-list">
+              <div v-for="criterion in qualityCriteria" :key="criterion.name">
+                <dt>{{ criterionLabel(criterion.name) }}</dt><dd>{{ criterion.value }}</dd>
+              </div>
+              <div v-if="!qualityCriteria.length"><dt>评价明细</dt><dd>未返回</dd></div>
+            </dl>
+            <p v-if="verificationRequired" class="verification-warning"><TriangleAlert :size="17" />部分内容缺少直接依据，请结合芯片手册或课程资料核验。</p>
+          </section>
+
+          <section class="evidence-panel sources-panel">
+            <div class="section-heading compact-heading">
+              <div>
+                <span class="eyebrow">GROUNDING</span>
+                <h2>知识来源</h2>
+              </div>
+              <span class="count-badge">{{ knowledgeSources.length }} 条</span>
+            </div>
+            <ol v-if="knowledgeSources.length" class="source-list">
+              <li v-for="(source, index) in knowledgeSources" :key="source.id || source.source || index">
+                <span>{{ index + 1 }}</span>
+                <div><strong>{{ source.title || source.name || source.source || `来源 ${index + 1}` }}</strong><small>{{ sourceLocator(source) }}</small></div>
+              </li>
+            </ol>
+            <p v-else class="evidence-empty">任务未返回可展示的知识来源，当前内容标记为待核验。</p>
+          </section>
+        </aside>
       </div>
     </template>
   </main>
@@ -254,8 +294,9 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleAlert,
-  CirclePlay,
+  Database,
   FileQuestion,
+  HardDrive,
   Info,
   Library,
   LoaderCircle,
@@ -273,19 +314,15 @@ import {
   resourceContentText,
   resourceKnowledgeSources,
   resourceQuality,
-  resourceQuizQuestions,
   resourceTypeName,
   taskIdFromResourceId,
 } from '../utils/personalizedResourceHistory.js'
 import { buildSandboxedHtmlDocument, mermaidMindmapSource, renderSafeMarkdown, safeResourceHref } from '../utils/resourceMarkdown.js'
-import { dispatchXiaoZhiWorkflowProgress } from '../utils/xiaozhiWorkflowProgress.js'
 
 const route = useRoute()
 const router = useRouter()
-const isCoverPreview = computed(() => route.query.resourcePreview === 'cover')
 const currentSlide = ref(0)
 const currentVideoIndex = ref(0)
-const playingVideoIndex = ref(-1)
 const evaluationSaving = ref(false)
 const evaluationError = ref('')
 const feedbackOutcome = ref('completed')
@@ -306,7 +343,7 @@ const resource = ref({ id: '', title: '', description: '', type: '', content: ''
 const ratingLabels = ['完全不会', '初步了解', '基本掌握', '熟练掌握', '融会贯通']
 const feedbackCacheKey = computed(() => `resource-detail:${String(resource.value.id || '').trim()}`)
 const contentText = computed(() => resourceContentText(resource.value))
-const hasRenderableContent = computed(() => Boolean(contentText.value.trim()) || Boolean(generatedVideoUrl.value) || Boolean(generatedVideoPoster.value) || quizQuestions.value.length > 0)
+const hasRenderableContent = computed(() => Boolean(contentText.value.trim()) || Boolean(generatedVideoUrl.value))
 const renderedContent = computed(() => renderSafeMarkdown(contentText.value))
 const mermaidSource = computed(() => resource.value.type === 'mindmap' ? mermaidMindmapSource(contentText.value) : '')
 const isHtmlPpt = computed(() => resource.value.type === 'ppt' && /^\s*</.test(contentText.value))
@@ -386,7 +423,6 @@ const videoList = computed(() => {
   }).filter(item => item.embedUrl)
 })
 const currentVideo = computed(() => videoList.value[currentVideoIndex.value] || null)
-const quizQuestions = computed(() => resourceQuizQuestions(resource.value))
 const generatedVideoContent = computed(() => objectValue(resource.value.content))
 const generatedVideoUrl = computed(() => safeResourceHref(generatedVideoContent.value.videoUrl || metadata.value.videoUrl || ''))
 const generatedVideoPoster = computed(() => safeResourceHref(generatedVideoContent.value.posterUrl || metadata.value.posterUrl || ''))
@@ -408,11 +444,6 @@ function safeVideoUrl(value) {
   } catch {
     return ''
   }
-}
-
-function selectVideo(index) {
-  currentVideoIndex.value = index
-  playingVideoIndex.value = -1
 }
 
 function loadLegacyResource(requestedId) {
@@ -445,15 +476,6 @@ async function loadResource() {
       resource.value = restored
       orchestrationRuns.value = listValue(response?.data?.orchestrationRuns)
       sourceMode.value = 'task'
-      dispatchXiaoZhiWorkflowProgress({
-        workflow: 'resource-task',
-        workflowId: `resource-detail-${taskId}`,
-        task: {
-          ...task,
-          focusedResource: restored,
-          orchestrationRuns: orchestrationRuns.value,
-        },
-      })
       viewState.value = 'ready'
       await loadEvaluation()
       await renderMindmap()
@@ -625,7 +647,6 @@ watch(() => route.query.id, loadResource)
 watch(contentText, () => {
   currentSlide.value = 0
   currentVideoIndex.value = 0
-  playingVideoIndex.value = -1
   renderMindmap()
 })
 onMounted(loadResource)
@@ -637,39 +658,6 @@ onMounted(loadResource)
   padding: 30px clamp(18px, 4vw, 56px) 64px;
   background: #f7f9f8;
   color: #1d2825;
-}
-
-.resource-detail-page.cover-preview-mode {
-  min-height: 100vh;
-  padding: 0;
-  overflow: hidden;
-  background: #f5f7f6;
-}
-
-.cover-preview-mode .detail-header,
-.cover-preview-mode .legacy-notice,
-.cover-preview-mode .feedback-panel,
-.cover-preview-mode .evidence-column {
-  display: none;
-}
-
-.cover-preview-mode .detail-layout {
-  display: block;
-  max-width: none;
-  margin: 0;
-}
-
-.cover-preview-mode .artifact-column {
-  display: block;
-}
-
-.cover-preview-mode .artifact-surface,
-.cover-preview-mode .content-empty,
-.cover-preview-mode .state-panel {
-  min-height: 100vh;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
 }
 
 .detail-header {
@@ -705,7 +693,7 @@ button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 3px sol
 .error-state > svg { color: #b6533f; }
 .legacy-notice { display: flex; align-items: center; gap: 9px; max-width: 1380px; margin: 0 auto 18px; padding: 10px 13px; border: 1px solid #ead7aa; border-radius: 6px; background: #fffbef; color: #795a1f; font-size: 13px; }
 
-.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-items: start; max-width: 1180px; margin: 0 auto; }
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); gap: 22px; align-items: start; max-width: 1380px; margin: 0 auto; }
 .artifact-column, .evidence-column { min-width: 0; }
 .artifact-column { display: grid; gap: 20px; }
 .evidence-column { display: grid; gap: 14px; position: sticky; top: 88px; }
@@ -739,10 +727,6 @@ button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 3px sol
 .video-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; }
 .video-frame-wrap { overflow: hidden; aspect-ratio: 16 / 9; border-radius: 6px; background: #0d1211; }
 .video-frame { width: 100%; height: 100%; border: 0; }
-.video-poster-button { position: relative; width: 100%; height: 100%; display: grid; place-items: center; padding: 0; overflow: hidden; border: 0; background: #111816; color: #fff; cursor: pointer; }
-.video-poster-button > img { width: 100%; height: 100%; object-fit: cover; }
-.video-poster-button > i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; background: rgba(8, 16, 13, .28); font-size: 14px; font-style: normal; font-weight: 800; text-shadow: 0 1px 4px rgba(0, 0, 0, .5); }
-.video-poster-fallback { display: grid; place-items: center; gap: 8px; color: #bdc8c3; font-size: 12px; }
 .video-title { margin: 15px 0 4px; font-size: 18px; }
 .video-meta { margin: 0; color: #74807c; font-size: 13px; }
 .video-playlist { display: grid; align-content: start; gap: 4px; max-height: 520px; overflow-y: auto; }
@@ -753,21 +737,7 @@ button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 3px sol
 .playlist-item strong { line-height: 1.4; }
 .playlist-item small { margin-top: 4px; color: #78847f; }
 .video-notes { margin-top: 24px; padding-top: 22px; border-top: 1px solid #e4e9e7; }
-.generated-video-surface video,
-.generated-video-surface > img { display: block; width: 100%; max-height: 72vh; aspect-ratio: 16 / 9; object-fit: cover; background: #0f1513; }
-
-.quiz-surface { display: grid; gap: 16px; background: #f5f7f6; }
-.quiz-question { padding: 22px 24px; border: 1px solid #dde4e1; border-radius: 6px; background: #fff; }
-.quiz-question > header { display: flex; align-items: center; gap: 9px; }
-.quiz-question > header span { display: grid; width: 34px; height: 26px; place-items: center; background: #e7f1ec; color: #176f4b; font-size: 11px; font-weight: 800; }
-.quiz-question > header em { color: #75817d; font-size: 11px; font-style: normal; }
-.quiz-question h2 { margin: 14px 0 0; color: #26332f; font-size: 16px; line-height: 1.7; }
-.quiz-options { display: grid; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
-.quiz-options li { padding: 10px 12px; border: 1px solid #e2e7e5; background: #fafbfa; color: #43524d; font-size: 13px; line-height: 1.55; }
-.quiz-solution { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid #e3e8e6; }
-.quiz-solution > div { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 10px; padding: 5px 0; }
-.quiz-solution dt { color: #176f4b; font-size: 12px; font-weight: 800; }
-.quiz-solution dd { margin: 0; color: #53615c; font-size: 13px; line-height: 1.65; }
+.generated-video-surface video { display: block; width: 100%; max-height: 72vh; background: #0f1513; }
 
 .markdown-content { color: #33423d; line-height: 1.75; overflow-wrap: anywhere; }
 .markdown-content :deep(h1) { margin: 0 0 24px; font-size: 28px; color: #1d2c27; }

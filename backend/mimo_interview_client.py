@@ -56,17 +56,17 @@ except Exception:  # pragma: no cover - package-style import fallback
         def get_interview_profile(position_key: str | None = None, position_label: str | None = None) -> Dict[str, Any]:
             return {
                 "positionKey": DEFAULT_POSITION_KEY,
-                "label": position_label or "中医基础理论学习者",
-                "coreSkills": ["theory_framework", "four_diagnostics", "syndrome_differentiation", "materia_medica", "formula_reasoning", "case_analysis", "safety_evidence"],
-                "basicQuestions": ["没关系，我们从基础开始。你能简单说明阴阳学说的基本含义吗？"],
-                "strongAnswerSignals": ["四诊", "辨证", "病机", "治法", "方剂", "医案"],
+                "label": position_label or "嵌入式软件工程师",
+                "coreSkills": ["project_experience", "c_language", "gpio", "interrupt", "uart", "debugging", "result_quantification"],
+                "basicQuestions": ["没关系，我们从基础开始。你能简单解释一下 GPIO 是什么吗？"],
+                "strongAnswerSignals": ["项目", "代码", "调试"],
                 "weakAnswerSignals": ["不知道", "不会"],
-                "projectQuestionTemplate": "请介绍一则你学习过的中医医案，重点说明四诊信息、辨证依据、病机和治法思路。",
-                "scoringHints": "重点看中医基础、辨证思路、知识依据和安全边界。",
+                "projectQuestionTemplate": "请先介绍一个与你应聘岗位最相关的项目，重点说明你的职责、技术难点和结果。",
+                "scoringHints": "重点看岗位基础、项目经历和问题分析能力。",
             }
 
         def profile_to_prompt(profile: Dict[str, Any]) -> str:
-            return f"学习方向：{profile.get('label', '')}"
+            return f"岗位画像：{profile.get('label', '')}"
 
 try:
     from question_generator_runtime import (
@@ -177,11 +177,11 @@ except Exception:  # pragma: no cover - package-style import fallback
 load_dotenv(Path(__file__).resolve().parent / ".env")
 logger = logging.getLogger(__name__)
 DIFFICULTY_LABELS = {
-    "intern": "启蒙",
-    "campus": "入门",
+    "intern": "实习",
+    "campus": "校招",
     "basic": "基础",
-    "medium": "进阶",
-    "advanced": "综合",
+    "medium": "中等",
+    "advanced": "进阶",
     "junior": "基础",
     "senior": "进阶",
 }
@@ -351,7 +351,6 @@ def _safe_error_text(text: str) -> str:
         os.getenv("MIMO_API_KEY", ""),
         os.getenv("XIAOMI_API_KEY", ""),
         os.getenv("ANTHROPIC_AUTH_TOKEN", ""),
-        _get_anthropic_auth_token(),
     ]:
         if value:
             cleaned = cleaned.replace(value, "***")
@@ -673,8 +672,8 @@ def _profile_followup(profile: Dict[str, Any], answer_type: str, fallback: str) 
 def _context_summary(session_context: Dict[str, Any]) -> str:
     profile = _profile_from_context(session_context)
     category = _clean_text(session_context.get("category"))
-    position = _clean_text(session_context.get("position"), profile.get("label", "中医基础理论学习者"))
-    direction = _clean_text(session_context.get("direction") or session_context.get("topic"), "中医基础理论、四诊、辨证、方药与医案")
+    position = _clean_text(session_context.get("position"), profile.get("label", "嵌入式软件工程师"))
+    direction = _clean_text(session_context.get("direction") or session_context.get("topic"), "STM32、GPIO、中断、串口通信")
     difficulty = _clean_text(session_context.get("difficulty"), "medium")
     difficulty_display = _difficulty_label(difficulty, session_context.get("difficultyLabel") or session_context.get("difficulty_label"))
     round_no = session_context.get("round") or session_context.get("current_round") or 1
@@ -712,9 +711,9 @@ def _context_summary(session_context: Dict[str, Any]) -> str:
         if analysis or suggestions:
             frame_text = f"{analysis or '无文字观察'}；建议：{'；'.join(suggestions) or '无'}；置信度：{confidence}"
     return (
-        f"课程领域：{category or '未指定'}\n"
-        f"学习方向：{position}\n"
-        f"访谈主题：{direction}\n"
+        f"岗位大类：{category or '未指定'}\n"
+        f"岗位：{position}\n"
+        f"面试方向：{direction}\n"
         f"难度：{difficulty_display}（{difficulty}）\n"
         f"当前轮次：{round_no}\n"
         f"{profile_prompt}\n"
@@ -726,7 +725,7 @@ def _context_summary(session_context: Dict[str, Any]) -> str:
 
 def _json_instruction(schema: str) -> str:
     return (
-        "你是严谨的中医学习访谈讲师。只输出 JSON，不要输出 Markdown，不要解释 JSON 之外的内容。\n"
+        "你是严谨的技术面试官。只输出 JSON，不要输出 Markdown，不要解释 JSON 之外的内容。\n"
         f"JSON 结构：{schema}"
     )
 
@@ -961,22 +960,22 @@ def analyze_interview_frame(
     raw = base64.b64decode(encoded)
     size_kb = round(len(raw) / 1024, 1)
     logger.info("[AnalyzeFrame] received image media_type=%s size_kb=%s", media_type, size_kb)
-    logger.info("[AnalyzeFrame] routing image through configured visual evidence model")
+    logger.info("[AnalyzeFrame] routing image through Qwen visual evidence before Spark")
     _safe_console_print(f"[AnalyzeFrame] received image media_type={media_type} size_kb={size_kb}")
-    _safe_console_print("[AnalyzeFrame] routing image through configured visual evidence model")
+    _safe_console_print("[AnalyzeFrame] routing image through Qwen visual evidence before Spark")
     started_at = time.perf_counter()
     context = session_context or {}
-    context_text = _context_summary(context) if context else "暂无学习访谈上下文。"
+    context_text = _context_summary(context) if context else "暂无面试上下文。"
     prompt = (
-        "请分析这张学习访谈过程关键帧，只从表达状态角度给出简短观察和建议。"
+        "请分析这张面试过程关键帧，只从面试表现角度给出简短观察和建议。"
         "不要识别身份，不要推断年龄、性别、民族等敏感属性，不要做医疗或心理诊断，"
-        "不要根据表情做学习能力或知识掌握程度判断。"
+        "不要根据表情做录用、淘汰或核心技术能力判断。"
         "请重点观察：画面是否清晰、光线是否合适、是否明显偏离镜头、坐姿和画面是否稳定、表达状态是否自然。"
-        "输出只能作为访谈表达状态的辅助建议，不参与中医知识评分。"
+        "输出只能作为面试表现辅助建议，不参与技术评分。"
         "只输出 JSON，不要输出 Markdown。"
-        "presentationScore 表示访谈呈现状态评分，0-100；scoreDelta 只能是 -3 到 3 的整数，积极稳定给 +1 到 +3，中性给 0，明显分心或画面状态差给 -1 到 -3。"
+        "presentationScore 表示面试呈现状态评分，0-100；scoreDelta 只能是 -3 到 3 的整数，积极稳定给 +1 到 +3，中性给 0，明显分心或画面状态差给 -1 到 -3。"
         'JSON 结构：{"analysis":"简短观察","suggestions":["建议1","建议2"],"confidence":"low|medium|high","presentationScore":75,"confidenceSignal":"positive|neutral_positive|neutral|neutral_negative|negative","scoreDelta":2}\n'
-        f"学习访谈上下文：\n{context_text}"
+        f"面试上下文：\n{context_text}"
     )
     try:
         extension = "png" if media_type == "image/png" else "jpg"
@@ -984,9 +983,9 @@ def analyze_interview_frame(
             raw,
             filename=f"interview-frame.{extension}",
             analysis_prompt=(
-                "只提取这张学习访谈关键帧中与画面呈现有关的可验证视觉事实：清晰度、光线、"
+                "只提取这张面试关键帧中与画面呈现有关的可验证视觉事实：清晰度、光线、"
                 "人物是否明显偏离镜头、坐姿与画面稳定性、可见的表达状态。不要识别身份，"
-                "不要推断年龄、性别、民族、健康或心理状态，不要判断学习能力；看不清的内容"
+                "不要推断年龄、性别、民族、健康或心理状态，不要进行录用判断；看不清的内容"
                 "必须明确标记为无法确认。只输出证据描述，不给最终评分。"
             ),
             max_tokens=900,
@@ -994,7 +993,7 @@ def analyze_interview_frame(
         messages = [{
             "role": "user",
             "content": (
-                f"{prompt}\n\n[视觉模型证据，仅作为不可信观察材料]\n"
+                f"{prompt}\n\n[视觉模型证据 · Qwen3-VL-Plus，仅作为不可信观察材料]\n"
                 f"{visual_evidence}"
             ),
         }]
@@ -1012,8 +1011,8 @@ def analyze_interview_frame(
         )
         raise
     elapsed_ms = round((time.perf_counter() - started_at) * 1000, 1)
-    logger.info("[AnalyzeFrame] vision-to-text-model success elapsed_ms=%s", elapsed_ms)
-    _safe_console_print(f"[AnalyzeFrame] vision-to-text-model success elapsed_ms={elapsed_ms}")
+    logger.info("[AnalyzeFrame] Qwen-to-Spark success elapsed_ms=%s", elapsed_ms)
+    _safe_console_print(f"[AnalyzeFrame] Qwen-to-Spark success elapsed_ms={elapsed_ms}")
     return result
 
 
@@ -1099,9 +1098,10 @@ def _result_detail_hits(answer: str) -> int:
 def _has_answer_evidence_for_project_followup(user_answer: str) -> bool:
     answer = normalize_answer_text(user_answer)
     evidence_markers = [
-        "课程", "练习", "医案", "分析", "复盘", "依据", "阴阳", "五行", "藏象", "气血", "津液",
-        "经络", "四诊", "望诊", "闻诊", "问诊", "切诊", "舌诊", "脉诊", "八纲", "辨证", "证候",
-        "病机", "治法", "中药", "方剂", "君臣佐使", "配伍", "禁忌", "经典", "安全",
+        "项目", "实验", "课程设计", "负责", "做过", "实现", "配置", "调试", "排查", "采集", "上传", "结果",
+        "led", "gpio", "io口", "按键", "串口", "uart", "usart", "中断", "定时器", "pwm", "adc", "传感器",
+        "外设", "寄存器", "hal", "标准库", "代码", "烧录", "示波器", "上位机",
+        "stm32", "单片机", "环境监测", "终端",
     ]
     return _count_hits(answer, [normalize_answer_text(item) for item in evidence_markers]) > 0
 
@@ -1117,8 +1117,8 @@ def _is_relation_only_answer(user_answer: str) -> bool:
 def _basic_specific_followup(profile: Dict[str, Any], fallback: str) -> str:
     question = _profile_basic_question(profile, 0, fallback)
     return (
-        "你提到和当前方向有关，但还没有具体细节。请具体说一个学过的概念、方药或医案，"
-        f"并说明理解依据。也可以先回答这个基础问题：{question}"
+        "你提到和当前方向有关，但还没有具体细节。请你具体说一个接触过的实验，"
+        f"比如 LED 点亮、按键检测或串口通信。也可以先回答这个基础问题：{question}"
     )
 
 
@@ -1244,7 +1244,7 @@ def generate_interview_question(session_context: Dict[str, Any]) -> Dict[str, An
         "type": "question",
         "content": _clean_text(
             profile.get("projectQuestionTemplate"),
-            "请介绍一则你学习或分析过的中医医案，重点说明四诊信息、辨证依据、病机和治法思路。",
+            "请先介绍一个与你应聘岗位最相关的项目，重点说明你的职责、关键难点和结果。",
         ),
         "intent": "opening",
         "score": None,
@@ -1252,13 +1252,13 @@ def generate_interview_question(session_context: Dict[str, Any]) -> Dict[str, An
     messages = [
         {
             "role": "system",
-            "content": _json_instruction('{"type":"question","content":"学习访谈问题","intent":"opening","score":null}'),
+            "content": _json_instruction('{"type":"question","content":"面试问题","intent":"opening","score":null}'),
         },
         {
             "role": "user",
             "content": (
-                "请根据以下学习方向和访谈上下文生成第一道或下一道中医学习问题。问题要口语化、具体、适合数字人朗读。\n"
-                "必须围绕当前课程领域、学习方向和访谈主题，不要使用其他方向的问题。\n"
+                "请根据以下岗位画像和面试上下文生成第一道或下一道面试问题。问题要口语化、具体、适合数字人朗读。\n"
+                "必须围绕当前岗位和面试方向，不要使用其他岗位的基础题。\n"
                 f"{_context_summary(session_context)}"
             ),
         },
@@ -1284,13 +1284,13 @@ def generate_interview_followup(
         suggestions = _normalize_list(frame_analysis.get("suggestions"), [])
         if analysis or suggestions:
             frame_hint = (
-                "\n最近一次学习访谈画面观察（仅作为表达状态参考，不参与知识评分，不做身份、敏感属性或医疗判断）："
+                "\n最近一次面试画面观察（仅作为表达状态参考，不参与技术评分，不做身份、敏感属性、医疗或录用判断）："
                 f"{analysis}"
                 f"{'；建议：' + '；'.join(suggestions) if suggestions else ''}"
             )
     default_project_followup = _clean_text(
         profile.get("projectQuestionTemplate"),
-        "请补充一则与当前学习方向相关的医案或课程练习，说明你的分析依据、关键思路和复盘结果。",
+        "请补充一个与当前岗位最相关的具体案例，说明你的职责、关键难点和结果。",
     )
     has_answer_evidence = _has_answer_evidence_for_project_followup(user_answer)
     relation_only_answer = _is_relation_only_answer(user_answer)
@@ -1300,7 +1300,7 @@ def generate_interview_followup(
         "dont_know": _profile_basic_question(profile, 1, default_project_followup),
         "irrelevant_answer": _profile_basic_question(profile, 0, default_project_followup),
         "negative_answer": _profile_basic_question(profile, 0, default_project_followup),
-        "refuse_answer": f"这个问题需要继续确认一下学习基础。{_profile_basic_question(profile, 0, default_project_followup)}",
+        "refuse_answer": f"这个问题需要继续确认一下岗位基础。{_profile_basic_question(profile, 0, default_project_followup)}",
         "end_request": f"可以理解，我们再用一个很基础的问题快速确认一下。{_profile_basic_question(profile, 0, default_project_followup)}",
         "nonsense_answer": _profile_basic_question(profile, 0, default_project_followup),
         "too_short": _profile_basic_question(profile, 0, default_project_followup),
@@ -1322,35 +1322,35 @@ def generate_interview_followup(
             "role": "system",
             "content": _json_instruction(
                 '{"type":"question","answerType":"strong_answer|normal_answer|vague_answer|weak_answer|no_experience|dont_know|irrelevant_answer|negative_answer|refuse_answer|end_request|nonsense_answer|too_short",'
-                '"answerScore":5,"coveredSkills":["当前学习能力点key"],"shouldEnd":false,"endReason":"","content":"追问内容","score":null}'
+                '"answerScore":5,"coveredSkills":["当前岗位能力点key"],"shouldEnd":false,"endReason":"","content":"追问内容","score":null}'
             ),
         },
         {
             "role": "user",
             "content": (
-                "请先判断学习者最新回答类型并给本轮回答评分，再生成一个自然追问。\n"
+                "请先判断候选人最新回答类型并给本轮回答评分，再生成一个自然追问。\n"
                 "回答类型只能是：strong_answer、normal_answer、vague_answer、weak_answer、no_experience、dont_know、irrelevant_answer、negative_answer、refuse_answer、end_request、nonsense_answer、too_short。\n"
                 "评分区间：nonsense_answer 0-5；dont_know/refuse_answer/end_request 0-10；irrelevant_answer/negative_answer 0-15；no_experience 5-20；too_short 0-20；vague_answer 20-40；weak_answer 20-45；normal_answer 50-75；strong_answer 80-100。\n"
                 "规则：\n"
-                "1. 如果学习者说“我不会”“我不知道”“我啥也不会”等，answerScore 必须小于等于 15，并降低难度，改问基础问题。\n"
-                "2. 这种情况不要追问复杂医案细节，不要假装学习者已经提供了辨证依据。\n"
-                "3. 如果回答空泛，追问具体概念、辨证依据或课程练习步骤。\n"
-                "4. 只有学习者确实提到中医概念、方药、医案或分析过程时，才追问判断依据和复盘结果。\n"
+                "1. 如果候选人说“我不会”“我不知道”“我啥也不会”“只会打游戏”等，answerScore 必须小于等于 15，并降低难度，改问基础问题。\n"
+                "2. 这种情况不要追问“你项目里的技术难点是什么”，不要假装候选人提到了项目。\n"
+                "3. 如果回答空泛，追问具体职责、技术细节或实验步骤。\n"
+                "4. 只有候选人确实提到项目、技术点或排查过程时，才追问项目难点、排查步骤、结果量化。\n"
                 "5. 每次只问一个问题。\n"
                 "6. message 阶段不要输出最终总结，score 必须是 null。shouldEnd 只作为建议，最终是否结束由后端决定。\n"
                 "7. 如果连续多轮明显不会、不知道、跑题或要求结束，可以把 shouldEnd 设为 true 并给出 endReason。\n"
-                f"8. coveredSkills 只能从当前学习方向核心能力点中选择：{allowed_skills}。\n"
-                "9. 所有追问必须围绕当前中医学习方向；基础理论侧重概念关系，诊断学侧重四诊与辨证，中药方剂侧重功效配伍，医案方向侧重证候、病机与治法。\n"
-                f"10. 如果需要降难度，优先从这些学习基础题中选择：{'；'.join(profile.get('basicQuestions') or [])}\n"
-                "11. 自动结束规则摘要：连续 3 次低分、累计 4 次低分、多次不知道/拒答/要求结束/无意义回答、长期偏离主题、达到最大轮次、能力点覆盖完整或连续高分时，后端状态机会自动结束。\n"
-                "12. 如果学习者只接触过课程练习，但能说出中医概念、方药或医案相关内容，不要判 0 分，应按 weak_answer 或 vague_answer 继续追问基础细节。\n"
-                "13. 不要编造学习者没有说过的知识或经历；不要把“相关”“有关系”“大概了解”当成有效学习证据。\n"
-                "14. 追问必须基于学习者实际说出的内容；如果没有提供概念、四诊、辨证、方药、医案或依据细节，就问更基础、更明确的问题。\n"
-                "15. 如果学习者只说“和中医有关系”，应追问一个接触过的概念、方药或医案，并要求说明理解依据。\n"
-                "16. 不得重复历史记录中已经问过的问题；同一细节最多补问一次，仍然回答较短时必须切换到尚未覆盖的学习能力点。\n"
+                f"8. coveredSkills 只能从当前岗位核心能力点中选择：{allowed_skills}。\n"
+                "9. 所有追问必须围绕当前岗位和面试方向；例如 STM32 开发不要问 Linux 字符设备驱动，硬件工程师不要追问 RTOS 任务调度，物联网岗位要围绕传感器、通信、设备联网和数据上传。\n"
+                f"10. 如果需要降难度，优先从这些岗位基础题中选择：{'；'.join(profile.get('basicQuestions') or [])}\n"
+                "11. 自动结束规则摘要：连续 3 次低分、累计 4 次低分、多次不知道/拒答/要求结束/无意义回答、岗位明显不匹配、达到最大轮次、能力点覆盖完整或连续高分时，后端状态机会自动结束。\n"
+                "12. 如果候选人只做过课程实验但提到 LED、GPIO、串口、传感器等岗位相关内容，不要判 0 分，应按 weak_answer 或 vague_answer 继续追问基础细节。\n"
+                "13. 不要编造候选人没有说过的经历；不要把“相关”“有关系”“大概了解”当成有效项目经历。\n"
+                "14. 追问必须基于候选人实际说出的内容；如果候选人没有提供项目、实验、职责、外设、调试或结果细节，就问更基础、更明确的问题。\n"
+                "15. 如果候选人只说“和单片机有关系”，应追问：请具体说一个接触过的实验，比如 LED 点亮、按键检测或串口通信；不要问“你负责的部分”。\n"
+                "16. 不得重复历史记录中已经问过的问题；同一细节最多补问一次，仍然回答较短时必须切换到尚未覆盖的岗位能力点。\n"
                 f"{_context_summary(session_context)}\n"
                 f"{frame_hint}\n"
-                f"学习者最新回答：{_clean_text(user_answer)}\n"
+                f"候选人最新回答：{_clean_text(user_answer)}\n"
                 f"后端初步分类参考：{local_answer_type}，后端初步评分参考：{local_answer_score}"
             ),
         },
@@ -1395,11 +1395,11 @@ def generate_interview_summary(session_context: Dict[str, Any]) -> Dict[str, Any
     scoring_hint_text = "；".join(scoring_hints) if isinstance(scoring_hints, list) else _clean_text(scoring_hints)
     fallback = {
         "type": "summary",
-        "content": "本次学习访谈已完成。学习者的中医知识表达和辨证思路仍需继续提升。",
+        "content": "本次面试已完成。候选人的技术表达和岗位匹配度仍需继续提升。",
         "score": 50,
-        "advantages": ["能够围绕课程练习或医案展开表达"],
-        "weaknesses": ["中医概念依据和辨证过程还不够具体"],
-        "suggestions": ["准备一则完整医案复盘", "补充四诊依据、病机与治法思路"],
+        "advantages": ["能够围绕项目经历展开表达"],
+        "weaknesses": ["底层实现细节和问题定位过程还不够具体"],
+        "suggestions": ["准备一个完整项目复盘", "补充关键技术指标和排查步骤"],
     }
     messages = [
         {
@@ -1412,13 +1412,13 @@ def generate_interview_summary(session_context: Dict[str, Any]) -> Dict[str, Any
         {
             "role": "user",
             "content": (
-                "请根据完整学习访谈上下文生成总结评价。评分范围 0-100，建议具体可执行。\n"
-                f"必须按当前学习方向评价，不要套用其他方向标准。当前方向核心能力点：{'、'.join(profile.get('coreSkills') or [])}。\n"
+                "请根据完整面试上下文生成总结评价。评分范围 0-100，建议具体可执行。\n"
+                f"必须按当前岗位画像评价，不要套用其他岗位标准。当前岗位核心能力点：{'、'.join(profile.get('coreSkills') or [])}。\n"
                 f"评分关注：{scoring_hint_text}\n"
                 "后端会基于每轮 answerScore 和状态机计算最终 score；你的 score 只能作为参考，不要通过正文重复写评分。\n"
-                "如果学习者多次不知道、拒答、无意义回答或长期偏离主题，必须给出低分倾向和基础补救建议。\n"
-                "必须忠实依据历史回答，不要假设学习者掌握未曾提到的知识或医案。\n"
-                "如果学习者明确表示不会、没有学习经历或回答跑题，请直接指出基础薄弱，并给出入门改进建议。\n"
+                "如果候选人多次不知道、拒答、无意义回答或岗位不匹配，必须给出低分倾向和基础补救建议。\n"
+                "必须忠实依据历史回答，不要假设候选人拥有他没有提到的项目经历。\n"
+                "如果候选人明确表示不会、没有经验或回答跑题，请直接指出基础薄弱，并给出入门改进建议。\n"
                 "如果上下文包含关键帧辅助分析，只能把它写入表达状态建议，不能把它作为核心技术评分依据。\n"
                 "content 字段里不要重复写评分，评分只能放在 score 字段。\n"
                 f"{_context_summary(session_context)}"

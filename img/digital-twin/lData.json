@@ -1,7 +1,7 @@
 {
     "nlist":  [
                   {
-                      "text":  "中医学习者与任务入口",
+                      "text":  "学习者与任务入口",
                       "iconType":  "member",
                       "position":  {
                                        "x":  -18,
@@ -11,7 +11,7 @@
                       "baseType":  1
                   },
                   {
-                      "text":  "岐小智主控编排",
+                      "text":  "Harness主控编排",
                       "iconType":  "zhuti",
                       "position":  {
                                        "x":  -13,
@@ -41,7 +41,7 @@
                       "baseType":  1
                   },
                   {
-                      "text":  "经典检索多智能体",
+                      "text":  "知识检索多智能体",
                       "iconType":  "docText",
                       "position":  {
                                        "x":  -8,
@@ -51,7 +51,7 @@
                       "baseType":  2
                   },
                   {
-                      "text":  "学情画像多智能体",
+                      "text":  "学习画像多智能体",
                       "iconType":  "dataPlane",
                       "position":  {
                                        "x":  -8,
@@ -61,7 +61,7 @@
                       "baseType":  2
                   },
                   {
-                      "text":  "中医资源多智能体",
+                      "text":  "资源生成多智能体",
                       "iconType":  "code",
                       "position":  {
                                        "x":  -3,
@@ -71,7 +71,7 @@
                       "baseType":  1
                   },
                   {
-                      "text":  "研习路径多智能体",
+                      "text":  "路径规划多智能体",
                       "iconType":  "mofang1",
                       "position":  {
                                        "x":  -3,
@@ -81,7 +81,7 @@
                       "baseType":  1
                   },
                   {
-                      "text":  "辨证题库与测评",
+                      "text":  "题库与测评生成",
                       "iconType":  "code",
                       "position":  {
                                        "x":  2,
@@ -91,7 +91,7 @@
                       "baseType":  2
                   },
                   {
-                      "text":  "方药课件与导图",
+                      "text":  "PPT与导图生成",
                       "iconType":  "docText",
                       "position":  {
                                        "x":  2,
@@ -101,7 +101,7 @@
                       "baseType":  2
                   },
                   {
-                      "text":  "医理音视频讲解",
+                      "text":  "音视频讲解生成",
                       "iconType":  "mofang2",
                       "position":  {
                                        "x":  2,
@@ -111,7 +111,7 @@
                       "baseType":  1
                   },
                   {
-                      "text":  "医案辨析多智能体",
+                      "text":  "实验实践多智能体",
                       "iconType":  "pc",
                       "position":  {
                                        "x":  2,
@@ -121,7 +121,7 @@
                       "baseType":  2
                   },
                   {
-                      "text":  "四诊合参实训",
+                      "text":  "单片机仿真实验",
                       "iconType":  "pc",
                       "position":  {
                                        "x":  7,
@@ -131,7 +131,7 @@
                       "baseType":  1
                   },
                   {
-                      "text":  "辨证评估多智能体",
+                      "text":  "评估反馈多智能体",
                       "iconType":  "mofang2",
                       "position":  {
                                        "x":  7,

@@ -5,8 +5,8 @@
     <main class="interview-main">
       <header class="interview-header">
         <div>
-          <p class="eyebrow">Digital Human Learning Dialogue</p>
-          <h1>数字人学习访谈</h1>
+          <p class="eyebrow">Digital Human Interview</p>
+          <h1>数字人 AI 面试</h1>
         </div>
         <div class="status-strip">
           <i :class="{ active: interviewInProgress }" aria-hidden="true"></i>
@@ -16,33 +16,40 @@
       </header>
 
       <section class="interview-layout">
-        <div class="visual-panel" :class="{ 'connection-failed': avatarConnectionFailed }">
+        <div class="visual-panel">
           <DigitalHumanAvatar
-            v-if="avatarVisible && !avatarConnectionFailed"
+            v-if="avatarVisible"
             ref="avatarRef"
             class="avatar-area"
             @status-change="handleAvatarStatus"
             @error="handleAvatarError"
           />
+          <img
+            v-show="!avatarConnected"
+            class="avatar-standby"
+            src="/avatar-interview-standby.png"
+            alt=""
+            aria-hidden="true"
+          />
           <div
             v-if="avatarConnectionFailed"
             class="avatar-fallback-notice"
-            role="alert"
+            role="status"
             :title="avatarErrorMessage"
           >
-            <CircleX :size="28" stroke-width="1.7" aria-hidden="true" />
-            <strong>数字人连接失败</strong>
+            <MessageSquareText :size="18" aria-hidden="true" />
+            <span>数字人暂不可用，文字面试正常进行</span>
           </div>
           <div v-if="!avatarVisible" class="avatar-idle-card">
             <strong>数字人待启动</strong>
-            <span>点击“开始访谈”后连接数字人 AI 讲师</span>
+            <span>点击“开始面试”后连接数字人面试官</span>
           </div>
         </div>
 
         <aside class="chat-panel">
           <div class="interview-options">
             <label>
-              课程领域
+              岗位大类
               <select v-model="interviewForm.categoryKey" :disabled="optionsLocked" @change="handleCategoryChange">
                 <option v-for="category in INTERVIEW_CATEGORIES" :key="category.value" :value="category.value">
                   {{ category.label }}
@@ -50,7 +57,7 @@
               </select>
             </label>
             <label>
-              学习方向
+              具体岗位
               <select v-model="interviewForm.positionKey" :disabled="optionsLocked" @change="handlePositionChange">
                 <option v-for="position in positionOptions" :key="position.value" :value="position.value">
                   {{ position.label }}
@@ -58,7 +65,7 @@
               </select>
             </label>
             <label>
-              访谈主题
+              面试方向
               <select v-model="interviewForm.directionKey" :disabled="optionsLocked" @change="syncFormLabels">
                 <option v-for="direction in directionOptions" :key="direction.value" :value="direction.value">
                   {{ direction.label }}
@@ -78,7 +85,7 @@
           <div ref="chatLogRef" class="chat-log">
             <div v-if="!messages.length" class="empty-chat">
               <span class="empty-chat-icon"><MessageSquareText :size="24" stroke-width="1.9" /></span>
-              <strong>学习访谈准备就绪</strong>
+              <strong>面试准备就绪</strong>
               <p>{{ interviewForm.position }}</p>
               <div class="empty-chat-meta">
                 <span>{{ interviewForm.direction }}</span>
@@ -124,7 +131,7 @@
               >
                 <LoaderCircle v-if="isStartingInterview" class="button-spinner" :size="17" aria-hidden="true" />
                 <PlayCircle v-else :size="17" aria-hidden="true" />
-                {{ isStartingInterview ? '正在开始...' : (interviewEnded ? '重新开始' : '开始访谈') }}
+                {{ isStartingInterview ? '正在开始...' : (interviewEnded ? '重新开始' : '开始面试') }}
               </button>
               <button type="button" class="primary-button" :disabled="!canSend" @click="sendAnswer">
                 <SendHorizontal :size="17" aria-hidden="true" />
@@ -132,7 +139,7 @@
               </button>
               <button type="button" class="secondary-button" :disabled="!sessionId || interviewEnded || isBusy" @click="endInterview">
                 <CircleStop :size="17" aria-hidden="true" />
-                {{ interviewEnded ? '已结束' : '结束访谈' }}
+                {{ interviewEnded ? '已结束' : '结束面试' }}
               </button>
             </div>
             <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
@@ -145,7 +152,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { CircleStop, CircleX, LoaderCircle, MessageSquareText, PlayCircle, SendHorizontal } from 'lucide-vue-next'
+import { CircleStop, LoaderCircle, MessageSquareText, PlayCircle, SendHorizontal } from 'lucide-vue-next'
 import TopNavbar from '../components/TopNavbar.vue'
 import DigitalHumanAvatar from '../components/DigitalHumanAvatar.vue'
 import SpeechAnswerInput from '../components/SpeechAnswerInput.vue'
@@ -175,12 +182,12 @@ let avatarOperationVersion = 0
 
 const interviewForm = reactive({
   categoryKey: 'mcu_development',
-  category: '中医基础理论',
+  category: '单片机与 MCU 开发',
   positionKey: 'stm32_developer',
-  position: '中医基础理论学习者',
+  position: 'STM32 开发工程师',
   directionKey: 'gpio_interrupt_uart',
-  direction: '阴阳五行',
-  topic: '阴阳五行',
+  direction: 'GPIO / 中断 / UART',
+  topic: 'GPIO / 中断 / UART',
   difficulty: 'medium',
 })
 
@@ -245,9 +252,9 @@ function appendMessage(role, content, extra = {}) {
 }
 
 function roleLabel(role) {
-  if (role === 'user') return '学习者'
-  if (role === 'summary') return '学习访谈总结'
-  return '数字人 AI 讲师'
+  if (role === 'user') return '候选人'
+  if (role === 'summary') return '面试总结'
+  return '数字人面试官'
 }
 
 function isTimeoutError(error) {
@@ -258,7 +265,7 @@ function isTimeoutError(error) {
 
 function getErrorMessage(error, fallback) {
   if (isTimeoutError(error)) {
-    return 'AI 讲师正在生成问题，响应时间较长，请稍后重试。'
+    return 'AI 面试官正在生成问题，响应时间较长，请稍后重试。'
   }
   return error?.response?.data?.msg || error?.response?.data?.error || error?.message || fallback
 }
@@ -313,8 +320,8 @@ function applySourceNotice(result) {
   )
   if (result?.source === 'local-fallback') {
     errorMessage.value = isModelAuthError(result?.fallbackReason)
-      ? 'AI 访谈模型鉴权失败，已先使用本地学习问题继续。请检查岐小智模型设置或平台凭据。'
-      : 'AI 访谈模型响应较慢，已先使用本地学习问题继续。'
+      ? 'AI 面试模型鉴权失败，已先使用本地面试题继续。请检查嵌小智模型设置或平台凭据。'
+      : 'AI 面试模型响应较慢，已先使用本地面试题继续。'
   }
 }
 
@@ -337,7 +344,7 @@ function handleAvatarError(message) {
   avatarConnected.value = false
   avatarConnectionFailed.value = true
   avatarErrorMessage.value = String(message || '数字人连接失败')
-  avatarStatus.value = '数字人连接失败'
+  avatarStatus.value = '文字模式可用'
 }
 
 function stopSpeechRecognition() {
@@ -359,7 +366,7 @@ async function safeSpeak(text) {
     )
     return true
   } catch (error) {
-    handleAvatarError(getErrorMessage(error, '数字人暂时无法朗读，文字访谈仍可继续'))
+    handleAvatarError(getErrorMessage(error, '数字人暂时无法朗读，文字面试仍可继续'))
     return false
   }
 }
@@ -380,7 +387,7 @@ function runAvatarInBackground(task) {
   Promise.resolve()
     .then(task)
     .catch((error) => {
-      handleAvatarError(getErrorMessage(error, '数字人暂不可用，文字访谈仍可继续'))
+      handleAvatarError(getErrorMessage(error, '数字人暂不可用，文字面试仍可继续'))
     })
 }
 
@@ -430,7 +437,7 @@ async function startInterviewAvatar(options = {}) {
     return true
   } catch (error) {
     if (operationVersion !== avatarOperationVersion) return false
-    handleAvatarError(getErrorMessage(error, '数字人连接失败，文字访谈仍可继续'))
+    handleAvatarError(getErrorMessage(error, '数字人连接失败，文字面试仍可继续'))
     Promise.resolve(avatarRef.value?.destroyAvatar?.()).catch(() => {})
     return false
   }
@@ -455,13 +462,13 @@ function handleEndedInterviewResult(result) {
   stopSpeechRecognition()
   const summaryDisplay = buildSummaryDisplay(result)
   const hasScore = result?.score !== null && result?.score !== undefined && result?.score !== '' && Number.isFinite(Number(result.score))
-  appendMessage('summary', summaryDisplay || '本次学习访谈已结束。', {
+  appendMessage('summary', summaryDisplay || '本次面试已结束。', {
     advantages: hasScore ? (result.advantages || []) : [],
     weaknesses: hasScore ? (result.weaknesses || []) : [],
     suggestions: hasScore ? (result.suggestions || []) : [],
   })
   applySourceNotice(result)
-  startAvatarNarration(`本次学习访谈已结束。${summaryDisplay}`)
+  startAvatarNarration(`本次面试已结束。${summaryDisplay}`)
 }
 
 async function startInterview() {
@@ -477,7 +484,7 @@ async function startInterview() {
   answerText.value = ''
   avatarConnectionFailed.value = false
   stopSpeechRecognition()
-  interviewStatus.value = '正在连接数字人 AI 讲师，请稍候...'
+  interviewStatus.value = '正在连接 AI 面试官，请稍候...'
   avatarVisible.value = true
 
   try {
@@ -496,7 +503,7 @@ async function startInterview() {
       videoAnalysisEnabled: false,
     })
     const displayText = getDisplayText(result)
-    const questionText = displayText || '学习访谈已开始，请准备回答。'
+    const questionText = displayText || '面试已开始，请准备回答。'
     sessionId.value = result.sessionId
     appendMessage('interviewer', questionText)
     applySourceNotice(result)
@@ -504,7 +511,7 @@ async function startInterview() {
     startAvatarNarration(questionText, { connect: true, resetBeforeStart: false })
   } catch (error) {
     interviewStatus.value = '错误'
-    errorMessage.value = getErrorMessage(error, '创建学习访谈会话失败')
+    errorMessage.value = getErrorMessage(error, '创建面试会话失败')
   } finally {
     isStartingInterview.value = false
     isBusy.value = false
@@ -558,7 +565,7 @@ async function endInterview() {
     await handleEndedInterviewResult(result)
   } catch (error) {
     interviewStatus.value = '错误'
-    errorMessage.value = getErrorMessage(error, '结束学习访谈失败')
+    errorMessage.value = getErrorMessage(error, '结束面试失败')
   } finally {
     isBusy.value = false
   }
@@ -670,10 +677,6 @@ h1 {
   border: 1px solid #d2d9d6;
 }
 
-.visual-panel.connection-failed {
-  background: #f8faf9;
-}
-
 .visual-panel :deep(.avatar-panel) {
   position: absolute;
   left: 50%;
@@ -719,6 +722,32 @@ h1 {
   background: #ffffff !important;
 }
 
+.avatar-standby {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 3;
+  width: min(54%, 360px);
+  height: 88%;
+  object-fit: contain;
+  object-position: center bottom;
+  pointer-events: none;
+  filter: drop-shadow(0 16px 28px rgba(24, 77, 59, 0.12));
+  transform: translateX(-50%);
+  animation: avatarStandbyBreath 2.4s ease-in-out infinite;
+}
+
+@keyframes avatarStandbyBreath {
+  0%, 100% {
+    opacity: 0.9;
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-3px);
+  }
+}
+
 .avatar-idle-card {
   position: absolute;
   left: 50%;
@@ -751,24 +780,27 @@ h1 {
 .avatar-fallback-notice {
   position: absolute;
   left: 50%;
-  top: 50%;
+  bottom: 18px;
   z-index: 8;
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  min-height: 40px;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  color: #5b6661;
-  font-size: 16px;
+  gap: 8px;
+  padding: 9px 13px;
+  border: 1px solid #d8e4e1;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #30544c;
+  font-size: 13px;
+  font-weight: 700;
   line-height: 1.4;
   text-align: center;
-  transform: translate(-50%, -50%);
-}
-
-.avatar-fallback-notice strong {
-  color: #232a27;
-  font-size: 18px;
-  font-weight: 700;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  backdrop-filter: blur(8px);
 }
 
 .visual-panel :deep(.avatar-error) {

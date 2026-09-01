@@ -16,8 +16,8 @@ export const defaultLearningPathConfig = {
       id: 'week-1-embedded-foundation',
       order: 1,
       weekLabel: '第一周',
-      title: '中医基础理论与整体观念',
-      description: '理解阴阳五行、藏象与气血津液的核心关系',
+      title: '嵌入式基础与开发环境',
+      description: '完成目标拆解、概念建模、示例跟做和第一次实操验证',
       status: 'current',
       icon: 'cpu',
       tone: 'green',
@@ -29,8 +29,8 @@ export const defaultLearningPathConfig = {
       id: 'week-2-gpio-practice',
       order: 2,
       weekLabel: '第二周',
-      title: '八纲辨证基础',
-      description: '围绕表里、寒热、虚实、阴阳建立辨证框架',
+      title: 'GPIO 输入输出实操',
+      description: '围绕 GPIO 建立配置思路并完成可运行实验',
       status: 'locked',
       icon: 'book-open',
       tone: 'green',
@@ -42,8 +42,8 @@ export const defaultLearningPathConfig = {
       id: 'week-3-uart-debug',
       order: 3,
       weekLabel: '第三周',
-      title: '四诊合参与舌脉辨析',
-      description: '归纳望闻问切信息并形成证候判断依据',
+      title: '串口通信与调试链路',
+      description: '跑通串口收发、日志输出和调试定位流程',
       status: 'locked',
       icon: 'clipboard-check',
       tone: 'green',
@@ -55,8 +55,8 @@ export const defaultLearningPathConfig = {
       id: 'week-4-timer-interrupt',
       order: 4,
       weekLabel: '第四周',
-      title: '中药性味归经',
-      description: '掌握常用中药功效、归经与配伍注意事项',
+      title: '定时器 PWM 与中断响应',
+      description: '完成定时器、PWM、中断的案例跟做和专项测评',
       status: 'locked',
       icon: 'target',
       tone: 'green',
@@ -68,8 +68,8 @@ export const defaultLearningPathConfig = {
       id: 'week-5-sensor-project',
       order: 5,
       weekLabel: '第五周',
-      title: '方剂组成与配伍',
-      description: '结合君臣佐使分析常用方剂组成与功效',
+      title: '传感器采集与项目案例',
+      description: '把传感器采集、数据处理和小项目联调结合起来',
       status: 'locked',
       icon: 'layers',
       tone: 'green',
@@ -81,8 +81,8 @@ export const defaultLearningPathConfig = {
       id: 'week-6-integrated-training',
       order: 6,
       weekLabel: '第六周',
-      title: '综合医案辨析与复盘',
-      description: '完成医案辨证、治法方药推演并复盘证据链',
+      title: '综合项目实训与复盘',
+      description: '完成综合任务、整理证据并更新下一轮学习重点',
       status: 'locked',
       icon: 'rocket',
       tone: 'green',
@@ -104,12 +104,12 @@ const defaultStageNodeCoords = [
 ]
 
 const defaultStageNodeBlueprints = [
-  ['目标拆解', '查看画像', '/learning-profile', '把本周主题拆成理论、辨证、医案和测评目标，明确验收标准。'],
+  ['目标拆解', '查看画像', '/learning-profile', '把本周主题拆成概念、代码、实验和测评目标，明确验收标准。'],
   ['概念建模', '生成导图', '/personalized-resources/mind-map', '围绕本周主题整理知识结构图，标出关键概念、前置知识和易错点。'],
-  ['案例跟学', '查看资源', '/personalized-resources', '跟随一个典型医案，理解四诊信息、病机、治法和方药之间的关系。'],
-  ['医案辨析', '生成辨析课件', '/personalized-resources/ppt', '完成一个基础医案辨析，记录证候依据、鉴别要点和治法方药。'],
-  ['专项测评', '进入测评', '/personalized-resources/question-bank', '完成针对性题目或医案辨析题，检查本周知识是否真正掌握。'],
-  ['复盘迭代', '整理资源', '/personalized-resources', '整理错因、医案证据和下一周要继续追踪的问题。'],
+  ['示例跟做', '查看资源', '/personalized-resources', '跟做一个最小可运行示例，理解配置流程、关键代码和运行现象。'],
+  ['实操验证', '进入实验', '/personalized-resources/mcu-simulator', '在开发板或模拟器完成一个小实验，记录代码、接线和现象。'],
+  ['专项测评', '进入测评', '/personalized-resources/question-bank', '完成针对性题目或代码改错题，检查本周知识是否真正掌握。'],
+  ['复盘迭代', '整理资源', '/personalized-resources', '整理错因、实验证据和下一周要继续追踪的问题。'],
 ]
 
 function createDefaultStage(week) {
@@ -148,7 +148,7 @@ defaultLearningPathConfig.stages = Object.fromEntries(
 )
 
 // The backend planner supplies the actual profile-based weeks and task nodes.
-// Keep frontend-only fallback neutral so it cannot reintroduce a fixed course week.
+// Keep frontend-only fallback neutral so it cannot reintroduce a fixed STM32 week.
 defaultLearningPathConfig.version = 2
 defaultLearningPathConfig.meta = {
   ...defaultLearningPathConfig.meta,

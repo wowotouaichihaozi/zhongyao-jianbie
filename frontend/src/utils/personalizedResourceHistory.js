@@ -7,20 +7,18 @@ const TASK_RESOURCE_TYPES = {
   generated_video: 'generated_video',
   animation: 'animation',
   mcu: 'simulator',
-  herb_model: 'herb_model',
 }
 
 const RESOURCE_TITLES = {
-  document: '中医学习讲义',
-  mindmap: '中医学习思维导图',
-  ppt: '中医学习课件',
-  video: '中医视频教程',
+  document: '嵌入式学习讲义',
+  mindmap: '嵌入式学习思维导图',
+  ppt: '嵌入式学习课件',
+  video: '嵌入式视频教程',
   generated_video: 'AI 学习讲解视频',
-  animation: '中医动画微课',
-  code: '中医辨证示例',
-  quiz: '中医练习题',
-  simulator: '中医医案推演',
-  herb_model: '药材模型辨识',
+  animation: '嵌入式动画微课',
+  code: '嵌入式代码示例',
+  quiz: '嵌入式练习题',
+  simulator: '嵌入式仿真实验',
 }
 
 const RESOURCE_TYPE_NAMES = {
@@ -33,7 +31,6 @@ const RESOURCE_TYPE_NAMES = {
   code: '代码示例',
   quiz: '练习题',
   simulator: '模拟器实验',
-  herb_model: '药材模型辨识',
 }
 
 function objectValue(value) {
@@ -72,12 +69,10 @@ export function taskIdFromResourceId(resourceId) {
 }
 
 export function extractTaskResources(task) {
-  if (!task) return []
-  const taskType = String(task.taskType || '')
-  const taskStatus = String(task.status || '')
-  if (taskStatus !== 'complete' && taskType !== 'generated_video') return []
+  if (!task || task.status !== 'complete') return []
 
   const result = objectValue(task.result)
+  const taskType = String(task.taskType || '')
   const workflow = objectValue(result.workflow)
   const orchestration = objectValue(result.orchestration)
   const review = objectValue(orchestration.review)
@@ -93,19 +88,13 @@ export function extractTaskResources(task) {
     items = [{
       type: 'generated_video',
       title: task.title,
-       description: result.message || 'AI 视频任务已创建',
+      description: result.message || 'AI 讲解视频已生成并保存',
       content: {
         ...content,
-         videoUrl: taskStatus === 'complete'
-           ? (content.videoUrl || `/api/personalized-resources/generated-videos/${encodeURIComponent(task.taskId)}/file`)
-           : '',
-         posterUrl: content.posterUrl || `/api/personalized-resources/generated-videos/${encodeURIComponent(task.taskId)}/poster`,
-       },
-       metadata: {
-         taskId: task.taskId,
-         generationState: result.currentStage || taskStatus,
-         coverStatus: result.coverStatus || '',
-       },
+        videoUrl: content.videoUrl || `/api/personalized-resources/generated-videos/${encodeURIComponent(task.taskId)}/file`,
+        posterUrl: content.posterUrl || `/api/personalized-resources/generated-videos/${encodeURIComponent(task.taskId)}/poster`,
+      },
+      metadata: { taskId: task.taskId },
     }]
   } else {
     const payloadByType = {
@@ -179,60 +168,9 @@ export function extractTaskResources(task) {
         agentRuns: listValue(orchestration.agentRuns),
         planner,
         grounded: itemMetadata.grounded ?? workflow.grounded ?? Boolean(knowledgeSources.length),
-        taskStatus,
-        taskUpdatedAt: String(task.updatedAt || task.createdAt || ''),
-        generationState: itemMetadata.generationState || result.currentStage || taskStatus,
-        coverStatus: itemMetadata.coverStatus || result.coverStatus || '',
       },
     }
   })
-}
-
-function findQuizQuestionArray(value, depth = 0, visited = new Set()) {
-  if (!value || typeof value !== 'object' || depth > 6 || visited.has(value)) return []
-  visited.add(value)
-  if (Array.isArray(value)) {
-    const questions = value.filter(item => item && typeof item === 'object' && !Array.isArray(item))
-    if (questions.some(item => item.stem || item.question || item.prompt || item.title || item.body)) return questions
-    for (const item of questions) {
-      const nested = findQuizQuestionArray(item, depth + 1, visited)
-      if (nested.length) return nested
-    }
-    return []
-  }
-  for (const key of ['questions', 'questionList', 'question_list', 'items']) {
-    const nested = findQuizQuestionArray(value[key], depth + 1, visited)
-    if (nested.length) return nested
-  }
-  for (const key of ['question_bank', 'questionBank', 'questionGenerator', 'payload', 'data', 'result', 'content']) {
-    const nested = findQuizQuestionArray(value[key], depth + 1, visited)
-    if (nested.length) return nested
-  }
-  return []
-}
-
-function normalizeQuizOptions(value) {
-  if (!Array.isArray(value)) return []
-  return value.map((option, index) => {
-    if (option && typeof option === 'object') {
-      const label = String(option.label || option.key || option.id || String.fromCharCode(65 + index)).trim()
-      const text = String(option.text || option.content || option.value || option.title || '').trim()
-      return text ? `${label}. ${text}` : label
-    }
-    return String(option || '').trim()
-  }).filter(Boolean)
-}
-
-export function resourceQuizQuestions(resource) {
-  if (String(resource?.type || '') !== 'quiz') return []
-  return findQuizQuestionArray(resource?.content).map((item, index) => ({
-    id: String(item.id || item.questionId || index + 1),
-    type: String(item.type || item.questionType || item.question_type || '').trim(),
-    stem: String(item.stem || item.question || item.prompt || item.title || item.body || '').trim(),
-    options: normalizeQuizOptions(item.options || item.choices || item.answers),
-    answer: String(item.answer ?? item.correctAnswer ?? item.correct_answer ?? item.referenceAnswer ?? '').trim(),
-    analysis: String(item.analysis || item.explanation || item.solution || item.rationale || '').trim(),
-  })).filter(item => item.stem)
 }
 
 export function findTaskResource(task, resourceId) {

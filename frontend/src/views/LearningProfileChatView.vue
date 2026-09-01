@@ -36,15 +36,15 @@
 
         <div ref="messageListRef" class="message-list" aria-live="polite">
           <div class="message bot">
-            <span class="avatar">岐</span>
-            <p>请描述你的中医学习背景，比如专业方向、已学课程、当前目标和最想提升的能力。</p>
+            <span class="avatar">AI</span>
+            <p>请描述你的嵌入式学习背景，比如专业方向、接触过的平台、当前目标和最想提升的能力。</p>
           </div>
           <div v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
-            <span class="avatar">{{ message.role === 'user' ? '你' : '岐' }}</span>
+            <span class="avatar">{{ message.role === 'user' ? '你' : 'AI' }}</span>
             <p>{{ message.text }}</p>
           </div>
-          <div v-if="chatLoading && !streamingReply" class="message bot">
-            <span class="avatar">岐</span>
+          <div v-if="chatLoading" class="message bot">
+            <span class="avatar">AI</span>
             <p>正在整理...</p>
           </div>
         </div>
@@ -57,7 +57,7 @@
             name="chatInput"
             autocomplete="off"
             rows="3"
-            placeholder="例如：我是中医学专业大二学生，学过中医基础理论，但八纲辨证和脉诊还不熟..."
+            placeholder="例如：我是物联网专业大二学生，学过 C 语言和 STM32，但串口调试还不熟..."
             :disabled="chatLoading"
           ></textarea>
           <button class="send-btn" type="submit" :disabled="chatLoading || !chatInput.trim()">发送</button>
@@ -71,7 +71,6 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import DigitalHumanAvatar from '../components/DigitalHumanAvatar.vue'
-import { streamLearningProfileBackgroundChat } from '../services/api.js'
 
 const LS_KEY = 'learningProfileData'
 const router = useRouter()
@@ -79,7 +78,6 @@ const router = useRouter()
 const messages = ref([])
 const chatInput = ref('')
 const chatLoading = ref(false)
-const streamingReply = ref(false)
 const summaryText = ref('')
 const toastMsg = ref('')
 const messageListRef = ref(null)
@@ -136,64 +134,43 @@ function handleAvatarError(message) {
   if (message) showToast(message)
 }
 
-async function requestAiReply(messageHistory, onDelta) {
-  let reply = ''
-  let agentResult = null
-  await streamLearningProfileBackgroundChat({
-    messages: messageHistory,
-    currentSummary: summaryText.value,
-  }, async ({ event, data }) => {
-    if (event === 'delta' && data?.text) {
-      reply += String(data.text)
-      onDelta(reply)
-      scrollMessages()
-      return
-    }
-    if (event === 'result') {
-      agentResult = data?.data || data || {}
-      const resultReply = String(agentResult.reply || agentResult.question || '').trim()
-      if (resultReply && !reply.trim()) {
-        reply = resultReply
-        onDelta(reply)
-        scrollMessages()
-      }
-      return
-    }
-    if (event === 'error') {
-      throw new Error(data?.message || data?.error || '调用学习背景对话智能体失败')
-    }
+async function requestAiReply() {
+  const response = await fetch('/api/learning-profile/background-chat', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: messages.value,
+      currentSummary: summaryText.value,
+    }),
   })
-  if (!reply.trim()) throw new Error('学习背景对话流未返回可显示内容')
-  return { ...(agentResult || {}), reply }
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok || data.code !== 0) throw new Error(data.msg || '调用学习背景对话智能体失败')
+  return data.data
 }
 
 async function sendChat() {
   const text = chatInput.value.trim()
   if (!text || chatLoading.value) return
   messages.value.push({ role: 'user', text })
-  const messageHistory = messages.value.slice()
-  const botMessage = { role: 'bot', text: '' }
-  messages.value.push(botMessage)
   chatInput.value = ''
   summaryText.value = buildLocalSummary()
   saveSummary(false)
   chatLoading.value = true
-  streamingReply.value = true
   scrollMessages()
 
   try {
-    const agentResult = await requestAiReply(messageHistory, (reply) => {
-      botMessage.text = reply
-    })
+    const agentResult = await requestAiReply()
     summaryText.value = agentResult.summary || buildLocalSummary()
     saveSummary(false)
-    const reply = agentResult.reply || agentResult.question
+    const reply = agentResult.reply || agentResult.question || '请继续补充你的学习背景。'
+    messages.value.push({ role: 'bot', text: reply })
     speakWithAvatar(reply)
-  } catch (error) {
-    botMessage.text = error?.message || '调用学习背景对话智能体失败'
+  } catch {
+    const reply = '调用对话智能体失败，请稍后重试。'
+    messages.value.push({ role: 'bot', text: reply })
   } finally {
     chatLoading.value = false
-    streamingReply.value = false
     scrollMessages()
   }
 }

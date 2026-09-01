@@ -116,9 +116,9 @@
               </div>
               <div class="memory-toolbar">
                 <label><Search :size="15" /><input v-model.trim="memoryQuery" placeholder="搜索对话、摘要或主题" /></label>
-                <select v-model="memorySource"><option value="">全部对话入口</option><option value="xiaozhi">岐小智总控</option><option value="profile-dialogue">学习画像对话</option><option value="demo-conversation">示例对话</option></select>
+                <select v-model="memorySource"><option value="">全部对话入口</option><option value="xiaozhi">嵌小智总控</option><option value="profile-dialogue">学习画像对话</option><option value="demo-conversation">示例对话</option></select>
               </div>
-              <div v-if="!filteredMemories.length" class="empty-view"><MessageSquareText :size="38" /><strong>还没有可展示的对话记忆</strong><span>与岐小智或学习画像智能体完成一轮对话后，这里会自动出现提取结果。</span></div>
+              <div v-if="!filteredMemories.length" class="empty-view"><MessageSquareText :size="38" /><strong>还没有可展示的对话记忆</strong><span>与嵌小智或学习画像智能体完成一轮对话后，这里会自动出现提取结果。</span></div>
               <div v-else class="memory-list">
                 <article v-for="item in filteredMemories" :key="item.id" class="memory-card">
                   <div class="memory-meta"><span>{{ sourceLabel(item.sourceType) }}</span><time>{{ formatTime(item.updatedAt) }}</time></div>
@@ -254,7 +254,7 @@ function formatTime(value) {
   return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 }
 function sourceLabel(sourceType) {
-  return { xiaozhi: '岐小智总控', 'profile-dialogue': '学习画像对话', 'demo-conversation': '示例对话' }[sourceType] || '平台对话'
+  return { xiaozhi: '嵌小智总控', 'profile-dialogue': '学习画像对话', 'demo-conversation': '示例对话' }[sourceType] || '平台对话'
 }
 function showNotice(message, type = 'success') {
   window.clearTimeout(noticeTimer)

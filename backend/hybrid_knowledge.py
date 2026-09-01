@@ -27,6 +27,9 @@ CORPUS_PATH = Path(
 CORPUS_MANIFEST_PATH = DATA_DIR / "tcm_hybrid_corpus_manifest.json"
 CORPUS_CACHE_DIR = DATA_DIR / "extract_cache"
 ROUTER_VERSION = "hybrid-routing-v1"
+LEGACY_TCM_KNOWLEDGE_ENABLED = str(
+    os.environ.get("ENABLE_LEGACY_TCM_KNOWLEDGE") or ""
+).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _clean_text(value: object) -> str:
@@ -104,6 +107,10 @@ def _focus_phrases(value: object) -> list[str]:
         "组成", "处方组成", "功效", "功用", "主要作用", "作用", "功能",
         "性味", "归经", "性味归经", "主治", "适应证", "用法", "用量",
         "用法用量", "炮制方法", "注意事项", "关系", "区别", "含义",
+        "工作原理", "硬件连接", "时钟配置", "引脚配置", "寄存器配置",
+        "初始化流程", "中断配置", "通信时序", "驱动开发", "设备树",
+        "内核模块", "调试方法", "错误排查", "波形分析", "代码实现",
+        "实验步骤", "验收结果", "性能优化", "低功耗", "实时性",
     }
     prompt_prefixes = ("请问", "请介绍", "介绍一下", "请简述", "简述", "分析", "比较")
     phrases: list[str] = []
@@ -145,6 +152,9 @@ def _attribute_relevance(query: object, candidate: object) -> float:
     attributes = (
         "组成", "处方", "功效", "功用", "功能", "性味", "归经", "主治",
         "用法", "用量", "炮制", "注意事项", "病机", "证候", "关系", "区别",
+        "原理", "连接", "时钟", "引脚", "寄存器", "初始化", "中断",
+        "时序", "驱动", "设备树", "内核模块", "调试", "排查", "波形",
+        "代码", "实验", "验收", "性能", "低功耗", "实时性",
     )
     requested = [attribute for attribute in attributes if attribute in query_text]
     if not requested:
@@ -342,7 +352,7 @@ class HybridKnowledgeRouter:
                 "sourceType": "curated-qa",
                 "route": "qa",
                 "qaId": item.get("id"),
-                "source": "QA_中医知识问答.txt",
+                "source": self.qa_path.name,
                 "title": item.get("question"),
                 "question": item.get("question"),
                 "answer": item.get("answer"),
@@ -415,7 +425,7 @@ class HybridKnowledgeRouter:
                 "sourceType": "knowledge-graph",
                 "route": "graph",
                 "nodeId": item.get("id"),
-                "source": "中医药知识图谱 v1.2",
+                "source": "嵌智学航嵌入式知识图谱 v1.0",
                 "title": item.get("title"),
                 "domain": item.get("domain"),
                 "level": item.get("level"),
@@ -715,7 +725,15 @@ class HybridKnowledgeRouter:
         }
 
 
-_hybrid_router = HybridKnowledgeRouter()
+_hybrid_router = (
+    HybridKnowledgeRouter()
+    if LEGACY_TCM_KNOWLEDGE_ENABLED
+    else HybridKnowledgeRouter(
+        qa_path=DATA_DIR / "embedded_qa_pairs.json",
+        graph_path=DATA_DIR / "embedded_graph_index.json",
+        corpus_path=None,
+    )
+)
 
 
 def route_hybrid_knowledge(

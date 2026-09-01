@@ -95,7 +95,7 @@ class ProfileAgentContextStoreTests(unittest.TestCase):
         self.assertEqual(duplicate["id"], first["id"])
         self.assertEqual(context["messageCount"], 2)
         self.assertEqual([item["sequence"] for item in context["recentMessages"]], [1, 2])
-        self.assertEqual(context["supervisor"]["name"], "岐小智总控智能体")
+        self.assertEqual(context["supervisor"]["name"], "嵌小智总控智能体")
         refs = context["recentMessages"][1]["resourceReferences"]
         self.assertIn({"type": "task", "id": "ppt-1"}, refs)
         self.assertIn({"type": "citation", "id": "doc-8#3"}, refs)

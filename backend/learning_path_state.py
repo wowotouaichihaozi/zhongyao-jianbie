@@ -13,7 +13,6 @@ try:
     import knowledge_growth
     from common import now_iso
     from domain_errors import LearningProfileRequiredError
-    from herb_model_catalog import find_herb_model, select_learning_path_herb
     from learning_agents import (
         LEARNING_PATH_REQUIRED_RESOURCE_TYPES,
         LEARNING_PATH_RESOURCE_PLAN_VERSION,
@@ -26,7 +25,6 @@ except ImportError:  # pragma: no cover - package import fallback
     from . import knowledge_growth
     from .common import now_iso
     from .domain_errors import LearningProfileRequiredError
-    from .herb_model_catalog import find_herb_model, select_learning_path_herb
     from .learning_agents import (
         LEARNING_PATH_REQUIRED_RESOURCE_TYPES,
         LEARNING_PATH_RESOURCE_PLAN_VERSION,
@@ -55,12 +53,12 @@ def parse_json_safely(value: str, fallback):
 # Domain constants and functions are mechanically moved below this marker.
 
 DEFAULT_LEARNING_PATH_WEEKS = [
-    ("week-1-embedded-foundation", "第一周", "中医基础理论与整体观念", "理解阴阳五行、藏象与气血津液的核心关系", "current", "cpu", "green", 150),
-    ("week-2-gpio-practice", "第二周", "四诊信息归纳", "围绕望闻问切整理关键症状、舌象与脉象", "locked", "book-open", "green", 180),
-    ("week-3-uart-debug", "第三周", "八纲辨证与证候鉴别", "建立表里、寒热、虚实、阴阳的辨证框架", "locked", "clipboard-check", "green", 210),
-    ("week-4-timer-interrupt", "第四周", "中药性味归经", "掌握常用中药功效、归经与用药注意事项", "locked", "target", "green", 240),
-    ("week-5-sensor-project", "第五周", "方剂组成与配伍", "结合君臣佐使分析常用方剂组成与功效", "locked", "layers", "green", 270),
-    ("week-6-integrated-training", "第六周", "综合医案辨析与复盘", "完成医案辨证、治法方药推演并复盘证据链", "locked", "rocket", "green", 320),
+    ("week-1-embedded-foundation", "第一周", "嵌入式基础与开发环境", "完成开发环境搭建并理解最小系统与程序运行流程", "current", "cpu", "green", 150),
+    ("week-2-gpio-practice", "第二周", "GPIO 输入输出实操", "围绕 GPIO 建立配置思路并完成可运行实验", "locked", "book-open", "green", 180),
+    ("week-3-uart-debug", "第三周", "串口通信与调试链路", "跑通串口收发、日志输出和调试定位流程", "locked", "clipboard-check", "green", 210),
+    ("week-4-timer-interrupt", "第四周", "定时器 PWM 与中断响应", "完成定时器、PWM 和中断的案例跟做与专项测评", "locked", "target", "green", 240),
+    ("week-5-sensor-project", "第五周", "传感器采集与项目案例", "把传感器采集、数据处理和小项目联调结合起来", "locked", "layers", "green", 270),
+    ("week-6-integrated-training", "第六周", "综合项目实训与复盘", "完成综合任务、整理证据并更新下一轮学习重点", "locked", "rocket", "green", 320),
 ]
 
 LEGACY_LEARNING_PATH_STAGE_IDS = {
@@ -85,17 +83,17 @@ DEFAULT_STAGE_NODE_COORDS = [
 DEFAULT_STAGE_NODE_BLUEPRINTS = [
     ("目标拆解", "查找学习视频", "/personalized-resources/video-search", "通过导学视频明确本周主题、学习目标和验收标准。"),
     ("概念建模", "生成导图", "/personalized-resources/mind-map", "围绕本周主题整理知识结构图，标出关键概念、前置知识和易错点。"),
-    ("案例跟学", "生成学习课件", "/personalized-resources/ppt", "通过典型医案理解四诊信息、病机、治法和方药之间的关系。"),
-    ("医案辨析", "生成辨析课件", "/personalized-resources/ppt", "完成一个基础医案辨析，记录证候依据、鉴别要点和治法方药。"),
-    ("专项测评", "生成练习题单", "/personalized-resources/question-bank", "完成针对性题目或医案辨析题，检查本周知识是否真正掌握。"),
-    ("复盘迭代", "生成复盘导图", "/personalized-resources/mind-map", "通过复盘导图整理错因、医案证据和下一周要继续追踪的问题。"),
+    ("示例跟做", "生成学习课件", "/personalized-resources/ppt", "通过最小可运行示例理解配置流程、关键代码和运行现象。"),
+    ("实操验证", "进入单片机实验", "/personalized-resources/mcu-simulator", "在开发板或模拟器完成一个小实验，记录代码、接线和现象。"),
+    ("专项测评", "生成练习题单", "/personalized-resources/question-bank", "完成针对性题目或代码改错题，检查本周知识是否真正掌握。"),
+    ("复盘迭代", "生成复盘导图", "/personalized-resources/mind-map", "通过复盘导图整理错因、实验证据和下一周要继续追踪的问题。"),
 ]
 
 DEFAULT_STAGE_NODE_RESOURCE_TYPES = {
     "目标拆解": ["video"],
     "概念建模": ["mindmap", "ppt"],
-    "案例跟学": ["ppt"],
-    "医案辨析": ["ppt", "question-bank"],
+    "示例跟做": ["ppt", "video"],
+    "实操验证": ["mcu", "video"],
     "专项测评": ["question-bank"],
     "复盘迭代": ["mindmap", "ppt"],
 }
@@ -114,8 +112,8 @@ LEARNING_PATH_TASK_RESOURCE_ALIASES = {
     "learning-document": "ppt",
     "animated-lesson": "animation",
     "learning-animation": "animation",
-    "herb_model": "herb-model",
-    "herb-recognition": "herb-model",
+    "simulator": "mcu",
+    "code": "mcu",
 }
 LEARNING_PATH_TASK_RESOURCE_ACTIONS = {
     "generated_video": "生成 AI 视频讲解",
@@ -124,8 +122,7 @@ LEARNING_PATH_TASK_RESOURCE_ACTIONS = {
     "ppt": "生成学习课件",
     "mindmap": "生成思维导图",
     "question-bank": "生成练习题单",
-    "herb-model": "开展药材模型辨识",
-    "mcu": "查看历史实践记录",
+    "mcu": "进入单片机实验",
 }
 LEARNING_PATH_RESOURCE_ROUTE_TYPES = {
     "/personalized-resources/video-generator": "generated_video",
@@ -135,7 +132,6 @@ LEARNING_PATH_RESOURCE_ROUTE_TYPES = {
     "/personalized-resources/ppt": "ppt",
     "/personalized-resources/mind-map": "mindmap",
     "/personalized-resources/question-bank": "question-bank",
-    "/personalized-resources/herb-model": "herb-model",
     "/personalized-resources/mcu-simulator": "mcu",
 }
 
@@ -159,7 +155,7 @@ def _canonical_learning_path_task_resource(raw_node: dict, node_index: int) -> s
         ]
     ).lower()
     semantic_rules = [
-        ("ppt", ["医案", "辨证", "病机", "方药", "经典", "病例"]),
+        ("mcu", ["实验", "实操", "仿真", "开发板", "烧录", "波形", "接线", "调试"]),
         ("question-bank", ["测评", "题", "错因", "诊断", "考试"]),
         ("animation", ["动画", "动态过程", "时序流程", "状态迁移", "信号流", "可视化"]),
         ("ppt", ["讲义", "文档", "手册", "笔记", "总结"]),
@@ -187,7 +183,7 @@ def _migrate_learning_path_document_text(value: object) -> str:
     for old, new in (
         ("课程讲义", "学习课件"),
         ("学习讲义", "学习课件"),
-        ("医案讲义", "医案课件"),
+        ("实验讲义", "实验课件"),
         ("生成讲义", "生成课件"),
     ):
         text = text.replace(old, new)
@@ -248,17 +244,10 @@ def _learning_path_task_resource_route(
         path = "/personalized-resources/question-bank"
         params = {
             "module": "generate",
-            "course": resource_params.get("course") or resource_params.get("courseName") or "中医系统",
+            "course": resource_params.get("course") or resource_params.get("courseName") or "嵌入式系统",
             "chapter": resource_params.get("chapter") or resource_params.get("targetTopic") or topic,
             "count": resource_params.get("count") or resource_params.get("questionCount") or 10,
             "autostart": "1",
-            **common,
-        }
-    elif resource_type == "herb-model":
-        path = "/personalized-resources/herb-model"
-        params = {
-            "herb": resource_params.get("herbId") or "",
-            "mode": resource_params.get("challengeMode") or "identify",
             **common,
         }
     else:
@@ -282,16 +271,6 @@ def _ensure_learning_path_task_resource_coverage(nodes: list[dict], topic: str, 
         node_id = str(node.get("id") or index + 1)
         cache_key = re.sub(r"[^a-zA-Z0-9_.:-]+", "-", f"{stage_id}-{node_id}-{resource_type}").strip("-")
         params = sanitize_learning_path_resource_params(resource_type, node.get("resourceParams"), include_runtime=True)
-        if resource_type == "herb-model":
-            herb = select_learning_path_herb(0, stage_id, node_id)
-            params.update(
-                {
-                    "herbId": herb["id"],
-                    "herbName": herb["name"],
-                    "topic": f"{herb['name']}药材模型辨识",
-                    "challengeMode": "identify",
-                }
-            )
         node.update(
             {
                 "resourceType": resource_type,
@@ -311,12 +290,6 @@ def _ensure_learning_path_task_resource_coverage(nodes: list[dict], topic: str, 
     unsupported_indexes: list[int] = []
     for index, node in enumerate(normalized_nodes):
         resource_type = str(node.get("resourceType") or "")
-        if resource_type == "herb-model" and find_herb_model(
-            (node.get("resourceParams") or {}).get("herbId")
-            if isinstance(node.get("resourceParams"), dict)
-            else None
-        ) is None:
-            replace_resource(index, "herb-model")
         if resource_type in counts:
             counts[resource_type] += 1
         else:
@@ -349,7 +322,7 @@ def _ensure_learning_path_task_resource_coverage(nodes: list[dict], topic: str, 
     return normalized_nodes
 
 def build_default_stage_nodes(week_label: str, week_title: str = "") -> list[dict]:
-    topic = week_title or "中医学习任务"
+    topic = week_title or "嵌入式学习任务"
     nodes = []
     for index, (title, action_text, action_route, description) in enumerate(DEFAULT_STAGE_NODE_BLUEPRINTS, start=1):
         coords = DEFAULT_STAGE_NODE_COORDS[index - 1]
@@ -391,16 +364,16 @@ def build_week_one_embedded_nodes() -> list[dict]:
             "resourceType": "video",
             "resourceTypes": ["video"],
             "label": "01",
-            "title": "中医基础理论视频",
+            "title": "STM32 开发环境与最小系统视频",
             "statusText": "可进入",
-            "description": "调用视频查找工具，检索阴阳五行、藏象与气血津液等中医基础理论视频。",
+            "description": "调用视频查找工具，检索 STM32 开发环境、最小系统和程序下载调试视频。",
             "state": "current",
             "x": 112,
             "y": 420,
             "popX": 190,
             "popY": 250,
             "actionText": "查找视频",
-            "actionRoute": "/personalized-resources/video-search?keyword=中医基础理论视频&topic=中医基础理论",
+            "actionRoute": "/personalized-resources/video-search?keyword=STM32开发环境最小系统&topic=嵌入式基础",
             "order": 1,
         },
         {
@@ -409,16 +382,16 @@ def build_week_one_embedded_nodes() -> list[dict]:
             "resourceType": "ppt",
             "resourceTypes": ["ppt"],
             "label": "02",
-            "title": "中医基础理论 PPT",
+            "title": "嵌入式基础与开发流程 PPT",
             "statusText": "可进入",
-            "description": "进入 PPT 生成页面，主题预填为中医基础理论课件，用于生成本周概念课件。",
+            "description": "进入 PPT 生成页面，梳理嵌入式系统组成、开发工具链和程序运行流程。",
             "state": "available",
             "x": 402,
             "y": 292,
             "popX": 402,
             "popY": 122,
             "actionText": "生成 PPT",
-            "actionRoute": "/personalized-resources/ppt?topic=中医基础理论课件&prompt=生成一份面向中医初学者的基础理论PPT，包含阴阳五行、藏象、气血津液与经络入门。&pageCount=6&autostart=1",
+            "actionRoute": "/personalized-resources/ppt?topic=嵌入式基础与开发流程&prompt=生成一份面向嵌入式初学者的课件，包含最小系统、工具链、编译下载与调试流程。&pageCount=6&autostart=1",
             "order": 2,
         },
         {
@@ -427,16 +400,16 @@ def build_week_one_embedded_nodes() -> list[dict]:
             "resourceType": "mindmap",
             "resourceTypes": ["mindmap"],
             "label": "03",
-            "title": "中医基础理论思维导图",
+            "title": "嵌入式开发知识思维导图",
             "statusText": "可进入",
-            "description": "进入思维导图工具，围绕阴阳五行、藏象、气血津液和经络整理知识结构。",
+            "description": "进入思维导图工具，围绕 MCU、GPIO、工具链、编译下载和调试整理知识结构。",
             "state": "available",
             "x": 646,
             "y": 316,
             "popX": 646,
             "popY": 146,
             "actionText": "生成导图",
-            "actionRoute": "/personalized-resources/mind-map?topic=中医基础理论思维导图&keyword=阴阳五行藏象&autostart=1",
+            "actionRoute": "/personalized-resources/mind-map?topic=嵌入式开发知识思维导图&keyword=MCU GPIO 工具链 调试&autostart=1",
             "order": 3,
         },
         {
@@ -447,50 +420,50 @@ def build_week_one_embedded_nodes() -> list[dict]:
             "label": "04",
             "title": "题库练习小测",
             "statusText": "可进入",
-            "description": "进入题库生成页面，预填中医基础理论主题，生成一组用于自测的巩固练习。",
+            "description": "进入题库生成页面，预填嵌入式基础主题，生成一组用于自测的巩固练习。",
             "state": "available",
             "x": 942,
             "y": 369,
             "popX": 942,
             "popY": 198,
             "actionText": "开始小测",
-            "actionRoute": "/personalized-resources/question-bank?module=generate&course=中医基础理论&chapter=阴阳五行与藏象&count=10&autostart=1",
+            "actionRoute": "/personalized-resources/question-bank?module=generate&course=嵌入式系统&chapter=开发环境与GPIO基础&count=10&autostart=1",
             "order": 4,
         },
         {
             "id": "05",
             "cacheKey": "week1-stm32-mcu-lab",
-            "resourceType": "document",
-            "resourceTypes": ["document"],
+            "resourceType": "mcu",
+            "resourceTypes": ["mcu"],
             "label": "05",
-            "title": "基础医案辨析",
+            "title": "GPIO LED 最小实验",
             "statusText": "可进入",
-            "description": "生成基础医案讲义，围绕四诊信息、八纲证型、治法和代表方完成辨析。",
+            "description": "进入单片机模拟器完成 GPIO 输出与 LED 控制，记录代码和运行现象。",
             "state": "available",
             "x": 1188,
             "y": 284,
             "popX": 1188,
             "popY": 114,
-            "actionText": "生成医案讲义",
-            "actionRoute": "/personalized-resources/document?topic=基础医案辨析&autostart=1",
+            "actionText": "进入实验",
+            "actionRoute": "/personalized-resources/mcu-simulator/arduino/uno-led-ready?source=learning-path",
             "order": 5,
         },
         {
             "id": "06",
             "cacheKey": "week1-stm32-review",
-            "resourceType": "review",
-            "resourceTypes": ["note", "quiz"],
+            "resourceType": "generated_video",
+            "resourceTypes": ["generated_video"],
             "label": "06",
-            "title": "阶段复盘",
+            "title": "开发流程 AI 视频讲解",
             "statusText": "可进入",
-            "description": "复盘前面五个节点的学习结果：视频笔记、PPT、导图、小测错题和医案辨析，整理下一步问题。",
+            "description": "生成开发环境、代码编译、程序下载和运行调试流程的 AI 视频讲解，打开后由用户确认生成。",
             "state": "available",
             "x": 1398,
             "y": 185,
             "popX": 1260,
             "popY": 112,
-            "actionText": "整理复盘",
-            "actionRoute": "/personalized-resources?review=tcm-week-1",
+            "actionText": "生成 AI 视频",
+            "actionRoute": "/personalized-resources/video-generator?topic=嵌入式开发流程&autostart=0&source=learning-path",
             "order": 6,
         },
     ]
@@ -673,7 +646,7 @@ def normalize_learning_path_config(raw_config: object) -> dict:
                 )
             generated_route = _learning_path_task_resource_route(
                 resource_type,
-                week.get("title") or week.get("weekLabel") or "中医学习任务",
+                week.get("title") or week.get("weekLabel") or "嵌入式学习任务",
                 week["id"],
                 node_id,
                 cache_key,
@@ -722,7 +695,7 @@ def normalize_learning_path_config(raw_config: object) -> dict:
             )
         nodes = _ensure_learning_path_task_resource_coverage(
             nodes or _json_copy(default_stage["nodes"]),
-            week.get("title") or week.get("weekLabel") or "中医学习任务",
+            week.get("title") or week.get("weekLabel") or "嵌入式学习任务",
             week["id"],
         )
         stages[week["id"]] = {
@@ -1614,13 +1587,11 @@ RESOURCE_VISIT_ROUTES = (
     ("/personalized-resources/question-bank", "question-bank", "题库"),
     ("/personalized-resources/mind-map", "mindmap", "思维导图"),
     ("/personalized-resources/video-search", "video", "学习视频"),
-    ("/personalized-resources/herb-model", "herb-model", "药材模型辨识"),
-    ("/personalized-resources/mcu-simulator", "mcu", "历史实践记录"),
+    ("/personalized-resources/mcu-simulator", "mcu", "单片机实验"),
     ("/personalized-resources/knowledge-base", "knowledge-base", "私有知识库"),
     ("/personalized-resources/document", "document", "课程讲义"),
     ("/personalized-resources/animation", "animation", "动画讲解"),
     ("/personalized-resources/ppt", "ppt", "PPT"),
-    ("/herb-recognition", "herb-recognition", "药材识别"),
     ("/smart-tutor", "smart-tutor", "智能辅导"),
 )
 
@@ -1952,12 +1923,12 @@ def learning_evidence_for_user(conn: sqlite3.Connection, user_id: int) -> dict:
     return evidence_payload
 
 
-EFFECT_RADAR_LABELS = ["基础知识", "辨证思维", "方药应用", "医案实践", "学习投入", "综合素养"]
+EFFECT_RADAR_LABELS = ["基础知识", "编程调试", "实验动手", "项目实践", "学习投入", "工程素养"]
 EFFECT_DOMAIN_KEYWORDS = {
-    "foundation": ("中医基础", "阴阳", "五行", "藏象", "经络", "气血", "津液"),
-    "diagnosis": ("四诊", "望诊", "闻诊", "问诊", "切诊", "辨证", "八纲", "证候", "病机", "脏腑辨证"),
-    "medicine": ("中药", "药材", "药性", "性味", "归经", "方剂", "方药", "配伍", "君臣佐使"),
-    "cases": ("医案", "病例", "临床", "治法", "处方", "复盘"),
+    "foundation": ("嵌入式", "单片机", "MCU", "STM32", "C语言", "寄存器", "计算机基础"),
+    "diagnosis": ("编程", "调试", "串口", "UART", "中断", "定时器", "PWM", "状态机", "日志"),
+    "medicine": ("实验", "GPIO", "开发板", "接线", "烧录", "仿真", "示波器", "传感器"),
+    "cases": ("项目", "Linux驱动", "RTOS", "FreeRTOS", "BSP", "设备树", "综合实训", "复盘"),
 }
 
 
@@ -2010,7 +1981,7 @@ def _effect_profile_weak_points(profile: dict) -> list[str]:
                 continue
             if "阶段" in concise and not any(
                 marker in concise.lower()
-                for marker in ("中医", "中药", "辨证", "药材", "方剂", "四诊", "证候", "医案", "经络", "阴阳", "五行")
+                for marker in ("嵌入式", "单片机", "mcu", "stm32", "gpio", "串口", "中断", "定时器", "驱动", "rtos", "项目", "实验")
             ):
                 continue
             if any(point in concise or concise in point for point in points):
@@ -2090,8 +2061,8 @@ def _effect_path_adjustment_plan(profile: dict, evidence: dict, heatmap: list[di
     resource_cycle = ["question-bank", "mindmap", "ppt"]
     task_actions = {
         "question-bank": "完成 8 道专项题，正确率达到 80%，并复盘全部错题。",
-        "mindmap": "输出一张包含核心概念、证候依据、方药联系和易错点的复盘导图。",
-        "ppt": "完成一套包含证候依据、方药联系与辨析要点的复习课件。",
+        "mindmap": "输出一张包含核心概念、配置链路、实验现象和易错点的复盘导图。",
+        "ppt": "完成一套包含工作原理、关键代码与调试要点的复习课件。",
     }
     tasks = []
     for index, point in enumerate(focus_points, start=1):
@@ -2109,7 +2080,7 @@ def _effect_path_adjustment_plan(profile: dict, evidence: dict, heatmap: list[di
                 "resourceType": resource_type,
                 "resourceParams": {
                     "topic": f"{point_name}专项巩固与再验证",
-                    "course": "中医系统",
+                    "course": "嵌入式系统",
                     "chapter": point_name,
                     "count": 8,
                     "autostart": 1,
@@ -2202,15 +2173,15 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
     medicine_mastery, _ = domain_mastery("medicine")
     case_mastery, _ = domain_mastery("cases")
     completed_feedbacks = [item for item in learning_feedbacks if item.get("outcome") == "completed"]
-    medicine_visits = sum(
+    experiment_visits = sum(
         1
         for item in resource_visits
-        if str(item.get("type") or "") in {"herb-model", "herb-recognition"}
+        if str(item.get("type") or "") in {"mcu", "simulator", "code"}
         or matching_evidence_count([item], "medicine") > 0
     )
-    medicine_feedbacks = matching_evidence_count(completed_feedbacks, "medicine")
-    diagnosis_feedbacks = matching_evidence_count(completed_feedbacks, "diagnosis")
-    case_feedbacks = matching_evidence_count(completed_feedbacks, "cases")
+    experiment_feedbacks = matching_evidence_count(completed_feedbacks, "medicine")
+    debugging_feedbacks = matching_evidence_count(completed_feedbacks, "diagnosis")
+    project_feedbacks = matching_evidence_count(completed_feedbacks, "cases")
     exam_rate = exam_accuracy / 100
     path_rate = path_completion_rate / 100
     activity_count = (
@@ -2233,20 +2204,20 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
             diagnosis_mastery * 0.75
             + exam_rate * 0.35
             + path_rate * 0.3
-            + min(0.2, diagnosis_feedbacks * 0.08),
+            + min(0.2, debugging_feedbacks * 0.08),
         ),
         min(
             1.6,
             medicine_mastery * 0.75
             + exam_rate * 0.25
-            + min(0.4, medicine_visits * 0.12)
-            + min(0.2, medicine_feedbacks * 0.08),
+            + min(0.4, experiment_visits * 0.12)
+            + min(0.2, experiment_feedbacks * 0.08),
         ),
         min(
             1.6,
             case_mastery * 0.7
             + path_rate * 0.45
-            + min(0.3, case_feedbacks * 0.12)
+            + min(0.3, project_feedbacks * 0.12)
             + min(0.25, completed_nodes * 0.025),
         ),
         min(1.5, activity_count * 0.025 + min(0.7, active_learning_seconds / 900 * 0.08)),

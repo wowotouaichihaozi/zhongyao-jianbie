@@ -54,6 +54,7 @@ const showNavbar = computed(() => {
 
 const routesWithoutFloatingAssistant = new Set([
   'login',
+  'agent-digital-twin',
   'knowledge-network',
   'life-tree',
   'ai-coding',

@@ -41,9 +41,9 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
         self.assertEqual(role_counts, {"supervisor": 1, "specialist": 18, "runtime": 3})
         agents = {item["id"]: item for item in DEFAULT_AGENT_MANIFEST.agents}
         self.assertTrue(agents["learning-animation-agent"]["hidden"])
-        self.assertTrue(agents["mcu-agent"]["hidden"])
-        self.assertIn("中医药", agents["learning-animation-agent"]["hiddenReason"])
-        self.assertIn("已下线", agents["mcu-agent"]["hiddenReason"])
+        self.assertFalse(agents["mcu-agent"]["hidden"])
+        self.assertIn("嵌入式", agents["learning-animation-agent"]["hiddenReason"])
+        self.assertEqual(agents["mcu-agent"]["hiddenReason"], "")
         skill_agent_ids = {item["agentId"] for item in DEFAULT_AGENT_MANIFEST.skills}
         unbound_specialists = {
             item["id"]
@@ -103,13 +103,8 @@ class AgentManifestAndHarnessTests(unittest.TestCase):
             for expected_type, message in routing_cases.items():
                 with self.subTest(task_type=expected_type):
                     routed = app_module.xiaozhi_detect_intent(message, {})
-                    expected_route = "document" if expected_type == "mcu" else expected_type
-                    self.assertEqual(routed["resourceType"], expected_route)
-                    if expected_type == "mcu":
-                        self.assertEqual(routed["resourceType"], "document")
-                        self.assertIn("中医医案辨析讲义", routed["reply"])
-                    else:
-                        self.assertEqual(routed["routingSource"], "deterministic")
+                    self.assertEqual(routed["resourceType"], expected_type)
+                    self.assertEqual(routed["routingSource"], "deterministic")
 
         repo_root = Path(__file__).resolve().parents[2]
         router_source = (repo_root / "frontend" / "src" / "router" / "index.js").read_text(encoding="utf-8")

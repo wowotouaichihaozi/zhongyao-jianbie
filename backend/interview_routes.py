@@ -63,7 +63,7 @@ _FRAME_ERROR_MESSAGES = {
     "EMPTY_IMAGE": "未收到关键帧图片",
     "INVALID_IMAGE_BASE64": "关键帧图片格式不正确",
     "IMAGE_TOO_LARGE": "关键帧图片过大，请降低截图分辨率",
-    "MIMO_CONFIG_MISSING": "AI 多模态配置缺失，请检查岐小智模型设置或平台模型凭据",
+    "MIMO_CONFIG_MISSING": "AI 多模态配置缺失，请检查嵌小智模型设置或平台模型凭据",
     "MIMO_TIMEOUT": "AI 关键帧分析超时，请稍后重试",
     "MIMO_PARSE_ERROR": "AI 返回内容解析失败",
     "MIMO_AUTH_FAILED": "AI 鉴权失败，请检查后端 Token",
@@ -172,13 +172,13 @@ def create_interview_blueprint(dependencies: InterviewRouteDependencies) -> Blue
         payload = request.get_json(silent=True) or {}
         context = _session_context(
             {
-                "category": payload.get("category") or "中医基础理论",
+                "category": payload.get("category") or "单片机与 MCU 开发",
                 "categoryKey": payload.get("categoryKey") or payload.get("category_key") or "mcu_development",
-                "position": payload.get("position") or "中医基础理论学习者",
+                "position": payload.get("position") or "STM32 开发工程师",
                 "positionKey": payload.get("positionKey") or payload.get("position_key") or "stm32_developer",
-                "direction": payload.get("direction") or payload.get("topic") or "阴阳五行 / 四诊 / 八纲辨证",
+                "direction": payload.get("direction") or payload.get("topic") or "GPIO / 中断 / UART",
                 "directionKey": payload.get("directionKey") or payload.get("direction_key") or "gpio_interrupt_uart",
-                "topic": payload.get("topic") or "阴阳五行 / 四诊 / 八纲辨证",
+                "topic": payload.get("topic") or "GPIO / 中断 / UART",
                 "difficulty": payload.get("difficulty") or "medium",
                 "difficultyLabel": payload.get("difficultyLabel") or payload.get("difficulty_label") or "",
                 "history": payload.get("history") if isinstance(payload.get("history"), list) else [],

@@ -4,12 +4,19 @@
       <div>
         <span><BrainCircuit :size="18" />SMART TUTOR</span>
         <h1>{{ tutor.question || task?.title || '个性化智能辅导' }}</h1>
+        <p v-if="task?.taskId">任务 {{ task.taskId }}</p>
+      </div>
+      <div v-if="task" class="task-state" :class="task.status">
+        <LoaderCircle v-if="isRunning" :size="17" class="spin" />
+        <CheckCircle2 v-else-if="task.status === 'complete'" :size="17" />
+        <AlertTriangle v-else :size="17" />
+        {{ taskStateText }}
       </div>
     </header>
 
-    <section v-if="isRunning && isEmbedded" class="progress-band" role="status">
+    <section v-if="isRunning" class="progress-band" role="status">
       <div>
-        <strong>{{ result.message || '岐小智正在编排智能辅导任务' }}</strong>
+        <strong>{{ result.message || '嵌小智正在编排智能辅导任务' }}</strong>
         <span>{{ result.currentStage || 'supervisor_dispatch' }}</span>
       </div>
       <div class="progress-track"><i :style="{ width: `${taskProgress}%` }"></i></div>
@@ -23,16 +30,24 @@
     </section>
 
     <template v-if="tutor.answer">
+      <section class="evidence-strip">
+        <div><span>当前画像</span><strong>#{{ profileReportId || '--' }}</strong></div>
+        <div><span>模型</span><strong>{{ modelName || '平台统一模型' }}</strong></div>
+        <div><span>知识引用</span><strong>{{ tutor.references?.length || 0 }} 条</strong></div>
+        <div><span>内容质量</span><strong>{{ tutor.qualityEvaluation?.score || review.score || 0 }} / 100</strong></div>
+        <div><span>Harness</span><strong>{{ review.passed ? '审核通过' : '待核验' }}</strong></div>
+      </section>
+
       <form class="follow-up-band" @submit.prevent="submitFollowUp">
         <div>
           <MessagesSquare :size="18" />
-          <span><strong>继续辅导</strong><small>{{ tutor.followUp || '岐小智会结合本轮回答继续追问。' }}</small></span>
+          <span><strong>继续辅导</strong><small>{{ tutor.followUp || '嵌小智会结合本轮回答继续追问。' }}</small></span>
         </div>
         <textarea v-model.trim="followUpDraft" rows="2" placeholder="输入回答或追问" :disabled="followUpSending"></textarea>
         <button type="button" :disabled="followUpSending || !followUpDraft" @click="submitFollowUp">
           <LoaderCircle v-if="followUpSending" :size="17" class="spin" />
           <Send v-else :size="17" />
-          {{ followUpSending ? '正在交给岐小智' : '提交' }}
+          {{ followUpSending ? '正在交给嵌小智' : '提交' }}
         </button>
         <p v-if="followUpError">{{ followUpError }}</p>
       </form>
@@ -144,7 +159,7 @@
           <section class="support-section harness-section">
             <header><Network :size="18" /><h2>总控执行轨迹</h2></header>
             <dl>
-              <div><dt>Root Agent</dt><dd>{{ orchestration.rootAgentName || orchestration.rootAgent || '岐小智' }}</dd></div>
+              <div><dt>Root Agent</dt><dd>{{ orchestration.rootAgentName || orchestration.rootAgent || '嵌小智' }}</dd></div>
               <div><dt>Skill</dt><dd>{{ harness.skill?.id || 'learning.tutor.answer' }}</dd></div>
               <div><dt>MCP Tool</dt><dd>{{ harness.mcp?.toolCalls?.[0]?.tool || 'learning.tutor.answer' }}</dd></div>
               <div><dt>Run ID</dt><dd>{{ orchestration.runId || harness.runId || '--' }}</dd></div>
@@ -187,7 +202,7 @@ import {
   Volume2,
   Workflow,
 } from 'lucide-vue-next'
-import { getXiaoZhiTask, streamXiaoZhiChat } from '../services/api.js'
+import { chatWithXiaoZhi, getXiaoZhiTask } from '../services/api.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -250,15 +265,11 @@ async function submitFollowUp() {
       firstQuestion ? `当前追问：${firstQuestion}` : '',
       `我的回答或追问：${learnerReply}`,
     ].filter(Boolean).join('\n')
-    let result = null
-    await streamXiaoZhiChat({ message, route: route.fullPath }, async ({ event, data }) => {
-      if (event === 'result') result = data?.data || data || {}
-      if (event === 'error') throw new Error(data?.message || data?.error || '岐小智智能体调用失败')
-    })
-    const cards = result?.cards || []
+    const response = await chatWithXiaoZhi({ message, route: route.fullPath })
+    const cards = response?.data?.cards || []
     const nextTask = cards.find(item => String(item?.type || item?.taskType || '') === 'smart_tutor')
     if (!nextTask?.taskId) {
-      throw new Error(result?.reply || '岐小智没有创建下一轮辅导任务')
+      throw new Error(response?.data?.reply || '嵌小智没有创建下一轮辅导任务')
     }
     followUpDraft.value = ''
     await router.push({

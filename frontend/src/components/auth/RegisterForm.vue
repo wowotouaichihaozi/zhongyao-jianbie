@@ -82,18 +82,15 @@
           placeholder="请输入密码"
           required
         />
-        <span
+        <button
+          type="button"
           class="password-visibility-toggle"
-          role="button"
-          tabindex="0"
           :aria-label="showPassword ? '隐藏密码' : '显示密码'"
           @click="showPassword = !showPassword"
-          @keydown.enter.prevent="showPassword = !showPassword"
-          @keydown.space.prevent="showPassword = !showPassword"
         >
           <Eye v-if="showPassword" :size="18" :stroke-width="2" />
           <EyeOff v-else :size="18" :stroke-width="2" />
-        </span>
+        </button>
       </span>
     </label>
 
@@ -109,18 +106,15 @@
           placeholder="请再次输入密码"
           required
         />
-        <span
+        <button
+          type="button"
           class="password-visibility-toggle"
-          role="button"
-          tabindex="0"
           :aria-label="showConfirmPassword ? '隐藏密码' : '显示密码'"
           @click="showConfirmPassword = !showConfirmPassword"
-          @keydown.enter.prevent="showConfirmPassword = !showConfirmPassword"
-          @keydown.space.prevent="showConfirmPassword = !showConfirmPassword"
         >
           <Eye v-if="showConfirmPassword" :size="18" :stroke-width="2" />
           <EyeOff v-else :size="18" :stroke-width="2" />
-        </span>
+        </button>
       </span>
     </label>
 

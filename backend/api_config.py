@@ -128,7 +128,7 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     "HERMES_AGENT_AUTH_TOKEN": "",
     "HERMES_AGENT_MODEL": "deepseek-chat",
     "HERMES_XIAOZHI_AGENT_ID": "xiaozhi-companion-agent",
-    "HERMES_XIAOZHI_AGENT_NAME": "岐小智陪伴式助手",
+    "HERMES_XIAOZHI_AGENT_NAME": "嵌小智陪伴式助手",
 
     # ── Interview Timeout Configuration ─────────────────────────────────────
     "MIMO_INTERVIEW_TIMEOUT": "60",

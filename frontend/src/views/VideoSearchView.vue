@@ -10,11 +10,17 @@
         <div>
           <span class="video-search-kicker">
             <Clapperboard :size="17" stroke-width="2.2" aria-hidden="true" />
-            岐小智视频查找智能体
+            嵌小智视频查找智能体
           </span>
           <h1>学习视频</h1>
           <p>结合当前学习画像、任务主题和联网检索结果筛选课程视频。</p>
         </div>
+        <span v-if="taskId" class="task-state" :class="taskStateClass">
+          <LoaderCircle v-if="isPending" :size="16" class="spin" aria-hidden="true" />
+          <CircleAlert v-else-if="taskError" :size="16" aria-hidden="true" />
+          <CheckCircle2 v-else :size="16" aria-hidden="true" />
+          {{ taskStatusText }}
+        </span>
       </header>
 
       <form class="video-search-form" @submit.prevent="startSearch">
@@ -25,7 +31,7 @@
             v-model.trim="topic"
             type="search"
             maxlength="100"
-            placeholder="例如：四诊合参与舌脉辨析"
+            placeholder="例如：STM32 GPIO 推挽输出与开漏输出"
             :disabled="isPending"
           />
           <button type="submit" :disabled="!topic || isPending">
@@ -45,8 +51,10 @@
 
       <div v-if="isPending" class="video-loading">
         <span class="loading-rings" aria-hidden="true"><i></i><i></i><i></i></span>
-        <strong>正在筛选学习视频</strong>
-        <p>检索完成后将在这里直接显示结果。</p>
+        <strong>{{ taskStatusText }}</strong>
+        <p>{{ taskMessage }}</p>
+        <div class="loading-track"><span :style="{ width: `${taskProgress}%` }"></span></div>
+        <small>{{ taskProgress }}%</small>
       </div>
 
       <div v-else-if="taskError" class="video-error" role="alert">
@@ -62,7 +70,11 @@
             <span>检索结果</span>
             <h2>{{ selectedResource?.title || topic }}</h2>
           </div>
-          <span class="result-count">{{ videos.length }} 个视频</span>
+          <div class="quality-summary">
+            <span>{{ videos.length }} 个视频</span>
+            <span>质量 {{ quality.score || 0 }} / 100</span>
+            <span>{{ citationCount }} 条知识依据</span>
+          </div>
         </header>
 
         <div class="video-grid">
@@ -150,7 +162,7 @@ const taskStatusText = computed(() => {
 })
 const taskMessage = computed(() => String(
   task.value?.result?.message
-  || '岐小智正在读取学习画像、检索课程视频并校验结果。',
+  || '嵌小智正在读取学习画像、检索课程视频并校验结果。',
 ))
 const videos = computed(() => {
   const result = task.value?.result || {}

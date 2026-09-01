@@ -9,7 +9,7 @@
       <div>
         <div class="ppt-kicker">
           <Sparkles :size="16" aria-hidden="true" />
-          <span>中药鉴别 PPT</span>
+          <span>嵌智学航 PPT</span>
         </div>
         <h1>快速创建演示文稿</h1>
       </div>
@@ -59,7 +59,7 @@
 
           <label class="field">
             <span>主题</span>
-            <input ref="topicInputRef" v-model.trim="form.topic" type="text" placeholder="例如：八纲辨证与典型医案" maxlength="80" autofocus />
+            <input ref="topicInputRef" v-model.trim="form.topic" type="text" placeholder="例如：嵌入式系统课程设计" maxlength="80" autofocus />
           </label>
 
           <label class="field">
@@ -322,7 +322,7 @@ const GENERATION_STAGE_LABELS = {
   error: '生成异常',
 }
 const PLATFORM_STYLE_SKILL = [
-  '使用中药鉴别平台同款画风。',
+  '使用嵌智学航平台同款画风。',
   '白底或极浅薄荷绿背景，深灰文字，绿色 #21B978 / #58D89C 作为强调色。',
   '模块化分区、充足留白、轻量卡片、清晰教育科技感。',
   '避免深色主题、蓝紫主色、高饱和颜色和复杂动效。',
@@ -655,8 +655,8 @@ function restoreCachedLearningNodePptSession(cache, cacheKey, preferredSessionId
     id: String(preferredSessionId || cachedSession.id || cache.sessionId || createSessionId(cacheKey)),
     sourceCacheKey: cacheKey,
     sourceTaskId: cachedSession.sourceTaskId || cache.taskId || '',
-    title: cachedSession.title || cache.title || '中医基础理论 PPT',
-    topic: cachedSession.topic || cache.topic || cache.title || '中医基础理论 PPT',
+    title: cachedSession.title || cache.title || 'STM32 PPT',
+    topic: cachedSession.topic || cache.topic || cache.title || 'STM32 PPT',
     pageCount: Number(cachedSession.pageCount || cache.pageCount || cachedPages.length || 6),
     userMessage: cachedSession.userMessage || cache.userMessage || '',
     status: cachedSession.status || (cache.status === 'complete' ? 'done' : (cache.status === 'error' ? 'error' : 'generating')),
@@ -679,7 +679,7 @@ function buildLearningNodePptCachePatch(session, extra = {}) {
   return {
     status,
     resourceType: 'ppt',
-    title: session?.title || session?.topic || '中医基础理论 PPT',
+    title: session?.title || session?.topic || 'STM32 PPT',
     sessionId,
     taskId: session?.sourceTaskId || '',
     pageCount: Number(session?.pageCount || pages.length || 0),
@@ -690,8 +690,8 @@ function buildLearningNodePptCachePatch(session, extra = {}) {
       id: sessionId,
       sourceCacheKey: cacheKey,
       sourceTaskId: session?.sourceTaskId || '',
-      title: session?.title || session?.topic || '中医基础理论 PPT',
-      topic: session?.topic || session?.title || '中医基础理论 PPT',
+      title: session?.title || session?.topic || 'STM32 PPT',
+      topic: session?.topic || session?.title || 'STM32 PPT',
       pageCount: Number(session?.pageCount || pages.length || 0),
       userMessage: session?.userMessage || '',
       status: session?.status || 'done',
@@ -792,7 +792,7 @@ async function loadXiaoZhiTask(taskId) {
 function applyXiaoZhiTask(task) {
   const result = task.result || {}
   const ppt = result.ppt || {}
-  const topic = ppt.title || result.topic || extractTopicFromTask(task) || '中医学习课件'
+  const topic = ppt.title || result.topic || extractTopicFromTask(task) || '嵌入式学习课件'
   const sessionId = result.sessionId || ppt.sessionId || `xiaozhi_${task.taskId}`
   const timestamp = toTimestamp(task.updatedAt || task.createdAt)
   const generation = normalizeGeneration(task)
@@ -840,7 +840,7 @@ function applyXiaoZhiTask(task) {
       upsertSession({
         ...baseSession,
         status: 'error',
-        error: '岐小智任务已完成，但后端没有返回可预览的 PPT 页面',
+        error: '嵌小智任务已完成，但后端没有返回可预览的 PPT 页面',
       })
       if (cacheKey) {
         markNodeCacheError(cacheKey, {
@@ -848,7 +848,7 @@ function applyXiaoZhiTask(task) {
           title: topic,
           sessionId,
           taskId: task.taskId,
-          error: '岐小智任务已完成，但后端没有返回可预览的 PPT 页面',
+          error: '嵌小智任务已完成，但后端没有返回可预览的 PPT 页面',
         })
       }
     }
@@ -865,7 +865,7 @@ function applyXiaoZhiTask(task) {
     upsertSession({
       ...baseSession,
       status: 'error',
-      error: task.error || '岐小智 PPT 任务生成失败',
+      error: task.error || '嵌小智 PPT 任务生成失败',
       generation,
     })
     if (cacheKey) {
@@ -874,7 +874,7 @@ function applyXiaoZhiTask(task) {
         title: topic,
         sessionId,
         taskId: task.taskId,
-        error: task.error || '岐小智 PPT 任务生成失败',
+        error: task.error || '嵌小智 PPT 任务生成失败',
       })
     }
     currentSessionId.value = sessionId
@@ -1033,7 +1033,7 @@ function sessionFromPersistedTask(task) {
   const status = task.status === 'complete' && pages.length
     ? 'done'
     : (task.status === 'failed' ? 'error' : 'generating')
-  const topic = String(ppt.title || result.topic || extractTopicFromTask(task) || '中医学习课件')
+  const topic = String(ppt.title || result.topic || extractTopicFromTask(task) || '嵌入式学习课件')
   return {
     id: sessionId,
     sourceTaskId: task.taskId,
@@ -1167,9 +1167,9 @@ async function submitQuickCreate() {
     const response = await startPptH5Generation({
       sessionId,
       topic,
-      userMessage: form.userMessage.trim() || `生成一份关于“${topic}”的中药鉴别平台风格 PPT。`,
+      userMessage: form.userMessage.trim() || `生成一份关于“${topic}”的嵌智学航平台风格 PPT。`,
       pageCount: form.pageCount,
-      styleName: '中药鉴别平台',
+      styleName: '嵌智学航平台',
       styleDescription: '白底浅绿、干净明亮、留白充足、模块化教育科技风。',
       styleSkill: PLATFORM_STYLE_SKILL,
     })
@@ -1337,7 +1337,7 @@ function exportPptFile() {
   exporting.value = true
   try {
     const session = currentSession.value || {}
-    const title = session.title || session.topic || form.topic || '中药鉴别PPT'
+    const title = session.title || session.topic || form.topic || '嵌智学航PPT'
     const html = buildStandalonePptHtml(title, pages.value)
     downloadBlob(html, `${sanitizeFilename(title)}.html`, 'text/html;charset=utf-8')
   } finally {
@@ -1355,7 +1355,7 @@ function buildStandalonePptHtml(title, slidePages) {
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029')
   const safeTitle = escapeHtmlText(title)
-  const titleJson = JSON.stringify(String(title || '中药鉴别PPT'))
+  const titleJson = JSON.stringify(String(title || '嵌智学航PPT'))
     .replace(/</g, '\\u003c')
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029')
@@ -1396,7 +1396,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <body>
 <div class="deck-shell">
   <header class="deck-head">
-    <div class="deck-title"><strong id="deckTitle"></strong><span>中药鉴别 H5 演示文稿</span></div>
+    <div class="deck-title"><strong id="deckTitle"></strong><span>嵌智学航 H5 演示文稿</span></div>
     <div class="deck-actions">
       <span class="counter" id="counter"></span>
       <button id="prevBtn" type="button">上一页</button>
@@ -1477,8 +1477,8 @@ render();
 }
 
 function sanitizeFilename(value) {
-  const name = String(value || '中药鉴别PPT').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim()
-  return name.slice(0, 80) || '中药鉴别PPT'
+  const name = String(value || '嵌智学航PPT').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim()
+  return name.slice(0, 80) || '嵌智学航PPT'
 }
 
 function escapeHtmlText(value) {

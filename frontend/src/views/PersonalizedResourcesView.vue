@@ -1,13 +1,8 @@
 <template>
   <div class="resources-page">
     <div class="resources-header">
-      <span class="resources-kicker">学习资源工作台</span>
-      <div class="resources-title-row">
-        <h1>个性化资源</h1>
-        <span class="profile-state" :class="{ ready: hasProfile }">
-          {{ profileLoading ? '画像同步中' : hasProfile ? '已关联学习画像' : '未关联学习画像' }}
-        </span>
-      </div>
+      <h1>个性化资源</h1>
+      <p>基于学习画像智能推荐适配当前水平的学习资料</p>
     </div>
 
     <!-- 无学习画像引导提示条 -->
@@ -26,91 +21,86 @@
       <button class="banner-btn" @click="$router.push('/learning-profile')">前往评估</button>
     </div>
 
+    <!-- 资源列表 -->
     <section class="resource-tools-section" aria-labelledby="resource-tools-title">
       <div class="resource-tools-head">
-        <h2 id="resource-tools-title">新建资源</h2>
+        <div>
+          <h2 id="resource-tools-title">资源生成工具</h2>
+          <p>从这里进入题库、课件、导图、视频生成和视频检索工具，独立页面更专注。</p>
+        </div>
       </div>
-      <nav class="resource-tools-grid" aria-label="资源生成工具">
+      <div class="resource-tools-grid">
         <RouterLink
           v-for="tool in resourceTools"
           :key="tool.to"
           class="resource-tool-card"
+          :class="tool.tone"
           :to="tool.to"
           target="_blank"
           rel="noopener noreferrer"
-          :aria-label="tool.title"
         >
           <span class="resource-tool-icon">
-            <component :is="tool.icon" :size="26" :stroke-width="1.8" aria-hidden="true" />
+            <component :is="tool.icon" :size="28" :stroke-width="2.2" aria-hidden="true" />
           </span>
-          <strong>{{ tool.title }}</strong>
+          <span class="resource-tool-copy">
+            <strong>{{ tool.title }}</strong>
+            <em>{{ tool.description }}</em>
+          </span>
+          <ArrowRight :size="20" :stroke-width="2.2" aria-hidden="true" />
         </RouterLink>
-      </nav>
+      </div>
     </section>
 
-    <section class="resource-archive" aria-labelledby="resource-archive-title">
-      <div class="archive-heading">
-        <div class="archive-title">
-          <h2 id="resource-archive-title">历史资源</h2>
-          <span>{{ resourcesLoading ? '正在同步' : `共 ${visibleResourceCount} 项` }}</span>
-        </div>
-        <div class="archive-actions">
-          <label class="history-search archive-search">
-            <Search :size="17" aria-hidden="true" />
-            <input
-              v-model="searchQuery"
-              type="search"
-              inputmode="search"
-              autocomplete="off"
-              aria-label="搜索历史资源"
-              placeholder="搜索资源"
-              @keydown.esc="clearSearch"
-            />
-            <button v-if="searchQuery" type="button" title="清除搜索" aria-label="清除搜索" @click="clearSearch">
-              <X :size="15" aria-hidden="true" />
-            </button>
-          </label>
-          <label class="type-filter">
-            <span>类型</span>
-            <select v-model="activeCategory" aria-label="按资源类型筛选">
-              <option v-for="cat in categories" :key="cat.key" :value="cat.key">{{ cat.label }}</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            class="history-refresh-btn"
-            :disabled="resourcesLoading"
-            title="刷新资源"
-            aria-label="刷新资源"
-            @click="loadResources"
-          >
-            <RefreshCw :size="16" :class="{ spin: resourcesLoading }" aria-hidden="true" />
-          </button>
-          <button class="generate-btn" @click="generateNewResource" :disabled="generating || !hasProfile">
-            <Plus v-if="!generating" :size="17" aria-hidden="true" />
-            <span v-if="generating" class="loading-spinner"></span>
-            {{ generating ? '生成中...' : '生成资源' }}
-          </button>
-        </div>
+    <div class="resources-content">
+      <div class="history-resources-head">
+        <h2>历史资源</h2>
+        <button
+          type="button"
+          class="history-refresh-btn"
+          :disabled="resourcesLoading"
+          aria-label="刷新历史资源"
+          @click="loadResources"
+        >
+          <RefreshCw :size="16" :class="{ spin: resourcesLoading }" aria-hidden="true" />
+          {{ resourcesLoading ? '加载中' : '刷新' }}
+        </button>
       </div>
-
       <div v-if="resourcesWarning" class="history-status warning" role="status">
         <TriangleAlert :size="18" aria-hidden="true" />
         <span>{{ resourcesWarning }}</span>
         <button type="button" @click="loadResources">重新加载</button>
       </div>
-
-      <div class="archive-result-line" aria-live="polite">
-        <span v-if="resourcesLoading || searchQuery.trim() || activeCategory !== 'all'">
-          {{ resourcesLoading ? '正在读取资源记录' : resultSummary }}
-        </span>
-        <span v-if="filteredResources.length">第 {{ currentPage }} / {{ totalPages }} 页</span>
+      <!-- 分类标签栏 -->
+      <div class="category-tabs">
+        <button
+          v-for="cat in categories"
+          :key="cat.key"
+          :class="['tab-btn', { active: activeCategory === cat.key }]"
+          @click="activeCategory = cat.key"
+        >
+          {{ cat.label }}
+        </button>
       </div>
 
+      <!-- 操作栏 -->
+      <div class="action-bar">
+        <span class="resource-count">
+          {{ resourcesLoading ? '正在同步历史资源' : `共 ${filteredResources.length} 个资源` }}
+        </span>
+        <button class="generate-btn" @click="generateNewResource" :disabled="generating || !hasProfile">
+          <svg v-if="!generating" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span v-if="generating" class="loading-spinner"></span>
+          {{ generating ? '生成中...' : '生成新资源' }}
+        </button>
+      </div>
+
+      <!-- 资源卡片网格 -->
       <div v-if="resourcesLoading && !resources.length" class="history-loading" role="status" aria-live="polite">
         <LoaderCircle :size="28" class="spin" aria-hidden="true" />
         <strong>正在同步真实资源记录</strong>
-        <span>正在读取岐小智任务与已生成视频，请稍候。</span>
+        <span>正在读取嵌小智任务与已生成视频，请稍候。</span>
       </div>
       <div v-else-if="resourcesError && !resources.length" class="history-error" role="alert">
         <TriangleAlert :size="30" aria-hidden="true" />
@@ -118,112 +108,111 @@
         <span>{{ resourcesError }}</span>
         <button type="button" @click="loadResources">重试</button>
       </div>
-      <div v-else-if="filteredResources.length" class="resource-gallery" aria-label="历史资源">
-        <article
-          v-for="resource in paginatedResources"
+      <div v-else class="resources-grid">
+        <button
+          v-for="resource in filteredResources"
           :key="resource.id"
-          :ref="element => observePreviewCard(resource.id, element)"
-          class="resource-cover-card"
-          role="link"
-          tabindex="0"
+          type="button"
+          class="resource-card"
           @click="openResource(resource)"
-          @keydown.enter="openResource(resource)"
-          @keydown.space.prevent="openResource(resource)"
         >
-          <div class="resource-cover-frame">
-            <div class="cover-loading" :class="{ hidden: isPreviewLoaded(resource.id) }" aria-hidden="true">
-              <component :is="getResourceIcon(resource.type)" :size="28" :stroke-width="1.5" />
-              <span>{{ usesStaticCover(resource) ? staticCoverLabel(resource) : '正在读取封面' }}</span>
-            </div>
-            <img
-              v-if="usesStaticCover(resource)"
-              class="resource-static-cover"
-              :class="{ loaded: isPreviewLoaded(resource.id) }"
-              :src="getResourceCoverImage(resource)"
-              :alt="`${resource.title}封面`"
-              loading="lazy"
-              decoding="async"
-              @load="markPreviewLoaded(resource.id)"
-              @error="retryStaticCover(resource)"
-            />
-            <iframe
-              v-else-if="isPreviewEligible(resource.id)"
-              class="resource-live-cover"
-              :class="{ loaded: isPreviewLoaded(resource.id) }"
-              :src="getResourcePreviewUrl(resource)"
-              :title="`${resource.title}页面封面`"
-              tabindex="-1"
-              loading="lazy"
-              scrolling="no"
-              aria-hidden="true"
-              @load="markPreviewLoaded(resource.id)"
-            ></iframe>
-          </div>
-          <div class="resource-cover-copy">
-            <h3>{{ resource.title }}</h3>
-            <footer>
-              <span>质量 {{ resourceQualityScore(resource) }}</span>
-              <span>{{ getTypeName(resource.type) }}</span>
-              <time :datetime="resource.createdAt || undefined">{{ resource.createdAt ? formatResourceTime(resource.createdAt) : '--' }}</time>
-            </footer>
-          </div>
-        </article>
-      </div>
-
-      <div v-if="!resourcesLoading && !resourcesError && filteredResources.length === 0" class="empty-state">
-        <Search :size="30" aria-hidden="true" />
-        <p>{{ searchQuery ? `没有找到与“${searchQuery}”相关的资源` : '当前类型暂无资源' }}</p>
-        <button v-if="searchQuery" type="button" @click="clearSearch">清除搜索</button>
-      </div>
-
-      <nav v-if="!resourcesLoading && totalPages > 1" class="history-pagination" aria-label="历史资源分页">
-        <button type="button" class="page-nav-btn" :disabled="currentPage === 1" title="上一页" aria-label="上一页" @click="goToPage(currentPage - 1)">
-          <ChevronLeft :size="17" aria-hidden="true" />
-        </button>
-        <template v-for="item in paginationItems" :key="item">
-          <span v-if="typeof item === 'string'" class="page-ellipsis" aria-hidden="true">...</span>
-          <button
-            v-else
-            type="button"
-            class="page-number-btn"
-            :class="{ active: item === currentPage }"
-            :aria-current="item === currentPage ? 'page' : undefined"
-            :aria-label="`第 ${item} 页`"
-            @click="goToPage(item)"
+          <div
+            class="card-icon"
+            :style="{
+              background: getTypeColor(resource.type),
+              color: getTypeIconColor(resource.type),
+            }"
           >
-            {{ item }}
-          </button>
-        </template>
-        <button type="button" class="page-nav-btn" :disabled="currentPage === totalPages" title="下一页" aria-label="下一页" @click="goToPage(currentPage + 1)">
-          <ChevronRight :size="17" aria-hidden="true" />
+            <svg v-if="resource.type === 'mindmap'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M4 6h16M4 12h10m-10 6h16" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg v-else-if="resource.type === 'ppt'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l9-4 9 4M3 7l9 4 9-4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg v-else-if="resource.type === 'video' || resource.type === 'generated_video'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg v-else-if="resource.type === 'animation'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="m10 9 5 3-5 3V9Z" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M7 3v2m10-2v2M7 19v2m10-2v2" stroke-linecap="round" />
+            </svg>
+            <svg v-else-if="resource.type === 'code'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg v-else-if="resource.type === 'simulator'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M9 3h6v3h3a2 2 0 012 2v8a2 2 0 01-2 2h-3v3H9v-3H6a2 2 0 01-2-2V8a2 2 0 012-2h3V3zM8 11h2m4 0h2M8 15h8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>{{ resource.title }}</h3>
+            <p class="card-desc">{{ resource.description }}</p>
+            <div class="card-footer">
+              <span class="type-tag">{{ getTypeName(resource.type) }}</span>
+              <time v-if="resource.createdAt" class="history-time" :datetime="resource.createdAt">
+                {{ formatResourceTime(resource.createdAt) }}
+              </time>
+              <span v-if="Number.isFinite(resource.matchScore)" class="match-score" :style="{ color: getMatchColor(resource.matchScore) }">
+                匹配度 {{ resource.matchScore }}%
+              </span>
+              <span v-if="resourceQuality(resource).score" class="quality-badge">
+                质量 {{ resourceQuality(resource).score }}
+              </span>
+              <span v-if="resourceCitationCount(resource)" class="citation-badge">
+                引用 {{ resourceCitationCount(resource) }}
+              </span>
+              <span v-if="getEvaluation(resource.id)" class="learned-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                已学习
+                <span class="badge-stars">
+                  <svg v-for="s in 5" :key="s" viewBox="0 0 24 24" :fill="s <= getEvaluation(resource.id).rating ? '#f59e0b' : 'none'" :stroke="s <= getEvaluation(resource.id).rating ? '#f59e0b' : '#cbd5e1'" stroke-width="2" class="mini-star">
+                    <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                  </svg>
+                </span>
+              </span>
+            </div>
+          </div>
+          <div class="card-arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
         </button>
-      </nav>
-    </section>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-if="!resourcesLoading && !resourcesError && filteredResources.length === 0" class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p>该分类暂无资源，点击"生成新资源"创建</p>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, markRaw, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, markRaw, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  ArrowRight,
   BookOpenCheck,
-  Box,
-  ChevronLeft,
-  ChevronRight,
-  CirclePlay,
   Clapperboard,
-  FileText,
+  Cpu,
   LoaderCircle,
   Presentation,
-  Plus,
   RefreshCw,
   Search,
   Share2,
   TriangleAlert,
-  X,
 } from 'lucide-vue-next'
 import {
-  getApiErrorMessage,
   getLearningProfiles,
   getGeneratedVideoTaskHistory,
   getXiaoZhiHistory,
@@ -243,33 +232,45 @@ const route = useRoute()
 const resourceTools = [
   {
     title: 'AI 视频课程',
+    description: '按学习画像生成讲解视频，自动配音、字幕与服务端剪辑。',
     to: '/personalized-resources/video-generator',
     icon: markRaw(Clapperboard),
+    tone: 'tool-teal',
   },
   {
     title: '题库生成',
+    description: '按章节和难度快速生成练习题单与考试。',
     to: '/personalized-resources/question-bank',
     icon: markRaw(BookOpenCheck),
+    tone: 'tool-green',
   },
   {
     title: 'PPT生成',
+    description: '根据主题和材料生成课程演示文稿。',
     to: '/personalized-resources/ppt',
     icon: markRaw(Presentation),
+    tone: 'tool-blue',
   },
   {
     title: '思维导图',
+    description: '把知识点整理成结构清晰的学习导图。',
     to: '/personalized-resources/mind-map',
     icon: markRaw(Share2),
-  },
-  {
-    title: '药材模型识别',
-    to: '/personalized-resources/herb-model',
-    icon: markRaw(Box),
+    tone: 'tool-purple',
   },
   {
     title: '视频查找',
+    description: '检索适合当前学习阶段的讲解视频。',
     to: '/personalized-resources/video-search',
     icon: markRaw(Search),
+    tone: 'tool-teal',
+  },
+  {
+    title: '单片机模拟器',
+    description: '进入独立实验台，完成 Arduino 与 8051 单片机仿真实验。',
+    to: '/personalized-resources/mcu-simulator',
+    icon: markRaw(Cpu),
+    tone: 'tool-orange',
   },
 ]
 
@@ -280,18 +281,13 @@ const categories = [
   { key: 'video', label: '视频' },
   { key: 'generated_video', label: 'AI 视频生成' },
   { key: 'quiz', label: '练习题' },
-  { key: 'herb_model', label: '药材模型' },
+  { key: 'simulator', label: '模拟器实验' },
 ]
 
 const requestedCategory = String(route.query.category || '')
 const activeCategory = ref(categories.some(item => item.key === requestedCategory) ? requestedCategory : 'all')
-const searchQuery = ref('')
-const currentPage = ref(1)
-const pageSize = 12
 const generating = ref(false)
 const resources = ref([])
-const loadedResourcePreviews = ref(new Set())
-const eligibleResourcePreviews = ref(new Set())
 const hasProfile = ref(false)
 const profileData = ref(null)
 const evaluations = ref([])
@@ -300,45 +296,12 @@ const profileError = ref('')
 const resourcesLoading = ref(true)
 const resourcesError = ref('')
 const resourcesWarning = ref('')
-const hiddenResourceTypes = new Set(['document', 'animation', 'code', 'simulator', 'mcu'])
-
-let previewObserver = null
+const hiddenResourceTypes = new Set(['document', 'animation', 'code'])
 
 onMounted(async () => {
-  if (typeof window.IntersectionObserver === 'function') {
-    previewObserver = new window.IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue
-        const resourceId = entry.target?.dataset?.previewResourceId
-        if (resourceId) {
-          const next = new Set(eligibleResourcePreviews.value)
-          next.add(previewResourceKey(resourceId))
-          eligibleResourcePreviews.value = next
-        }
-        previewObserver?.unobserve(entry.target)
-      }
-    }, { rootMargin: '320px 0px', threshold: 0.01 })
-  }
   loadEvaluations()
   await Promise.all([loadProfile(), loadResources()])
 })
-
-function observePreviewCard(resourceId, element) {
-  if (!element) return
-  if (isPreviewEligible(resourceId)) return
-  if (!previewObserver) {
-    const next = new Set(eligibleResourcePreviews.value)
-    next.add(previewResourceKey(resourceId))
-    eligibleResourcePreviews.value = next
-    return
-  }
-  element.dataset.previewResourceId = previewResourceKey(resourceId)
-  previewObserver.observe(element)
-}
-
-function isPreviewEligible(resourceId) {
-  return eligibleResourcePreviews.value.has(previewResourceKey(resourceId))
-}
 
 async function loadProfile() {
   profileLoading.value = true
@@ -352,7 +315,7 @@ async function loadProfile() {
   } catch (error) {
     hasProfile.value = false
     profileData.value = null
-    profileError.value = getApiErrorMessage(error, '学习画像暂时无法读取，当前不能确认个性化生成条件。')
+    profileError.value = error?.response?.data?.msg || error?.message || '学习画像暂时无法读取，当前不能确认个性化生成条件。'
   } finally {
     profileLoading.value = false
   }
@@ -364,7 +327,7 @@ async function loadResources() {
   resourcesWarning.value = ''
   const [historyResult, videoResult] = await Promise.allSettled([
     getXiaoZhiHistory(100),
-    loadAllGeneratedVideos(),
+    loadAllCompletedGeneratedVideos(),
   ])
   try {
     const response = historyResult.status === 'fulfilled' ? historyResult.value : {}
@@ -374,14 +337,13 @@ async function loadResources() {
     let legacyResources = []
     try {
       const saved = localStorage.getItem('personalizedResources')
-      const parsed = saved ? JSON.parse(saved) : []
-      legacyResources = Array.isArray(parsed)
-        ? parsed.filter(item => item?.source === 'workflow-real-data' || item?.metadata)
+      legacyResources = saved
+        ? JSON.parse(saved).filter(item => item?.source === 'workflow-real-data' || item?.metadata)
         : []
     } catch {}
 
     const failedSources = []
-    if (historyResult.status === 'rejected') failedSources.push('岐小智任务历史')
+    if (historyResult.status === 'rejected') failedSources.push('嵌小智任务历史')
     if (videoResult.status === 'rejected') failedSources.push('AI 视频历史')
     const seen = new Set()
     const mergedResources = sortResourceHistory(
@@ -402,17 +364,17 @@ async function loadResources() {
       resourcesWarning.value = `${failedSources.join('、')}暂时未同步，当前列表可能不完整。`
     }
   } catch (error) {
-    resourcesError.value = getApiErrorMessage(error, '历史资源解析失败，请重试。')
+    resourcesError.value = error?.message || '历史资源解析失败，请重试。'
   } finally {
     resourcesLoading.value = false
   }
 }
 
-async function loadAllGeneratedVideos() {
+async function loadAllCompletedGeneratedVideos() {
   const tasks = []
   let offset = 0
   while (true) {
-    const page = await getGeneratedVideoTaskHistory({ limit: 100, offset })
+    const page = await getGeneratedVideoTaskHistory({ status: 'complete', limit: 100, offset })
     const pageTasks = Array.isArray(page?.tasks) ? page.tasks : []
     tasks.push(...pageTasks)
     if (!page?.hasMore || pageTasks.length === 0) break
@@ -432,14 +394,12 @@ function sortResourceHistory(items) {
 function loadEvaluations() {
   try {
     const raw = localStorage.getItem('resourceEvaluations')
-    const parsed = raw ? JSON.parse(raw) : []
-    evaluations.value = Array.isArray(parsed) ? parsed : []
+    if (raw) evaluations.value = JSON.parse(raw)
   } catch {}
 }
 
 function getEvaluation(resourceId) {
-  return (Array.isArray(evaluations.value) ? evaluations.value : [])
-    .find(e => e?.resourceId === resourceId)
+  return evaluations.value.find(e => e.resourceId === resourceId)
 }
 
 function saveResources() {
@@ -450,153 +410,206 @@ function initDefaultResources() {
   const defaults = [
     {
       id: Date.now(),
-      title: '中医基础理论思维导图',
-      description: '涵盖阴阳五行、藏象、气血津液与经络等核心知识点',
+      title: 'STM32基础知识思维导图',
+      description: '涵盖STM32架构、GPIO、定时器等核心知识点',
       type: 'mindmap',
       matchScore: 85,
       content: `mindmap
-  root((中医基础理论))
-    整体观念
-      人体自身整体
-      人与自然统一
-    阴阳五行
-      阴阳制约互根
-      五行生克制化
-    藏象
-      五脏六腑
-      形体官窍
-    气血津液
-      生成运行
-      相互关系
-    经络
-      经脉络脉
-      运行气血`,
+  root((STM32))
+    架构
+      Cortex-M3
+      寄存器
+      时钟系统
+    GPIO
+      输入模式
+      输出模式
+      复用功能
+    定时器
+      基本定时器
+      通用定时器
+      高级定时器
+    通信
+      USART
+      SPI
+      I2C`,
       createdAt: new Date().toISOString(),
     },
     {
       id: Date.now() + 1,
-      title: '四诊与八纲辨证基础',
-      description: '适合初学者的中医诊断学 PPT 课件',
+      title: '嵌入式C语言编程基础',
+      description: '适合初学者的C语言PPT课件，包含指针、数组、结构体',
       type: 'ppt',
       matchScore: 78,
-      content: `# 四诊与八纲辨证基础
+      content: `# 嵌入式C语言编程基础
 
-## 第一页：四诊合参
-- 望、闻、问、切相互补充
-- 不以单一症状直接下结论
+## 第一页：C语言概述
+- C语言是嵌入式开发的首选语言
+- 特点：效率高、可移植性强、贴近硬件
 
-## 第二页：望诊与舌诊
-- 神色形态
-- 舌质与舌苔
+## 第二页：数据类型
+- int, char, float, double
+- 指针类型
+- 结构体
 
-## 第三页：问诊与脉诊
-- 主诉、寒热、饮食、睡眠与二便
-- 脉位、脉数、脉形与脉势
+## 第三页：指针基础
+- 指针是C语言的核心概念
+- 指针与数组的关系
+- 指针运算
 
-## 第四页：八纲辨证
-- 表里、寒热、虚实、阴阳
+## 第四页：结构体
+- 结构体定义与使用
+- 结构体指针
+- 内存对齐
 
-## 第五页：医案练习
-- 提取四诊信息
-- 推导证候、病机与治法`,
+## 第五页：总结
+- 掌握C语言是嵌入式开发的基础
+- 多练习，多实践`,
       createdAt: new Date().toISOString(),
     },
     {
       id: Date.now() + 2,
-      title: '舌诊与脉诊视频学习单',
-      description: '通过典型案例学习舌象、脉象和四诊合参',
+      title: 'STM32 GPIO操作视频教程',
+      description: '通过LED闪烁项目学习GPIO配置与操作',
       type: 'video',
       matchScore: 90,
-      content: `# 舌诊与脉诊视频学习单
+      content: `# STM32 GPIO操作视频教程
 
 ## 课程大纲
 
-### 第1节：舌诊观察
-- 舌质与舌苔
-- 舌色、舌形与津液
+### 第1节：GPIO概念介绍
+- 什么是GPIO
+- GPIO的工作模式
+- 输入/输出配置
 
-### 第2节：脉诊基础
-- 脉位、脉数、脉形与脉势
-- 常见脉象对比
+### 第2节：开发环境搭建
+- 安装Keil MDK
+- 配置STM32CubeMX
+- 新建工程
 
-### 第3节：四诊信息记录
+### 第3节：LED闪烁代码
 \`\`\`c
-按望、闻、问、切分类整理医案信息，标出支持和不支持候选证候的依据。
+// 初始化GPIO
+void LED_Init(void) {
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    GPIO_InitStruct.Pin = GPIO_PIN_13;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+}
 \`\`\`
 
-### 第4节：辨证练习
-- 对比相近证候
-- 写出病机与治法思路
+### 第4节：编译下载运行
+- 编译项目
+- 下载到开发板
+- 观察LED闪烁效果
 
-### 第5节：核验与总结
-- 使用教材或知识库核对结论
-- 记录需要继续查证的知识点`,
+### 第5节：练习与总结
+- 修改闪烁频率
+- 添加多个LED控制`,
       createdAt: new Date().toISOString(),
     },
     {
       id: Date.now() + 3,
-      title: '脾胃病医案辨析示例',
-      description: '按四诊、证候、病机、治法组织医案分析',
-      type: 'document',
+      title: 'STM32 UART串口通信示例',
+      description: '完整的串口收发代码，带详细注释',
+      type: 'code',
       matchScore: 82,
-      content: `# 脾胃病医案辨析示例
+      content: `# STM32 UART串口通信示例
 
-## 四诊信息
+## uart_example.c
 
 \`\`\`c
-按主诉、兼症、舌象和脉象分类记录，不遗漏否定信息。
+#include "stm32f1xx_hal.h"
+#include <string.h>
+
+UART_HandleTypeDef huart1;
+
+// UART初始化
+void UART1_Init(void) {
+    huart1.Instance = USART1;
+    huart1.Init.BaudRate = 115200;
+    huart1.Init.WordLength = UART_WORDLENGTH_8B;
+    huart1.Init.StopBits = UART_STOPBITS_1;
+    huart1.Init.Parity = UART_PARITY_NONE;
+    huart1.Init.Mode = UART_MODE_TX_RX;
+    HAL_UART_Init(&huart1);
+}
+
+// 发送字符串
+void UART_SendString(char *str) {
+    HAL_UART_Transmit(&huart1, (uint8_t *)str, strlen(str), 1000);
+}
+
+// 接收数据
+uint8_t rxBuffer[1];
+void UART_Receive(void) {
+    HAL_UART_Receive_IT(&huart1, rxBuffer, 1);
+}
+
+// 主函数
+int main(void) {
+    HAL_Init();
+    SystemClock_Config();
+    UART1_Init();
+    UART_SendString("Hello STM32!\\r\\n");
+
+    while (1) {
+        UART_Receive();
+        HAL_Delay(100);
+    }
+}
 \`\`\`
 
 ## 关键点说明
-1. 先列候选证候，再逐项核对支持与不支持证据
-2. 病机和治法的推导不得跳过关键依据
-3. 方药内容须核对权威教材，并提示禁忌与安全边界`,
+1. 波特率设置为115200
+2. 使用中断方式接收数据
+3. 发送使用阻塞方式`,
       createdAt: new Date().toISOString(),
     },
     {
       id: Date.now() + 4,
-      title: '中药与方剂基础练习题',
-      description: '检验性味归经、功效主治和方剂配伍掌握程度',
+      title: 'GPIO配置练习题',
+      description: '检验GPIO配置知识掌握程度',
       type: 'quiz',
       matchScore: 88,
-      content: `# 中药与方剂基础练习题
+      content: `# GPIO配置练习题
 
-## 题目1：中药知识框架
-**问题：** 学习一味中药时，应从哪些维度建立知识卡片？
+## 题目1：GPIO模式选择
+**问题：** 在STM32中，如果要读取一个按键的状态，GPIO应该配置为哪种模式？
 
-A. 只记药名
-B. 只记功效
-C. 性味、归经、功效、主治、配伍与禁忌
-D. 只记药物图片
+A. 推挽输出
+B. 开漏输出
+C. 上拉输入
+D. 模拟输入
 
-**答案：** C
-**解析：** 应建立完整知识框架并注明可靠来源。
-
----
-
-## 题目2：方剂配伍
-**问题：** 君臣佐使主要用于说明什么？
-
-A. 药物颜色
-B. 方中药物的主次与协同制约关系
-C. 药物产地
-D. 煎药器具
-
-**答案：** B
-**解析：** 应结合具体方剂理解主治核心、协同加强、兼治制约与引经调和。
+**答案：** C. 上拉输入
+**解析：** 按键通常需要读取高/低电平，使用上拉输入模式，按键未按下时为高电平，按下时为低电平。
 
 ---
 
-## 题目3：安全边界
-**问题：** 为什么不能只凭单个症状直接推荐方药？
+## 题目2：GPIO速度配置
+**问题：** LED闪烁项目中，GPIO的输出速度应该设置为？
 
-A. 症状没有意义
-B. 中医强调四诊合参和辨证论治，方药还涉及禁忌与个体差异
-C. 所有方剂都一样
-D. 不需要学习方剂
+A. 低速
+B. 中速
+C. 高速
+D. 以上都可以
 
-**答案：** B
-**解析：** 学习讨论不能替代现实诊断和个体化处方建议。`,
+**答案：** A. 低速
+**解析：** LED控制不需要高速翻转，低速即可满足需求，还能降低功耗。
+
+---
+
+## 题目3：复用功能
+**问题：** STM32的UART1_TX引脚通常对应哪个引脚？
+
+A. PA9
+B. PA10
+C. PB6
+D. PB7
+
+**答案：** A. PA9
+**解析：** STM32F103系列中，USART1_TX默认复用在PA9引脚。`,
       createdAt: new Date().toISOString(),
     },
   ]
@@ -607,188 +620,9 @@ D. 不需要学习方剂
 
 const filteredResources = computed(() => {
   const visibleResources = resources.value.filter(r => !hiddenResourceTypes.has(String(r?.type || '')))
-  const categoryResources = activeCategory.value === 'all'
-    ? visibleResources
-    : visibleResources.filter(r => r.type === activeCategory.value)
-  const query = searchQuery.value.trim().toLocaleLowerCase('zh-CN')
-  if (!query) return categoryResources
-  return categoryResources.filter(resource => [
-    resource?.title,
-    resource?.description,
-    getTypeName(resource?.type),
-  ].some(value => String(value || '').toLocaleLowerCase('zh-CN').includes(query)))
+  if (activeCategory.value === 'all') return visibleResources
+  return visibleResources.filter(r => r.type === activeCategory.value)
 })
-
-const visibleResourceCount = computed(() => (
-  resources.value.filter(resource => !hiddenResourceTypes.has(String(resource?.type || ''))).length
-))
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredResources.value.length / pageSize)))
-
-const paginatedResources = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return filteredResources.value.slice(start, start + pageSize)
-})
-
-const resultSummary = computed(() => {
-  if (searchQuery.value.trim() || activeCategory.value !== 'all') {
-    return `找到 ${filteredResources.value.length} 项，共 ${visibleResourceCount.value} 项`
-  }
-  return `共 ${visibleResourceCount.value} 项`
-})
-
-const paginationItems = computed(() => {
-  const total = totalPages.value
-  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1)
-  const items = [1]
-  const start = Math.max(2, currentPage.value - 1)
-  const end = Math.min(total - 1, currentPage.value + 1)
-  if (start > 2) items.push('before')
-  for (let page = start; page <= end; page += 1) items.push(page)
-  if (end < total - 1) items.push('after')
-  items.push(total)
-  return items
-})
-
-watch([activeCategory, searchQuery], () => {
-  currentPage.value = 1
-})
-
-watch(totalPages, total => {
-  if (currentPage.value > total) currentPage.value = total
-})
-
-function clearSearch() {
-  searchQuery.value = ''
-}
-
-function goToPage(page) {
-  currentPage.value = Math.min(Math.max(1, Number(page) || 1), totalPages.value)
-  document.querySelector('.archive-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
-function getResourceIcon(type) {
-  return {
-    mindmap: Share2,
-    ppt: Presentation,
-    video: CirclePlay,
-    generated_video: Clapperboard,
-    quiz: BookOpenCheck,
-    herb_model: Box,
-  }[type] || FileText
-}
-
-function previewResourceKey(resourceId) {
-  return String(resourceId || '')
-}
-
-function isPreviewLoaded(resourceId) {
-  return loadedResourcePreviews.value.has(previewResourceKey(resourceId))
-}
-
-function markPreviewLoaded(resourceId) {
-  const next = new Set(loadedResourcePreviews.value)
-  next.add(previewResourceKey(resourceId))
-  loadedResourcePreviews.value = next
-}
-
-const staticCoverRetries = new Map()
-const staticCoverRetryTimers = new Map()
-
-function usesStaticCover(resource) {
-  return String(resource?.type || '') === 'generated_video'
-}
-
-function proxiedCoverUrl(value) {
-  const cover = String(value || '').trim()
-  if (!cover) return ''
-  return /^https?:\/\//i.test(cover) ? `/api-cover?url=${encodeURIComponent(cover)}` : cover
-}
-
-function getResourceCoverImage(resource) {
-  const attempt = staticCoverRetries.get(previewResourceKey(resource?.id)) || 0
-  const metadata = (resource?.metadata && typeof resource.metadata === 'object') ? resource.metadata : {}
-  const content = (resource?.content && typeof resource.content === 'object') ? resource.content : {}
-  const taskId = String(metadata?.taskId || resource?.taskId || '')
-  const cover = (taskId ? `/api/personalized-resources/generated-videos/${encodeURIComponent(taskId)}/poster` : '')
-    || content?.posterUrl
-    || metadata?.posterUrl
-    || content?.cover
-    || metadata?.cover
-    || content?.thumbnailUrl
-    || metadata?.thumbnailUrl
-  const url = proxiedCoverUrl(cover)
-  if (!url || !attempt) return url
-  return `${url}${url.includes('?') ? '&' : '?'}coverAttempt=${attempt}`
-}
-
-function retryStaticCover(resource) {
-  const key = previewResourceKey(resource?.id)
-  const attempt = staticCoverRetries.get(key) || 0
-  if (staticCoverRetryTimers.has(key)) return
-  const timer = window.setTimeout(() => {
-    staticCoverRetryTimers.delete(key)
-    staticCoverRetries.set(key, attempt + 1)
-    resources.value = [...resources.value]
-  }, Math.min(10000, 2000 + attempt * 500))
-  staticCoverRetryTimers.set(key, timer)
-}
-
-function staticCoverLabel() {
-  return '首图生成中'
-}
-
-function getResourcePreviewUrl(resource) {
-  const target = String(resource?.route || '').trim()
-  const canUseActualRoute = target
-    && !/^https?:\/\//i.test(target)
-    && target !== '/personalized-resources'
-    && (
-      (resource?.type === 'ppt' && target.includes('/ppt-generator/generating/'))
-      || resource?.type === 'herb_model'
-      || resource?.type === 'mindmap'
-    )
-
-  if (canUseActualRoute) {
-    try {
-      const resolved = router.resolve(target)
-      return router.resolve({
-        path: resolved.path,
-        query: { ...resolved.query, resourcePreview: 'cover' },
-        hash: resolved.hash,
-      }).href
-    } catch {}
-  }
-
-  return router.resolve({
-    name: 'resource-detail',
-    query: {
-      id: String(resource?.id || ''),
-      resourcePreview: 'cover',
-    },
-  }).href
-}
-
-onUnmounted(() => {
-  previewObserver?.disconnect()
-  previewObserver = null
-  for (const timer of staticCoverRetryTimers.values()) window.clearTimeout(timer)
-  staticCoverRetryTimers.clear()
-})
-
-function resourceQualityScore(resource) {
-  const score = Number(resourceQuality(resource).score)
-  if (Number.isFinite(score)) return score
-  if (Number.isFinite(resource?.matchScore)) return resource.matchScore
-  return '--'
-}
-
-function hasResourceQuality(resource) {
-  return Number.isFinite(resource?.matchScore)
-    || Boolean(resourceQuality(resource).score)
-    || Boolean(resourceCitationCount(resource))
-    || Boolean(getEvaluation(resource?.id))
-}
 
 function getTypeName(type) {
   const names = {
@@ -800,7 +634,7 @@ function getTypeName(type) {
     animation: '动画微课',
     code: '代码示例',
     quiz: '练习题',
-    herb_model: '药材模型辨识',
+    simulator: '模拟器实验',
   }
   return names[type] || type
 }
@@ -815,7 +649,6 @@ const resourceTypePalettes = {
   code: { background: '#e8f7ef', foreground: '#177a4e' },
   quiz: { background: '#fff7df', foreground: '#a16207' },
   simulator: { background: '#fff1e7', foreground: '#d66a08' },
-  herb_model: { background: '#fce8e8', foreground: '#a33434' },
 }
 
 function getTypeColor(type) {
@@ -984,15 +817,39 @@ function formatResourceTime(value) {
   z-index: 2;
   max-width: 1260px;
   text-align: left;
-  margin: 0 auto 16px;
+  margin: 0 auto 24px;
 }
 
 .resources-header h1 {
-  font-size: 26px;
+  font-size: 32px;
   font-weight: 700;
   color: #173533;
-  margin: 0;
+  margin: 0 0 10px;
   line-height: 1.2;
+}
+
+.resources-header h1 {
+  font-size: 0;
+}
+
+.resources-header h1::before {
+  content: "个性化资源";
+  font-size: 32px;
+}
+
+.resources-header p {
+  font-size: 15px;
+  color: #64748b;
+  margin: 0;
+}
+
+.resources-header p {
+  font-size: 0;
+}
+
+.resources-header p::before {
+  content: "基于学习画像智能推荐，适配当前水平的学习资料";
+  font-size: 15px;
 }
 
 .no-profile-banner {
@@ -1047,6 +904,48 @@ function formatResourceTime(value) {
   box-shadow: none;
 }
 
+.resource-tools-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-left: 0;
+  border-left: 0;
+  border-radius: 0;
+}
+
+.resource-tools-head h2 {
+  margin: 0 0 6px;
+  color: #1f3433;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.resource-tools-head h2 {
+  font-size: 0;
+}
+
+.resource-tools-head h2::before {
+  content: "资源生成工具";
+  font-size: 24px;
+}
+
+.resource-tools-head p {
+  margin: 0;
+  color: #6f8581;
+  font-size: 14px;
+}
+
+.resource-tools-head p {
+  font-size: 0;
+}
+
+.resource-tools-head p::before {
+  content: "生成题库、PPT、导图并连接视频与实验";
+  font-size: 14px;
+}
+
 .resource-tools-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -1097,9 +996,13 @@ function formatResourceTime(value) {
   color: #213a39;
   font-size: 15px;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .resource-tool-copy em {
@@ -2159,1340 +2062,6 @@ function formatResourceTime(value) {
 
   .history-resources-head {
     padding-right: 148px;
-  }
-}
-
-.resources-kicker {
-  display: block;
-  margin-bottom: 7px;
-  color: #66736e;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.resources-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.profile-state {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid #d9dfdc;
-  border-radius: 5px;
-  background: #f6f8f7;
-  color: #69736f;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.profile-state.ready {
-  border-color: #bed8cc;
-  background: #eef7f3;
-  color: #176f4b;
-}
-
-/* History browsing uses a quiet utility layout instead of decorative AI-dashboard chrome. */
-.history-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.history-head-actions .history-refresh-btn,
-.history-head-actions .generate-btn {
-  min-height: 38px;
-  border-radius: 5px;
-  box-shadow: none;
-}
-
-.history-head-actions .generate-btn {
-  padding: 0 14px;
-  font-size: 14px;
-  background: #176b50;
-}
-
-.history-head-actions .generate-btn::after {
-  display: none;
-}
-
-.history-head-actions .generate-btn:hover:not(:disabled) {
-  transform: none;
-  background: #115640;
-  box-shadow: none;
-}
-
-.history-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  margin: 18px 0 12px;
-}
-
-.history-controls .category-tabs {
-  min-width: 0;
-  margin: 0;
-  gap: 6px;
-}
-
-.history-controls .tab-btn {
-  min-height: 38px;
-  padding: 0 13px;
-  border-color: transparent;
-  border-radius: 4px;
-  background: transparent;
-  color: #55615e;
-  transition: color 140ms ease, background-color 140ms ease;
-}
-
-.history-controls .tab-btn:hover {
-  transform: none;
-  border-color: transparent;
-  background: #f1f4f3;
-  color: #1c4f40;
-}
-
-.history-controls .tab-btn.active {
-  border-color: transparent;
-  background: #e8f1ed;
-  color: #165d47;
-  font-weight: 700;
-}
-
-.history-search {
-  flex: 0 1 320px;
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) 28px;
-  align-items: center;
-  min-width: 240px;
-  min-height: 40px;
-  padding: 0 7px 0 11px;
-  border: 1px solid #d8dfdc;
-  border-radius: 5px;
-  background: #ffffff;
-  color: #68736f;
-}
-
-.history-search:focus-within {
-  border-color: #6da58f;
-  box-shadow: 0 0 0 3px rgba(23, 107, 80, 0.1);
-}
-
-.history-search input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  padding: 0 8px;
-  color: #1b2522;
-  font: inherit;
-  font-size: 13px;
-}
-
-.history-search input::placeholder {
-  color: #8b9491;
-}
-
-.history-search input::-webkit-search-cancel-button {
-  display: none;
-}
-
-.history-search button {
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: #6f7976;
-  cursor: pointer;
-}
-
-.history-search button:hover {
-  background: #eef2f0;
-  color: #244c40;
-}
-
-.history-result-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 36px;
-  margin-bottom: 12px;
-  border-top: 1px solid #edf0ef;
-  color: #6b7572;
-  font-size: 12px;
-}
-
-.history-result-bar .resource-count {
-  display: inline;
-  color: inherit;
-  font-size: inherit;
-}
-
-.page-summary {
-  white-space: nowrap;
-}
-
-.resource-tool-card[class*="tool-"] {
-  min-height: 108px;
-  border-color: #e4e8e6;
-  background: #ffffff;
-}
-
-.resource-tools-section {
-  padding: 0 0 28px;
-}
-
-.resource-tools-grid {
-  gap: 0;
-  border-top: 1px solid #e4e8e6;
-  border-bottom: 1px solid #e4e8e6;
-}
-
-.resource-tool-card {
-  min-height: 68px;
-  padding: 10px 14px;
-  grid-template-columns: 34px minmax(0, 1fr) 16px;
-  gap: 9px;
-  border: 0;
-  border-right: 1px solid #e8ecea;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.resource-tool-card:last-child {
-  border-right: 0;
-}
-
-.resource-tool-card .resource-tool-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
-  background: #edf3f0;
-  color: #2b6c57;
-}
-
-.resource-tool-card .resource-tool-icon svg {
-  width: 19px;
-  height: 19px;
-}
-
-.resource-tool-copy {
-  display: block;
-}
-
-.resource-tool-copy strong {
-  font-size: 14px;
-}
-
-.resource-tool-card:hover {
-  transform: none;
-  border-color: #e8ecea;
-  background: #f6f8f7;
-  box-shadow: none;
-}
-
-.resource-tool-card[class*="tool-"] .resource-tool-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 5px;
-  background: #edf3f0;
-  color: #2b6c57;
-}
-
-.resource-tool-card[class*="tool-"] > svg {
-  color: #75807c;
-}
-
-.resource-tool-card[class*="tool-"]:hover {
-  transform: none;
-  border-color: #9cbcaf;
-  background: #fbfcfc;
-  box-shadow: none;
-}
-
-.resource-tool-card:hover .resource-tool-icon,
-.resource-tool-card:hover > svg {
-  transform: none;
-}
-
-.resource-card {
-  min-height: 146px;
-  padding: 18px 8px 18px 0;
-  border: 0;
-  border-top: 1px solid #e1e6e4;
-  border-radius: 0;
-}
-
-.resource-card:hover {
-  transform: none;
-  border-color: #c9d5d0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.resource-card .card-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 4px;
-  background: transparent !important;
-  color: #356957 !important;
-}
-
-.resource-card .card-icon svg {
-  width: 21px;
-  height: 21px;
-}
-
-.resource-card:hover .card-icon,
-.resource-card:hover .card-arrow {
-  transform: none;
-}
-
-.card-content h3 {
-  margin-bottom: 6px;
-  font-weight: 650;
-}
-
-.card-footer {
-  gap: 7px 10px;
-}
-
-.type-tag,
-.quality-badge,
-.citation-badge,
-.learned-badge {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #68736f;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.match-score {
-  color: #68736f !important;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.history-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 24px;
-  padding-top: 18px;
-  border-top: 1px solid #edf0ef;
-}
-
-.page-nav-btn,
-.page-number-btn {
-  width: 34px;
-  height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: transparent;
-  color: #4f5b57;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.page-nav-btn:hover:not(:disabled),
-.page-number-btn:hover {
-  background: #f0f3f2;
-  color: #174f3e;
-}
-
-.page-number-btn.active {
-  border-color: #9bbcaf;
-  background: #e9f1ee;
-  color: #165d47;
-  font-weight: 700;
-}
-
-.page-nav-btn:disabled {
-  opacity: 0.32;
-  cursor: not-allowed;
-}
-
-.page-ellipsis {
-  width: 24px;
-  color: #909895;
-  text-align: center;
-}
-
-.empty-state button {
-  margin-top: 12px;
-  border: 0;
-  background: transparent;
-  color: #176b50;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-@media (max-width: 1100px) {
-  .history-controls {
-    align-items: stretch;
-    flex-direction: column-reverse;
-    gap: 12px;
-  }
-
-  .history-search {
-    flex-basis: auto;
-    width: min(100%, 420px);
-  }
-}
-
-@media (max-width: 720px) {
-  .history-resources-head {
-    align-items: flex-start;
-    padding-right: 0;
-  }
-
-  .history-head-actions {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  .history-controls .category-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 4px;
-  }
-
-  .history-controls .tab-btn {
-    flex: 0 0 auto;
-  }
-
-  .history-search {
-    width: 100%;
-    min-width: 0;
-  }
-}
-
-/* Archive workspace: document-first navigation and stable table rows. */
-.resources-page {
-  padding: 34px 52px 64px;
-  background: #fbfcfb;
-}
-
-.resources-page button {
-  border-radius: 4px !important;
-  box-shadow: none !important;
-}
-
-.resources-header {
-  margin: 0 0 28px;
-  padding: 0 0 18px;
-}
-
-.resources-header h1 {
-  font-size: 25px;
-  line-height: 1.25;
-}
-
-.resource-workspace {
-  display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  align-items: start;
-  gap: 32px;
-}
-
-.resource-tool-sidebar {
-  position: sticky;
-  top: 94px;
-  min-width: 0;
-  padding-right: 24px;
-  border-right: 1px solid #dfe5e2;
-}
-
-.sidebar-heading,
-.archive-heading,
-.archive-heading > div,
-.archive-actions,
-.archive-result-line {
-  display: flex;
-  align-items: center;
-}
-
-.sidebar-heading {
-  justify-content: space-between;
-  min-height: 42px;
-  margin-bottom: 8px;
-}
-
-.sidebar-heading h2,
-.archive-heading h2 {
-  margin: 0;
-  color: #18211e;
-  letter-spacing: 0;
-}
-
-.sidebar-heading h2 {
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.sidebar-heading > span {
-  color: #89918e;
-  font-size: 12px;
-}
-
-.resource-tool-list {
-  display: grid;
-  gap: 2px;
-}
-
-.resource-tool-row {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 16px;
-  align-items: center;
-  gap: 9px;
-  min-height: 46px;
-  padding: 0 8px;
-  border-radius: 4px;
-  color: #3f4c47;
-  text-decoration: none;
-  transition: color 140ms ease, background-color 140ms ease;
-}
-
-.resource-tool-row > svg:first-child {
-  color: #477565;
-}
-
-.resource-tool-row > svg:last-child {
-  color: #9aa29f;
-}
-
-.resource-tool-row span {
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.resource-tool-row:hover {
-  background: #edf2ef;
-  color: #164f3d;
-}
-
-.resource-archive {
-  min-width: 0;
-}
-
-.archive-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 50px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #dfe5e2;
-}
-
-.archive-title {
-  gap: 10px;
-  white-space: nowrap;
-}
-
-.archive-heading h2 {
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.archive-heading > div:first-child > span {
-  color: #7b8581;
-  font-size: 12px;
-}
-
-.archive-actions {
-  margin-left: auto;
-  gap: 8px;
-  white-space: nowrap;
-}
-
-.archive-heading .archive-search {
-  width: 100%;
-  min-width: 220px;
-  max-width: 320px;
-  min-height: 36px;
-  border-radius: 4px;
-}
-
-.archive-heading .archive-search input {
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.archive-actions .type-filter {
-  width: 170px;
-  min-height: 36px;
-}
-
-.archive-actions .type-filter select {
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.archive-actions .history-refresh-btn {
-  width: 36px;
-  min-height: 36px;
-  padding: 0;
-  border-color: #d7dfdc !important;
-  border-radius: 4px !important;
-  background: #ffffff !important;
-  box-shadow: none !important;
-  color: #52615c !important;
-  font-weight: 500;
-}
-
-.archive-actions .history-refresh-btn:hover:not(:disabled) {
-  border-color: #b8c7c1 !important;
-  background: #f3f6f5 !important;
-  color: #244c40 !important;
-}
-
-.archive-actions .generate-btn {
-  min-height: 36px;
-  padding: 0 13px;
-  border-color: #176b50 !important;
-  border-radius: 4px !important;
-  background: #176b50 !important;
-  box-shadow: none !important;
-  color: #ffffff !important;
-  font-size: 13px;
-}
-
-.archive-actions .generate-btn::after {
-  display: none;
-}
-
-.archive-actions .generate-btn:hover:not(:disabled) {
-  transform: none;
-  border-color: #115640 !important;
-  background: #115640 !important;
-  box-shadow: none !important;
-}
-
-.archive-toolbar {
-  display: grid;
-  grid-template-columns: minmax(280px, 1fr);
-  margin: 18px 0 10px;
-}
-
-.archive-toolbar .history-search {
-  width: 100%;
-  min-width: 0;
-  max-width: none;
-  min-height: 38px;
-  border-radius: 4px;
-}
-
-.archive-toolbar .history-search input {
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.archive-toolbar .history-search button {
-  border: 0 !important;
-  border-radius: 3px !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: #6f7976 !important;
-}
-
-.archive-toolbar .history-search button:hover {
-  background: #eef2f0 !important;
-  color: #244c40 !important;
-}
-
-.type-filter {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 9px;
-  min-height: 38px;
-  padding: 0 9px 0 11px;
-  border: 1px solid #d8dfdc;
-  border-radius: 4px;
-  background: #fff;
-  color: #77817d;
-  font-size: 12px;
-}
-
-.type-filter select {
-  min-width: 0;
-  border: 0 !important;
-  border-radius: 0 !important;
-  outline: 0;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: #29332f;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.archive-result-line {
-  justify-content: space-between;
-  min-height: 34px;
-  color: #78817e;
-  font-size: 11px;
-}
-
-.archive-result-line > span:last-child {
-  margin-left: auto;
-}
-
-.resource-table {
-  border-top: 1px solid #dfe5e2;
-}
-
-.resource-table-head,
-.resource-table-row {
-  display: grid;
-  grid-template-columns: minmax(300px, 1fr) 108px 116px minmax(145px, 0.6fr) 24px;
-  align-items: center;
-  gap: 18px;
-}
-
-.resource-table-head {
-  min-height: 38px;
-  padding: 0 10px;
-  border-bottom: 1px solid #dfe5e2;
-  color: #737d79;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.resource-table-row {
-  width: 100%;
-  min-height: 82px;
-  padding: 10px;
-  border: 0;
-  border-bottom: 1px solid #e6ebe9;
-  border-radius: 0 !important;
-  background: transparent;
-  box-shadow: none !important;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  outline: 0;
-  transition: background-color 140ms ease;
-}
-
-.resource-table-row:hover {
-  transform: none !important;
-  background: #f2f5f3;
-  box-shadow: none !important;
-}
-
-.resource-table-row:focus-visible {
-  position: relative;
-  z-index: 1;
-  outline: 2px solid #6fa18f;
-  outline-offset: -2px;
-}
-
-.resource-name-cell {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  align-items: center;
-  gap: 11px;
-  min-width: 0;
-}
-
-.resource-row-icon {
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #dce5e1;
-  border-radius: 4px;
-  color: #356957;
-  background: #f7f9f8;
-}
-
-.resource-name-cell > span:last-child {
-  min-width: 0;
-}
-
-.resource-name-cell strong,
-.resource-name-cell em {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.resource-name-cell strong {
-  color: #1e2824;
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.45;
-}
-
-.resource-name-cell em {
-  margin-top: 4px;
-  color: #818a87;
-  font-size: 11px;
-  font-style: normal;
-}
-
-.resource-type-cell,
-.resource-time-cell {
-  overflow: hidden;
-  color: #66716d;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.resource-quality-cell {
-  display: flex;
-  align-items: center;
-  gap: 5px 10px;
-  min-width: 0;
-  flex-wrap: wrap;
-  color: #68736f;
-  font-size: 11px;
-}
-
-.resource-open-icon {
-  color: #929b97;
-}
-
-.resource-table-row:hover .resource-open-icon {
-  color: #1f6950;
-}
-
-.resource-archive .history-loading,
-.resource-archive .history-error,
-.resource-archive .empty-state {
-  min-height: 360px;
-  border-bottom: 1px solid #e1e6e4;
-}
-
-.resource-archive .history-pagination {
-  margin-top: 16px;
-  padding-top: 0;
-  border-top: 0;
-}
-
-.resource-archive .page-nav-btn,
-.resource-archive .page-number-btn {
-  border-color: transparent !important;
-  border-radius: 3px !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: #4f5b57 !important;
-}
-
-.resource-archive .page-nav-btn:hover:not(:disabled),
-.resource-archive .page-number-btn:hover {
-  background: #f0f3f2 !important;
-  color: #174f3e !important;
-}
-
-.resource-archive .page-number-btn.active {
-  border-color: #9bbcaf !important;
-  background: #e9f1ee !important;
-  color: #165d47 !important;
-}
-
-@media (max-width: 1180px) {
-  .resource-workspace {
-    grid-template-columns: 180px minmax(0, 1fr);
-    gap: 24px;
-  }
-
-  .resource-table-head,
-  .resource-table-row {
-    grid-template-columns: minmax(260px, 1fr) 92px 104px minmax(120px, 0.5fr) 20px;
-    gap: 12px;
-  }
-}
-
-@media (max-width: 900px) {
-  .resources-page {
-    padding: 28px 24px 52px;
-  }
-
-  .resource-workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .resource-tool-sidebar {
-    position: static;
-    padding: 0 0 18px;
-    border-right: 0;
-    border-bottom: 1px solid #dfe5e2;
-  }
-
-  .resource-tool-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .resource-table-head {
-    display: none;
-  }
-
-  .resource-table-row {
-    grid-template-columns: minmax(0, 1fr) 24px;
-    gap: 10px;
-  }
-
-  .resource-type-cell,
-  .resource-time-cell,
-  .resource-quality-cell {
-    display: none;
-  }
-}
-
-@media (max-width: 600px) {
-  .archive-toolbar {
-    grid-template-columns: 1fr;
-  }
-
-  .resource-tool-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* Resource portfolio: real page previews with restrained editorial cards. */
-.resource-launchers {
-  margin-bottom: 34px;
-}
-
-.section-line-heading {
-  display: flex;
-  align-items: center;
-  min-height: 42px;
-  margin-bottom: 10px;
-}
-
-.section-line-heading h2 {
-  margin: 0;
-  color: #1d2723;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.resource-launcher-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.resource-launcher {
-  --launcher-accent: #168063;
-  --launcher-surface: #f5fbf8;
-  --launcher-icon-surface: #ddf3ea;
-  --launcher-border: #d7ebe2;
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 18px;
-  align-items: center;
-  gap: 13px;
-  min-height: 88px;
-  padding: 14px 15px;
-  border: 1px solid var(--launcher-border);
-  border-radius: 6px;
-  background: var(--launcher-surface);
-  color: #25312d;
-  text-decoration: none;
-  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
-}
-
-.resource-launcher:hover {
-  border-color: color-mix(in srgb, var(--launcher-accent) 42%, white);
-  background: color-mix(in srgb, var(--launcher-surface) 70%, white);
-  transform: translateY(-1px);
-}
-
-.resource-launcher:focus-visible,
-.resource-cover-card:focus-visible {
-  outline: 2px solid #6fa18f;
-  outline-offset: 2px;
-}
-
-.launcher-icon {
-  width: 44px;
-  height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 5px;
-  background: var(--launcher-icon-surface);
-  color: var(--launcher-accent);
-}
-
-.launcher-copy {
-  min-width: 0;
-}
-
-.launcher-copy strong {
-  display: block;
-}
-
-.launcher-copy strong {
-  color: #17231f;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.resource-launcher > svg {
-  color: var(--launcher-accent);
-  opacity: 0.72;
-}
-
-.resource-launcher.launcher-amber {
-  --launcher-accent: #a86812;
-  --launcher-surface: #fffaf1;
-  --launcher-icon-surface: #ffedc9;
-  --launcher-border: #f1e2c3;
-}
-
-.resource-launcher.launcher-blue {
-  --launcher-accent: #356fc1;
-  --launcher-surface: #f5f8ff;
-  --launcher-icon-surface: #e2ebff;
-  --launcher-border: #dbe5f7;
-}
-
-.resource-launcher.launcher-violet {
-  --launcher-accent: #7650ae;
-  --launcher-surface: #faf7ff;
-  --launcher-icon-surface: #ece3fa;
-  --launcher-border: #e7def2;
-}
-
-.resource-launcher.launcher-coral {
-  --launcher-accent: #b75c47;
-  --launcher-surface: #fff8f6;
-  --launcher-icon-surface: #fde6df;
-  --launcher-border: #f1dfda;
-}
-
-.resource-launcher.launcher-cyan {
-  --launcher-accent: #147987;
-  --launcher-surface: #f3fbfc;
-  --launcher-icon-surface: #dcf2f4;
-  --launcher-border: #d5eaed;
-}
-
-.resource-archive {
-  min-width: 0;
-}
-
-.archive-heading {
-  scroll-margin-top: 88px;
-}
-
-.resource-gallery {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.resource-cover-card {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid #dfe4e2;
-  border-radius: 6px;
-  background: #ffffff;
-  cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-}
-
-.resource-cover-card:hover {
-  transform: translateY(-2px);
-  border-color: #a9beb5;
-  box-shadow: 0 8px 22px rgba(31, 55, 46, 0.08);
-}
-
-.resource-cover-frame {
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 16 / 9;
-  border-bottom: 1px solid #e1e6e4;
-  background: #f1f4f2;
-  isolation: isolate;
-}
-
-.resource-live-cover {
-  position: absolute;
-  inset: 0 auto auto 0;
-  z-index: 1;
-  width: 300%;
-  height: 300%;
-  border: 0;
-  opacity: 0;
-  background: #f7f9f8;
-  pointer-events: none;
-  transform: scale(0.333333);
-  transform-origin: 0 0;
-  transition: opacity 180ms ease;
-}
-
-.resource-live-cover.loaded {
-  opacity: 1;
-}
-
-.resource-static-cover {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border: 0;
-  opacity: 0;
-  background: #eef2ef;
-  transition: opacity 180ms ease;
-}
-
-.resource-static-cover.loaded {
-  opacity: 1;
-}
-
-.cover-loading {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 9px;
-  color: #6f7d77;
-  font-size: 11px;
-}
-
-.cover-loading.hidden {
-  visibility: hidden;
-}
-
-.resource-cover-copy {
-  padding: 9px 10px 8px;
-}
-
-.resource-cover-copy h3 {
-  margin: 0;
-  overflow: hidden;
-  color: #1c2723;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.45;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.resource-cover-copy footer {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  align-items: center;
-  gap: 5px;
-  min-height: 20px;
-  margin-top: 7px;
-  color: #7b8581;
-  font-size: 10px;
-}
-
-.resource-cover-copy footer time {
-  overflow: hidden;
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.resource-cover-copy footer span {
-  white-space: nowrap;
-}
-
-@media (max-width: 1080px) {
-  .archive-heading {
-    gap: 12px;
-  }
-
-  .archive-actions .type-filter {
-    width: 150px;
-  }
-}
-
-@media (max-width: 1280px) {
-  .resource-launcher-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 980px) {
-  .resource-gallery {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 680px) {
-  .archive-heading {
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .archive-heading .archive-search {
-    width: 100%;
-    max-width: none;
-  }
-
-  .archive-actions {
-    justify-content: space-between;
-  }
-
-  .resource-launcher-grid,
-  .resource-gallery {
-    grid-template-columns: 1fr;
-  }
-
-  .resources-title-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
-/* PR #6 resource head, kept independent from the history cover grid below it. */
-.resource-tools-section {
-  margin-top: 0;
-  margin-bottom: 0;
-  padding: 8px 0 12px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.resource-tools-head {
-  margin: 0 0 10px;
-  padding: 0;
-}
-
-.resource-tools-head h2 {
-  margin: 0;
-  color: #202b27;
-  font-size: 21px;
-  font-weight: 650;
-  letter-spacing: 0;
-}
-
-.resource-tools-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0;
-  border-top: 1px solid #e1e6e2;
-  border-bottom: 1px solid #e1e6e2;
-}
-
-#app .resources-page .resource-tool-card,
-#app .resources-page .resource-tool-card[class*="tool-"] {
-  min-height: 88px;
-  padding: 13px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 0 !important;
-  border-right: 1px solid #e1e6e2 !important;
-  border-radius: 0 !important;
-  color: #26332e;
-  background: transparent !important;
-  box-shadow: none !important;
-  text-align: center;
-  text-decoration: none;
-  transition: color 160ms ease, background-color 160ms ease, transform 160ms ease;
-}
-
-#app .resources-page .resource-tool-card:last-child {
-  border-right: 0 !important;
-}
-
-#app .resources-page .resource-tool-card:hover {
-  color: #176b50;
-  background: #f0f4f1 !important;
-  transform: translateY(-2px);
-}
-
-#app .resources-page .resource-tool-card .resource-tool-icon,
-#app .resources-page .resource-tool-card[class*="tool-"] .resource-tool-icon {
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 0;
-  color: currentColor;
-  background: transparent !important;
-}
-
-.resource-tool-card > strong {
-  color: currentColor;
-  font-size: 14px;
-  font-weight: 620;
-  line-height: 1.2;
-}
-
-@media (max-width: 720px) {
-  .resource-tools-section {
-    margin-bottom: 0;
-    padding: 6px 0 8px;
-  }
-
-  .resource-tools-head h2 {
-    font-size: 19px;
-  }
-
-  .resource-tools-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    border-bottom: 0;
-  }
-
-  #app .resources-page .resource-tool-card,
-  #app .resources-page .resource-tool-card[class*="tool-"] {
-    min-height: 74px;
-    border-bottom: 1px solid #e1e6e2 !important;
-  }
-
-  #app .resources-page .resource-tool-card:nth-child(2n) {
-    border-right: 0 !important;
-  }
-
-  #app .resources-page .resource-tool-card:last-child {
-    border-right: 1px solid #e1e6e2 !important;
   }
 }
 </style>

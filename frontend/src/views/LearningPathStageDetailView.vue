@@ -9,7 +9,6 @@
         'has-active-node': compactMap && isWeekOverview && Boolean(activeNode),
         'has-path-notice': Boolean(profileSwitchNotice),
       }"
-      :style="compactViewportStyle"
       :aria-label="isWeekOverview ? '学习周次地图' : stageTitle"
     >
       <button
@@ -120,31 +119,19 @@
           :key="node.id"
           type="button"
           class="map-dot"
-          :class="[node.state, { 'is-placeholder': node.isPlaceholder }]"
-          :disabled="node.isPlaceholder"
+          :class="node.state"
           :data-active="activeNode?.id === node.id ? 'true' : undefined"
-          :style="{
-            left: `${node.x}px`,
-            top: `${node.y}px`,
-            '--academy-enter-index': node.academyEnterIndex,
-          }"
-          :aria-label="`${node.label} ${node.mapTitle}：${node.title}`"
+          :style="{ left: `${node.x}px`, top: `${node.y}px` }"
+          :aria-label="`${node.label} ${node.title}`"
           @pointerdown.stop
           @pointerup.stop="selectNode(node)"
           @click.stop="selectNode(node)"
         >
-          <LearningPathAcademyNode
-            v-if="isWeekOverview"
-            :stage="node.academyStage"
-            :growth="node.academyGrowth"
-            :label="node.label"
-            :state="node.state"
-          />
-          <span v-else class="dot-core">
+          <span class="dot-core">
             <CheckCircle2 v-if="node.state === 'done'" :size="31" stroke-width="2.6" aria-hidden="true" />
             <span v-else>{{ node.label }}</span>
           </span>
-          <b class="dot-title">{{ isWeekOverview ? node.mapTitle : node.title }}</b>
+          <b class="dot-title">{{ node.title }}</b>
           <small class="dot-state">{{ node.statusText }}</small>
         </button>
 
@@ -192,35 +179,75 @@
         </button>
       </div>
 
-      <div v-if="!loading && !pathLoadError && generationError" class="path-load-error" role="alert">
-        <CircleAlert :size="24" stroke-width="2.2" aria-hidden="true" />
-        <span>
-          <strong>学习路径生成失败</strong>
-          <small>{{ generationError.message }}</small>
-          <small v-if="generationError.detail">{{ generationError.detail }}</small>
-        </span>
-        <button type="button" :disabled="generationIsRunning" @click="retryLearningPathGeneration">
-          <RotateCcw :size="15" aria-hidden="true" />
-          继续生成
-        </button>
-      </div>
-
-      <div
-        v-if="!loading && !pathLoadError && !generationError && (!hasActiveLearningProfile || !sortedNodes.length)"
-        class="empty-path-state"
-        :class="{ generating: generationIsRunning }"
-        role="status"
-        aria-live="polite"
-      >
-        <RefreshCcw v-if="generationIsRunning" class="empty-path-spinner" :size="24" aria-hidden="true" />
-        <strong>{{ generationIsRunning ? '正在生成学习路径' : hasActiveLearningProfile ? '尚未生成学习路径' : '当前没有学习画像' }}</strong>
-        <span>{{ generationIsRunning ? generationStatusMessage : hasActiveLearningProfile ? '岐小智会按你的目标、薄弱点和资源偏好生成周学习计划。' : '请先完成学习画像后再生成个性化周任务。' }}</span>
-        <div v-if="generationIsRunning" class="empty-path-progress" aria-hidden="true"><i></i></div>
-        <button v-else type="button" @click="handlePersonalizationAction">
+      <div v-if="!loading && !pathLoadError && !generationError && (!hasActiveLearningProfile || !sortedNodes.length)" class="empty-path-state" role="status">
+        <strong>{{ hasActiveLearningProfile ? '尚未生成学习路径' : '当前没有学习画像' }}</strong>
+        <span>{{ hasActiveLearningProfile ? '嵌小智会按你的目标、薄弱点和资源偏好生成周学习计划。' : '请先完成学习画像后再生成个性化周任务。' }}</span>
+        <button type="button" @click="handlePersonalizationAction">
           {{ hasActiveLearningProfile ? '生成学习路径' : '完成学习画像' }}
         </button>
       </div>
 
+      <aside
+        v-if="generationConsoleVisible"
+        class="generation-console"
+        :class="{ expanded: generationConsoleExpanded, failed: Boolean(generationError) }"
+        aria-label="学习路径生成详细输出"
+        @pointerdown.stop
+      >
+        <button
+          class="generation-console-summary"
+          type="button"
+          :aria-expanded="generationConsoleExpanded"
+          @click="generationConsoleExpanded = !generationConsoleExpanded"
+        >
+          <span class="generation-console-icon" :class="generationConsoleState">
+            <span v-if="generationIsRunning" class="generation-spinner" aria-hidden="true"></span>
+            <CircleAlert v-else-if="generationError" :size="17" aria-hidden="true" />
+            <SquareTerminal v-else :size="17" aria-hidden="true" />
+          </span>
+          <span class="generation-console-copy">
+            <strong>{{ generationConsoleTitle }}</strong>
+            <small>{{ generationConsoleSubtitle }}</small>
+          </span>
+          <b>{{ generationProgress }}%</b>
+          <ChevronUp v-if="generationConsoleExpanded" :size="17" aria-hidden="true" />
+          <ChevronDown v-else :size="17" aria-hidden="true" />
+        </button>
+
+        <div class="generation-console-progress" aria-hidden="true">
+          <span :style="{ width: `${generationProgress}%` }"></span>
+        </div>
+
+        <div v-if="generationConsoleExpanded" class="generation-console-detail">
+          <dl class="generation-console-meta">
+            <div><dt>当前智能体</dt><dd>{{ generationAgent }}</dd></div>
+            <div><dt>执行阶段</dt><dd>{{ generationStage }}</dd></div>
+            <div><dt>生成尝试</dt><dd>第 {{ generationAttempt }} 次</dd></div>
+            <div><dt>质量审核</dt><dd>{{ generationReview }}</dd></div>
+            <div v-if="generationRunId"><dt>运行 ID</dt><dd>{{ generationRunId }}</dd></div>
+          </dl>
+
+          <ol ref="traceLogRef" class="generation-trace-list" aria-live="polite">
+            <li v-for="event in generationTrace" :key="event.id" :class="event.status || event.event">
+              <time>{{ formatTraceTime(event.receivedAt || event.time) }}</time>
+              <span>{{ event.agentName || event.agentId || event.agent || '系统' }}</span>
+              <p>{{ event.message || event.detail || event.stage }}</p>
+            </li>
+          </ol>
+
+          <div v-if="generationError" class="generation-error" role="alert">
+            <span>
+              <strong>{{ generationError.message }}</strong>
+              <small v-if="generationError.detail">{{ generationError.detail }}</small>
+              <small v-if="generationError.code">错误码：{{ generationError.code }}</small>
+            </span>
+            <button type="button" :disabled="generationIsRunning" @click="retryLearningPathGeneration">
+              <RotateCcw :size="15" aria-hidden="true" />
+              继续生成
+            </button>
+          </div>
+        </div>
+      </aside>
       <div v-if="loading" class="map-loading" aria-live="polite">{{ loadingMessage }}</div>
     </section>
   </main>
@@ -234,18 +261,21 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   CircleAlert,
   LockKeyhole,
   RefreshCcw,
   RotateCcw,
+  SquareTerminal,
   UserRoundCheck,
   X,
 } from 'lucide-vue-next'
 import { getLearningPathConfig, getLearningPathStage, getLearningProfiles } from '../services/api.js'
-import LearningPathAcademyNode from '../components/LearningPathAcademyNode.vue'
 import { cloneLearningPathConfig } from '../config/learningPathDefaults.js'
 import {
   generateFirstLearningPath,
+  generateRemainingLearningPath,
   subscribeLearningPathProgress,
   subscribeLearningPathTrace,
 } from '../services/progressiveLearningPath.js'
@@ -253,9 +283,9 @@ import {
   appendNodeCacheParams,
   getNodeCache,
   hydrateNodeCachesFromServer,
-  markNodeCacheViewed,
+  markNodeCacheComplete,
+  markNodeCacheStarted,
 } from '../services/learningPathNodeCache.js'
-import { dispatchXiaoZhiWorkflowProgress } from '../utils/xiaozhiWorkflowProgress.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -269,104 +299,104 @@ const staticWeekOneStageIds = new Set([firstVisibleStageId])
 const staticWeekOneNodes = [
   {
     id: '01',
-    cacheKey: 'week1-tcm-foundation-video',
+    cacheKey: 'week1-stm32-video',
     resourceType: 'video',
     label: '01',
-    title: '中医基础理论视频',
+    title: 'STM32 基础视频',
     statusText: '可进入',
-    description: '调用视频查找工具，检索阴阳五行、藏象学说与气血津液相关入门课程。',
+    description: '调用视频查找工具，直接检索 STM32 基础入门、开发环境和 GPIO 实操相关视频。',
     state: 'current',
     x: 112,
     y: 420,
     popX: 190,
     popY: 250,
     actionText: '查找视频',
-    actionRoute: '/personalized-resources/video-search?keyword=%E4%B8%AD%E5%8C%BB%E5%9F%BA%E7%A1%80%E7%90%86%E8%AE%BA&topic=%E9%98%B4%E9%98%B3%E4%BA%94%E8%A1%8C%E4%B8%8E%E8%97%8F%E8%B1%A1',
+    actionRoute: '/personalized-resources/video-search?keyword=STM32%E5%9F%BA%E7%A1%80%E8%A7%86%E9%A2%91&topic=STM32%E5%9F%BA%E7%A1%80',
     order: 1,
   },
   {
     id: '02',
-    cacheKey: 'week1-tcm-pattern-ppt',
+    cacheKey: 'week1-stm32-ppt',
     resourceType: 'ppt',
     label: '02',
-    title: '八纲辨证 PPT',
+    title: 'STM32 PPT',
     statusText: '可进入',
-    description: '进入 PPT 生成页面，围绕表里、寒热、虚实、阴阳梳理八纲辨证框架。',
+    description: '进入 PPT 生成页面，主题预填为 STM32 基础课件，用于快速生成本周概念课件。',
     state: 'available',
     x: 402,
     y: 292,
     popX: 402,
     popY: 122,
     actionText: '生成 PPT',
-    actionRoute: '/personalized-resources/ppt?topic=%E5%85%AB%E7%BA%B2%E8%BE%A8%E8%AF%81&prompt=%E7%94%9F%E6%88%90%E4%B8%80%E4%BB%BD%E9%9D%A2%E5%90%91%E4%B8%AD%E5%8C%BB%E5%88%9D%E5%AD%A6%E8%80%85%E7%9A%84%E5%85%AB%E7%BA%B2%E8%BE%A8%E8%AF%81PPT%EF%BC%8C%E5%8C%85%E5%90%AB%E8%A1%A8%E9%87%8C%E3%80%81%E5%AF%92%E7%83%AD%E3%80%81%E8%99%9A%E5%AE%9E%E4%B8%8E%E9%98%B4%E9%98%B3%E3%80%82&pageCount=6&autostart=1',
+    actionRoute: '/personalized-resources/ppt?topic=STM32%E5%9F%BA%E7%A1%80%E8%AF%BE%E4%BB%B6&prompt=生成一份面向嵌入式初学者的STM32基础PPT，包含开发环境、GPIO、寄存器与HAL库入门。&pageCount=6&autostart=1',
     order: 2,
   },
   {
     id: '03',
-    cacheKey: 'week1-tcm-formula-mind-map',
+    cacheKey: 'week1-stm32-mind-map',
     resourceType: 'mindmap',
     label: '03',
-    title: '方剂配伍思维导图',
+    title: 'STM32 思维导图',
     statusText: '可进入',
-    description: '进入思维导图工具，围绕君臣佐使、治法与代表方整理方剂配伍结构。',
+    description: '进入思维导图工具，围绕 STM32 基础、GPIO、时钟、中断和开发流程整理知识结构。',
     state: 'available',
     x: 646,
     y: 316,
     popX: 646,
     popY: 146,
     actionText: '生成导图',
-    actionRoute: '/personalized-resources/mind-map?topic=%E6%96%B9%E5%89%82%E9%85%8D%E4%BC%8D%E6%80%9D%E7%BB%B4%E5%AF%BC%E5%9B%BE&keyword=%E5%90%9B%E8%87%A3%E4%BD%90%E4%BD%BF&autostart=1',
+    actionRoute: '/personalized-resources/mind-map?topic=STM32%E5%9F%BA%E7%A1%80%E6%80%9D%E7%BB%B4%E5%AF%BC%E5%9B%BE&keyword=STM32%E5%9F%BA%E7%A1%80&autostart=1',
     order: 3,
   },
   {
     id: '04',
-    cacheKey: 'week1-tcm-herb-question-bank',
+    cacheKey: 'week1-stm32-question-bank',
     resourceType: 'question-bank',
     label: '04',
     title: '题库练习小测',
     statusText: '可进入',
-    description: '进入题库生成页面，预填中药性味归经主题，生成一组用于自测的巩固练习。',
+    description: '进入题库生成页面，预填 STM32 基础主题，生成一组用于自测的巩固练习。',
     state: 'available',
     x: 942,
     y: 369,
     popX: 942,
     popY: 198,
     actionText: '开始小测',
-    actionRoute: '/personalized-resources/question-bank?module=generate&course=%E4%B8%AD%E8%8D%AF%E5%AD%A6&chapter=%E6%80%A7%E5%91%B3%E5%BD%92%E7%BB%8F&count=10&autostart=1',
+    actionRoute: '/personalized-resources/question-bank?module=generate&course=STM32&chapter=STM32%E5%9F%BA%E7%A1%80&count=10&autostart=1',
     order: 4,
   },
   {
     id: '05',
-    cacheKey: 'week1-tcm-case-document',
-    resourceType: 'document',
+    cacheKey: 'week1-stm32-mcu-lab',
+    resourceType: 'mcu',
     label: '05',
-    title: '医案辨析讲义',
+    title: '单片机实验',
     statusText: '可进入',
-    description: '生成一份包含四诊信息、证候判断、治法与方药思路的基础医案辨析讲义。',
+    description: '进入单片机模拟器，先用 8051 跑马灯预设实验完成基础 I/O 观察，再迁移理解 STM32 GPIO。',
     state: 'available',
     x: 1188,
     y: 284,
     popX: 1188,
     popY: 114,
-    actionText: '生成讲义',
-    actionRoute: '/personalized-resources/document?topic=%E5%9F%BA%E7%A1%80%E5%8C%BB%E6%A1%88%E8%BE%A8%E6%9E%90&autostart=1',
+    actionText: '进入实验',
+    actionRoute: '/personalized-resources/mcu-simulator/8051/8051-led-ready',
     order: 5,
   },
   {
     id: '06',
-    cacheKey: 'week1-tcm-review',
+    cacheKey: 'week1-stm32-review',
     resourceType: 'review',
     label: '06',
     title: '阶段复盘',
     statusText: '可进入',
-    description: '复盘前面五个节点的学习结果：视频笔记、PPT、导图、小测错题和医案讲义，整理下一步问题。',
+    description: '复盘前面五个节点的学习结果：视频笔记、PPT、导图、小测错题和实验现象，整理下一步问题。',
     state: 'available',
     x: 1398,
     y: 185,
     popX: 1260,
     popY: 112,
     actionText: '整理复盘',
-    actionRoute: '/personalized-resources?review=tcm-week-1',
+    actionRoute: '/personalized-resources?review=stm32-week-1',
     order: 6,
   },
 ]
@@ -383,17 +413,19 @@ const offset = ref({ x: 0, y: 0 })
 const mapViewportRef = ref(null)
 const cacheVersion = ref(0)
 const compactMap = ref(typeof window !== 'undefined' && window.innerWidth <= 600)
+const generationTrace = ref([])
 const generationError = ref(null)
+const generationConsoleExpanded = ref(true)
 const profileSwitchNotice = ref('')
 const activeProfileSummary = ref(null)
 const profileSummaryLoading = ref(false)
 const profilePathSwitching = ref(false)
 const profilePathSwitchError = ref('')
+const traceLogRef = ref(null)
 let unsubscribeLearningPathProgress = () => {}
 let unsubscribeLearningPathTrace = () => {}
 let backgroundPathPollTimer = null
 let profileSummaryPromise = null
-let pathWorkflowId = ''
 
 const stageTitle = computed(() => stageConfig.value?.title || '学习路径')
 const boardConfig = computed(() => stageConfig.value?.board || {})
@@ -434,6 +466,66 @@ const profilePathSwitchButtonLabel = computed(() => {
   if (profilePathSwitching.value) return '正在检查路径'
   return activeProfilePathMatches.value ? '加载已保存路径' : '切换到当前画像路径'
 })
+const generationConsoleVisible = computed(() => (
+  isWeekOverview.value
+  && (generationIsRunning.value || Boolean(generationError.value) || generationTrace.value.length > 0)
+))
+const latestGenerationEvent = computed(() => (
+  [...generationTrace.value].reverse().find((event) => event?.message || event?.stage) || {}
+))
+const latestProgressEvent = computed(() => (
+  [...generationTrace.value].reverse().find((event) => Number.isFinite(Number(event?.progress))) || {}
+))
+const generationProgress = computed(() => {
+  const progress = Number(latestProgressEvent.value?.progress)
+  if (Number.isFinite(progress)) return Math.max(0, Math.min(100, Math.round(progress)))
+  const backgroundProgress = Number(backgroundPathGeneration.value.progress)
+  return Number.isFinite(backgroundProgress)
+    ? Math.max(0, Math.min(100, Math.round(backgroundProgress)))
+    : 0
+})
+const generationConsoleState = computed(() => (
+  generationError.value ? 'failed' : generationIsRunning.value ? 'running' : 'complete'
+))
+const generationConsoleTitle = computed(() => {
+  if (generationError.value) return '学习路径生成失败'
+  if (generationIsRunning.value) return latestGenerationEvent.value?.message || '嵌小智正在生成学习路径'
+  return '学习路径生成完成'
+})
+const generationConsoleSubtitle = computed(() => {
+  const event = latestGenerationEvent.value
+  if (!event.stage && backgroundPathIsRunning.value) {
+    const completed = Number(backgroundPathGeneration.value.completedWeeks || 0)
+    const total = Number(backgroundPathGeneration.value.totalWeeks || 6)
+    return `后台规划任务 · 已保存 ${completed} / ${total} 周`
+  }
+  const agent = event.agentName || event.agentId || event.agent || '嵌小智'
+  return `${agent} · ${formatGenerationStage(event.stage)}`
+})
+const generationAgent = computed(() => {
+  const event = [...generationTrace.value].reverse().find((item) => item?.agentName || item?.agentId || item?.agent) || {}
+  const name = event.agentName || event.agent || event.agentId || '嵌小智'
+  const id = event.agentId && event.agentId !== name ? ` (${event.agentId})` : ''
+  return `${name}${id}`
+})
+const generationStage = computed(() => formatGenerationStage(latestGenerationEvent.value?.stage))
+const generationAttempt = computed(() => {
+  const event = [...generationTrace.value].reverse().find((item) => (
+    Number(item?.attempt || item?.payload?.attempt || item?.payload?.payload?.attempt) > 0
+  )) || {}
+  return Number(event.attempt || event.payload?.attempt || event.payload?.payload?.attempt) || 1
+})
+const generationRunId = computed(() => {
+  const event = [...generationTrace.value].reverse().find((item) => item?.runId)
+  return String(event?.runId || '')
+})
+const generationReview = computed(() => {
+  const event = [...generationTrace.value].reverse().find((item) => item?.stage === 'quality_review')
+  if (!event) return generationIsRunning.value ? '等待审核' : generationError.value ? '未通过' : '已通过'
+  const score = Number(event.payload?.score)
+  const status = event.status === 'complete' ? '已通过' : '需修订'
+  return Number.isFinite(score) ? `${status} · ${score} 分` : status
+})
 const loadingMessage = computed(() => (
   backgroundPathIsRunning.value
     ? backgroundPathGeneration.value.message || '学习路径正在后台生成'
@@ -441,41 +533,21 @@ const loadingMessage = computed(() => (
       ? '正在根据当前学习画像生成第一周学习计划'
       : '正在加载学习路径'
 ))
-const generationStatusMessage = computed(() => (
-  String(backgroundPathGeneration.value.message || '').trim()
-  || (planning.value ? '正在根据当前学习画像规划第一周任务，请稍候。' : '学习路径智能体正在后台规划第一周任务，请稍候。')
-))
-
-const academyMapTitles = [
-  '本草基原与药用部位',
-  '药材性状观察与记录',
-  '真伪药材对比鉴别',
-  '显微与理化鉴别进阶',
-  '炮制品与易混品辨析',
-  '综合中药鉴别实践',
-]
 
 const sortedNodes = computed(() => {
   cacheVersion.value
   const nodes = Array.isArray(stageConfig.value?.nodes) ? stageConfig.value.nodes : []
-  const visibleNodes = nodes.filter((node) => {
-      const type = String(node?.resourceType || '').toLowerCase()
-      const routePath = String(node?.actionRoute || '').toLowerCase()
-      return !['mcu', 'simulator'].includes(type) && !routePath.includes('mcu-simulator')
-    })
-  const lastIndex = Math.max(visibleNodes.length - 1, 1)
-  return visibleNodes
+  return nodes
     .map((node, index) => {
       const cacheKey = String(node.cacheKey || '').trim()
       const cache = getNodeCache(cacheKey)
-      const cacheDone = cache?.viewedAt && cache?.viewSource === 'learning-path-task-open'
+      const cacheDone = cache?.status === 'complete'
       const compactCoords = compactMap.value && isWeekOverview.value
         ? {
             x: index % 2 === 0 ? 82 : 278,
             y: 292 + Math.floor(index / 2) * 164,
           }
         : null
-      const academyStage = Math.min(6, Math.max(1, Math.round(1 + (index / lastIndex) * 5)))
       return {
         id: String(node.id || node.label || index + 1),
         cacheKey,
@@ -493,21 +565,14 @@ const sortedNodes = computed(() => {
         actionRoute: String(node.actionRoute || ''),
         stageId: String(node.stageId || ''),
         order: safeNumber(node.order, index + 1),
-        progressPercent: optionalProgressPercent(node.progressPercent),
-        academyGrowth: index / lastIndex,
-        academyStage: Math.min(6, Math.max(1, Math.round(safeNumber(node.academyStage, academyStage)))),
-        mapTitle: String(node.mapTitle || academyMapTitles[academyStage - 1]),
-        isPlaceholder: node.isPlaceholder === true,
       }
     })
     .sort((left, right) => left.order - right.order)
-    .map((node, academyEnterIndex) => ({ ...node, academyEnterIndex }))
 })
 
 const boardSize = computed(() => {
   if (compactMap.value && isWeekOverview.value) {
-    const maxNodeY = Math.max(...sortedNodes.value.map((node) => node.y), 0)
-    return { width: 360, height: Math.max(720, maxNodeY + 170) }
+    return { width: 360, height: 720 }
   }
   const configuredWidth = safeNumber(boardConfig.value.width, 1440)
   const configuredHeight = safeNumber(boardConfig.value.height, 640)
@@ -539,18 +604,16 @@ const completedRouteNodes = computed(() => {
 })
 
 const stageMetrics = computed(() => {
-  const assignedNodes = sortedNodes.value.filter((node) => !node.isPlaceholder)
-  const total = assignedNodes.length
-  const done = assignedNodes.filter((node) => node.state === 'done').length
-  const current = assignedNodes.filter((node) => node.state === 'current').length
+  const total = sortedNodes.value.length
+  const done = sortedNodes.value.filter((node) => node.state === 'done').length
+  const current = sortedNodes.value.filter((node) => node.state === 'current').length
   return { total, done, current }
 })
 
 const stageProgressPercent = computed(() => {
-  const assignedNodes = sortedNodes.value.filter((node) => !node.isPlaceholder)
-  if (!assignedNodes.length) return 0
-  const totalProgress = assignedNodes.reduce((sum, node) => sum + nodeProgress(node), 0)
-  return Math.min(100, Math.round(totalProgress / assignedNodes.length))
+  const total = stageMetrics.value.total || 1
+  const weightedDone = stageMetrics.value.done + stageMetrics.value.current * 0.5
+  return Math.min(100, Math.round((weightedDone / total) * 100))
 })
 
 const popoverStyle = computed(() => {
@@ -559,7 +622,7 @@ const popoverStyle = computed(() => {
     return { left: '180px', top: '104px' }
   }
   const left = activeNode.value.x
-  const top = activeNode.value.y - (isWeekOverview.value ? 112 : 70)
+  const top = activeNode.value.y - 70
   return { left: `${left}px`, top: `${top}px` }
 })
 
@@ -568,12 +631,6 @@ const boardStyle = computed(() => ({
   height: `${boardSize.value.height}px`,
   transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${scale.value})`,
 }))
-
-const compactViewportStyle = computed(() => (
-  compactMap.value && isWeekOverview.value
-    ? { height: `${boardSize.value.height + 280}px` }
-    : undefined
-))
 
 onMounted(() => {
   window.addEventListener('resize', resetViewport)
@@ -658,9 +715,8 @@ async function loadStage(stageId) {
 }
 
 async function loadWeekOverview() {
-  let config = normalizePathConfig(await getLearningPathConfig({ summary: true }))
+  let config = normalizePathConfig(await getLearningPathConfig())
   pathMeta.value = config.meta || {}
-  publishBackgroundPathTask(config)
   applyActiveProfileSummary(config)
   if (!hasActiveLearningProfile.value && Number(config?.meta?.activeProfileReportId || 0) > 0) {
     await loadActiveProfileSummary({ throwOnError: true })
@@ -703,6 +759,16 @@ async function loadWeekOverview() {
   await nextTick()
   resetViewport()
 
+  const generatedWeekCount = visiblePathWeeks(config).length
+  const generationComplete = config?.meta?.generationState === 'complete' && generatedWeekCount >= totalWeeks
+  if (
+    config?.meta?.canGeneratePersonalized !== false
+    && !generationComplete
+    && generatedWeekCount < totalWeeks
+    && !planningRemaining.value
+  ) {
+    void generateRemainingWeeks(config, totalWeeks)
+  }
 }
 
 async function rebuildPersonalizedPath() {
@@ -713,7 +779,7 @@ async function rebuildPersonalizedPath() {
     if (!activeProfile?.id) {
       throw new Error('当前没有激活画像，请先在学习画像中选择一份画像。')
     }
-    let config = normalizePathConfig(await getLearningPathConfig({ summary: true }))
+    let config = normalizePathConfig(await getLearningPathConfig())
     const totalWeeks = Math.max(4, Math.min(8, Number(config?.meta?.totalWeeks || pathMeta.value?.totalWeeks) || 6))
     const savedPathMatchesProfile = isSavedPathForProfile(config, activeProfile)
     if (!savedPathMatchesProfile) {
@@ -724,6 +790,9 @@ async function rebuildPersonalizedPath() {
     planning.value = false
     await nextTick()
     resetViewport()
+    if (visiblePathWeeks(config).length < totalWeeks) {
+      await generateRemainingWeeks(config, totalWeeks)
+    }
   } catch (error) {
     console.warn('Failed to rebuild personalized learning path.', error)
     setGenerationFailure(error)
@@ -789,7 +858,7 @@ async function switchToCurrentProfilePath() {
       throw new Error(profilePathSwitchError.value || '当前没有激活画像，请先在学习画像中选择一份画像。')
     }
 
-    const savedConfig = normalizePathConfig(await getLearningPathConfig({ summary: true }))
+    const savedConfig = normalizePathConfig(await getLearningPathConfig())
     if (isSavedPathForProfile(savedConfig, activeProfile)) {
       generationError.value = null
       activeNodeId.value = ''
@@ -817,7 +886,14 @@ async function switchToCurrentProfilePath() {
     await nextTick()
     resetViewport()
 
-    const persistedConfig = normalizePathConfig(await getLearningPathConfig({ summary: true }))
+    if (visiblePathWeeks(config).length < totalWeeks) {
+      planningRemaining.value = true
+      config = normalizePathConfig(await generateRemainingLearningPath(config, totalWeeks))
+      pathMeta.value = config.meta || {}
+      stageConfig.value = createWeekOverviewStage(config)
+    }
+
+    const persistedConfig = normalizePathConfig(await getLearningPathConfig())
     if (!isSavedPathForProfile(persistedConfig, activeProfile)) {
       throw new Error('已保存路径与当前画像不一致，请重试切换。')
     }
@@ -861,64 +937,51 @@ function consumeProfileSwitchNotice() {
   }
 }
 
+async function generateRemainingWeeks(initialConfig, totalWeeks) {
+  planningRemaining.value = true
+  try {
+    const finalConfig = await generateRemainingLearningPath(initialConfig, totalWeeks)
+    await handleLearningPathProgress(finalConfig)
+  } catch (error) {
+    console.warn('Failed to generate remaining learning-path weeks.', error)
+    setGenerationFailure(error)
+  } finally {
+    planningRemaining.value = false
+  }
+}
+
 async function handleLearningPathProgress(config) {
   if (!isWeekOverview.value || !config) return
   const normalized = normalizePathConfig(config)
   pathMeta.value = normalized.meta || {}
   stageConfig.value = createWeekOverviewStage(normalized)
-  const completedWeeks = visiblePathWeeks(normalized).length
-  const totalWeeks = Math.max(1, Number(normalized?.meta?.totalWeeks) || 6)
-  const complete = normalized?.meta?.generationState === 'complete' || completedWeeks >= totalWeeks
-  ensurePathWorkflowId()
-  dispatchXiaoZhiWorkflowProgress({
-    workflow: 'learning-path',
-    workflowId: pathWorkflowId,
-    stage: complete ? 'complete' : 'path_planning',
-    status: complete ? 'complete' : 'running',
-    progress: complete ? 100 : Math.min(96, Math.round((completedWeeks / totalWeeks) * 94)),
-    completedWeeks,
-    totalWeeks,
-    route: '/learning-path/stage/overview',
-    message: complete ? '个性化学习路径已生成并保存' : `第 ${completedWeeks} 周路径已保存`,
-  })
   await nextTick()
   resetViewport()
 }
 
-function handleLearningPathTrace(event) {
+function handleLearningPathTrace(event, history = []) {
   if (event?.event === 'reset') {
+    generationTrace.value = []
     generationError.value = null
-    ensurePathWorkflowId()
-    dispatchXiaoZhiWorkflowProgress({
-      workflow: 'learning-path',
-      workflowId: pathWorkflowId,
-      stage: 'request_start',
-      status: 'running',
-      progress: 1,
-      route: '/learning-path/stage/overview',
-      message: '学习路径 Agent 正在读取画像并启动规划',
-    })
+    generationConsoleExpanded.value = true
     return
   }
-  ensurePathWorkflowId(event?.runId)
-  dispatchXiaoZhiWorkflowProgress({
-    workflow: 'learning-path',
-    workflowId: pathWorkflowId,
-    stage: event?.stage || event?.event || 'path_planning',
-    status: event?.event === 'error' ? 'failed' : 'running',
-    progress: Number.isFinite(Number(event?.progress)) ? Number(event.progress) : null,
-    completedWeeks: Number(event?.completedWeeks || backgroundPathGeneration.value.completedWeeks || 0),
-    totalWeeks: Number(backgroundPathGeneration.value.totalWeeks || pathMeta.value?.totalWeeks || 6),
-    route: '/learning-path/stage/overview',
-    message: event?.message || event?.detail || formatGenerationStage(event?.stage),
-  })
+  generationTrace.value = Array.isArray(history) && history.length
+    ? history
+    : [...generationTrace.value, event].filter(Boolean).slice(-160)
   if (event?.event === 'error') {
     generationError.value = {
       code: String(event.errorCode || ''),
       message: String(event.message || event.detail || '学习路径生成失败'),
       detail: String(event.detail || ''),
     }
+    generationConsoleExpanded.value = true
   }
+  nextTick(() => {
+    if (traceLogRef.value) {
+      traceLogRef.value.scrollTop = traceLogRef.value.scrollHeight
+    }
+  })
 }
 
 function setGenerationFailure(error) {
@@ -933,16 +996,7 @@ function setGenerationFailure(error) {
       : rawMessage,
     detail: String(error?.details?.detail || ''),
   }
-  ensurePathWorkflowId()
-  dispatchXiaoZhiWorkflowProgress({
-    workflow: 'learning-path',
-    workflowId: pathWorkflowId,
-    stage: 'error',
-    status: 'failed',
-    progress: 100,
-    route: '/learning-path/stage/overview',
-    message: generationError.value.message,
-  })
+  generationConsoleExpanded.value = true
 }
 
 function setPathLoadFailure(error, fallbackMessage) {
@@ -968,7 +1022,6 @@ function retryLearningPathLoad() {
 async function retryLearningPathGeneration() {
   if (generationIsRunning.value) return
   generationError.value = null
-  pathWorkflowId = ''
   loading.value = true
   try {
     if (pathMeta.value?.canGeneratePersonalized !== false) {
@@ -983,36 +1036,6 @@ async function retryLearningPathGeneration() {
     planningRemaining.value = false
     loading.value = false
   }
-}
-
-function ensurePathWorkflowId(runId = '') {
-  if (!pathWorkflowId) {
-    pathWorkflowId = String(runId || `learning-path-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
-  }
-}
-
-function publishBackgroundPathTask(config) {
-  const background = config?.meta?.backgroundGeneration
-  if (!background || !background.taskId) return
-  dispatchXiaoZhiWorkflowProgress({
-    workflow: 'learning-path',
-    workflowId: `learning-path-background-${background.taskId}`,
-    task: {
-      taskId: background.taskId,
-      taskType: 'learning_path',
-      title: '当前画像 · 学习路径后台规划',
-      status: background.status || 'running',
-      route: background.route || '/learning-path/stage/overview',
-      error: background.error || '',
-      result: {
-        progress: background.progress,
-        currentStage: background.currentStage,
-        completedWeeks: background.completedWeeks,
-        totalWeeks: background.totalWeeks,
-        message: background.message,
-      },
-    },
-  })
 }
 
 function formatGenerationStage(stage) {
@@ -1043,6 +1066,12 @@ function formatGenerationStage(stage) {
     error: '生成失败',
   }
   return labels[String(stage || '')] || String(stage || '等待执行')
+}
+
+function formatTraceTime(value) {
+  const date = new Date(value || Date.now())
+  if (Number.isNaN(date.getTime())) return '--:--:--'
+  return date.toLocaleTimeString('zh-CN', { hour12: false })
 }
 
 function normalizePathConfig(config) {
@@ -1097,40 +1126,28 @@ function createWeekOverviewStage(config) {
   const visibleWeeks = visiblePathWeeks(config)
     .sort((left, right) => safeNumber(left.order, 0) - safeNumber(right.order, 0))
   const weekLabels = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
-  const assignedWeeks = new Map(visibleWeeks.map((week, index) => [
-    Math.min(6, Math.max(1, Math.round(safeNumber(week.order, index + 1)))),
-    week,
-  ]))
-  const nodes = Array.from({ length: 6 }, (_, index) => {
-    const weekNumber = index + 1
-    const isPlaceholder = !assignedWeeks.has(weekNumber)
-    const week = assignedWeeks.get(weekNumber) || {}
+  const nodes = visibleWeeks.map((week, index) => {
     const status = String(week.status || '')
-    const reportedProgress = optionalProgressPercent(week.progressPercent)
-    const progressPercent = reportedProgress !== undefined
-      ? reportedProgress
-      : ['done', 'completed'].includes(status) ? 100 : 0
-    const state = isPlaceholder ? 'locked' : progressPercent >= 100 ? 'done' : progressPercent > 0 ? 'current' : 'available'
+    const state = ['done', 'completed'].includes(status)
+      ? 'done'
+      : ['current', 'active', 'progress'].includes(status)
+        ? 'current'
+        : 'available'
+    const weekNumber = index + 1
     return {
       id: `week-${weekNumber}`,
-      resourceType: isPlaceholder ? 'week-placeholder' : 'week',
-      stageId: isPlaceholder ? '' : String(week.id || `week-${weekNumber}`),
-      label: String(week?.weekLabel || `第${weekLabels[index] || weekNumber}周`),
-      title: isPlaceholder ? `第${weekLabels[index] || weekNumber}周学习任务待规划` : cleanWeekMapTitle(week.title, weekNumber),
-      mapTitle: isPlaceholder ? '待规划学习主题' : academyMapTitles[index],
-      statusText: isPlaceholder ? '待规划' : state === 'done' ? '已完成' : state === 'current' ? '进行中' : '未开始',
-      progressPercent,
-      description: isPlaceholder
-        ? '完成当前周学习任务后，学习路径智能体将结合最新画像规划本周内容。'
-        : String(week.description || `查看第${weekNumber}周的具体学习任务与资源。`),
+      resourceType: 'week',
+      stageId: String(week.id || `week-${weekNumber}`),
+      label: `第${weekLabels[index] || weekNumber}周`,
+      title: cleanWeekMapTitle(week.title, weekNumber),
+      statusText: state === 'done' ? '已完成' : state === 'current' ? '进行中' : '未开始',
+      description: String(week.description || `查看第${weekNumber}周的具体学习任务与资源。`),
       state,
       x: 126 + index * 246,
       y: index % 2 === 0 ? 388 : 254,
-      actionText: isPlaceholder ? '等待规划' : '查看本周任务',
-      actionRoute: isPlaceholder ? '' : `/learning-path/week/${encodeURIComponent(String(week.id || `week-${weekNumber}`))}`,
+      actionText: '查看本周任务',
+      actionRoute: `/learning-path/week/${encodeURIComponent(String(week.id || `week-${weekNumber}`))}`,
       order: weekNumber,
-      academyStage: weekNumber,
-      isPlaceholder,
     }
   })
   return {
@@ -1199,12 +1216,6 @@ function safeNumber(value, fallback) {
   return Number.isFinite(number) ? number : Number(fallback)
 }
 
-function optionalProgressPercent(value) {
-  if (value === undefined || value === null || value === '') return undefined
-  const number = Number(value)
-  return Number.isFinite(number) ? Math.min(100, Math.max(0, Math.round(number))) : undefined
-}
-
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, safeNumber(value, min)))
 }
@@ -1242,22 +1253,15 @@ async function openNodeAction(node) {
   }
   await hydrateNodeCachesFromServer()
   const href = buildNodeActionHref(node)
-  let viewSavePromise = null
   if (node.cacheKey) {
-    viewSavePromise = markNodeCacheViewed(node.cacheKey, {
+    const marker = node.resourceType === 'review' ? markNodeCacheComplete : markNodeCacheStarted
+    marker(node.cacheKey, {
       stageId: normalizeStageId(String(route.params.stageId || firstVisibleStageId)),
       nodeId: node.id,
-      profileReportId: Number(pathMeta.value?.profileReportId || activeProfileSummary.value?.id || 0),
       resourceType: node.resourceType,
       title: node.title,
       route: href,
-      viewedAt: Date.now(),
     })
-  }
-  if (node.resourceType === 'herb-model' && !/^https?:\/\//i.test(href)) {
-    if (viewSavePromise) await viewSavePromise
-    await router.push(href)
-    return
   }
   window.open(href, '_blank', 'noopener,noreferrer')
 }
@@ -1307,8 +1311,6 @@ function exitStage() {
 
 function nodeProgress(node) {
   if (!node) return 0
-  const reportedProgress = optionalProgressPercent(node.progressPercent)
-  if (reportedProgress !== undefined) return reportedProgress
   if (node.state === 'done') return 100
   if (node.state === 'current') return 66
   return 0
@@ -1325,19 +1327,6 @@ function resetViewport() {
   compactMap.value = rect.width <= 600
   const horizontalPadding = rect.width < 900 ? 28 : 72
   const verticalPadding = rect.height < 700 ? 28 : 52
-  if (compactMap.value && isWeekOverview.value) {
-    const configuredScale = clamp(boardConfig.value.initialScale, 0.35, 2.5)
-    scale.value = clamp(
-      Math.min(configuredScale, (rect.width - horizontalPadding) / boardSize.value.width),
-      0.35,
-      2.5,
-    )
-    offset.value = {
-      x: Math.round((rect.width - boardSize.value.width * scale.value) / 2),
-      y: 140,
-    }
-    return
-  }
   const fitScale = Math.min(
     (rect.width - horizontalPadding) / boardSize.value.width,
     (rect.height - verticalPadding) / boardSize.value.height,
@@ -1359,7 +1348,7 @@ function resetViewport() {
   color: #172033;
   background:
     linear-gradient(180deg, rgba(248, 251, 253, 0.04), rgba(242, 243, 245, 0.12)),
-    url("/learning-path-academy-background-v1.png") center center / cover no-repeat,
+    url("/learning-path-map-background.png") center center / cover no-repeat,
     #f2f3f5;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
@@ -1380,7 +1369,7 @@ function resetViewport() {
   z-index: 0;
   background:
     linear-gradient(180deg, rgba(248, 251, 253, 0.04), rgba(242, 243, 245, 0.12)),
-    url("/learning-path-academy-background-v1.png") center center / cover no-repeat,
+    url("/learning-path-map-background.png") center center / cover no-repeat,
     #f2f3f5;
   content: "";
   pointer-events: none;
@@ -1441,10 +1430,6 @@ function resetViewport() {
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 16px 38px rgba(15, 23, 42, 0.09);
   backdrop-filter: blur(14px);
-}
-
-.week-overview-map .current-profile-path-switcher {
-  animation: academy-path-card-right-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) 35ms backwards;
 }
 
 .profile-path-switcher-head {
@@ -1551,24 +1536,6 @@ function resetViewport() {
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(14px);
-}
-
-.week-overview-map .stage-overview {
-  animation: academy-path-card-left-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-@keyframes academy-path-card-left-enter {
-  from {
-    opacity: 0;
-    transform: translate(-16px, 14px);
-  }
-}
-
-@keyframes academy-path-card-right-enter {
-  from {
-    opacity: 0;
-    transform: translate(16px, 14px);
-  }
 }
 
 .stage-overview strong {
@@ -1730,54 +1697,6 @@ function resetViewport() {
   max-width: 440px;
   font-size: 14px;
   line-height: 1.7;
-}
-
-.empty-path-state.generating {
-  color: #3f6158;
-}
-
-.empty-path-spinner {
-  color: #16836c;
-  animation: empty-path-spin 1.1s linear infinite;
-}
-
-.empty-path-progress {
-  position: relative;
-  width: min(300px, 76vw);
-  height: 4px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: #dbe8e3;
-}
-
-.empty-path-progress i {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 38%;
-  border-radius: inherit;
-  background: #16836c;
-  animation: empty-path-progress 1.45s ease-in-out infinite;
-}
-
-@keyframes empty-path-spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes empty-path-progress {
-  0% { transform: translateX(-110%); }
-  55% { transform: translateX(105%); }
-  100% { transform: translateX(270%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .empty-path-spinner,
-  .empty-path-progress i {
-    animation: none;
-  }
-
-  .empty-path-progress i {
-    width: 64%;
-  }
 }
 
 .map-board {
@@ -2504,15 +2423,6 @@ function resetViewport() {
 }
 
 @media (max-width: 600px) {
-  .clean-map-page {
-    height: auto;
-    overflow: visible;
-  }
-
-  .clean-map-viewport {
-    min-height: calc(100vh - 64px);
-  }
-
   .current-profile-path-switcher {
     top: 16px;
     right: 16px;
@@ -2822,70 +2732,5 @@ function resetViewport() {
 :global(#app .clean-map-viewport .map-board .map-dot .dot-mark),
 :global(#app .clean-map-viewport .map-board .map-dot .dot-lock) {
   display: none !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .week-overview-map .current-profile-path-switcher,
-  .week-overview-map .stage-overview {
-    animation: none;
-  }
-}
-
-/* Week milestones grow from a study house into a complete academy campus. */
-.week-overview-map .map-dot {
-  width: 280px;
-  height: 264px;
-}
-
-.week-overview-map .dot-title {
-  top: calc(50% + 112px);
-  width: 230px;
-  color: #203d35;
-  font-size: 15px;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.92);
-}
-
-.week-overview-map .dot-state {
-  top: calc(50% + 153px);
-  padding: 4px 9px;
-  border: 1px solid rgba(45, 100, 81, 0.12);
-  border-radius: 4px;
-  background: rgba(247, 251, 247, 0.86) !important;
-  backdrop-filter: blur(5px);
-}
-
-.week-overview-map .route-pending {
-  stroke: rgba(72, 124, 105, 0.52);
-  stroke-dasharray: 7 13;
-  stroke-width: 3;
-}
-
-.week-overview-map .route-done {
-  stroke-width: 4;
-}
-
-.week-overview-map .map-dot.is-placeholder {
-  cursor: default;
-}
-
-.week-overview-map .map-dot.is-placeholder :deep(.academy-node) {
-  opacity: 0.42;
-  filter: grayscale(0.2) saturate(0.45);
-}
-
-.week-overview-map .map-dot.is-placeholder .dot-title,
-.week-overview-map .map-dot.is-placeholder .dot-state {
-  opacity: 0.58;
-}
-
-@media (max-width: 600px) {
-  .compact-week-map .map-dot {
-    width: 184px;
-    height: 204px;
-  }
-
-  .compact-week-map .dot-title {
-    top: calc(50% + 82px);
-  }
 }
 </style>

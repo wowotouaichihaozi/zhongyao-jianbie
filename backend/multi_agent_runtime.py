@@ -325,7 +325,7 @@ def _plan_for_task(task_type: str, worker: str, use_knowledge: bool) -> list[dic
 def node_supervisor_plan(state: MultiAgentState) -> MultiAgentState:
     task_type = normalize_task_type(state.get("task_type"))
     if task_type not in TASK_POLICIES:
-        raise ValueError(f"岐小智不支持的任务类型: {task_type}")
+        raise ValueError(f"嵌小智不支持的任务类型: {task_type}")
     state["task_type"] = task_type
     policy = TASK_POLICIES[task_type]
     state["plan"] = _plan_for_task(task_type, policy["worker"], bool(policy.get("knowledge")))
@@ -348,7 +348,7 @@ def node_supervisor_plan(state: MultiAgentState) -> MultiAgentState:
         XIAOZHI_MASTER_AGENT_ID,
         "supervisor_plan",
         "complete",
-        f"岐小智已规划 {len(state['plan'])} 个协作步骤",
+        f"嵌小智已规划 {len(state['plan'])} 个协作步骤",
         8,
         {"taskType": task_type, "worker": policy["worker"], "plan": state["plan"]},
     )
@@ -430,7 +430,7 @@ def node_retrieve_knowledge(state: MultiAgentState) -> MultiAgentState:
         state.get("topic") or "",
         state["task_type"],
         *learner_context.get("weakPoints", [])[:6],
-        "中医药 高校课程 四诊 辨证 方药 医案",
+        "嵌入式系统 单片机 高校课程",
     ]
     query = " ".join(str(item) for item in query_parts if str(item).strip())
     try:
@@ -1157,9 +1157,9 @@ def node_finalize(state: MultiAgentState) -> MultiAgentState:
         "supervisor_finalize",
         status,
         (
-            "岐小智已完成结果收口并保存协作执行链"
+            "嵌小智已完成结果收口并保存协作执行链"
             if status == "complete"
-            else "岐小智已保存失败结果与审核问题，未将产物标记为完成"
+            else "嵌小智已保存失败结果与审核问题，未将产物标记为完成"
         ),
         100,
         {"reviewScore": review.get("score"), "attempts": state.get("attempt", 0)},

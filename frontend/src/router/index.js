@@ -3,17 +3,16 @@ import { getCurrentUser } from '../services/api.js'
 import { clearAuthSession, getAuthToken, readCurrentUser, setAuthSession } from '../stores/auth.js'
 import { safeInternalRedirect } from '../utils/authRedirect.js'
 
-const AuthPage = () => import('../views/HerbWiseLoginPage.vue')
-const ArchifyLandingView = () => import('../views/ArchifyLandingView.vue')
+const AuthPage = () => import('../views/AuthPage.vue')
 const QuestionGeneratorView = () => import('../views/QuestionGeneratorView.vue')
 const QuestionExamSessionView = () => import('../views/QuestionExamSessionView.vue')
+const McuSimulatorView = () => import('../views/McuSimulatorView.vue')
 const LearningProfileView = () => import('../views/LearningProfileView.vue')
 const LearningProfileSubmitView = () => import('../views/LearningProfileSubmitView.vue')
 const LearningProfileUploadView = () => import('../views/LearningProfileUploadView.vue')
 const LearningPathView = () => import('../views/LearningPathView.vue')
 const LearningPathStageDetailView = () => import('../views/LearningPathStageDetailView.vue')
 const PersonalizedResourcesView = () => import('../views/PersonalizedResourcesView.vue')
-const HerbRecognitionView = () => import('../views/HerbRecognitionView.vue')
 const ResourceDetailView = () => import('../views/ResourceDetailView.vue')
 const DigitalHumanInterviewView = () => import('../views/DigitalHumanInterviewView.vue')
 const UserProfileView = () => import('../views/UserProfileView.vue')
@@ -28,9 +27,9 @@ const EffectAssessmentView = () => import('../views/EffectAssessmentView.vue')
 const LearningDocumentView = () => import('../views/LearningDocumentView.vue')
 const SmartTutorView = () => import('../views/SmartTutorView.vue')
 const KnowledgeBaseView = () => import('../views/KnowledgeBaseView.vue')
-const HerbModelRecognitionView = () => import('../views/HerbModelRecognitionView.vue')
-const KnowledgeNetworkView = () => import('../views/KnowledgeNetworkOriginalEmbedView.vue')
-const LifeTreeView = () => import('../views/LifeTreeView.vue')
+const KnowledgeNetworkView = () => import('../views/KnowledgeNetworkView.vue')
+const AgentDigitalTwinView = () => import('../views/AgentDigitalTwinView.vue')
+const AiCodingView = () => import('../views/AiCodingView.vue')
 
 const CODEX_PREVIEW_AUTH_KEY = 'codexPreviewAuth'
 
@@ -78,7 +77,7 @@ const routes = [
   {
     path: '/login',
     name: 'login',
-    component: ArchifyLandingView,
+    component: AuthPage,
   },
   {
     path: '/question-generator',
@@ -94,7 +93,9 @@ const routes = [
   },
   {
     path: '/mcu-simulator/:board?/:projectId?',
-    redirect: '/personalized-resources',
+    name: 'mcu-simulator',
+    component: McuSimulatorView,
+    meta: { requiresAuth: true },
   },
   {
     path: '/learning-profile',
@@ -183,9 +184,7 @@ const routes = [
   },
   {
     path: '/herb-recognition',
-    name: 'herb-recognition',
-    component: HerbRecognitionView,
-    meta: { requiresAuth: true, keepAlive: true },
+    redirect: '/knowledge-network',
   },
   {
     path: '/knowledge-network',
@@ -199,23 +198,23 @@ const routes = [
   },
   {
     path: '/personalized-resources/herb-model',
-    name: 'personalized-resource-herb-model',
-    component: HerbModelRecognitionView,
-    meta: { requiresAuth: true, noNavbar: true, resourceTool: true },
+    redirect: '/personalized-resources/mcu-simulator',
   },
   {
     path: '/life-tree',
-    name: 'life-tree',
-    component: LifeTreeView,
-    meta: { requiresAuth: true, keepAlive: true },
+    redirect: '/agent-digital-twin',
   },
   {
     path: '/agent-digital-twin',
-    redirect: '/personalized-resources',
+    name: 'agent-digital-twin',
+    component: AgentDigitalTwinView,
+    meta: { requiresAuth: true },
   },
   {
     path: '/ai-coding',
-    redirect: '/personalized-resources',
+    name: 'ai-coding',
+    component: AiCodingView,
+    meta: { requiresAuth: true },
   },
   {
     path: '/personalized-resources/question-bank',
@@ -261,7 +260,9 @@ const routes = [
   },
   {
     path: '/personalized-resources/mcu-simulator/:board?/:projectId?',
-    redirect: '/personalized-resources',
+    name: 'personalized-resource-mcu-simulator',
+    component: McuSimulatorView,
+    meta: { requiresAuth: true, noNavbar: true, resourceTool: true },
   },
   {
     path: '/resource-detail',

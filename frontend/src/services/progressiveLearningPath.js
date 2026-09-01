@@ -176,7 +176,7 @@ export function subscribeLearningPathTrace(listener) {
 
 export function generateFirstLearningPath(totalWeeks, profileReportId = 0) {
   if (firstWeekPromise) return firstWeekPromise
-  beginTrace('正在请求岐小智生成第一周学习路径')
+  beginTrace('正在请求嵌小智生成第一周学习路径')
   firstWeekPromise = (async () => {
     try {
       const result = await runGenerationStream({
@@ -209,7 +209,7 @@ export function generateFirstLearningPath(totalWeeks, profileReportId = 0) {
 
 export function generateRemainingLearningPath(initialConfig, totalWeeks) {
   if (remainingWeeksPromise) return remainingWeeksPromise
-  if (!traceHistory.length) beginTrace('正在请求岐小智补全后续周学习路径')
+  if (!traceHistory.length) beginTrace('正在请求嵌小智补全后续周学习路径')
 
   remainingWeeksPromise = (async () => {
     let currentConfig = initialConfig

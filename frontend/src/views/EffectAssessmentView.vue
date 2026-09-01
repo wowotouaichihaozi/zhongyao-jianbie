@@ -255,7 +255,7 @@ const profile = ref(null)
 const evidence = ref({})
 const assessment = ref({})
 
-const labels = computed(() => assessment.value.labels || ['基础知识', '辨证思维', '方药应用', '医案实践', '学习投入', '综合素养'])
+const labels = computed(() => assessment.value.labels || ['基础知识', '编程调试', '实验实践', '项目能力', '学习投入', '工程意识'])
 const previousScores = computed(() => assessment.value.previousRadarScores || [2, 2, 2, 2, 2, 2])
 const currentScores = computed(() => assessment.value.radarScores || previousScores.value)
 const adjustmentPlan = computed(() => assessment.value.pathAdjustmentPlan || {})
@@ -383,8 +383,8 @@ function resourceLabel(value) {
     video: '学习视频',
     quiz: '题库',
     'question-bank': '题库',
-    simulator: '课程讲义',
-    mcu: '课程讲义',
+    simulator: 'MCU 实验',
+    mcu: 'MCU 实验',
     document: '课程讲义',
     animation: '动画讲解',
     'knowledge-base': '私有知识库',
@@ -1294,116 +1294,6 @@ watch(() => route.query.profileId, load)
 
   .heatmap-row {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (min-width: 1021px) {
-  .assessment-page {
-    padding-top: 18px;
-    padding-bottom: 44px;
-  }
-
-  .assessment-head {
-    padding: 0 0 14px;
-  }
-
-  .assessment-head h1 {
-    margin: 5px 0;
-    font-size: 26px;
-  }
-
-  .assessment-head > div > span {
-    font-size: 13px;
-    line-height: 1.4;
-  }
-
-  .assessment-head button {
-    min-height: 36px;
-  }
-
-  .metric-grid {
-    gap: 8px;
-    margin-top: 12px;
-  }
-
-  .metric-grid article {
-    min-height: 100px;
-    padding: 13px 14px 11px;
-  }
-
-  .metric-grid svg {
-    width: 27px;
-    height: 27px;
-    padding: 5px;
-  }
-
-  .metric-grid strong {
-    margin-top: 7px;
-    font-size: 22px;
-  }
-
-  .metric-grid small {
-    margin-top: 5px;
-  }
-
-  .assessment-grid,
-  .diagnosis-grid,
-  .evidence-grid {
-    gap: 12px;
-    margin-top: 12px;
-  }
-
-  .panel {
-    padding: 16px 18px;
-  }
-
-  .card-title h2,
-  .evidence-grid h2 {
-    margin-top: 3px;
-    font-size: 16px;
-  }
-
-  .radar-card {
-    min-height: 350px;
-  }
-
-  .radar-wrap {
-    min-height: 285px;
-  }
-
-  .radar-wrap svg {
-    max-height: 290px;
-  }
-
-  .improvement-list {
-    margin-top: 10px;
-  }
-
-  .improvement-list div,
-  .adjustment-list > div {
-    padding-top: 8px;
-    padding-bottom: 8px;
-  }
-
-  .weak-panel {
-    margin-top: 12px;
-    padding-top: 12px;
-  }
-
-  .heatmap-list,
-  .feedback-list {
-    margin-top: 8px;
-  }
-
-  .heatmap-row {
-    min-height: 54px;
-    padding-top: 7px;
-    padding-bottom: 7px;
-  }
-
-  .adjustment-reason {
-    margin: 10px 0;
-    padding: 9px 11px;
   }
 }
 </style>

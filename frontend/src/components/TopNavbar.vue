@@ -1,8 +1,7 @@
-<template>
+﻿<template>
   <header class="topnavbar">
-    <RouterLink class="brand" to="/login" aria-label="返回中药鉴别登录页">
-      <img src="/qihuang-zhijing-mark-512.png" alt="" />
-      <span class="brand-copy"><strong>中药鉴别</strong><small>中医智慧学习平台</small></span>
+    <RouterLink class="brand" to="/login" aria-label="返回登录页">
+      <img src="/logo.png" alt="嵌智学航" />
     </RouterLink>
 
     <nav class="nav-links" aria-label="主功能导航">
@@ -27,7 +26,7 @@
       >
         <img v-if="item.logo" class="nav-item-logo" :src="item.logo" alt="" aria-hidden="true" />
         <component v-else :is="item.icon" :size="21" :stroke-width="2.2" />
-        <span>{{ item.mobileLabel || item.label }}</span>
+        <span>{{ item.label }}</span>
       </RouterLink>
     </nav>
 
@@ -56,10 +55,9 @@ import {
   FlaskConical,
   LogOut,
   Network,
+  Orbit,
   Route as RouteIcon,
-  ScanSearch,
   Share2,
-  TreePine,
   UserRound,
 } from 'lucide-vue-next'
 import { logoutUser } from '../services/api.js'
@@ -73,19 +71,19 @@ const isResourceSection = computed(() => {
 })
 
 const navItems = [
-  { to: '/learning-profile', label: '学习画像', mobileLabel: '画像', icon: Network, active: () => route.path.startsWith('/learning-profile') },
-  { to: '/learning-path', label: '学习路径', mobileLabel: '路径', icon: RouteIcon, active: () => route.path.startsWith('/learning-path') },
-  { to: '/personalized-resources', label: '个性化资源', mobileLabel: '资源', icon: FlaskConical, active: () => isResourceSection.value },
-  { to: '/effect-assessment', label: '效果评估', mobileLabel: '评估', icon: Gauge, active: () => route.path.startsWith('/effect-assessment') },
-  { to: '/herb-recognition', label: '药材识别', mobileLabel: '识别', icon: ScanSearch, active: () => route.path.startsWith('/herb-recognition') },
-  { to: '/knowledge-network', label: '知识网络', mobileLabel: '知识', icon: Share2, active: () => route.path.startsWith('/knowledge-network') },
-  { to: '/life-tree', label: '生命树', mobileLabel: '生命树', icon: TreePine, active: () => route.path.startsWith('/life-tree') },
-  { to: '/digital-human-interview', label: '学习访谈', mobileLabel: '访谈', icon: ChartNoAxesCombined, active: () => route.path.startsWith('/digital-human-interview') },
+  { to: '/learning-profile', label: '学习画像', icon: Network, active: () => route.path.startsWith('/learning-profile') },
+  { to: '/learning-path', label: '学习路径', icon: RouteIcon, active: () => route.path.startsWith('/learning-path') },
+  { to: '/personalized-resources', label: '个性化资源', icon: FlaskConical, active: () => isResourceSection.value },
+  { to: '/knowledge-network', label: '知识网络', icon: Share2, active: () => route.path.startsWith('/knowledge-network') },
+  { to: '/agent-digital-twin', label: '数字孪生', icon: Orbit, active: () => route.path.startsWith('/agent-digital-twin') },
+  { to: '/effect-assessment', label: '效果评估', icon: Gauge, active: () => route.path.startsWith('/effect-assessment') },
+  { to: '/digital-human-interview', label: 'AI面试', icon: ChartNoAxesCombined, active: () => route.path.startsWith('/digital-human-interview') },
+  { to: '/ai-coding', label: 'AI 编程', logo: '/deepseek-harness.svg', active: () => route.path.startsWith('/ai-coding') },
 ]
 
 const mobileNavItems = [
   ...navItems.filter(item => item.to !== '/digital-human-interview'),
-  { to: '/user-profile', label: '我的', mobileLabel: '我的', icon: UserRound, active: () => route.path.startsWith('/user-profile') },
+  { to: '/user-profile', label: '我的', icon: UserRound, active: () => route.path.startsWith('/user-profile') },
 ]
 
 const DEFAULT_USER_AVATAR = '/userlogo.png'
@@ -130,8 +128,7 @@ async function logout() {
 
 <style scoped>
 .topnavbar {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 100;
   height: 72px;
   display: grid;
@@ -147,36 +144,25 @@ async function logout() {
   height: 72px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding-left: 24px;
+  padding-left: 32px;
   box-sizing: border-box;
   text-decoration: none;
 }
 
 .brand img {
-  width: 46px;
-  height: 46px;
+  height: 42px;
+  max-width: 164px;
   object-fit: contain;
   filter: none;
   opacity: 1;
 }
-
-.brand-copy {
-  display: grid;
-  gap: 2px;
-  color: #123d2d;
-  line-height: 1.1;
-}
-
-.brand-copy strong { font-size: 18px; }
-.brand-copy small { color: #8d4b3d; font-size: 10px; font-weight: 650; }
 
 .nav-links {
   height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 22px;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -200,7 +186,7 @@ async function logout() {
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
-  transition: color var(--motion-base, 0.26s) var(--motion-enter, ease);
+  transition: color 0.2s ease;
 }
 
 .nav-links a:hover,
@@ -248,7 +234,7 @@ async function logout() {
   color: #2563eb;
 }
 
-.nav-links a::after {
+.nav-links a.active::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -257,18 +243,7 @@ async function logout() {
   height: 2px;
   border-radius: 0;
   background: #111313;
-  opacity: 0;
-  transform: translateX(-50%) scaleX(0.3);
-  transform-origin: center;
-  transition:
-    opacity var(--motion-fast, 0.16s) ease,
-    transform var(--motion-base, 0.26s) var(--motion-enter, ease);
-}
-
-.nav-links a:hover::after,
-.nav-links a.active::after {
-  opacity: 1;
-  transform: translateX(-50%) scaleX(1);
+  transform: translateX(-50%);
 }
 
 .nav-right {
@@ -348,75 +323,9 @@ async function logout() {
   color: #111313;
 }
 
-@media (min-width: 769px) and (max-width: 1500px) {
-  .topnavbar {
-    grid-template-columns: 180px minmax(0, 1fr) 180px;
-  }
-
-  .brand {
-    width: 180px;
-    gap: 8px;
-    padding-left: 14px;
-  }
-
-  .brand img {
-    width: 40px;
-    height: 40px;
-  }
-
-  .brand-copy strong {
-    font-size: 15px;
-  }
-
-  .nav-links {
-    justify-content: safe center;
-    gap: 10px;
-  }
-
-  .nav-links a {
-    gap: 5px;
-    font-size: 13px;
-  }
-
-  .nav-item-logo {
-    width: 17px;
-    height: 17px;
-    flex-basis: 17px;
-  }
-
-  .nav-right {
-    gap: 10px;
-    padding-right: 14px;
-  }
-
-  .logout-button {
-    gap: 5px;
-    font-size: 13px;
-  }
-}
-
-@media (min-width: 769px) and (max-width: 1120px) {
-  .topnavbar {
-    grid-template-columns: 150px minmax(0, 1fr) 156px;
-  }
-
-  .brand {
-    width: 150px;
-  }
-
-  .brand-copy small {
-    display: none;
-  }
-
-  .nav-links {
-    justify-content: flex-start;
-  }
-}
-
 @media (max-width: 768px) and (orientation: portrait) {
   .topnavbar {
     position: fixed;
-    top: auto;
     left: max(12px, env(safe-area-inset-left));
     right: max(12px, env(safe-area-inset-right));
     bottom: max(10px, env(safe-area-inset-bottom));
@@ -440,7 +349,7 @@ async function logout() {
   .mobile-bottom-nav {
     height: 100%;
     display: grid;
-    grid-template-columns: repeat(9, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     align-items: center;
     padding: 6px;
     box-sizing: border-box;
@@ -467,7 +376,6 @@ async function logout() {
   }
 
   .mobile-bottom-nav a span {
-    width: 100%;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;

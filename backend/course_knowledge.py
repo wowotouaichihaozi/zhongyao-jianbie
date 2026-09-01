@@ -38,7 +38,10 @@ except ImportError:  # pragma: no cover - package-style import fallback
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CORPUS_DIR = Path(os.environ.get("COURSE_KNOWLEDGE_CORPUS_DIR") or (PROJECT_ROOT / "rag文档")).resolve()
+CORPUS_DIR = Path(
+    os.environ.get("COURSE_KNOWLEDGE_CORPUS_DIR")
+    or (PROJECT_ROOT / "rag文档" / "嵌入式")
+).resolve()
 CACHE_PATH = Path(
     os.environ.get("COURSE_KNOWLEDGE_INDEX_PATH")
     or (Path(__file__).resolve().parent / "data" / "course_knowledge_index.json")
@@ -62,6 +65,10 @@ def _clean_text(value: str) -> str:
     value = re.sub(r"[ \t]+", " ", value)
     value = re.sub(r"\n{3,}", "\n\n", value)
     return value.strip()
+
+
+def _has_mojibake(value: object) -> bool:
+    return "\ufffd" in str(value or "")
 
 
 def _tokens(value: str) -> list[str]:
@@ -145,6 +152,10 @@ class CourseKnowledgeBase:
                 item
                 for item in (cached.get("chunks") or [])
                 if isinstance(item, dict) and item.get("content")
+                and not any(
+                    _has_mojibake(item.get(field))
+                    for field in ("source", "title", "content")
+                )
             ]
             cache_matches_corpus = cached.get("signatures") == signatures
             portable_cache_only = not files and bool(cached_chunks)
@@ -392,6 +403,8 @@ def _public_knowledge_revision() -> str:
     return _file_revision(
         [
             CACHE_PATH,
+            data_dir / "embedded_qa_pairs.json",
+            data_dir / "embedded_graph_index.json",
             data_dir / "tcm_qa_pairs.json",
             data_dir / "tcm_graph_index.json",
             data_dir / "tcm_hybrid_corpus.db.gz",
@@ -704,11 +717,8 @@ def _qa_matches_target_entity(hit: dict[str, Any], plan: dict[str, Any]) -> bool
     ]
     if not entities:
         return True
-    title = re.sub(r"\s+", "", str(hit.get("title") or ""))
-    for entity in entities:
-        if re.search(rf"(?:^|[生炙制]){re.escape(entity)}(?:的|是|有何|有哪些|如何|主治|功效|性味|归经|来源|性状)", title):
-            return True
-    return False
+    title = re.sub(r"\s+", "", str(hit.get("title") or "")).lower()
+    return any(entity.lower() in title for entity in entities)
 
 
 def _assign_citation_ids(hits: list[dict[str, Any]]) -> None:
@@ -734,7 +744,7 @@ def _agent_hit_block(hit: dict[str, Any]) -> str:
     if route == "qa":
         return f"[{citation_id}][QA] {hit.get('title') or '课程问答'}\n{excerpt}"
     if route == "graph":
-        path = hit.get("path") or hit.get("title") or "中医知识节点"
+        path = hit.get("path") or hit.get("title") or "嵌入式知识节点"
         return f"[{citation_id}][知识图谱] {path}\n{excerpt}"
     locator = f"第 {hit['page']} 页" if hit.get("page") else f"第 {hit.get('section') or 1} 节"
     private_label = "[我的知识库] " if hit.get("scope") == "private" else ""
@@ -1062,8 +1072,8 @@ def grounded_prompt_block(
     retrieval_note = f"知识检索智能体关键词：{keywords}。执行子查询：{subqueries}。"
     prompt = (
         "以下内容先由知识检索智能体拆分关键词和子查询，再由混合知识路由器从结构化 QA、"
-        "课程文档切块、当前用户私有文档和中医知识图谱中检索，"
-        "并完成多源证据交叉验证。涉及定义、辨证依据、方药、步骤、参数和结论时必须优先依据这些证据；"
+        "课程文档切块、当前用户私有文档和嵌入式知识图谱中检索，"
+        "并完成多源证据交叉验证。涉及定义、工作原理、配置、时序、步骤、参数和结论时必须优先依据这些证据；"
         "无法由证据支持或仅有单一来源支持的事实要明确标注为“需进一步核验”。"
         "输出中使用 [QA1] 标注 QA 对、[KB1] 标注文档、[PKB1] 标注用户私有资料、[KG1] 标注图谱节点。\n"
         f"{retrieval_note}\n{verification_note}\n\n"

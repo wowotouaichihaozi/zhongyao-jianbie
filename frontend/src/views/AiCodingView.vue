@@ -7,7 +7,7 @@
         class="runtime-frame"
         src="/ai-coding-runtime/"
         title="DeepSeek Harness AI 编程工作区"
-        allow="clipboard-read; clipboard-write"
+        allow="microphone; clipboard-read; clipboard-write"
         @load="handleFrameLoad"
       />
 
@@ -59,6 +59,13 @@ async function prepareRuntime() {
       headers: { Accept: 'text/html' },
     })
     if (!response.ok) throw new Error(`服务返回 HTTP ${response.status}`)
+
+    const html = await response.text()
+    const isPlatformFallback = html.includes('<title>嵌智学航</title>')
+      || html.includes('src="/src/main.js"')
+    if (isPlatformFallback) {
+      throw new Error('AI 编程运行时尚未启动或反向代理未配置')
+    }
 
     frameKey.value += 1
     runtimeReady.value = true

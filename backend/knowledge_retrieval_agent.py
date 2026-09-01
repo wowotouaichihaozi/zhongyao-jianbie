@@ -1,4 +1,4 @@
-"""Plan auditable multi-query retrieval for TCM learning resources."""
+"""Plan auditable multi-query retrieval for embedded-systems learning resources."""
 
 from __future__ import annotations
 
@@ -10,42 +10,37 @@ from typing import Any
 
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
-GRAPH_PATH = DATA_DIR / "tcm_graph_index.json"
-AGENT_VERSION = "knowledge-retrieval-agent-v1"
+GRAPH_PATH = DATA_DIR / "embedded_graph_index.json"
+AGENT_VERSION = "knowledge-retrieval-agent-v2-embedded"
 
 ASPECT_TERMS = (
-    "性味归经",
-    "四气五味",
-    "升降浮沉",
-    "药用部位",
-    "性状鉴别",
-    "适用证候",
-    "配伍禁忌",
-    "方剂组成",
-    "君臣佐使",
-    "辨证论治",
-    "八纲辨证",
-    "四诊合参",
-    "舌象",
-    "脉象",
-    "病机",
-    "治法",
-    "功效",
-    "主治",
-    "炮制",
-    "用法",
-    "用量",
-    "鉴别",
-    "医案",
-    "证候",
-    "方药",
+    "工作原理",
+    "硬件连接",
+    "时钟配置",
+    "引脚配置",
+    "寄存器配置",
+    "初始化流程",
+    "中断配置",
+    "通信时序",
+    "驱动开发",
+    "设备树",
+    "内核模块",
+    "调试方法",
+    "错误排查",
+    "波形分析",
+    "代码实现",
+    "实验步骤",
+    "验收结果",
+    "性能优化",
+    "低功耗",
+    "实时性",
 )
 
 GENERIC_GRAPH_TITLES = {
-    "中医",
-    "中药",
-    "方剂",
-    "中医药",
+    "嵌入式",
+    "单片机",
+    "开发板",
+    "系统",
     "知识",
     "学习",
     "基础",
@@ -130,26 +125,17 @@ def _extract_entities(message: str) -> list[str]:
             break
 
     syntactic: list[str] = []
-    for left, right in re.findall(
-        r"([\u4e00-\u9fff]{2,10})[与和及]([\u4e00-\u9fff]{2,10})(?=的(?:功效|性味|主治|区别|异同|鉴别|配伍))",
-        message,
-    ):
-        left = re.sub(r"^(?:请)?(?:围绕|关于)?(?:比较|对比|辨析|鉴别|分析)?", "", left)
-        right = re.sub(r"(?:之间)?$", "", right)
-        syntactic.extend([left, right])
-    for entity in re.findall(
-        r"(?:如|例如|观察|识别|辨认|学习|关于|围绕)?([\u4e00-\u9fff]{2,8})的[\u4e00-\u9fff]{0,4}(?:性味归经|功效|主治|药用部位|性状|炮制|用法|用量)",
-        message,
-    ):
-        entity = re.sub(r"^(?:请)?(?:比较|对比|辨析|鉴别|分析|关于|围绕|观察|识别|辨认|学习)", "", entity)
-        if not re.search(r"[与和及]", entity):
-            syntactic.append(entity)
-    for entity in re.findall(
-        r"(?:分析|辨析|围绕|关于)?([\u4e00-\u9fff]{2,10}?)(?:医案)?的(?:病机|治法|证候|方药)",
-        message,
-    ):
-        entity = re.sub(r"^(?:请)?(?:分析|辨析|围绕|关于)", "", entity)
-        syntactic.append(entity)
+    domain_entities = (
+        "STM32", "ESP32", "8051", "51单片机", "ARM", "Cortex-M", "RISC-V",
+        "GPIO", "UART", "USART", "SPI", "I2C", "CAN", "USB", "HID",
+        "ADC", "DAC", "PWM", "DMA", "NVIC", "EXTI", "定时器", "看门狗",
+        "FreeRTOS", "RTOS", "Zephyr", "Linux驱动", "内核模块", "设备树",
+        "Bootloader", "BSP", "HAL库", "寄存器", "逻辑分析仪", "示波器",
+    )
+    lower_message = message.lower()
+    syntactic.extend(
+        entity for entity in domain_entities if entity.lower() in lower_message
+    )
 
     quoted = re.findall(r"[“\"]([^”\"]{2,24})[”\"]", message)
     candidates = _dedupe([*syntactic, *selected, *quoted], limit=10)
@@ -178,14 +164,14 @@ def _extract_clause_keywords(message: str) -> list[str]:
 
 
 def _intent(message: str) -> str:
-    if re.search(r"对比|比较|区别|异同|鉴别", message):
+    if re.search(r"对比|比较|区别|异同", message):
         return "compare"
-    if re.search(r"为什么|病机|机制|关系|如何|怎样", message):
+    if re.search(r"为什么|原理|机制|关系|如何|怎样", message):
         return "reasoning"
     if re.search(r"题|测评|判断|练习", message):
         return "assessment"
-    if re.search(r"医案|证候|辨证|治法|方药", message):
-        return "case-analysis"
+    if re.search(r"实验|接线|烧录|波形|调试|排查", message):
+        return "experiment"
     return "concept"
 
 
@@ -214,13 +200,16 @@ def plan_knowledge_retrieval(message: str, *, max_subqueries: int = 4) -> dict[s
         keywords = [original[:80]]
 
     intent = _intent(original)
-    query_candidates: list[tuple[str, list[str], list[str]]] = []
+    original_query = _clean(re.sub(r"\d+(?:道|个|页|题|项)", " ", original))
+    query_candidates: list[tuple[str, list[str], list[str]]] = [
+        (original_query, entities, aspects)
+    ]
     core = " ".join(keywords[:8])
-    if core:
+    if core and intent != "compare":
         query_candidates.append((core, entities, aspects))
 
     if len(entities) >= 2 and intent == "compare":
-        requested_aspects = aspects[:4] or ["功效", "主治", "鉴别"]
+        requested_aspects = aspects[:4] or ["工作原理", "配置方式", "适用场景"]
         query_candidates.append(
             (
                 f"{'与'.join(entities[:4])}的{'、'.join(requested_aspects)}有何区别",
@@ -230,7 +219,7 @@ def plan_knowledge_retrieval(message: str, *, max_subqueries: int = 4) -> dict[s
         )
 
     for entity in entities[:3]:
-        requested_aspects = aspects[:4] or ["定义", "功效", "主治"]
+        requested_aspects = aspects[:4] or ["工作原理", "配置步骤", "调试方法"]
         query_candidates.append(
             (f"{entity}的{'、'.join(requested_aspects)}是什么", [entity], aspects[:4])
         )

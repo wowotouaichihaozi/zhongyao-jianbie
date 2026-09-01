@@ -77,7 +77,9 @@ def test_interview_runtime_completes_question_frame_answer_and_summary(monkeypat
     assert answered["source"] == "model"
     assert answered["answerScore"] > 0
     assert ended["status"] == "ended"
-    assert ended["score"] == ended["textScore"] + 2
+    assert ended["textScore"] == 10
+    assert ended["videoScoreDelta"] == 2
+    assert ended["score"] == 10
     assert ended["totalAnswerCount"] == 1
     assert len(ended["frameAnalyses"]) == 1
     assert ended["videoScoreDelta"] == 2

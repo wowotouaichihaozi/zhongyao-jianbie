@@ -18,7 +18,7 @@
 
     <section class="auth-entry-card">
       <div class="auth-entry-brand">
-        <img src="/logo.png" alt="中药鉴别" />
+        <img src="/logo.png" alt="嵌智学航" />
       </div>
 
       <div class="auth-portal-switch" role="tablist" aria-label="登录入口">

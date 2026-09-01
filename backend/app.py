@@ -2107,7 +2107,7 @@ def herb_models_catalog_get():
                 "revision": HERB_MODEL_REVISION,
                 "count": len(items),
                 "items": items,
-                "usage": "中药材性状学习模型，不用于临床诊断或真伪检验结论。",
+                "usage": "历史三维模型兼容接口，当前嵌入式学习流程不再使用。",
             },
         }
     )
@@ -2247,7 +2247,7 @@ XIAOZHI_RESOURCE_LABELS = {
 }
 
 XIAOZHI_MENTIONABLE_AGENTS = (
-    {"id": XIAOZHI_MASTER_AGENT_ID, "name": "岐小智总控智能体", "taskType": "", "aliases": ["岐小智", "总控智能体"]},
+    {"id": XIAOZHI_MASTER_AGENT_ID, "name": "嵌小智总控智能体", "taskType": "", "aliases": ["嵌小智", "总控智能体"]},
     {"id": "learning-background-dialogue-agent", "name": "学习背景智能体", "taskType": "learning_background", "aliases": ["学习背景采集智能体"]},
     {"id": "learning-profile-agent", "name": "学习画像智能体", "taskType": "profile_update", "aliases": ["画像智能体"]},
     {"id": "learning-route-agent", "name": "学习路径智能体", "taskType": "learning_path", "aliases": ["学习路径规划智能体", "路径智能体"]},
@@ -2259,6 +2259,7 @@ XIAOZHI_MENTIONABLE_AGENTS = (
     {"id": "mindmap-agent", "name": "思维导图智能体", "taskType": "mindmap", "aliases": ["导图智能体"]},
     {"id": "video-search-agent", "name": "视频检索智能体", "taskType": "video", "aliases": ["视频查找智能体"]},
     {"id": "generated-video-agent", "name": "AI视频生成智能体", "taskType": "generated_video", "aliases": ["AI视频智能体"]},
+    {"id": "mcu-agent", "name": "单片机实验智能体", "taskType": "mcu", "aliases": ["MCU智能体", "实验智能体", "模拟器智能体"]},
     {"id": "interview-agent", "name": "学习访谈智能体", "taskType": "interview", "aliases": ["访谈智能体"]},
     {"id": "smart-tutor-agent", "name": "智能辅导智能体", "taskType": "smart_tutor", "aliases": ["辅导智能体"]},
     {"id": "learning-effect-assessment-agent", "name": "效果评估智能体", "taskType": "effect_assessment", "aliases": ["评估智能体"]},
@@ -2273,10 +2274,11 @@ XIAOZHI_AGENT_PERSONAS = {
     "learning-route-agent": "负责依据画像规划阶段目标、周次节奏和平台能力闭环。",
     "learning-path-stage-agent": "负责把当前周目标拆成不同要求的具体任务和验收标准。",
     "personalized-resource-workflow": "负责协调知识检索、资源生成、审核和异步质量评分。",
-    "question-generator-workflow": "负责中医药题目设计、难度分层、答案解析和错因诊断。",
-    "ppt-agent": "负责中医药课程 PPT 的结构、逐页内容、讲解顺序和视觉表达。",
-    "learning-document-agent": "负责基于可靠知识证据组织课程讲义、医案和复习材料。",
-    "mindmap-agent": "负责梳理中医概念层级、药物关系、辨证链路和易混知识点。",
+    "question-generator-workflow": "负责嵌入式题目设计、难度分层、答案解析和错因诊断。",
+    "ppt-agent": "负责嵌入式课程 PPT 的结构、逐页内容、讲解顺序和视觉表达。",
+    "learning-document-agent": "负责基于可靠知识证据组织课程讲义、实验手册和复习材料。",
+    "mindmap-agent": "负责梳理嵌入式概念层级、软硬件关系、调试链路和易混知识点。",
+    "mcu-agent": "负责根据画像推荐合法实验预设，提供接线、代码、运行和调试入口。",
     "video-search-agent": "负责提炼检索关键词、筛选讲解视频并说明推荐依据。",
     "generated-video-agent": "负责设计 AI 讲解视频脚本、分镜、首图和生成参数；视频只在用户确认后生成。",
     "interview-agent": "负责开展学习访谈，通过追问获取可用于画像和路径调整的证据。",
@@ -2357,9 +2359,6 @@ RESOURCE_AGENT_TYPE_ALIASES = {
     "resource-package": "personalized_resources",
     "resource_package": "personalized_resources",
     "resources": "personalized_resources",
-    "herb-model": "herb_model",
-    "herb_model": "herb_model",
-    "herb-recognition": "herb_model",
 }
 
 RESOURCE_AGENT_ALLOWED_TYPES = {
@@ -2375,7 +2374,6 @@ RESOURCE_AGENT_ALLOWED_TYPES = {
     "knowledge_base",
     "profile_management",
     "learning_feedback",
-    "herb_model",
 }
 
 XIAOZHI_TASK_COMMAND_MARKERS = (
@@ -3034,7 +3032,7 @@ def ppt_h5_generate_background_route():
 
     payload = request.get_json(silent=True) or {}
     session_id = str(payload.get("sessionId") or f"ppt_{int(time.time() * 1000)}").strip()
-    topic = str(payload.get("topic") or "中医学习课件").strip() or "中医学习课件"
+    topic = str(payload.get("topic") or "嵌入式学习课件").strip() or "嵌入式学习课件"
     user_message = str(payload.get("userMessage") or "").strip()
     try:
         page_count = max(1, min(20, int(payload.get("pageCount") or 5)))

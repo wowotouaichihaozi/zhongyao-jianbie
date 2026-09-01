@@ -1129,7 +1129,7 @@ def learning_profile_questionnaire_save():
     if not user:
         return dependencies.jsonify({"code": 401, "msg": "未登录"}), 401
     payload = dependencies.request.get_json(silent=True) or {}
-    title = str(payload.get("title") or "中医大学生学习画像量表问卷")
+    title = str(payload.get("title") or "嵌入式学习画像量表问卷")
     section_statuses = payload.get("sectionStatuses") or {}
     missing_message = str(payload.get("missingMessage") or "暂时缺失该部分的数据")
     created_at = dependencies.now_iso()

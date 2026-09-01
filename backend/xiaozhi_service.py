@@ -29,7 +29,6 @@ DEPENDENCY_NAMES = (
     'AUTH_DB_PATH',
     'DEFAULT_AGENT_HARNESS',
     'DEFAULT_TEXT_MODEL_ID',
-    'HERB_MODEL_REVISION',
     'LLM_RESPONSE_TOKEN_BUDGET',
     'LearningProfileRequiredError',
     'PPT_RESOURCE_EXECUTOR',
@@ -84,7 +83,6 @@ DEPENDENCY_NAMES = (
     'evaluate_ppt_resource',
     'evaluate_question_bank_resource',
     'execute_generated_video_task',
-    'find_herb_model',
     'g',
     'generate_background_chat',
     'generate_generated_video_cover',
@@ -118,7 +116,6 @@ DEPENDENCY_NAMES = (
     'parse_qsl',
     'private_knowledge_service',
     'profile_state_for_user',
-    'public_herb_model_catalog',
     'public_llm_error',
     'quote',
     're',
@@ -132,7 +129,6 @@ DEPENDENCY_NAMES = (
     'save_learning_document',
     'save_question_sheet',
     'secrets',
-    'select_learning_path_herb',
     'setting_default',
     'setting_overrides',
     'sqlite3',
@@ -256,7 +252,7 @@ def xiaozhi_public_target_agent(agent: dict | None = None) -> dict:
     resolved = agent or XIAOZHI_MENTIONABLE_AGENTS[0]
     return {
         "id": str(resolved.get("id") or XIAOZHI_MASTER_AGENT_ID),
-        "name": str(resolved.get("name") or "岐小智"),
+        "name": str(resolved.get("name") or "嵌小智"),
         "taskType": str(resolved.get("taskType") or ""),
         "actionable": True,
     }
@@ -286,7 +282,7 @@ def xiaozhi_agent_chat_reply(
     runtime_settings: dict[str, str] | None = None,
 ) -> str:
     agent_id = str(target_agent.get("id") or XIAOZHI_MASTER_AGENT_ID)
-    agent_name = str(target_agent.get("name") or "岐小智")
+    agent_name = str(target_agent.get("name") or "嵌小智")
     role = XIAOZHI_AGENT_PERSONAS.get(agent_id)
     if not role:
         raise RuntimeError(f"{agent_name}尚未配置专家对话角色")
@@ -313,14 +309,14 @@ def xiaozhi_agent_chat_reply(
     active_profile = context.get("profile") if isinstance(context.get("profile"), dict) else {}
     recent_messages = context.get("recentMessages") if isinstance(context.get("recentMessages"), list) else []
     system = f"""
-你是岐黄智境多智能体群聊中的“{agent_name}”。
+你是嵌智学航多智能体群聊中的“{agent_name}”。
 你的唯一职责：{role}
 
 要求：
-1. 以该专家身份直接回答当前问题，不冒充岐小智，也不声称已经创建或完成任何任务。
+1. 以该专家身份直接回答当前问题，不冒充嵌小智，也不声称已经创建或完成任何任务。
 2. 只有用户明确要求生成、创建、规划、搜索、评估或执行时，平台才会另行创建任务；本次是专家交流。
 3. 回答使用简体中文，清楚、具体、简洁。需要用户补充信息时，只问最关键的问题。
-4. 中医药事实优先依据提供的混合知识库内容；证据不足时明确说“当前知识库证据不足”，不要编造。
+4. 嵌入式知识结论优先依据提供的混合知识库内容；证据不足时明确说“当前知识库证据不足”，不要编造硬件参数、寄存器地址或实验结果。
 5. 不提供替代临床诊断或处方的结论。
 """.strip()
     prompt = f"""
@@ -389,7 +385,6 @@ def xiaozhi_detect_requested_resource_types(message: str) -> list[str]:
         return ["personalized_resources"]
     requested: list[str] = []
     checks = [
-        ("herb_model", ["药材模型", "模型识别", "模型辨识", "药材识别", "药材辨识", "三维药材"]),
         ("generated_video", ["生成视频", "制作视频", "创建视频", "生成讲解视频", "制作讲解视频", "ai视频", "AI视频"]),
         ("document", ["课程讲义", "学习讲义", "讲义", "学习文档", "课程文档", "handout"]),
         ("ppt", ["ppt", "课件", "演示文稿"]),
@@ -423,7 +418,7 @@ def _resource_agent_topic(topic: object, params: dict | None = None) -> str:
         text = str(candidate or "").strip()
         if text:
             return text[:80]
-    return "中医学习资源"
+    return "嵌入式学习资源"
 
 
 def _resource_agent_route(task_type: str, topic: str, params: dict | None = None) -> str:
@@ -446,7 +441,7 @@ def _resource_agent_route(task_type: str, topic: str, params: dict | None = None
         return f"{route}{separator}{urlencode(cleaned, doseq=True)}"
 
     if task_type == "question_bank":
-        course = str(params.get("course") or params.get("courseName") or "中医系统").strip()
+        course = str(params.get("course") or params.get("courseName") or "嵌入式系统").strip()
         chapter = str(params.get("chapter") or params.get("chapterName") or params.get("targetTopic") or topic).strip()
         count = params.get("count") or params.get("questionCount") or params.get("question_count") or 8
         return query(
@@ -486,15 +481,6 @@ def _resource_agent_route(task_type: str, topic: str, params: dict | None = None
         return query(
             "/personalized-resources/animation",
             {"topic": topic, "requirements": requirements, "autostart": "1", **context_params},
-        )
-    if task_type == "herb_model":
-        return query(
-            "/personalized-resources/herb-model",
-            {
-                "herb": params.get("herbId") or "",
-                "mode": params.get("challengeMode") or "identify",
-                **context_params,
-            },
         )
     if task_type == "mcu":
         params = normalize_mcu_resource_params(params, topic)
@@ -1085,7 +1071,7 @@ def _queue_waiting_generated_video_covers_after_restart() -> int:
             if not isinstance(current, dict):
                 current = {}
             params = current.get("params") if isinstance(current.get("params"), dict) else {}
-            topic = str(current.get("topic") or row["prompt"] or row["title"] or "中医药学习视频").strip()
+            topic = str(current.get("topic") or row["prompt"] or row["title"] or "嵌入式学习视频").strip()
             poster_url = f"/api/personalized-resources/generated-videos/{task_id}/poster"
             selected = current.get("selectedResource") if isinstance(current.get("selectedResource"), dict) else {}
             content = selected.get("content") if isinstance(selected.get("content"), dict) else {}
@@ -1180,22 +1166,6 @@ def xiaozhi_create_resource_agent_task(
     if normalized_type == "mcu":
         params = resolve_mcu_agent_params_for_user(int(user_id), params, task_topic)
         task_topic = _resource_agent_topic(topic, params)
-    if normalized_type == "herb_model":
-        herb = find_herb_model(params.get("herbId"))
-        if herb is None:
-            herb = select_learning_path_herb(
-                params.get("profileReportId") or 0,
-                params.get("stageId") or "resource-library",
-                params.get("nodeId") or secrets.token_hex(4),
-            )
-        params.update(
-            {
-                "herbId": herb["id"],
-                "herbName": herb["name"],
-                "challengeMode": "identify",
-            }
-        )
-        task_topic = f"{herb['name']}药材模型辨识"
     task_title = str(title or f"{task_topic[:32]} · {XIAOZHI_RESOURCE_LABELS.get(normalized_type, '学习资源智能体')}")
     task_prompt = str(prompt or task_topic).strip()
     request_fingerprint = RESOURCE_TASK_ADMISSION.fingerprint(
@@ -1318,38 +1288,6 @@ def xiaozhi_create_resource_agent_task(
         task_title,
         {"taskId": task_id, "taskType": normalized_type, "topic": task_topic, "params": params},
     )
-    if normalized_type == "herb_model":
-        public_herb = next(
-            item for item in public_herb_model_catalog() if item["id"] == params["herbId"]
-        )
-        completed_result = {
-            **initial_result,
-            "message": f"资源路由智能体已抽取{public_herb['name']}，药材模型辨识入口可直接学习。",
-            "progress": 100,
-            "route": task["route"],
-            "selectedResource": {
-                "id": f"herb-model:{public_herb['id']}",
-                "type": "herb_model",
-                "title": f"{public_herb['name']}药材模型辨识",
-                "description": f"旋转观察{public_herb['name']}模型，通过性状要点完成辨识。",
-                "route": task["route"],
-                "content": public_herb,
-                "metadata": {
-                    "herbId": public_herb["id"],
-                    "catalogRevision": HERB_MODEL_REVISION,
-                    "selectionSource": "learning-path-resource-router-agent",
-                    "profileReportId": params.get("profileReportId") or 0,
-                },
-            },
-            "qualityEvaluation": {
-                "passed": True,
-                "score": 100,
-                "reviewType": "curated-model-catalog",
-            },
-        }
-        xiaozhi_update_task(task_id, status="complete", result_json=completed_result, route=task["route"])
-        task.update({"status": "complete", "result": completed_result})
-        return task
     executor = (
         VIDEO_RESOURCE_EXECUTOR
         if normalized_type == "generated_video"
@@ -1726,7 +1664,7 @@ def _llm_prompt_parts(payload: dict) -> tuple[str, str]:
             dialogue_parts.append(f"{role_labels[role]}：\n{content}")
     if not dialogue_parts:
         raise ValueError("至少需要一条非空用户消息")
-    system = "\n\n".join(system_parts).strip() or "你是中药鉴别的学习资源生成助手。"
+    system = "\n\n".join(system_parts).strip() or "你是嵌智学航的嵌入式学习资源生成助手。"
     prompt = "\n\n".join(dialogue_parts).strip()
     return system, prompt
 
@@ -2352,7 +2290,7 @@ def xiaozhi_generate_question_bank_managed(
     on_delta=None,
     on_stage=None,
 ) -> dict:
-    topic = str(qg_payload.get("target_topic") or qg_payload.get("course_name") or "中医题库").strip()
+    topic = str(qg_payload.get("target_topic") or qg_payload.get("course_name") or "嵌入式题库").strip()
 
     def specialist(managed_payload: dict, progress) -> dict:
         def stage_bridge(event: dict):
@@ -2394,7 +2332,7 @@ def xiaozhi_generate_ppt_managed(
     task_id: str = "",
     on_event=None,
 ) -> dict:
-    topic = str(payload.get("topic") or "中医学习课件").strip()
+    topic = str(payload.get("topic") or "嵌入式学习课件").strip()
 
     def specialist(managed_payload: dict, progress) -> dict:
         generated = generate_ppt_h5(managed_payload, on_stage=progress)
@@ -2425,7 +2363,7 @@ def xiaozhi_smart_tutor_result(payload: dict) -> dict:
 def xiaozhi_effect_assessment_result(payload: dict) -> dict:
     system = """
 你是嵌小智调度的学习效果评估子智能体。
-根据答题、考试、医案练习、面试和资源使用证据做诊断，禁止凭空编造数据。
+根据答题、考试、实验记录、面试和资源使用证据做诊断，禁止凭空编造数据。
 只输出 JSON，字段为 scores、summary、strengths、weaknesses、recommendations、adjustments、evidenceUsed。
 """
     prompt = f"""
@@ -2702,7 +2640,7 @@ def xiaozhi_fallback_intent(message: str) -> dict:
     if any(word in text for word in ["题库", "练习题", "出题", "试卷", "考试"]):
         return {"intent": "generate_resource", "resourceType": "question_bank", "topic": message, "reply": "我会为你准备题库生成入口，并保留后台任务状态。"}
     if any(word in text for word in ["单片机实验", "单片机模拟器", "模拟器", "仿真", "mcu", "实验资源"]):
-        return {"intent": "generate_resource", "resourceType": "document", "topic": message, "reply": "旧实验模块已下线，我会改为生成中医医案辨析讲义。"}
+        return {"intent": "generate_resource", "resourceType": "mcu", "topic": message, "reply": "我会根据当前画像推荐可直接运行的单片机实验。"}
     if any(word in text for word in ["画像", "重新评估", "更新评估", "更新报告"]):
         return {"intent": "update_profile", "resourceType": "profile_update", "topic": message, "reply": "我会调用学习画像智能体，在后台汇总现有对话和学习证据。"}
     return {"intent": "chat", "resourceType": "none", "topic": "", "reply": "我在。你可以告诉我最近学到哪一步，或者直接让我生成讲义、题库、PPT、思维导图和视频资源。"}
@@ -3002,7 +2940,7 @@ def xiaozhi_profile_text(context: dict) -> str:
         "examResults": context.get("examResults") or [],
     }
     text = json.dumps(snapshot, ensure_ascii=False)
-    return text[:5000] if text.strip("{} ") else "通用中医学习者，正在补全学习画像。"
+    return text[:5000] if text.strip("{} ") else "嵌入式学习者，正在补全学习画像。"
 
 
 def xiaozhi_profile_with_evidence(context: dict) -> dict:
@@ -3054,7 +2992,7 @@ def xiaozhi_active_profile_with_evidence(context: dict) -> dict:
 
 def xiaozhi_build_question_payload(context: dict, topic: str) -> dict:
     profile_text = xiaozhi_profile_text(context)
-    target_topic = (topic or "").strip(" ，。,.、") or "中医系统综合练习"
+    target_topic = (topic or "").strip(" ，。,.、") or "嵌入式系统综合练习"
     source_parts = [
         f"用户通过嵌小智请求生成题库，主题：{target_topic}",
         f"学习画像上下文：{profile_text}",
@@ -3065,7 +3003,7 @@ def xiaozhi_build_question_payload(context: dict, topic: str) -> dict:
         source_parts.append(f"近期考试：正确 {item.get('correctCount')} / {item.get('questionCount')}")
     return {
         "student_profile": profile_text,
-        "course_name": "中医系统",
+        "course_name": "嵌入式系统",
         "target_topic": target_topic,
         "learning_objectives": f"围绕 {target_topic} 生成可用于自测和复习的结构化题库。",
         "resource_plan_result": "\n".join(source_parts),
@@ -3073,7 +3011,7 @@ def xiaozhi_build_question_payload(context: dict, topic: str) -> dict:
         "question_type_counts": {"单选题": 2, "判断题": 2, "填空题": 2, "简答题": 2},
         "question_type_scores": {"单选题": 2, "判断题": 1, "填空题": 2, "简答题": 5},
         "question_count": 8,
-        "constraints": "由 Hermes 总控智能体触发；必须返回完整 JSON，题目贴近中医学习场景。",
+        "constraints": "由 Hermes 总控智能体触发；必须返回完整 JSON，题目贴近嵌入式学习与工程实践场景。",
         "force_real_agent": True,
     }
 
@@ -3544,10 +3482,10 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
         ppt_result = generate_ppt_h5(
             {
                 "sessionId": session_id,
-                "topic": topic or "中医学习课件",
+                "topic": topic or "嵌入式学习课件",
                 "userMessage": user_message,
                 "pageCount": page_count,
-                "styleName": str(params.get("styleName") or "中药鉴别浅绿平台风"),
+                "styleName": str(params.get("styleName") or "嵌智学航工程教学风"),
                 "styleDescription": str(params.get("styleDescription") or "白底浅绿、干净明亮、模块化教育科技风。"),
                 "styleSkill": str(params.get("styleSkill") or ""),
             },
@@ -3562,7 +3500,7 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
         ppt_result["qualityEvaluation"] = quality
         route = _resource_agent_route(
             "ppt",
-            topic or "中医学习课件",
+            topic or "嵌入式学习课件",
             {**params, "sessionId": session_id, "pageCount": page_count, "prompt": user_message},
         )
         route_with_task = xiaozhi_route_with_task(route, str(params.get("taskId") or ""))
@@ -3637,12 +3575,12 @@ def xiaozhi_run_platform_agent(task_type: str, topic: str, context: dict, user_i
         interview_result = start_interview_session(
             user_id,
             {
-                "topic": topic or "阴阳五行 / 四诊 / 八纲辨证",
-                "direction": topic or "阴阳五行 / 四诊 / 八纲辨证",
+                "topic": topic or "GPIO / 中断 / UART",
+                "direction": topic or "GPIO / 中断 / UART",
                 "difficulty": "medium",
                 "difficultyLabel": "中等",
                 "positionKey": "stm32_developer",
-                "position": "中医基础理论学习者",
+                "position": "嵌入式开发学习者",
             },
         )
         result.update({"message": "数字人学习访谈已启动。", "interview": interview_result})
@@ -4056,7 +3994,7 @@ def _xiaozhi_run_resource_task(task_id: str, user_id: int, task_type: str, topic
             or current_ppt.get("route")
             or _resource_agent_route(
                 "ppt",
-                topic or "中医学习课件",
+                topic or "嵌入式学习课件",
                 {**merged_params, "sessionId": session_id, "pageCount": page_count},
             )
         )

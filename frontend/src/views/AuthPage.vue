@@ -3,83 +3,81 @@
     <div class="auth-scroll-progress" :style="{ transform: `scaleX(${scrollProgress})` }" aria-hidden="true"></div>
 
     <header class="auth-landing-nav">
-      <a class="auth-landing-brand" href="#top" aria-label="中药鉴别首页">
-        <img src="/qihuang-zhijing-mark-512.png" alt="" />
-        <span><strong>中药鉴别</strong><small>中医智慧学习平台</small></span>
+      <a class="auth-landing-brand" href="#top" aria-label="嵌智学航首页">
+        <img src="/logo.png" alt="嵌智学航" />
       </a>
 
+      <nav class="auth-landing-links" aria-label="产品能力">
+        <a href="#capabilities">核心能力</a>
+        <a href="#model-capabilities">模型能力</a>
+        <a href="#innovation">创新展示</a>
+        <a href="#workflow">学习闭环</a>
+        <a href="#resources-capability">多模态资源</a>
+        <a href="#assessment-capability">效果评估</a>
+      </nav>
+
       <div class="auth-landing-actions">
-        <button type="button" class="auth-login-link" @click="focusAuth('login')">登录</button>
-        <button type="button" class="auth-register-button" @click="focusAuth('register')">注册</button>
+        <button type="button" class="auth-login-link" @click="openAuth('login')">登录</button>
+        <button type="button" class="auth-register-button" @click="openAuth('register')">注册</button>
       </div>
     </header>
 
     <section id="top" class="auth-landing-hero">
       <div class="auth-hero-copy">
+        <span class="auth-hero-kicker">
+          <Cpu :size="15" :stroke-width="2" />
+          Agent Harness 架构 · 22 个已实现角色
+        </span>
         <h1>
-          <strong>中药鉴别</strong>
-          <span>中医学习，从辨药开始</span>
+          <strong>嵌智学航</strong>
+          <span>让每一步学习都有依据</span>
         </h1>
-        <p>围绕学习画像安排路径、资源与评估，把经典、药材和练习连成一条清楚的学习线。</p>
+        <p>从学习画像到周路径、资源、实验与效果评估，让智能体围绕真实学习证据持续编排。</p>
 
         <ul class="auth-hero-points" aria-label="平台特点">
-          <li><CheckCircle2 :size="16" />画像</li>
-          <li><CheckCircle2 :size="16" />路径</li>
-          <li><CheckCircle2 :size="16" />资源</li>
-          <li><CheckCircle2 :size="16" />评估</li>
+          <li><CheckCircle2 :size="16" />画像驱动</li>
+          <li><CheckCircle2 :size="16" />智能编排</li>
+          <li><CheckCircle2 :size="16" />多模态资源</li>
         </ul>
+
+        <div class="auth-hero-actions">
+          <button type="button" class="auth-start-button" @click="openAuth('login')">
+            开始学习
+            <ArrowRight :size="17" />
+          </button>
+          <a href="#capabilities" class="auth-outline-link">查看能力</a>
+        </div>
       </div>
 
-      <div class="auth-hero-gallery compact" aria-label="中医学习与实践场景">
+      <div class="auth-hero-gallery" aria-label="嵌入式学习场景">
         <figure class="auth-gallery-main" :style="heroVisualStyle">
-          <img src="/auth-hero-tcm-learning.webp" alt="学生在中医课堂中学习脉诊、中药标本与知识图谱" decoding="async" fetchpriority="high" />
+          <picture>
+            <source srcset="/auth-hero-embedded-collage.webp" type="image/webp" />
+            <img src="/auth-hero-embedded-collage.png" alt="示波器、开发板、机器人与数字人组成的嵌入式学习场景" decoding="async" fetchpriority="high" />
+          </picture>
         </figure>
+        <figure class="auth-gallery-crop crop-scope" aria-hidden="true">
+          <picture>
+            <source srcset="/auth-capability-assessment.webp" type="image/webp" />
+            <img src="/auth-capability-assessment.png" alt="" decoding="async" />
+          </picture>
+        </figure>
+        <figure class="auth-gallery-crop crop-face" aria-hidden="true">
+          <picture>
+            <source srcset="/auth-capability-profile.webp" type="image/webp" />
+            <img src="/auth-capability-profile.png" alt="" decoding="async" />
+          </picture>
+        </figure>
+        <span class="auth-gallery-label label-live"><Activity :size="14" />实时学习证据</span>
+        <span class="auth-gallery-label label-profile"><Network :size="14" />动态画像</span>
       </div>
-
-      <section ref="inlineAuthPanelRef" class="auth-inline-panel" aria-label="登录或注册">
-        <header>
-          <strong>{{ activeTab === 'register' ? '创建账号' : '欢迎回来' }}</strong>
-          <span>登录后继续你的中医学习路径</span>
-        </header>
-
-        <RoleSelector v-model="role" class="mb-4" />
-        <TabSwitch v-model="activeTab" class="mb-4" />
-
-        <Transition name="auth-panel" mode="out-in">
-          <LoginForm
-            v-if="activeTab === 'login'"
-            key="inline-login"
-            :form="loginForm"
-            :loading="authLoading"
-            :message="authMessage"
-            :error="authError"
-            :captcha-required="captchaRequired"
-            :captcha-question="captchaQuestion"
-            @submit="submitLogin"
-          />
-          <RegisterForm
-            v-else
-            key="inline-register"
-            :form="registerForm"
-            :loading="authLoading"
-            :message="authMessage"
-            :error="authError"
-            :email-valid="isRegisterEmailValid"
-            :email-code-sending="emailCodeSending"
-            :email-code-countdown="emailCodeCountdown"
-            :password-strength="passwordStrength"
-            @submit="submitRegister"
-            @send-email-code="sendEmailCode"
-          />
-        </Transition>
-      </section>
     </section>
 
     <section class="auth-skill-band auth-reveal auth-stagger" aria-label="平台能力">
       <div><Network :size="23" /><span>动态学习画像</span></div>
       <div><Route :size="23" /><span>个性化周路径</span></div>
       <div><BookOpenCheck :size="23" /><span>多模态资源</span></div>
-      <div><FlaskConical :size="23" /><span>辨证实践</span></div>
+      <div><FlaskConical :size="23" /><span>嵌入式实验</span></div>
       <div><Gauge :size="23" /><span>学习效果评估</span></div>
     </section>
 
@@ -143,8 +141,8 @@
               <span class="auth-model-icon"><ImageIcon :size="22" /></span>
               <small class="auth-model-tag domestic">国产模型 · 生图</small>
             </div>
-            <h3>豆包 Seedream 4.5 图像模型</h3>
-            <code>seedream-4-5</code>
+            <h3>豆包 Seedream 5.0 Pro 图像模型</h3>
+            <code>seedream-5-0-pro</code>
             <p>为学习画像、AI 视频首帧和 PPT 配图生成个性化视觉素材。</p>
           </article>
 
@@ -181,7 +179,7 @@
         <div class="auth-section-switch" aria-label="能力类别">
           <span class="active">学习规划</span>
           <span>资源生成</span>
-          <span>实践评估</span>
+          <span>实验评估</span>
         </div>
       </header>
 
@@ -189,50 +187,50 @@
         <article id="profile-capability" class="auth-capability-card" style="--reveal-delay: 0ms">
           <figure class="auth-capability-media media-profile">
             <picture>
-              <source srcset="/auth-hero-tcm-learning.webp" type="image/webp" />
-              <img src="/auth-hero-tcm-learning.webp" alt="中医学习画像与知识图谱场景" loading="lazy" decoding="async" />
+              <source srcset="/auth-capability-profile.webp" type="image/webp" />
+              <img src="/auth-capability-profile.png" alt="点云数字人学习画像" loading="lazy" decoding="async" />
             </picture>
           </figure>
           <div class="auth-capability-copy">
             <span><Network :size="18" />学习画像</span>
             <h3>从对话和学习行为中持续更新</h3>
-            <p>汇总聊天、做题、经典研读、资源访问和路径完成情况，形成可追溯的十维画像。</p>
+            <p>汇总聊天、做题、实验、资源访问和路径完成情况，形成可追溯的十维画像。</p>
           </div>
         </article>
 
         <article class="auth-capability-card" style="--reveal-delay: 90ms">
           <figure class="auth-capability-media media-path">
             <picture>
-              <source srcset="/auth-hero-tcm-learning.webp" type="image/webp" />
-              <img src="/auth-hero-tcm-learning.webp" alt="中医课程学习路径" loading="lazy" decoding="async" />
+              <source srcset="/auth-capability-path.webp" type="image/webp" />
+              <img src="/auth-capability-path.png" alt="嵌入式开发板与学习路径" loading="lazy" decoding="async" />
             </picture>
           </figure>
           <div class="auth-capability-copy">
             <span><Route :size="18" />学习路径</span>
             <h3>把目标拆成每周可执行任务</h3>
-            <p>结合薄弱点、目标和可投入时间，编排周次地图；每周提供多类可验收任务与资源入口。</p>
+            <p>结合薄弱点、目标和可投入时间，编排周次地图；每周提供可验收任务与六类资源入口。</p>
           </div>
         </article>
 
         <article id="resources-capability" class="auth-capability-card" style="--reveal-delay: 180ms">
           <figure class="auth-capability-media media-resource">
             <picture>
-              <source srcset="/auth-hero-tcm-learning.webp" type="image/webp" />
-              <img src="/auth-hero-tcm-learning.webp" alt="中医多模态学习资源" loading="lazy" decoding="async" />
+              <source srcset="/auth-capability-resources.webp" type="image/webp" />
+              <img src="/auth-capability-resources.png" alt="多模态学习资源生成工作台" loading="lazy" decoding="async" />
             </picture>
           </figure>
           <div class="auth-capability-copy">
             <span><BookOpenCheck :size="18" />个性化资源</span>
             <h3>任务参数直接进入生成工具</h3>
-            <p>提供题库、讲义、PPT、思维导图、视频查找与 AI 视频讲解；AI 视频仅在用户确认后生成。</p>
+            <p>提供题库、PPT、思维导图、视频查找、单片机实验与 AI 视频讲解；AI 视频仅在用户确认后生成。</p>
           </div>
         </article>
 
         <article id="assessment-capability" class="auth-capability-card" style="--reveal-delay: 270ms">
           <figure class="auth-capability-media media-assessment">
             <picture>
-              <source srcset="/auth-hero-tcm-learning.webp" type="image/webp" />
-              <img src="/auth-hero-tcm-learning.webp" alt="中医学习实践与效果评估" loading="lazy" decoding="async" />
+              <source srcset="/auth-capability-assessment.webp" type="image/webp" />
+              <img src="/auth-capability-assessment.png" alt="嵌入式实验与学习效果评估" loading="lazy" decoding="async" />
             </picture>
           </figure>
           <div class="auth-capability-copy">
@@ -255,7 +253,7 @@
       <div class="auth-innovation-grid auth-stagger">
         <article style="--reveal-delay: 0ms">
           <div class="innovation-preview knowledge-preview">
-            <img src="/auth-knowledge-network-focus.jpg" alt="中药鉴别知识网络页面" loading="lazy" decoding="async" />
+            <img src="/auth-knowledge-network-focus.jpg" alt="嵌智学航真实知识网络页面" loading="lazy" decoding="async" />
             <span class="knowledge-preview-badge">真实知识网络</span>
           </div>
           <div class="innovation-copy">
@@ -274,7 +272,7 @@
             <span class="auth-section-kicker">学习闭环</span>
             <h2>从一次对话，到持续更新</h2>
           </div>
-          <p>岐小智统一编排画像、路径、资源与评估，任务执行状态全程可见。</p>
+          <p>嵌小智统一编排画像、路径、资源与评估，任务执行状态全程可见。</p>
         </header>
 
         <div class="auth-flow-track auth-stagger">
@@ -302,7 +300,7 @@
               <b>03</b>
             </div>
             <h3>生成与实践</h3>
-            <p>资源和辨证实践按任务状态准备，AI 视频在用户确认后进入后台生成。</p>
+            <p>资源和实验按任务状态准备，AI 视频在用户确认后进入后台生成。</p>
             <ArrowRight class="auth-flow-arrow" :size="18" aria-hidden="true" />
           </article>
           <article style="--reveal-delay: 300ms; --flow-color: #c2415d; --flow-soft: #fbecef">
@@ -320,10 +318,10 @@
     <section class="auth-bonus-section auth-reveal" aria-labelledby="bonus-capabilities-title">
       <header class="auth-section-head compact">
         <div>
-          <span class="auth-section-kicker">平台扩展能力</span>
-          <h2 id="bonus-capabilities-title">从知识理解到验证的中医学习工程</h2>
+          <span class="auth-section-kicker">赛题加分能力</span>
+          <h2 id="bonus-capabilities-title">从生成到验证的 AI 学习工程</h2>
         </div>
-        <p>以可追溯的学习证据连接知识、智能体、资源与中医学习实践。</p>
+        <p>以可追溯的学习证据连接知识、智能体、资源与实验。</p>
       </header>
       <div class="auth-bonus-grid auth-stagger">
         <article style="--reveal-delay: 0ms">
@@ -332,7 +330,7 @@
         </article>
         <article style="--reveal-delay: 70ms">
           <Clapperboard :size="20" :stroke-width="2" />
-          <div><strong>多模态资源生成</strong><span>题单、PPT、导图、视频与医案</span></div>
+          <div><strong>多模态资源生成</strong><span>题单、PPT、导图、视频与实验</span></div>
         </article>
         <article style="--reveal-delay: 140ms">
           <Database :size="20" :stroke-width="2" />
@@ -351,16 +349,16 @@
           <div><strong>开放调用接口</strong><span>资源任务支持智能体与页面复用</span></div>
         </article>
         <article style="--reveal-delay: 420ms">
-          <BookOpenCheck :size="20" :stroke-width="2" />
-          <div><strong>中医经典研读</strong><span>经典条文、医案与方药知识联动</span></div>
+          <Cable :size="20" :stroke-width="2" />
+          <div><strong>软硬件融合实验</strong><span>Arduino、8051 仿真与实操证据</span></div>
         </article>
         <article style="--reveal-delay: 490ms">
           <BrainCircuit :size="20" :stroke-width="2" />
           <div><strong>辅导与动态评估</strong><span>学习辅导、画像更新与路径调整</span></div>
         </article>
         <article style="--reveal-delay: 560ms">
-          <Bot :size="20" :stroke-width="2" />
-          <div><strong>多智能体辨析</strong><span>分析、生成、审核与反馈协同</span></div>
+          <FileCode2 :size="20" :stroke-width="2" />
+          <div><strong>AI Coding 工程化</strong><span>需求、测试与可复现构建记录</span></div>
         </article>
         <article style="--reveal-delay: 630ms">
           <ServerCog :size="20" :stroke-width="2" />
@@ -371,9 +369,9 @@
 
     <section class="auth-proof-section auth-reveal auth-stagger" aria-label="平台实证数据">
       <div>
-        <strong>中医</strong>
-        <span>领域知识内容</span>
-        <small>经典、方药、医案与辨证主题</small>
+        <strong>6,223</strong>
+        <span>私有知识文档</span>
+        <small>覆盖嵌入式课程与实践</small>
       </div>
       <div>
         <strong>22</strong>
@@ -395,8 +393,8 @@
     <section class="auth-final-section auth-reveal auth-stagger">
       <div>
         <span class="auth-section-kicker">开始学习</span>
-        <h2>建立属于你的中医学习闭环</h2>
-        <p>登录后，岐小智会从当前画像继续，而不是从头开始。</p>
+        <h2>建立属于你的嵌入式学习闭环</h2>
+        <p>登录后，嵌小智会从当前画像继续，而不是从头开始。</p>
       </div>
       <div class="auth-final-actions">
         <button type="button" class="auth-start-button" @click="openAuth('login')">
@@ -409,8 +407,8 @@
 
     <footer class="auth-landing-footer">
       <div class="auth-footer-brand">
-        <img src="/qihuang-zhijing-mark-512.png" alt="中药鉴别" />
-        <span>中医智慧学习智能体平台</span>
+        <img src="/logo.png" alt="嵌智学航" />
+        <span>嵌入式学习智能体平台</span>
       </div>
       <div class="auth-open-source" aria-label="开源项目与框架">
         <span>开源项目与框架</span>
@@ -486,10 +484,13 @@
       </button>
       <header class="text-center" :class="activeTab === 'register' ? 'mb-2' : 'mb-6'">
         <div class="mx-auto mb-1.5 flex items-center justify-center gap-3">
-          <img class="h-12 w-12 object-contain" src="/qihuang-zhijing-mark-512.png" alt="" />
+          <div class="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-brand-50 to-white text-brand-600 shadow-[0_14px_30px_rgba(16,185,129,0.14)] ring-1 ring-brand-100">
+            <Cpu class="absolute -right-1.5 -top-1.5 text-brand-400" :size="18" />
+            <GraduationCap :size="28" stroke-width="1.9" />
+          </div>
           <div class="text-left">
-            <h1 class="text-[28px] font-extrabold leading-tight tracking-[0] text-brand-600">中药鉴别</h1>
-            <p class="mt-0.5 text-xs font-medium tracking-[0.12em] text-slate-400">传承经典 · 智启新知</p>
+            <h1 class="text-[28px] font-extrabold leading-tight tracking-[0] text-brand-600">嵌智学航</h1>
+            <p class="mt-0.5 text-xs font-medium tracking-[0.12em] text-slate-400">智能学习 · 智慧未来</p>
           </div>
         </div>
       </header>
@@ -530,7 +531,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Activity,
   AudioLines,
@@ -539,13 +540,16 @@ import {
   Bot,
   BookOpenCheck,
   BrainCircuit,
+  Cable,
   CheckCircle2,
   Clapperboard,
   Cpu,
   Database,
   Eye,
+  FileCode2,
   FlaskConical,
   Gauge,
+  GraduationCap,
   Image as ImageIcon,
   Layers3,
   Network,
@@ -563,11 +567,11 @@ import { getLoginCaptcha, loginAdminUser, loginUser, registerUser, sendRegisterE
 import { readRememberedLoginAccount, rememberLoginAccount, setAuthSession } from '../stores/auth.js'
 import { DEFAULT_AUTHENTICATED_PATH, safeInternalRedirect } from '../utils/authRedirect.js'
 
+const router = useRouter()
 const route = useRoute()
 
 const activeTab = ref('login')
 const authModalOpen = ref(false)
-const inlineAuthPanelRef = ref(null)
 const role = ref(route.query.role === 'admin' ? 'admin' : 'user')
 const authLoading = ref(false)
 const authMessage = ref('')
@@ -637,11 +641,6 @@ function openAuth(tab = 'login') {
     loginForm.username = readRememberedLoginAccount()
   }
   authModalOpen.value = true
-}
-
-function focusAuth(tab = 'login') {
-  activeTab.value = tab === 'register' ? 'register' : 'login'
-  inlineAuthPanelRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
 }
 
 function openAuthForRoute(target) {
@@ -735,12 +734,6 @@ function getAdminHomeUrl(loginToken) {
   })
 
   return `${getAdminBaseUrl()}/dashboard#${params.toString()}`
-}
-
-function redirectAfterAuthentication(target) {
-  // A full navigation reloads the current release entrypoint. This prevents an
-  // already-open login page from requesting stale Vite chunks after a deploy.
-  window.location.replace(target)
 }
 
 function resetFeedback() {
@@ -868,7 +861,7 @@ async function submitLogin() {
       const loginToken = await loginAdminUser(credentials)
       rememberLoginAccount(credentials.username)
       setMessage('正在进入后台管理...', false)
-      redirectAfterAuthentication(getAdminHomeUrl(loginToken))
+      window.location.href = getAdminHomeUrl(loginToken)
       return
     }
 
@@ -893,11 +886,11 @@ async function submitLogin() {
       return
     }
     setMessage('登录成功，正在进入系统...', false)
-    redirectAfterAuthentication(pendingRoute.value || DEFAULT_AUTHENTICATED_PATH)
+    await router.replace(pendingRoute.value || DEFAULT_AUTHENTICATED_PATH)
   } catch (error) {
     const data = error.response?.data || {}
     if (data.captchaRequired) await refreshCaptcha(data)
-    setMessage(data.msg || data.message || error.message || '认证失败，请稍后再试')
+    setMessage(data.msg || data.message || '认证失败，请稍后再试')
   } finally {
     authLoading.value = false
   }
@@ -924,10 +917,10 @@ async function submitRegister() {
     persistUser(user)
     localStorage.setItem('appMode', 'user')
     setMessage('注册成功，正在进入系统...', false)
-    redirectAfterAuthentication(pendingRoute.value || DEFAULT_AUTHENTICATED_PATH)
+    await router.replace(pendingRoute.value || DEFAULT_AUTHENTICATED_PATH)
   } catch (error) {
     const data = error.response?.data || {}
-    setMessage(data.msg || data.message || error.message || '注册失败，请稍后再试')
+    setMessage(data.msg || data.message || '注册失败，请稍后再试')
   } finally {
     authLoading.value = false
   }
@@ -985,27 +978,14 @@ async function submitRegister() {
   min-height: 100vh;
   overflow-x: hidden;
   color: #1c2020;
-  background: #fbfdfc;
-}
-
-.auth-scroll-progress,
-.auth-skill-band,
-.auth-model-section,
-.auth-capabilities-section,
-.auth-innovation-section,
-.auth-flow-section,
-.auth-bonus-section,
-.auth-proof-section,
-.auth-final-section,
-.auth-landing-footer {
-  display: none !important;
+  background: #ffffff;
 }
 
 .auth-landing-nav {
   width: min(1460px, calc(100% - 64px));
-  height: 72px;
+  height: 76px;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 260px minmax(0, 1fr) 260px;
   align-items: center;
   margin: 0 auto;
   border-bottom: 1px solid #eceeed;
@@ -1015,23 +995,15 @@ async function submitRegister() {
   width: fit-content;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  color: #123d2d;
-  text-decoration: none;
 }
 
 .auth-landing-brand img {
-  width: 50px;
-  height: 50px;
+  width: 146px;
+  height: auto;
   display: block;
-  object-fit: contain;
   filter: none;
   opacity: 1;
 }
-
-.auth-landing-brand span { display: grid; gap: 3px; line-height: 1.05; }
-.auth-landing-brand strong { font-size: 20px; }
-.auth-landing-brand small { color: #8d4b3d; font-size: 10px; font-weight: 650; }
 
 .auth-landing-links {
   display: flex;
@@ -1101,18 +1073,17 @@ async function submitRegister() {
 
 .auth-landing-hero {
   width: min(1460px, calc(100% - 64px));
-  min-height: calc(100vh - 72px);
-  display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.05fr) minmax(340px, 420px);
-  gap: 42px;
+  min-height: calc(100vh - 134px);
+  display: flex;
   align-items: center;
+  justify-content: flex-start;
   margin: 0 auto;
-  padding: 34px 0 42px;
+  padding: 54px 0 46px;
   box-sizing: border-box;
 }
 
 .auth-hero-copy {
-  max-width: 520px;
+  max-width: 760px;
 }
 
 .auth-hero-kicker {
@@ -1134,7 +1105,7 @@ async function submitRegister() {
 }
 
 .auth-hero-copy h1 {
-  margin: 0 0 18px;
+  margin: 30px 0 22px;
   letter-spacing: 0;
 }
 
@@ -1146,25 +1117,25 @@ async function submitRegister() {
 
 .auth-hero-copy h1 strong {
   color: #111414;
-  font-size: 58px;
+  font-size: 66px;
   font-weight: 820;
   line-height: 1.05;
 }
 
 .auth-hero-copy h1 span {
-  margin-top: 8px;
+  margin-top: 10px;
   color: #176f4b;
-  font-size: 32px;
+  font-size: 44px;
   font-weight: 780;
   line-height: 1.16;
 }
 
 .auth-hero-copy > p {
-  max-width: 470px;
+  max-width: 570px;
   margin: 0;
   color: #69706f;
-  font-size: 16px;
-  line-height: 1.75;
+  font-size: 17px;
+  line-height: 1.85;
 }
 
 .auth-hero-points {
@@ -1183,59 +1154,6 @@ async function submitRegister() {
   color: #2e3433;
   font-size: 14px;
   font-weight: 600;
-}
-
-.auth-hero-gallery.compact {
-  height: min(44vw, 480px);
-  min-height: 340px;
-  max-height: 500px;
-}
-
-.auth-hero-gallery.compact .auth-gallery-main {
-  inset: 0;
-}
-
-.auth-hero-gallery.compact .auth-gallery-main img {
-  border-radius: 8px;
-}
-
-.auth-inline-panel {
-  align-self: center;
-  max-height: calc(100vh - 128px);
-  overflow-y: auto;
-  padding: 24px;
-  border: 1px solid #dfe6e3;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 18px 50px rgba(24, 39, 35, 0.12);
-  scrollbar-color: #c5cac9 transparent;
-}
-
-.auth-inline-panel > header {
-  display: grid;
-  gap: 4px;
-  margin-bottom: 16px;
-}
-
-.auth-inline-panel > header strong {
-  color: #17211d;
-  font-size: 22px;
-  line-height: 1.2;
-}
-
-.auth-inline-panel > header span {
-  color: #70807a;
-  font-size: 13px;
-}
-
-.auth-inline-panel :deep(input) {
-  border-radius: 6px !important;
-}
-
-.auth-inline-panel :deep(.auth-role-option),
-.auth-inline-panel :deep(.auth-primary-action),
-.auth-inline-panel :deep(.auth-tab-action) {
-  border-radius: 6px !important;
 }
 
 .auth-hero-points svg {
@@ -1486,12 +1404,8 @@ async function submitRegister() {
   }
 
   .auth-landing-brand img {
-    width: 42px;
-    height: 42px;
+    width: 116px;
   }
-
-  .auth-landing-brand strong { font-size: 17px; }
-  .auth-landing-brand small { display: none; }
 
   .auth-landing-actions {
     gap: 6px;
@@ -1678,9 +1592,6 @@ async function submitRegister() {
 }
 
 .auth-gallery-crop.crop-scope img {
-  padding: 22px;
-  background: #f3f8f5;
-  object-fit: contain;
   object-position: center;
 }
 
@@ -2996,138 +2907,6 @@ async function submitRegister() {
     margin-left: 22px;
   }
 
-}
-
-.auth-scroll-progress,
-.auth-skill-band,
-.auth-model-section,
-.auth-capabilities-section,
-.auth-innovation-section,
-.auth-flow-section,
-.auth-bonus-section,
-.auth-proof-section,
-.auth-final-section,
-.auth-landing-footer {
-  display: none !important;
-}
-
-.auth-landing-page {
-  display: grid;
-  min-height: 100vh;
-  background: #fbfdfc;
-}
-
-.auth-landing-nav {
-  width: min(1280px, calc(100% - 56px));
-  height: 68px;
-}
-
-.auth-landing-hero {
-  width: min(1280px, calc(100% - 56px));
-  min-height: calc(100vh - 68px);
-  grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 0.95fr) minmax(330px, 390px);
-  gap: 32px;
-  padding: 28px 0 36px;
-}
-
-.auth-hero-copy {
-  max-width: 460px;
-}
-
-.auth-hero-copy h1 {
-  margin-bottom: 14px;
-}
-
-.auth-hero-copy h1 strong {
-  font-size: clamp(42px, 4vw, 56px);
-}
-
-.auth-hero-copy h1 span {
-  margin-top: 8px;
-  color: #176f4b;
-  font-size: clamp(27px, 2.45vw, 34px);
-}
-
-.auth-hero-copy > p {
-  max-width: 430px;
-  font-size: 15px;
-  line-height: 1.7;
-}
-
-.auth-hero-points {
-  gap: 14px;
-  margin-top: 20px;
-}
-
-.auth-hero-gallery.compact {
-  height: min(40vw, 440px);
-  min-height: 300px;
-  max-height: 440px;
-}
-
-.auth-hero-gallery.compact .auth-gallery-main {
-  inset: 0;
-}
-
-.auth-hero-gallery.compact .auth-gallery-main img {
-  border-radius: 8px;
-}
-
-.auth-inline-panel {
-  align-self: center;
-  max-height: calc(100vh - 112px);
-  padding: 22px;
-}
-
-@media (max-width: 1180px) {
-  .auth-landing-hero {
-    grid-template-columns: minmax(260px, 0.95fr) minmax(330px, 390px);
-    gap: 28px;
-  }
-
-  .auth-hero-gallery.compact {
-    display: none;
-  }
-}
-
-@media (max-width: 760px) {
-  .auth-landing-nav {
-    width: calc(100% - 28px);
-  }
-
-  .auth-landing-brand img {
-    width: 44px;
-    height: 44px;
-  }
-
-  .auth-landing-hero {
-    width: calc(100% - 28px);
-    min-height: 0;
-    grid-template-columns: 1fr;
-    gap: 22px;
-    padding: 28px 0 30px;
-  }
-
-  .auth-hero-copy h1 strong {
-    font-size: 40px;
-  }
-
-  .auth-hero-copy h1 span {
-    font-size: 26px;
-  }
-
-  .auth-hero-copy > p {
-    font-size: 14px;
-  }
-
-  .auth-hero-points {
-    gap: 10px 14px;
-  }
-
-  .auth-inline-panel {
-    max-height: none;
-    padding: 18px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,5 @@
 <template>
-  <main class="mind-map-page" :class="{ standalone: isResourceToolPage, 'task-backed': isTaskBackedMap, 'cover-preview': isCoverPreview }">
+  <main class="mind-map-page" :class="{ standalone: isResourceToolPage, 'task-backed': isTaskBackedMap }">
     <button v-if="isResourceToolPage" type="button" class="resource-back-button" @click="goBackToResources">
       <ArrowLeft :size="18" :stroke-width="2.2" aria-hidden="true" />
       <span>返回个性化资源</span>
@@ -10,16 +10,27 @@
         <div>
           <span class="task-map-kicker">
             <Network :size="16" stroke-width="2.2" aria-hidden="true" />
-            岐小智思维导图
+            嵌小智思维导图
           </span>
           <h1>{{ mapTitle }}</h1>
           <p>{{ mapDescription }}</p>
+          <div v-if="!isTaskPending && !taskError" class="map-evidence-strip">
+            <span>质量 <strong>{{ mapQuality.score || 0 }} / 100</strong></span>
+            <span>知识引用 <strong>{{ mapCitationCount }} 条</strong></span>
+            <span :class="{ passed: mapQuality.passed }">{{ mapQuality.passed ? '质量评价通过' : '需要进一步核验' }}</span>
+          </div>
         </div>
         <div class="task-header-actions">
           <button type="button" class="history-nav-button" @click="openHistory">
             <History :size="16" stroke-width="2.2" aria-hidden="true" />
             历史记录
           </button>
+          <span class="task-state" :class="taskStateClass">
+            <LoaderCircle v-if="isTaskPending" :size="16" class="spin" aria-hidden="true" />
+            <CircleAlert v-else-if="taskError" :size="16" aria-hidden="true" />
+            <CheckCircle2 v-else :size="16" aria-hidden="true" />
+            {{ taskStatusText }}
+          </span>
         </div>
       </header>
 
@@ -33,8 +44,10 @@
 
       <div v-if="isTaskPending" class="task-map-loading">
         <span class="loading-rings" aria-hidden="true"><i></i><i></i><i></i></span>
-        <strong>正在准备思维导图画布</strong>
-        <p>生成完成后将在这里直接显示导图。</p>
+        <strong>{{ taskStatusText }}</strong>
+        <p>页面会持续同步后台任务，导图生成完成后自动显示。</p>
+        <div class="loading-track"><span :style="{ width: `${taskProgress}%` }"></span></div>
+        <small>{{ taskProgress }}%</small>
       </div>
 
       <div v-else-if="taskError" class="task-map-error">
@@ -53,7 +66,7 @@
       <div class="wizard-hero">
         <span class="wizard-product-mark">
           <Sparkles :size="17" stroke-width="2.2" aria-hidden="true" />
-          Mind Map Wizard · 岐小智
+          Mind Map Wizard · 嵌小智
         </span>
         <h1>把学习主题变成一张清晰的思维导图</h1>
         <p>围绕当前学习画像梳理核心概念、前置知识、易错点和实践关系。</p>
@@ -66,7 +79,7 @@
               v-model.trim="topic"
               rows="2"
               maxlength="100"
-              placeholder="输入学习主题，例如：中药性味归经"
+              placeholder="输入学习主题，例如：STM32 GPIO 工作模式"
               :disabled="creatingTask"
               @keydown.enter.exact.prevent="startGeneration"
             ></textarea>
@@ -168,13 +181,12 @@ let historyPollTimer = null
 let historyRequestInFlight = false
 let autostartConsumed = false
 const suggestedTopics = [
-  '八纲辨证体系',
+  'STM32 中断系统',
   'FreeRTOS 任务调度',
   '串口通信与 DMA',
 ]
 
 const isResourceToolPage = computed(() => route.meta?.resourceTool === true || route.path.startsWith('/personalized-resources/'))
-const isCoverPreview = computed(() => route.query.resourcePreview === 'cover')
 const taskId = computed(() => String(route.query.xzTask || '').trim())
 const isTaskBackedMap = computed(() => Boolean(taskId.value))
 const taskRuntimeStatus = computed(() => String(task.value?.status || (taskId.value ? 'loading' : 'complete')))
@@ -227,7 +239,7 @@ watch(taskId, () => {
 }, { immediate: true })
 
 onMounted(() => {
-  if (!isCoverPreview.value) void loadMindMapHistory()
+  void loadMindMapHistory()
   if (!taskId.value && route.query.autostart === '1' && topic.value && !autostartConsumed) {
     autostartConsumed = true
     void startGeneration()
@@ -300,7 +312,7 @@ async function loadTask() {
   try {
     const response = await getXiaoZhiTask(taskId.value)
     const nextTask = response?.data?.task
-    if (!nextTask) throw new Error('未找到对应的岐小智后台任务。')
+    if (!nextTask) throw new Error('未找到对应的嵌小智后台任务。')
     task.value = nextTask
     if (['queued', 'running'].includes(nextTask.status)) {
       markTaskCacheStarted(nextTask)
@@ -801,53 +813,6 @@ function markTaskCacheError(error) {
 .standalone .task-map-shell {
   min-height: calc(100vh - 104px);
   padding-top: 4px;
-}
-
-.mind-map-page.cover-preview {
-  height: 100vh;
-  overflow: hidden;
-  background: #f4f8f6;
-}
-
-.mind-map-page.cover-preview .resource-back-button,
-.mind-map-page.cover-preview .task-map-header,
-.mind-map-page.cover-preview .task-map-feedback,
-.mind-map-page.cover-preview .task-map-loading,
-.mind-map-page.cover-preview .task-map-error {
-  display: none;
-}
-
-.mind-map-page.cover-preview .task-map-shell {
-  width: 100%;
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
-}
-
-.mind-map-page.cover-preview .mind-map-canvas {
-  min-height: 100vh;
-  padding: 0;
-}
-
-.mind-map-page.cover-preview :deep(.mindmap-wizard-shell) {
-  display: block;
-  min-height: 100vh;
-  height: 100vh;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  overflow: hidden;
-}
-
-.mind-map-page.cover-preview :deep(.mindmap-toolbar) {
-  display: none;
-}
-
-.mind-map-page.cover-preview :deep(.mindmap-viewport),
-.mind-map-page.cover-preview :deep(.mindmap-frame) {
-  width: 100%;
-  min-height: 100vh;
-  height: 100vh;
 }
 
 .task-map-header {

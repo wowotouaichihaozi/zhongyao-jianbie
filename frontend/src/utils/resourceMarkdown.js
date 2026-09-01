@@ -102,93 +102,11 @@ export function renderSafeMarkdown(value) {
   return output.join('')
 }
 
-function cleanMindmapLabel(value) {
-  return String(value ?? '')
-    .replace(/\[KB\d+\]/g, '')
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/[*_`#>"'“”‘’]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function truncateMindmapLabel(value, max = 36) {
-  const label = cleanMindmapLabel(value)
-  if (!label) return ''
-  return label.length > max ? `${label.slice(0, max)}…` : label
-}
-
-function mermaidSafeLabel(value) {
-  return (cleanMindmapLabel(value) || '节点')
-    .replace(/[()[\]{}:;#]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim() || '节点'
-}
-
-function serializeMindmapTree(root) {
-  const lines = ['mindmap']
-  const write = (node, indent) => {
-    const pad = ' '.repeat(indent)
-    const label = mermaidSafeLabel(node.label)
-    if (node === root) {
-      lines.push(`${pad}root((${label}))`)
-    } else {
-      lines.push(`${pad}${label}`)
-    }
-    for (const child of node.children) write(child, indent + 2)
-  }
-  write(root, 2)
-  return lines.join('\n')
-}
-
-function markdownToMindmap(value) {
-  let source = String(value ?? '').replace(/\r/g, '').trim()
-  if (source.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(source)
-      if (typeof parsed?.markdown === 'string') source = parsed.markdown.trim()
-    } catch {
-      // Fall through and use the raw content as Markdown.
-    }
-  }
-
-  const root = { label: '思维导图', children: [] }
-  const stack = [] // { depth, node }
-  for (const rawLine of source.split('\n')) {
-    const line = rawLine.trim()
-    if (!line) continue
-    const heading = line.match(/^(#{1,6})\s+(.+)$/)
-    if (heading) {
-      const level = heading[1].length
-      const label = truncateMindmapLabel(heading[2])
-      if (!label) continue
-      if (level === 1) {
-        root.label = label
-        root.children.length = 0
-        stack.length = 0
-        stack.push({ depth: 1, node: root })
-      } else {
-        while (stack.length && stack[stack.length - 1].depth >= level) stack.pop()
-        const parent = stack.length ? stack[stack.length - 1].node : root
-        const node = { label, children: [] }
-        parent.children.push(node)
-        stack.push({ depth: level, node })
-      }
-      continue
-    }
-    const leafLabel = truncateMindmapLabel(line.replace(/^[-*]\s+/, ''))
-    if (!leafLabel) continue
-    const parent = stack.length ? stack[stack.length - 1].node : root
-    parent.children.push({ label: leafLabel, children: [] })
-  }
-  return serializeMindmapTree(root)
-}
-
 export function mermaidMindmapSource(value) {
   const source = String(value ?? '').replaceAll('\r\n', '\n').trim()
   const fenced = source.match(/^```mermaid\s*\n([\s\S]*?)\n?```$/i)
   const candidate = String(fenced?.[1] || source).trim()
-  if (/^mindmap(?:\s|$)/i.test(candidate)) return candidate
-  return markdownToMindmap(source)
+  return /^mindmap(?:\s|$)/i.test(candidate) ? candidate : ''
 }
 
 export function buildSandboxedHtmlDocument(value) {

@@ -66,7 +66,7 @@ class MCPToolGateway:
             },
             {
                 "uri": "xiaozhi://orchestration/recent",
-                "name": "岐小智近期执行链",
+                "name": "嵌小智近期执行链",
                 "description": "近期 Harness 运行、交接、审核和反馈记录。",
                 "mimeType": "application/json",
             },

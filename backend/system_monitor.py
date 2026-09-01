@@ -205,7 +205,7 @@ class SystemMonitor:
 
     def _project_processes(self) -> list[dict]:
         if not sys.platform.startswith("linux"):
-            return [{"pid": os.getpid(), "name": "中药鉴别后端", "memoryMb": None, "state": "running"}]
+            return [{"pid": os.getpid(), "name": "嵌智学航后端", "memoryMb": None, "state": "running"}]
         keywords = ("feishengwangying", "gunicorn", "uvicorn", "nginx", "vite", "npm run build")
         rows = []
         for proc_dir in Path("/proc").iterdir():
@@ -243,7 +243,7 @@ class SystemMonitor:
         if "uvicorn" in lowered or "8765" in lowered:
             return "PPT API"
         if "gunicorn" in lowered:
-            return "中药鉴别后端"
+            return "嵌智学航后端"
         if "vite build" in lowered or "npm run build" in lowered:
             return "前端构建"
         if "vite" in lowered:

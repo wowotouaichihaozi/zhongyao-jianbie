@@ -801,13 +801,6 @@ def _apply_learning_path_node_resource_plan(
             "profileReportId": profile_id,
         }
     )
-    if resource_type == "herb-model" and params.get("herbName"):
-        node["title"] = f"药材模型辨识 · {params['herbName']}"
-        node["description"] = (
-            f"旋转观察{params['herbName']}三维模型，先独立判断药材名称，"
-            "再核对药用部位与关键性状并完成辨识。"
-        )
-        node["deliverable"] = "药材辨识结果与三条性状依据"
     node.update(
         {
             "cacheKey": cache_key,
@@ -820,7 +813,7 @@ def _apply_learning_path_node_resource_plan(
             "actionText": LEARNING_PATH_TASK_RESOURCE_ACTIONS[resource_type],
             "actionRoute": _learning_path_task_resource_route(
                 resource_type,
-                stage.get("focus") or stage.get("title") or "中医学习任务",
+                stage.get("focus") or stage.get("title") or "嵌入式学习任务",
                 stage_id,
                 node_id,
                 cache_key,
@@ -1215,7 +1208,7 @@ def _enforce_parallel_learning_path_resource_coverage(
         planned_tasks,
         planned_nodes,
         profile_context=build_learning_profile_context(profile),
-        topic=str(stage.get("focus") or stage.get("goal") or stage.get("title") or "中医学习任务"),
+        topic=str(stage.get("focus") or stage.get("goal") or stage.get("title") or "嵌入式学习任务"),
         stage_id=str(stage.get("id") or ""),
         existing_resource_types=existing_resource_types,
     )
@@ -1301,7 +1294,7 @@ def _materialize_learning_path_resource_node(
         task = xiaozhi_create_resource_agent_task(
             user_id,
             str(node.get("resourceType") or ""),
-            str(params.get("topic") or stage.get("focus") or stage.get("title") or node.get("title") or "中医学习任务"),
+            str(params.get("topic") or stage.get("focus") or stage.get("title") or node.get("title") or "嵌入式学习任务"),
             params,
             title=f"{stage.get('weekLabel') or '本周'} · {node.get('title') or '学习任务'}",
             prompt=str(node.get("resourcePrompt") or node.get("description") or node.get("title") or "生成学习资源"),
@@ -1391,7 +1384,7 @@ def _parallel_dispatch_learning_path_resource_nodes(
         params = _json_copy(candidate.get("resourceParams")) if isinstance(candidate.get("resourceParams"), dict) else {}
         params.setdefault(
             "topic",
-            str(candidate.get("title") or stage.get("focus") or stage.get("title") or "中医学习任务"),
+            str(candidate.get("title") or stage.get("focus") or stage.get("title") or "嵌入式学习任务"),
         )
         direct_tasks.append(
             {
@@ -1436,7 +1429,7 @@ def _parallel_dispatch_learning_path_resource_nodes(
         direct_tasks,
         candidates,
         profile_context=build_learning_profile_context(profile),
-        topic=str(stage.get("focus") or stage.get("goal") or stage.get("title") or "中医学习任务"),
+        topic=str(stage.get("focus") or stage.get("goal") or stage.get("title") or "嵌入式学习任务"),
         existing_resource_types=existing_resource_types,
     )
     covered_by_id = {

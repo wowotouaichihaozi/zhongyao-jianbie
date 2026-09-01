@@ -142,7 +142,7 @@ def xiaozhi_task_detail(task_id: str):
         ).fetchone()
         active_profile = dependencies.active_profile_for_user(conn, int(user["id"]))
     if not row:
-        return dependencies.jsonify({"code": 404, "msg": "未找到岐小智任务"}), 404
+        return dependencies.jsonify({"code": 404, "msg": "未找到嵌小智任务"}), 404
     return dependencies.jsonify({
         "code": 0,
         "data": {
@@ -369,7 +369,7 @@ def xiaozhi_chat():
         user["id"],
         "assistant_message",
         route,
-        "用户向岐小智提问",
+        "用户向嵌小智提问",
         {"message": message, "attachmentIds": [item["id"] for item in public_attachments]},
     )
     if profile_report_id > 0:
@@ -442,7 +442,7 @@ def xiaozhi_chat():
     if intent.get("intent") == "chat" and intent.get("source") == "fallback":
         return dependencies.jsonify({
             "code": 502,
-            "msg": "岐小智智能体未返回可用回复，请检查模型服务后重试",
+            "msg": "嵌小智智能体未返回可用回复，请检查模型服务后重试",
             "data": {"intent": intent},
         }), 502
     intent["attachments"] = public_attachments
@@ -493,7 +493,7 @@ def xiaozhi_chat():
                 args=(task_id, user["id"], "profile_management", title_topic, task_params),
                 daemon=True,
             ).start()
-            intent["reply"] = intent.get("reply") or "画像管理任务已交给岐小智执行。"
+            intent["reply"] = intent.get("reply") or "画像管理任务已交给嵌小智执行。"
     elif intent["intent"] in {"generate_resource", "update_profile"}:
         if intent["intent"] == "generate_resource" and isinstance(intent.get("resourceTypes"), list) and intent.get("resourceTypes"):
             task_types = [task_type for task_type in intent["resourceTypes"] if task_type in dependencies.XIAOZHI_RESOURCE_ROUTES]
@@ -543,7 +543,7 @@ def xiaozhi_chat():
                 task_params["attachmentIds"] = [item["id"] for item in public_attachments]
             if task_type == "mcu":
                 task_params = dependencies.resolve_mcu_agent_params_for_user(int(user["id"]), task_params, task_topic)
-            if task_type in {"generated_video", "herb_model"}:
+            if task_type == "generated_video":
                 task = dependencies.xiaozhi_create_resource_agent_task(
                     int(user["id"]),
                     task_type,
@@ -591,7 +591,7 @@ def xiaozhi_chat():
                     int(user["id"]),
                     profile_report_id,
                     agent_id=str(target_agent.get("id") or dependencies.XIAOZHI_MASTER_AGENT_ID),
-                    agent_name=str(target_agent.get("name") or "岐小智"),
+                    agent_name=str(target_agent.get("name") or "嵌小智"),
                     message_type="supervisor_reply",
                     status="complete",
                     content=assistant_reply,
@@ -611,7 +611,7 @@ def xiaozhi_chat():
                     int(user["id"]),
                     profile_report_id,
                     agent_id=dependencies.XIAOZHI_MASTER_AGENT_ID,
-                    agent_name="岐小智总控智能体",
+                    agent_name="嵌小智总控智能体",
                     message_type="task_created",
                     status=str(card.get("status") or "queued"),
                     content=f"已派发{dependencies.XIAOZHI_RESOURCE_LABELS.get(card_type, '学习资源')}任务：{card_title}",
@@ -667,13 +667,13 @@ def xiaozhi_chat_stream():
         yield dependencies._sse_event("start", {
             "agent": dependencies.XIAOZHI_MASTER_AGENT_ID,
             "stage": "start",
-            "message": "岐小智总控智能体已启动",
+            "message": "嵌小智总控智能体已启动",
         })
         try:
             yield dependencies._sse_event("progress", {
                 "agent": dependencies.XIAOZHI_MASTER_AGENT_ID,
                 "stage": "route_intent",
-                "message": "正在调用岐小智智能体识别意图并调度任务",
+                "message": "正在调用嵌小智智能体识别意图并调度任务",
             })
             raw_response = xiaozhi_chat()
             status_code = 200
@@ -694,7 +694,7 @@ def xiaozhi_chat_stream():
                 yield dependencies._sse_event("error", {
                     "agent": dependencies.XIAOZHI_MASTER_AGENT_ID,
                     "stage": "failed",
-                    "message": payload.get("msg") or payload.get("message") or "岐小智智能体调用失败",
+                    "message": payload.get("msg") or payload.get("message") or "嵌小智智能体调用失败",
                     "data": payload.get("data") or {},
                 })
                 yield dependencies._sse_event("done", {
@@ -710,7 +710,7 @@ def xiaozhi_chat_stream():
                 yield dependencies._sse_event("error", {
                     "agent": dependencies.XIAOZHI_MASTER_AGENT_ID,
                     "stage": "llm_required",
-                    "message": "岐小智聊天必须调用真实智能体，已禁止本地兜底回复",
+                    "message": "嵌小智聊天必须调用真实智能体，已禁止本地兜底回复",
                     "data": intent,
                 })
                 yield dependencies._sse_event("done", {
@@ -722,7 +722,7 @@ def xiaozhi_chat_stream():
             yield dependencies._sse_event("progress", {
                 "agent": dependencies.XIAOZHI_MASTER_AGENT_ID,
                 "stage": "stream_reply",
-                "message": "岐小智智能体已返回，正在流式输出",
+                "message": "嵌小智智能体已返回，正在流式输出",
                 "intent": intent.get("intent") or "",
                 "source": intent.get("source") or "",
                 "routingSource": intent.get("routingSource") or "",
@@ -737,20 +737,20 @@ def xiaozhi_chat_stream():
             yield dependencies._sse_event("result", {
                 "agent": dependencies.XIAOZHI_MASTER_AGENT_ID,
                 "stage": "complete",
-                "message": "岐小智本轮回复完成",
+                "message": "嵌小智本轮回复完成",
                 "data": data,
             })
             yield dependencies._sse_event("done", {
                 "agent": dependencies.XIAOZHI_MASTER_AGENT_ID,
                 "stage": "done",
-                "message": "岐小智对话流已结束",
+                "message": "嵌小智对话流已结束",
             })
         except Exception as exc:
             dependencies.app.logger.exception("xiaozhi chat stream failed")
             yield dependencies._sse_event("error", {
                 "agent": dependencies.XIAOZHI_MASTER_AGENT_ID,
                 "stage": "failed",
-                "message": "岐小智智能体调用失败，请检查模型服务后重试。",
+                "message": "嵌小智智能体调用失败，请检查模型服务后重试。",
                 "error": str(exc),
             })
             yield dependencies._sse_event("done", {
@@ -1122,7 +1122,7 @@ def xiaozhi_mcp_jsonrpc():
             value = dependencies.xiaozhi_recent_orchestration_runs(int(user["id"]), limit=20)
         elif uri == "course://knowledge/catalog":
             value = dependencies.retrieve_course_knowledge(
-                "中医基础理论 四诊辨证 中药方剂 医案知识",
+                "嵌入式基础 STM32 GPIO 串口中断 Linux驱动 RTOS 实验调试",
                 top_k=12,
                 user_id=int(user["id"]),
                 db_path=dependencies.AUTH_DB_PATH,
@@ -1268,7 +1268,7 @@ def xiaozhi_status():
     agents = [
         {
             "id": dependencies.XIAOZHI_MASTER_AGENT_ID,
-            "name": "岐小智总控智能体",
+            "name": "嵌小智总控智能体",
             "status": master_run.get("status") or ("ready" if xiaozhi_runtime.get("hasToken") else "idle"),
             "detail": master_run.get("detail") or (
                 f"总控编排 / {xiaozhi_runtime.get('model') or dependencies.DEFAULT_TEXT_MODEL_ID} / "

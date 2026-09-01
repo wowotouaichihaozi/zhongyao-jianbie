@@ -5,7 +5,7 @@
     "agents":  [
                    {
                        "id":  "xiaozhi-companion-agent",
-                       "name":  "岐小智总控智能体",
+                       "name":  "嵌小智总控智能体",
                        "role":  "supervisor",
                        "description":  "Platform agent xiaozhi-companion-agent"
                    },
@@ -81,15 +81,15 @@
                        "role":  "specialist",
                        "description":  "Platform agent learning-animation-agent",
                        "hidden":  true,
-                       "hiddenReason":  "当前中医药学习平台不展示独立动画智能体"
+                       "hiddenReason":  "当前嵌入式学习平台不展示独立动画智能体"
                    },
                    {
                        "id":  "mcu-agent",
                        "name":  "实验资源智能体",
                        "role":  "specialist",
                        "description":  "Platform agent mcu-agent",
-                       "hidden":  true,
-                       "hiddenReason":  "旧单片机实验模块已下线，仅保留历史任务兼容"
+                       "hidden":  false,
+                       "hiddenReason":  ""
                    },
                    {
                        "id":  "interview-agent",

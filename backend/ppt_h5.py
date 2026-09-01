@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover
 
 
 PLATFORM_PPT_STYLE_PROMPT = """
-Highest-priority platform style: make every slide look like the 中药鉴别 platform.
+Highest-priority platform style: make every slide look like the 嵌智学航 platform.
 - Overall tone: clean, bright, professional education-tech UI. Use pure white or very pale gray/mint backgrounds, generous whitespace, and calm information density.
 - Palette: primary text #1F2937 / #172033, secondary text #64748B, main brand green #21B978, light green #58D89C, soft mint surfaces #F7FFFC / #EEF9F4. Use neutral gray as the base and green only for titles, section markers, key numbers, icons, progress bars, and active states.
 - Layout: modular full-slide sections, left-aligned or centered content, clear hierarchy through size/weight/spacing. Prefer white cards with subtle mint borders, thin dividers, compact dashboards, learning-platform panels, timelines, metric blocks, and outline icons.
@@ -54,7 +54,7 @@ def generate_ppt_h5(payload: dict[str, Any], on_stage: StageCallback | None = No
     page_count = _clamp_int(payload.get("pageCount"), 5, 1, 20)
     _emit_stage(on_stage, "prepare", "正在整理主题、页数和平台风格要求", 10, pageCount=page_count, topic=topic)
     knowledge_context, knowledge_sources = grounded_prompt_block(
-        f"{topic} {user_message} 中医药课程 四诊 辨证 方药 医案",
+        f"{topic} {user_message} 嵌入式系统 单片机课程",
         top_k=6,
         max_context_chars=10000,
     )

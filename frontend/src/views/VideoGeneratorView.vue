@@ -24,7 +24,7 @@ import {
   Sparkles,
   Volume2,
 } from 'lucide-vue-next'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import VideoWorkflowNode from '../components/video/VideoWorkflowNode.vue'
 import {
   getXiaoZhiTask,
@@ -33,7 +33,6 @@ import {
 } from '../services/api.js'
 
 const route = useRoute()
-const router = useRouter()
 const WORKFLOW_STEPS = [
   { id: 'request', label: '需求与成本校验', hint: '等待用户确认参数' },
   { id: 'planning', label: '画像与脚本规划', hint: '生成分镜和旁白脚本' },
@@ -89,7 +88,7 @@ const videoResource = computed(() => result.value.selectedResource || null)
 const activeVideoEngine = computed(() => String(result.value.engine || result.value.params?.videoEngine || form.videoEngine))
 const engineLabel = computed(() => ENGINE_LABELS[activeVideoEngine.value] || ENGINE_LABELS[form.videoEngine])
 const estimatedSegments = computed(() => Math.max(1, Math.round(form.targetDuration / 10)))
-const canStart = computed(() => Boolean(form.prompt.trim()) && !busy.value && !isActive.value && (!task.value || isWaiting.value))
+const canStart = computed(() => Boolean(form.prompt.trim()) && !busy.value && !isActive.value && (!task.value || isWaiting.value || taskStatus.value === 'failed'))
 
 const workflowState = computed(() => {
   const normalizedStage = currentStage.value
@@ -328,7 +327,7 @@ async function startGeneration() {
   }
   try {
     let response
-    if (task.value?.taskId && isWaiting.value) {
+    if (task.value?.taskId && (isWaiting.value || taskStatus.value === 'failed')) {
       response = await startGeneratedVideoTask(task.value.taskId, {
         prompt: form.prompt.trim(),
         params,
@@ -345,11 +344,11 @@ async function startGeneration() {
       const createdTask = extractTask(createdResponse)
       if (!createdTask?.taskId) throw new Error('未获得 AI 视频任务 ID')
       applyTask(createdTask)
-      await router.replace({
-        query: { ...route.query, xzTask: createdTask.taskId },
+      response = await startGeneratedVideoTask(createdTask.taskId, {
+        prompt: form.prompt.trim(),
+        params,
       })
-      addLocalLog('AI 视频任务已提交：正在生成首图；确认参数后点击运行视频')
-      response = createdResponse
+      addLocalLog('用户已确认参数，视频工作流开始运行')
     }
     applyTask(extractTask(response))
     await refreshTask()
@@ -447,10 +446,10 @@ onBeforeUnmount(clearRefreshTimer)
           <div><strong>用户确认后才调用模型</strong><span>当前设置：{{ engineLabel }} · {{ form.targetDuration }} 秒 · {{ form.resolution }}</span></div>
         </div>
 
-        <button v-if="!task || isWaiting" class="studio-primary" type="button" :disabled="!canStart" @click="startGeneration">
+        <button v-if="!task || isWaiting || taskStatus === 'failed'" class="studio-primary" type="button" :disabled="!canStart" @click="startGeneration">
           <LoaderCircle v-if="busy || isActive" :size="17" class="spin" />
           <Play v-else :size="17" fill="currentColor" />
-          {{ busy ? '正在提交' : isActive ? '后台生成中' : (!task ? '提交任务并生成首图' : '运行视频工作流') }}
+          {{ busy ? '正在提交' : isActive ? '后台生成中' : taskStatus === 'failed' ? '重试视频工作流' : '运行视频工作流' }}
         </button>
         <button v-else-if="isTerminal" class="studio-secondary" type="button" @click="resetWorkspace"><RotateCcw :size="16" />新建任务</button>
       </aside>

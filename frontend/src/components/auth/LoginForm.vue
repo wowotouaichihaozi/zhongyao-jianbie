@@ -27,18 +27,15 @@
           placeholder="请输入密码"
           required
         />
-        <span
+        <button
+          type="button"
           class="password-visibility-toggle"
-          role="button"
-          tabindex="0"
           :aria-label="showPassword ? '隐藏密码' : '显示密码'"
           @click="showPassword = !showPassword"
-          @keydown.enter.prevent="showPassword = !showPassword"
-          @keydown.space.prevent="showPassword = !showPassword"
         >
           <Eye v-if="showPassword" :size="18" :stroke-width="2" />
           <EyeOff v-else :size="18" :stroke-width="2" />
-        </span>
+        </button>
       </span>
     </label>
 
@@ -75,7 +72,7 @@
       <ArrowRight v-if="!loading" class="transition duration-300 group-hover:translate-x-0.5" :size="20" />
     </button>
 
-    <p class="text-center text-sm text-slate-400">没有账号请先切换到注册</p>
+    <p class="text-center text-sm text-slate-400">首次登录将自动创建账号</p>
   </form>
 </template>
 
@@ -117,41 +114,31 @@ const showPassword = ref(false)
 
 <style scoped>
 .password-field .password-visibility-toggle {
-  position: relative;
+  position: absolute;
   z-index: 1;
-  grid-area: 1 / 1;
-  align-self: center;
-  justify-self: end;
+  right: 10px;
+  top: 50%;
   display: grid;
   width: 32px;
   height: 32px;
-  margin-right: 10px;
+  transform: translateY(-50%);
   place-items: center;
-  border: 0 !important;
-  border-radius: 0 !important;
-  outline: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   color: #64748b;
   cursor: pointer;
-  transform: none !important;
   transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.password-field {
-  display: grid !important;
-}
-
-.password-field > :is(input, svg) {
-  grid-area: 1 / 1;
 }
 
 .password-field .password-visibility-toggle:hover,
 .password-field .password-visibility-toggle:focus-visible {
-  border: 0 !important;
-  outline: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  background: #ecfdf5;
   color: #047857;
+  outline: none;
+}
+
+.password-field .password-visibility-toggle:focus-visible {
+  box-shadow: 0 0 0 2px #a7f3d0;
 }
 </style>

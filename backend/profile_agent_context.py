@@ -20,7 +20,7 @@ from typing import Any, Iterable
 
 
 SUPERVISOR_AGENT_ID = "xiaozhi-companion-agent"
-SUPERVISOR_AGENT_NAME = "岐小智总控智能体"
+SUPERVISOR_AGENT_NAME = "嵌小智总控智能体"
 DEFAULT_CONTEXT_TOKEN_LIMIT = 128_000_000
 DEFAULT_COMPACTION_RATIO = 0.9
 DEFAULT_RECENT_MESSAGE_LIMIT = 4096
@@ -770,7 +770,7 @@ class ProfileAgentContextStore:
                 f"- #{int(row['sequence'])} {agent}"
                 f"{f'[{status}]' if status else ''}：{content}{reference_text}"
             )
-        heading = "画像级智能体群聊压缩摘要（岐小智总控）\n"
+        heading = "画像级智能体群聊压缩摘要（嵌小智总控）\n"
         merged = heading + "\n".join(lines)
         if len(merged) <= DEFAULT_SUMMARY_CHAR_LIMIT:
             return merged

@@ -41,7 +41,7 @@
         </button>
       </div>
       <p v-if="locked" class="camera-lock">
-        {{ cameraActive ? '学习访谈进行中，摄像头已开启，暂不能关闭' : '学习访谈进行中，仍可开启摄像头' }}
+        {{ cameraActive ? '面试进行中，摄像头已开启，暂不能关闭' : '面试进行中，仍可开启摄像头' }}
       </p>
       <p v-if="lastAnalyzedAt">最近分析：{{ lastAnalyzedAt }}</p>
       <p v-if="errorMessage" class="camera-error">{{ errorMessage }}</p>
@@ -154,7 +154,7 @@ function cameraStartErrorMessage(error) {
   }
   return {
     status: 'unavailable',
-    message: `摄像头不可用，学习访谈可继续，但不会启用关键帧分析。${name ? `（${name}）` : ''}`,
+    message: `摄像头不可用，面试可继续，但不会启用关键帧分析。${name ? `（${name}）` : ''}`,
   }
 }
 const statusClass = computed(() => {
@@ -432,7 +432,7 @@ function startTimer() {
 
 function stopCamera(force = false) {
   if (props.locked && force !== true) {
-    errorMessage.value = '学习访谈进行中，摄像头状态已锁定'
+    errorMessage.value = '面试进行中，摄像头状态已锁定'
     return
   }
   releaseCameraStream()
@@ -512,14 +512,14 @@ function normalizeFailureMessage(error) {
     EMPTY_IMAGE: '关键帧未准备好，请稍后重试。',
     INVALID_IMAGE_BASE64: '关键帧图片格式不正确，请重新采集。',
     IMAGE_TOO_LARGE: '截图过大，已自动降低分辨率后重试。',
-    MODEL_CONFIG_MISSING: '讯飞多模态配置缺失，请检查岐小智模型设置或平台凭据。',
+    MODEL_CONFIG_MISSING: '讯飞多模态配置缺失，请检查嵌小智模型设置或平台凭据。',
     MODEL_TIMEOUT: 'AI 分析超时，将在下一轮重试。',
-    MODEL_PARSE_ERROR: '讯飞模型返回内容解析失败，但学习访谈可以继续。',
-    MODEL_AUTH_FAILED: '讯飞模型鉴权失败，请检查岐小智模型设置或平台凭据。',
+    MODEL_PARSE_ERROR: '讯飞模型返回内容解析失败，但面试可以继续。',
+    MODEL_AUTH_FAILED: '讯飞模型鉴权失败，请检查嵌小智模型设置或平台凭据。',
     MODEL_ERROR: 'AI 分析暂时不可用，将在下一轮重试。',
     CAMERA_NOT_ENABLED: '摄像头未准备好，请重新开启摄像头。',
     VIDEO_NOT_READY: '关键帧未准备好，请稍后重试。',
-    SESSION_NOT_FOUND: '学习访谈会话不存在或已过期，请重新开始访谈。',
+    SESSION_NOT_FOUND: '面试会话不存在或已过期，请重新开始面试。',
     API_NOT_FOUND: '关键帧分析接口不存在，请检查后端部署版本。',
     AUTH_EXPIRED: '登录态已失效，请重新登录。',
     NETWORK_ERROR: '网络连接失败，关键帧分析未完成。',
@@ -530,7 +530,7 @@ function normalizeFailureMessage(error) {
     model_error: 'AI 分析暂时不可用，将在下一轮重试',
     invalid_response: 'AI 分析结果异常，将在下一轮重试',
   }
-  return map[code] || raw || '关键帧分析失败，但学习访谈可以继续。'
+  return map[code] || raw || '关键帧分析失败，但面试可以继续。'
 }
 
 async function captureAndAnalyze(reason = 'manual', options = {}) {
@@ -580,7 +580,7 @@ async function captureAndAnalyze(reason = 'manual', options = {}) {
       imageBase64,
     })
     if (!result?.success) {
-      const error = new Error(result?.error || '关键帧分析失败，可继续学习访谈')
+      const error = new Error(result?.error || '关键帧分析失败，可继续面试')
       error.errorCode = result?.errorCode || 'MODEL_ERROR'
       throw error
     }
