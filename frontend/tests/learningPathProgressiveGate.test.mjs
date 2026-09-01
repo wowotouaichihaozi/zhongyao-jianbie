@@ -29,7 +29,15 @@ test('weekly progress labels distinguish not started, in progress, and complete'
   assert.match(mapSource, /progressPercent >= 100 \? 'done' : progressPercent > 0 \? 'current' : 'available'/)
   assert.match(mapSource, /state === 'done' \? '已完成' : state === 'current' \? '进行中' : '未开始'/)
   assert.match(mapSource, /optionalProgressPercent\(week\.progressPercent\)/)
-  assert.match(mapSource, /totalProgress \/ sortedNodes\.value\.length/)
+  assert.match(mapSource, /totalProgress \/ assignedNodes\.length/)
+})
+
+test('week map keeps all six landmarks while future weeks remain unavailable', () => {
+  assert.match(mapSource, /Array\.from\(\{ length: 6 \}/)
+  assert.match(mapSource, /resourceType: isPlaceholder \? 'week-placeholder' : 'week'/)
+  assert.match(mapSource, /statusText: isPlaceholder \? '待规划'/)
+  assert.match(mapSource, /:disabled="node\.isPlaceholder"/)
+  assert.match(mapSource, /filter\(\(node\) => !node\.isPlaceholder\)/)
 })
 
 test('learning path config supports a lightweight summary request', () => {

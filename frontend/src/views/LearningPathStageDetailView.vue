@@ -120,7 +120,8 @@
           :key="node.id"
           type="button"
           class="map-dot"
-          :class="node.state"
+          :class="[node.state, { 'is-placeholder': node.isPlaceholder }]"
+          :disabled="node.isPlaceholder"
           :data-active="activeNode?.id === node.id ? 'true' : undefined"
           :style="{
             left: `${node.x}px`,
@@ -494,8 +495,9 @@ const sortedNodes = computed(() => {
         order: safeNumber(node.order, index + 1),
         progressPercent: optionalProgressPercent(node.progressPercent),
         academyGrowth: index / lastIndex,
-        academyStage,
-        mapTitle: academyMapTitles[academyStage - 1],
+        academyStage: Math.min(6, Math.max(1, Math.round(safeNumber(node.academyStage, academyStage)))),
+        mapTitle: String(node.mapTitle || academyMapTitles[academyStage - 1]),
+        isPlaceholder: node.isPlaceholder === true,
       }
     })
     .sort((left, right) => left.order - right.order)
@@ -537,16 +539,18 @@ const completedRouteNodes = computed(() => {
 })
 
 const stageMetrics = computed(() => {
-  const total = sortedNodes.value.length
-  const done = sortedNodes.value.filter((node) => node.state === 'done').length
-  const current = sortedNodes.value.filter((node) => node.state === 'current').length
+  const assignedNodes = sortedNodes.value.filter((node) => !node.isPlaceholder)
+  const total = assignedNodes.length
+  const done = assignedNodes.filter((node) => node.state === 'done').length
+  const current = assignedNodes.filter((node) => node.state === 'current').length
   return { total, done, current }
 })
 
 const stageProgressPercent = computed(() => {
-  if (!sortedNodes.value.length) return 0
-  const totalProgress = sortedNodes.value.reduce((sum, node) => sum + nodeProgress(node), 0)
-  return Math.min(100, Math.round(totalProgress / sortedNodes.value.length))
+  const assignedNodes = sortedNodes.value.filter((node) => !node.isPlaceholder)
+  if (!assignedNodes.length) return 0
+  const totalProgress = assignedNodes.reduce((sum, node) => sum + nodeProgress(node), 0)
+  return Math.min(100, Math.round(totalProgress / assignedNodes.length))
 })
 
 const popoverStyle = computed(() => {
@@ -1093,29 +1097,40 @@ function createWeekOverviewStage(config) {
   const visibleWeeks = visiblePathWeeks(config)
     .sort((left, right) => safeNumber(left.order, 0) - safeNumber(right.order, 0))
   const weekLabels = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
-  const nodes = visibleWeeks.map((week, index) => {
+  const assignedWeeks = new Map(visibleWeeks.map((week, index) => [
+    Math.min(6, Math.max(1, Math.round(safeNumber(week.order, index + 1)))),
+    week,
+  ]))
+  const nodes = Array.from({ length: 6 }, (_, index) => {
+    const weekNumber = index + 1
+    const isPlaceholder = !assignedWeeks.has(weekNumber)
+    const week = assignedWeeks.get(weekNumber) || {}
     const status = String(week.status || '')
     const reportedProgress = optionalProgressPercent(week.progressPercent)
     const progressPercent = reportedProgress !== undefined
       ? reportedProgress
       : ['done', 'completed'].includes(status) ? 100 : 0
-    const state = progressPercent >= 100 ? 'done' : progressPercent > 0 ? 'current' : 'available'
-    const weekNumber = index + 1
+    const state = isPlaceholder ? 'locked' : progressPercent >= 100 ? 'done' : progressPercent > 0 ? 'current' : 'available'
     return {
       id: `week-${weekNumber}`,
-      resourceType: 'week',
-      stageId: String(week.id || `week-${weekNumber}`),
-      label: `第${weekLabels[index] || weekNumber}周`,
-      title: cleanWeekMapTitle(week.title, weekNumber),
-      statusText: state === 'done' ? '已完成' : state === 'current' ? '进行中' : '未开始',
+      resourceType: isPlaceholder ? 'week-placeholder' : 'week',
+      stageId: isPlaceholder ? '' : String(week.id || `week-${weekNumber}`),
+      label: String(week?.weekLabel || `第${weekLabels[index] || weekNumber}周`),
+      title: isPlaceholder ? `第${weekLabels[index] || weekNumber}周学习任务待规划` : cleanWeekMapTitle(week.title, weekNumber),
+      mapTitle: isPlaceholder ? '待规划学习主题' : academyMapTitles[index],
+      statusText: isPlaceholder ? '待规划' : state === 'done' ? '已完成' : state === 'current' ? '进行中' : '未开始',
       progressPercent,
-      description: String(week.description || `查看第${weekNumber}周的具体学习任务与资源。`),
+      description: isPlaceholder
+        ? '完成当前周学习任务后，学习路径智能体将结合最新画像规划本周内容。'
+        : String(week.description || `查看第${weekNumber}周的具体学习任务与资源。`),
       state,
       x: 126 + index * 246,
       y: index % 2 === 0 ? 388 : 254,
-      actionText: '查看本周任务',
-      actionRoute: `/learning-path/week/${encodeURIComponent(String(week.id || `week-${weekNumber}`))}`,
+      actionText: isPlaceholder ? '等待规划' : '查看本周任务',
+      actionRoute: isPlaceholder ? '' : `/learning-path/week/${encodeURIComponent(String(week.id || `week-${weekNumber}`))}`,
       order: weekNumber,
+      academyStage: weekNumber,
+      isPlaceholder,
     }
   })
   return {
@@ -2847,6 +2862,20 @@ function resetViewport() {
 
 .week-overview-map .route-done {
   stroke-width: 4;
+}
+
+.week-overview-map .map-dot.is-placeholder {
+  cursor: default;
+}
+
+.week-overview-map .map-dot.is-placeholder :deep(.academy-node) {
+  opacity: 0.42;
+  filter: grayscale(0.2) saturate(0.45);
+}
+
+.week-overview-map .map-dot.is-placeholder .dot-title,
+.week-overview-map .map-dot.is-placeholder .dot-state {
+  opacity: 0.58;
 }
 
 @media (max-width: 600px) {
