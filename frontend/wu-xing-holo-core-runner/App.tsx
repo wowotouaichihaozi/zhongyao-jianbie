@@ -141,7 +141,7 @@ export default function App() {
         </button>
 
         <aside style={{ pointerEvents: 'auto', zIndex: 45 }} className={[
-          'pointer-events-auto absolute left-3 right-3 top-[4.5rem] max-h-[calc(100dvh-6rem)] overflow-hidden border border-slate-700/70 bg-[#0b111b]/95 shadow-2xl backdrop-blur-xl transition duration-200 sm:left-6 sm:right-auto sm:top-24 sm:w-[360px] md:opacity-100 md:translate-y-0 md:pointer-events-auto',
+          'pointer-events-auto absolute left-3 right-3 top-[4.5rem] max-h-[calc(100dvh-6rem)] overflow-hidden border border-slate-700/70 bg-transparent transition duration-200 sm:left-6 sm:right-auto sm:top-24 sm:w-[360px] md:w-[520px] md:opacity-100 md:translate-y-0 md:pointer-events-auto',
           navigationOpen ? 'translate-y-0 opacity-100' : '-translate-y-3 opacity-0 !pointer-events-none md:!pointer-events-auto md:opacity-100 md:translate-y-0',
         ].join(' ')}>
           <div className="flex items-center gap-3 border-b border-slate-700/70 px-4 py-3">
@@ -149,7 +149,7 @@ export default function App() {
               <Compass size={15} />
               <span>星图导航</span>
             </div>
-            <label className="flex min-w-0 flex-1 items-center gap-1.5 border border-slate-700/80 bg-slate-950/60 px-2 py-1.5 text-slate-300 focus-within:border-cyan-300/70">
+            <label className="flex min-w-0 flex-1 items-center gap-1.5 border border-slate-700/80 bg-transparent px-2 py-1.5 text-slate-300 focus-within:border-cyan-300/70">
               <Search size={13} className="shrink-0 text-slate-500" />
               <input
                 value={searchQuery}
@@ -197,8 +197,8 @@ export default function App() {
               </div>
             ) : (
               <>
-            <div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">知识域</div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="mb-2 text-[13px] font-medium tracking-[0.12em] text-slate-500">知识域</div>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
               {domains.map(domain => (
                 <button
                   key={domain.name}
@@ -206,23 +206,21 @@ export default function App() {
                   aria-pressed={activeDomain === domain.name}
                   onClick={() => selectDomain(domain.name)}
                   className={[
-                    'flex min-w-0 items-center gap-2 border px-2.5 py-2 text-left text-[10px] transition',
+                    'flex min-w-0 items-center gap-2 border px-3 py-2.5 text-left text-[13px] transition',
                     activeDomain === domain.name
                       ? 'border-cyan-300/70 bg-cyan-300/10 text-cyan-100'
-                      : 'border-slate-700/80 bg-slate-900/60 text-slate-300 hover:border-slate-500 hover:text-white',
+                      : 'border-slate-700/80 bg-transparent text-slate-300 hover:border-slate-500 hover:text-white',
                   ].join(' ')}
                 >
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: domain.color }} />
                   <span className="min-w-0 flex-1 truncate">{domain.name}</span>
-                  <span className="text-[9px] text-slate-500">{domain.topics.length}</span>
                 </button>
               ))}
             </div>
 
             {activeDomain && (
               <div className="mt-4 border-t border-slate-700/70 pt-3">
-                <div className="mb-2 flex items-center gap-1 text-[10px] font-semibold text-cyan-200">
-                  <ChevronRight size={13} />
+                <div className="mb-2 flex items-center gap-1 text-[13px] font-semibold text-cyan-200">
+                  <ChevronRight size={16} />
                   <span>{activeDomain} · 主题</span>
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -233,7 +231,7 @@ export default function App() {
                       aria-current={selectedTopic?.id === topic.id ? 'page' : undefined}
                       onClick={() => selectFromNavigation(topic.id, true)}
                       className={[
-                        'min-w-0 border px-2 py-1.5 text-left text-[10px] transition',
+                        'min-w-0 border px-3 py-2 text-left text-[13px] transition',
                         selectedTopic?.id === topic.id
                           ? 'border-cyan-200/70 bg-cyan-300/10 text-cyan-100'
                           : 'border-slate-700/70 text-slate-400 hover:border-slate-500 hover:text-slate-100',
@@ -248,8 +246,8 @@ export default function App() {
 
             {selectedTopic && (
               <div className="mt-4 border-t border-slate-700/70 pt-3">
-                <div className="mb-2 flex items-center gap-1 text-[10px] font-semibold text-slate-300">
-                  <ChevronRight size={13} />
+                <div className="mb-2 flex items-center gap-1 text-[13px] font-semibold text-slate-300">
+                  <ChevronRight size={16} />
                   <span>{selectedTopic.title} · 子主题</span>
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -260,7 +258,7 @@ export default function App() {
                       aria-current={selectedSubtopic?.id === subtopic.id ? 'page' : undefined}
                       onClick={() => selectFromNavigation(subtopic.id, true)}
                       className={[
-                        'min-w-0 border px-2 py-1.5 text-left text-[10px] transition',
+                        'min-w-0 border px-3 py-2 text-left text-[13px] transition',
                         selectedSubtopic?.id === subtopic.id
                           ? 'border-emerald-300/70 bg-emerald-300/10 text-emerald-100'
                           : 'border-slate-700/70 text-slate-500 hover:border-slate-500 hover:text-slate-100',
@@ -275,8 +273,8 @@ export default function App() {
 
             {selectedSubtopic && (
               <div className="mt-4 border-t border-slate-700/70 pt-3">
-                <div className="mb-2 flex items-center gap-1 text-[10px] font-semibold text-slate-300">
-                  <ChevronRight size={13} />
+                <div className="mb-2 flex items-center gap-1 text-[13px] font-semibold text-slate-300">
+                  <ChevronRight size={16} />
                   <span>{selectedSubtopic.title} · 具体知识点</span>
                 </div>
                 <div className="grid grid-cols-1 gap-1.5">
@@ -287,7 +285,7 @@ export default function App() {
                       aria-current={selectedNodeId === point.id ? 'page' : undefined}
                       onClick={() => selectFromNavigation(point.id, true)}
                       className={[
-                        'min-w-0 border px-2 py-1.5 text-left text-[10px] transition',
+                        'min-w-0 border px-3 py-2 text-left text-[13px] transition',
                         selectedNodeId === point.id
                           ? 'border-cyan-200/70 bg-cyan-300/10 text-cyan-100'
                           : 'border-slate-700/70 text-slate-500 hover:border-slate-500 hover:text-slate-100',

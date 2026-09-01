@@ -119,9 +119,6 @@
     </nav>
 
     <aside v-if="selectedNode" class="node-detail" aria-live="polite">
-      <button class="detail-close" type="button" title="关闭节点详情" aria-label="关闭节点详情" @click="selectedId = ''">
-        <X :size="18" />
-      </button>
       <header class="detail-heading">
         <span class="detail-eyebrow">{{ selectedNode.eyebrow || kindLabel(selectedNode.kind) }}</span>
         <h2>{{ selectedNode.label }}</h2>
@@ -195,9 +192,6 @@
       <CircleAlert :size="15" /><span>{{ warning }}</span>
     </div>
 
-    <footer class="tree-legend" aria-label="果实成熟度图例">
-      <span v-for="item in legend" :key="item.status"><i :class="item.status"></i>{{ item.label }}</span>
-    </footer>
   </main>
 </template>
 
@@ -216,7 +210,6 @@ import {
   Sparkles,
   Sprout,
   TreePine,
-  X,
 } from 'lucide-vue-next'
 import LifeTreeGrowthScene from '../components/LifeTreeGrowthScene.vue'
 import { getEffectAssessment, getLearningPathConfig } from '../services/api.js'
@@ -245,12 +238,6 @@ let growthFromTimer = 0
 let refreshTimer = 0
 let loadPromise = null
 
-const legend = [
-  { status: 'fruit-young', label: '青果' },
-  { status: 'fruit-turning', label: '转色' },
-  { status: 'fruit-ripe', label: '成熟' },
-  { status: 'fruit-current', label: '当前' },
-]
 const radarLevels = [1, 2, 3, 4, 5]
 
 const allNodes = computed(() => {
@@ -588,8 +575,7 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
-.scene-controls button,
-.detail-close {
+.scene-controls button {
   width: 40px;
   height: 40px;
   display: inline-flex;
@@ -602,8 +588,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.scene-controls button:hover,
-.detail-close:hover {
+.scene-controls button:hover {
   border-color: rgba(116, 215, 170, 0.5);
   color: #74d7aa;
 }
@@ -784,7 +769,6 @@ onBeforeUnmount(() => {
 }
 .agent-chain svg { flex: 0 0 auto; color: #567168; }
 
-.detail-close { position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; background: transparent; }
 .node-detail h2 { margin: 8px 38px 12px 0; color: var(--tree-ink); font-size: 21px; line-height: 1.25; letter-spacing: 0; overflow-wrap: anywhere; }
 .status-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .status-line span { padding: 5px 8px; border-radius: 4px; background: rgba(156, 168, 163, 0.15); color: #b8c1bd; font-size: 10px; font-weight: 750; }
@@ -975,7 +959,6 @@ onBeforeUnmount(() => {
 .loop-track span small { font-size: 7px; }
 .loop-track > i { flex: 1; height: 1px; margin: 0 3px 11px; background: rgba(116, 215, 170, 0.17); }
 
-.detail-heading { padding-right: 38px; }
 .detail-eyebrow { color: #75caa4; font-size: 9px; font-weight: 750; }
 .detail-heading h2 {
   display: -webkit-box;
@@ -1034,25 +1017,11 @@ onBeforeUnmount(() => {
 .status-weak { color: #f18b84 !important; }
 .status-recommended { color: #f2bd52 !important; }
 .status-unverified { color: #aeb8b4 !important; }
-.signal-row.status-mastered > span,
-.tree-legend i.status-mastered { background: #55d28a; }
-.signal-row.status-developing > span,
-.tree-legend i.status-developing { background: #5aa9ff; }
-.signal-row.status-weak > span,
-.tree-legend i.status-weak { background: #ef756d; }
-.signal-row.status-recommended > span,
-.tree-legend i.status-recommended { background: #f2bd52; }
-.signal-row.status-unverified > span,
-.tree-legend i.status-unverified { background: #9ca8a3; }
-
-.tree-legend i.fruit-young { background: #61b99b; }
-.tree-legend i.fruit-turning { background: #c79a3b; }
-.tree-legend i.fruit-ripe { background: #c43d34; }
-.tree-legend i.fruit-current {
-  background: transparent;
-  border: 1px solid #e3bc64;
-  box-shadow: 0 0 0 2px rgba(227, 188, 100, 0.14);
-}
+.signal-row.status-mastered > span { background: #55d28a; }
+.signal-row.status-developing > span { background: #5aa9ff; }
+.signal-row.status-weak > span { background: #ef756d; }
+.signal-row.status-recommended > span { background: #f2bd52; }
+.signal-row.status-unverified > span { background: #9ca8a3; }
 
 .scene-state {
   position: absolute;
@@ -1098,21 +1067,6 @@ onBeforeUnmount(() => {
 .empty-notice a { margin-left: auto; color: #f2bd52; font-size: 10px; font-weight: 750; text-decoration: none; white-space: nowrap; }
 .partial-warning { top: 86px; padding: 7px 10px; color: #e9c57f; font-size: 10px; }
 
-.tree-legend {
-  position: absolute;
-  z-index: 4;
-  right: 28px;
-  bottom: 22px;
-  left: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  pointer-events: none;
-}
-.tree-legend span { display: inline-flex; align-items: center; gap: 6px; color: #b2c0bb; font-size: 10px; }
-.tree-legend i { width: 8px; height: 8px; border-radius: 50%; }
-.tree-legend small { margin-left: 8px; color: #71867d; font-size: 9px; }
 .spinning { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -1163,10 +1117,6 @@ onBeforeUnmount(() => {
   .fruit-inspector { margin-top: 10px; padding: 9px 0; }
   .detail-description { margin-top: 8px; -webkit-line-clamp: 2; }
   .detail-action { position: static; }
-  .tree-legend { right: 12px; bottom: 12px; left: 12px; gap: 8px; justify-content: flex-end; }
-  .tree-legend span { font-size: 0; }
-  .tree-legend span i { width: 9px; height: 9px; }
-  .tree-legend small { margin: 0; font-size: 8px; }
   .empty-notice { bottom: 48px; }
 }
 
@@ -1203,8 +1153,6 @@ onBeforeUnmount(() => {
   .fruit-inspector { grid-template-columns: 54px minmax(0, 1fr); }
   .inspection-fruit { width: 44px; height: 47px; }
   .evidence-metrics { padding: 8px 0; }
-  .tree-legend { justify-content: center; }
-  .tree-legend small { display: none; }
   .partial-warning { top: 142px; width: calc(100% - 32px); box-sizing: border-box; }
   .growth-feedback { top: 142px; width: calc(100% - 32px); justify-content: center; text-align: center; }
   .empty-notice { bottom: 38px; width: calc(100% - 32px); box-sizing: border-box; }
@@ -1521,7 +1469,7 @@ body:has(.life-tree-page) { overflow: hidden; }
 #app .life-tree-page .week-path button.current b { color: #dfb961 !important; }
 
 #app .life-tree-page .node-detail {
-  top: 144px;
+  top: 150px;
   right: 0;
   width: 306px;
   max-height: calc(100% - 194px);
@@ -1530,17 +1478,9 @@ body:has(.life-tree-page) { overflow: hidden; }
   border: 0;
   border-left: 1px solid rgba(151, 184, 170, 0.2);
   border-radius: 0;
-  background: rgba(7, 20, 16, 0.94);
-  box-shadow: -18px 0 42px rgba(2, 11, 7, 0.2);
-  backdrop-filter: none;
-}
-
-#app .life-tree-page .detail-close {
-  top: 20px;
-  right: 22px;
-  border: 0;
-  border-radius: 0;
   background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 #app .life-tree-page .fruit-inspector {
@@ -1586,6 +1526,19 @@ body:has(.life-tree-page) { overflow: hidden; }
   background: rgba(7, 20, 16, 0.7) !important;
   color: #a7bbb2 !important;
   box-shadow: none !important;
+}
+
+/* Keep the supporting panels legible beside the desktop tree scene. */
+@media (min-width: 1600px) {
+  #app .life-tree-page .tree-status,
+  #app .life-tree-page .node-detail,
+  #app .life-tree-page .week-path {
+    zoom: 1.5;
+  }
+
+  #app .life-tree-page .tree-status,
+  #app .life-tree-page .node-detail { top: 100px; }
+  #app .life-tree-page .week-path { bottom: 16px; width: 620px; }
 }
 
 @media (max-width: 1120px) {

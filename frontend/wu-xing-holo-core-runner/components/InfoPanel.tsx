@@ -26,7 +26,7 @@ export default function InfoPanel({ selected, levelName, onClose, embedded = fal
       'text-slate-100',
       embedded
         ? 'border-t border-slate-700/70 bg-transparent'
-        : 'max-h-[76vh] overflow-hidden border border-slate-700/80 bg-[#0b111b]/96 shadow-2xl backdrop-blur-xl',
+        : 'max-h-[76vh] overflow-hidden border border-slate-700/80 bg-transparent',
     ].join(' ')}>
       <div className="flex items-start justify-between gap-4 border-b border-slate-700/70 px-5 py-4">
         <div className="min-w-0">

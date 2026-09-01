@@ -46,8 +46,12 @@
     body {
       font-family:var(--font-body);
       -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
-      background:var(--paper); color:var(--ink); min-height:100vh; overflow-x:hidden;
+      background:#f2f3f5 url('/learning-path-academy-background-v1.png') center / cover no-repeat fixed; color:var(--ink); min-height:100vh; overflow-x:hidden;
       counter-reset:seclabel;
+    }
+    body::before {
+      content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background:rgba(248,251,249,.72);
     }
     body::after {
       content:''; position:fixed; inset:0; z-index:1000; pointer-events:none;
@@ -68,6 +72,7 @@
       background-size:56px 56px;
       -webkit-mask-image:radial-gradient(ellipse 95% 62% at 50% -6%, black 12%, transparent 75%);
       mask-image:radial-gradient(ellipse 95% 62% at 50% -6%, black 12%, transparent 75%);
+      opacity:.34;
     }
 
     .btn { display:inline-flex; align-items:center; gap:.5rem; padding:.55rem 1.15rem; border-radius:6px; font-family:var(--font-body); font-size:.8125rem; font-weight:500; letter-spacing:-.005em; cursor:pointer; text-decoration:none; transition:all .2s var(--ease-out); border:1px solid transparent; }
@@ -393,6 +398,39 @@
     body > .divider, body > section:not(.hero), body > footer { display: none !important; }
     body { min-height: 100vh; overflow: hidden; }
     .hero { min-height: 100vh; padding-top: 5rem; padding-bottom: 2rem; }
+    @media (min-width:1200px) {
+      :root { --bento-gap:22.5px; }
+      .container { max-width:2062px; padding:0 2.344rem; }
+      .hero { padding-top:5rem; padding-bottom:1rem; }
+      .hero-bento { row-gap:30px; }
+      .hero-intro { padding:1.5625rem .9375rem 0 0; }
+      .hero-badge { gap:.9375rem; margin-bottom:2.03125rem; font-size:.78125rem; }
+      .hero-badge::before { width:3.4375rem; }
+      .hero h1 { max-width:950px; margin-bottom:1.8125rem; font-size:clamp(3.375rem,4.875vw,5.4375rem); }
+      .hero-sub { max-width:750px; margin-bottom:2.5rem; font-size:1.275rem; }
+      .hero-actions { gap:.78125rem; }
+      .hero-actions .btn { min-height:62px; padding:.9375rem 1.9375rem; font-size:1.1875rem; }
+
+      .proof-main { border-radius:17.5px; }
+      .proof-chrome { min-height:72px; padding:.875rem 1.875rem; }
+      .proof-live { gap:.5625rem; font-size:.703125rem; }
+      .proof-status { gap:.9375rem; }
+      .proof-status-copy strong, .proof-open { font-size:.9375rem; }
+      .proof-status-copy span { margin-top:.25rem; font-size:.703125rem; }
+      .proof-viewport { min-height:520px; border-width:15px; border-top-width:12px; border-bottom-width:12px; }
+      .proof-caption { min-height:104px; gap:1.875rem; padding:1.25rem 2.1875rem; }
+
+      .rail-label { gap:1.09375rem; font-size:.703125rem; }
+      .spec-card { gap:.75rem; padding:1.40625rem 1.5625rem; border-radius:15px; }
+      .spec-idx, .spec-meta { font-size:.703125rem; }
+      .spec-name { font-size:1.125rem; }
+      .spec-glyph svg { transform:scale(1.25); transform-origin:center; }
+
+      .hero-stats { border-radius:15px; }
+      .stat { padding:2.03125rem 2.1875rem 1.875rem; }
+      .stat b { margin-bottom:.6875rem; font-size:2.5rem; }
+      .stat span { font-size:.703125rem; }
+    }
   </style>
 
   <!-- HERO — bento: intro / live proof / specimen rail / stats -->
