@@ -2267,6 +2267,7 @@ class LearningProfileApiTests(unittest.TestCase):
         )
         self.assertEqual(legacy_only["radarScores"], [2, 2, 2, 2, 2, 2])
         self.assertEqual(legacy_only["evidenceCount"], 0)
+        self.assertFalse(legacy_only["masteryEvidenceAvailable"])
         self.assertEqual(legacy_only["evidenceUsed"]["legacyMcuExperimentsIgnored"], 2)
 
         tcm_evidence = app_module.effect_assessment_snapshot(
@@ -2285,6 +2286,7 @@ class LearningProfileApiTests(unittest.TestCase):
             },
         )
         self.assertTrue(all(score > 2 for score in tcm_evidence["radarScores"]))
+        self.assertTrue(tcm_evidence["masteryEvidenceAvailable"])
         self.assertEqual(tcm_evidence["evidenceUsed"]["legacyMcuExperimentsIgnored"], 0)
 
     def test_learning_resource_visits_include_tcm_practice_routes(self) -> None:

@@ -15,6 +15,8 @@
     <section v-if="loading" class="loading-state">正在汇总学习记录...</section>
     <section v-else-if="error" class="loading-state error">{{ error }}</section>
     <template v-else>
+      <!-- Continuous report deck adapted from Tabler's MIT-licensed dashboard layout. -->
+      <div class="report-deck">
       <section class="metric-grid" aria-label="学习效果核心指标">
         <article>
           <Target :size="20" />
@@ -25,8 +27,8 @@
         <article>
           <BrainCircuit :size="20" />
           <span>知识掌握率</span>
-          <strong>{{ formatPercent(assessment.masteryRate) }}</strong>
-          <small>按有效知识证据加权</small>
+          <strong>{{ assessment.masteryEvidenceAvailable ? formatPercent(assessment.masteryRate) : '待测评' }}</strong>
+          <small>{{ assessment.masteryEvidenceAvailable ? '按有效知识证据加权' : '完成题目并提交后计算' }}</small>
         </article>
         <article>
           <Clock3 :size="20" />
@@ -94,7 +96,8 @@
         </article>
       </section>
 
-      <section class="diagnosis-grid">
+      <section class="assessment-detail-grid">
+        <div class="assessment-detail-column">
         <article class="panel heatmap-panel">
           <div class="card-title">
             <div><span>知识点热力图</span><h2>掌握证据分布</h2></div>
@@ -107,7 +110,7 @@
                 <small>{{ heatmapStatusLabel(item.status) }} · {{ item.attempts || 0 }} 条证据</small>
               </div>
               <div class="heatmap-rate">
-                <span>{{ formatPercent(item.masteryRate) }}</span>
+                <span>{{ formatEvidenceMastery(item) }}</span>
                 <i><b :style="{ width: `${Math.max(0, Math.min(100, Number(item.masteryRate || 0)))}%` }"></b></i>
               </div>
             </div>
@@ -115,35 +118,6 @@
           <p v-else class="empty-copy">完成题单或实验后，这里会按知识点聚合掌握证据。</p>
         </article>
 
-        <article class="panel adjustment-panel">
-          <div class="card-title">
-            <div><span>动态学习计划</span><h2>{{ adjustmentPlan.targetWeekLabel || '当前周' }}调整建议</h2></div>
-            <em :class="['plan-state', adjustmentPlan.status]">{{ adjustmentStatusLabel }}</em>
-          </div>
-          <p class="adjustment-reason">{{ adjustmentPlan.reason || '当前没有需要追加的学习任务。' }}</p>
-          <div v-if="adjustmentPlan.tasks?.length" class="adjustment-list">
-            <div v-for="(task, index) in adjustmentPlan.tasks" :key="task.nodeId">
-              <span>{{ String(index + 1).padStart(2, '0') }}</span>
-              <div>
-                <strong>{{ task.title }}</strong>
-                <p>{{ task.acceptanceCriteria }}</p>
-                <small>{{ resourceLabel(task.resourceType) }} · 当前掌握率 {{ formatPercent(task.currentMasteryRate) }}</small>
-              </div>
-            </div>
-          </div>
-          <div v-if="actionError" class="action-message error">{{ actionError }}</div>
-          <div v-else-if="actionMessage" class="action-message">{{ actionMessage }}</div>
-          <div class="adjustment-actions">
-            <button type="button" :disabled="!canApplyAdjustment || applying" @click="applyAdjustment">
-              <Route :size="17" />
-              {{ applying ? '正在应用' : adjustmentPlan.status === 'applied' ? '已应用到学习路径' : '应用到学习路径' }}
-            </button>
-            <RouterLink v-if="adjustmentPlan.status === 'applied'" to="/learning-path">查看学习路径</RouterLink>
-          </div>
-        </article>
-      </section>
-
-      <section class="evidence-grid">
         <article class="panel resource-evidence">
           <div class="card-title">
             <div><span>资源足迹</span><h2>已进入的资源</h2></div>
@@ -160,6 +134,51 @@
             </div>
           </div>
         </article>
+
+        <article id="learning-feedback" class="panel feedback-evidence">
+          <div class="card-title">
+            <div><span>学习反馈闭环</span><h2>资源完成与巩固记录</h2></div>
+            <em>{{ evidence.learningFeedbacks?.length || 0 }} 条</em>
+          </div>
+          <div v-if="evidence.learningFeedbacks?.length" class="feedback-list">
+            <div v-for="item in evidence.learningFeedbacks.slice(0, 10)" :key="item.id">
+              <span :class="`outcome-${item.outcome}`">{{ feedbackOutcomeLabel(item.outcome) }}</span>
+              <strong>{{ item.topic || resourceLabel(item.resourceType) }}</strong>
+              <small>{{ resourceLabel(item.resourceType) }} · {{ feedbackDifficultyLabel(item.difficulty) }} · {{ formatVisitTime(item.updatedAt) }}</small>
+            </div>
+          </div>
+          <p v-else class="empty-copy">完成资源后提交学习结果，这里会保留可用于画像和路径调整的反馈证据。</p>
+        </article>
+        </div>
+
+        <div class="assessment-detail-column">
+        <article class="panel adjustment-panel">
+          <div class="card-title">
+            <div><span>动态学习计划</span><h2>{{ adjustmentPlan.targetWeekLabel || '当前周' }}调整建议</h2></div>
+            <em :class="['plan-state', adjustmentPlan.status]">{{ adjustmentStatusLabel }}</em>
+          </div>
+          <p class="adjustment-reason">{{ adjustmentPlan.reason || '当前没有需要追加的学习任务。' }}</p>
+          <div v-if="adjustmentPlan.tasks?.length" class="adjustment-list">
+            <div v-for="(task, index) in adjustmentPlan.tasks" :key="task.nodeId">
+              <span>{{ String(index + 1).padStart(2, '0') }}</span>
+              <div>
+                <strong>{{ task.title }}</strong>
+                <p>{{ task.acceptanceCriteria }}</p>
+                <small>{{ resourceLabel(task.resourceType) }} · 当前掌握率 {{ task.evidenceAttempts ? formatPercent(task.currentMasteryRate) : '待验证' }}</small>
+              </div>
+            </div>
+          </div>
+          <div v-if="actionError" class="action-message error">{{ actionError }}</div>
+          <div v-else-if="actionMessage" class="action-message">{{ actionMessage }}</div>
+          <div class="adjustment-actions">
+            <button type="button" :disabled="!canApplyAdjustment || applying" @click="applyAdjustment">
+              <Route :size="17" />
+              {{ applying ? '正在应用' : adjustmentPlan.status === 'applied' ? '已应用到学习路径' : '应用到学习路径' }}
+            </button>
+            <RouterLink v-if="adjustmentPlan.status === 'applied'" to="/learning-path">查看学习路径</RouterLink>
+          </div>
+        </article>
+
         <article class="panel path-evidence">
           <div class="card-title">
             <div><span>路径证据</span><h2>学习路径进度</h2></div>
@@ -206,21 +225,10 @@
           </template>
           <p v-else class="empty-copy">尚未生成学习路径。</p>
         </article>
-        <article id="learning-feedback" class="panel feedback-evidence">
-          <div class="card-title">
-            <div><span>学习反馈闭环</span><h2>资源完成与巩固记录</h2></div>
-            <em>{{ evidence.learningFeedbacks?.length || 0 }} 条</em>
-          </div>
-          <div v-if="evidence.learningFeedbacks?.length" class="feedback-list">
-            <div v-for="item in evidence.learningFeedbacks.slice(0, 10)" :key="item.id">
-              <span :class="`outcome-${item.outcome}`">{{ feedbackOutcomeLabel(item.outcome) }}</span>
-              <strong>{{ item.topic || resourceLabel(item.resourceType) }}</strong>
-              <small>{{ resourceLabel(item.resourceType) }} · {{ feedbackDifficultyLabel(item.difficulty) }} · {{ formatVisitTime(item.updatedAt) }}</small>
-            </div>
-          </div>
-          <p v-else class="empty-copy">完成资源后提交学习结果，这里会保留可用于画像和路径调整的反馈证据。</p>
-        </article>
+        </div>
+
       </section>
+      </div>
     </template>
   </main>
 </template>
@@ -334,6 +342,9 @@ function labelAnchor(index) {
 }
 
 function formatPercent(value) { return `${Number(value || 0).toFixed(1)}%` }
+function formatEvidenceMastery(item) {
+  return Number(item?.attempts || 0) > 0 ? formatPercent(item.masteryRate) : '待验证'
+}
 function confidenceLabel(value) { return ({ high: '高置信度', medium: '中等置信度', low: '证据仍需补充' })[value] || '证据仍需补充' }
 function heatmapStatusLabel(value) { return ({ mastered: '已掌握', developing: '巩固中', weak: '薄弱', unverified: '待验证' })[value] || '待验证' }
 function feedbackOutcomeLabel(value) { return ({ completed: '已完成', needs_review: '需巩固', blocked: '有阻塞' })[value] || '已记录' }
@@ -1294,6 +1305,249 @@ watch(() => route.query.profileId, load)
 
   .heatmap-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 1021px) {
+  .assessment-page {
+    padding-top: 18px;
+    padding-bottom: 44px;
+  }
+
+  .assessment-head {
+    padding: 0 0 14px;
+  }
+
+  .assessment-head h1 {
+    margin: 5px 0;
+    font-size: 26px;
+  }
+
+  .assessment-head > div > span {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .assessment-head button {
+    min-height: 36px;
+  }
+
+  .metric-grid {
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .metric-grid article {
+    min-height: 100px;
+    padding: 13px 14px 11px;
+  }
+
+  .metric-grid svg {
+    width: 27px;
+    height: 27px;
+    padding: 5px;
+  }
+
+  .metric-grid strong {
+    margin-top: 7px;
+    font-size: 22px;
+  }
+
+  .metric-grid small {
+    margin-top: 5px;
+  }
+
+  .assessment-grid,
+  .diagnosis-grid,
+  .evidence-grid {
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .diagnosis-grid {
+    align-items: stretch;
+  }
+
+  .heatmap-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .heatmap-panel .heatmap-list {
+    flex: 1;
+    grid-auto-rows: minmax(64px, 1fr);
+  }
+
+  .panel {
+    padding: 16px 18px;
+  }
+
+  .card-title h2,
+  .evidence-grid h2 {
+    margin-top: 3px;
+    font-size: 16px;
+  }
+
+  .radar-card {
+    min-height: 350px;
+  }
+
+  .radar-wrap {
+    min-height: 285px;
+  }
+
+  .radar-wrap svg {
+    max-height: 290px;
+  }
+
+  .improvement-list {
+    margin-top: 10px;
+  }
+
+  .improvement-list div,
+  .adjustment-list > div {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .weak-panel {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+
+  .heatmap-list,
+  .feedback-list {
+    margin-top: 8px;
+  }
+
+  .heatmap-row {
+    min-height: 54px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .adjustment-reason {
+    margin: 10px 0;
+    padding: 9px 11px;
+  }
+}
+
+.assessment-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(380px, .8fr);
+  gap: 12px;
+  width: min(100%, 1440px);
+  margin: 12px auto 0;
+}
+
+.assessment-detail-column {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+@media (max-width: 1020px) {
+  .assessment-detail-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .assessment-detail-column {
+    gap: 16px;
+  }
+}
+
+/* Tabler-style continuous report deck: one report surface, separated content bands. */
+.report-deck {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 1440px);
+  margin: 0 auto;
+}
+
+.report-deck > .metric-grid,
+.report-deck > .assessment-grid,
+.report-deck > .assessment-detail-grid {
+  width: 100%;
+  margin: 0;
+}
+
+.report-deck > .assessment-grid,
+.report-deck > .assessment-detail-grid {
+  overflow: hidden;
+  border: 1px solid var(--assessment-line);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(29, 49, 42, .035);
+}
+
+.report-deck > .assessment-grid {
+  gap: 0;
+}
+
+.report-deck > .assessment-grid > .panel {
+  align-self: stretch;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.report-deck > .assessment-grid > .insight-card {
+  border-left: 1px solid var(--assessment-line);
+}
+
+.report-deck > .assessment-detail-grid {
+  gap: 0;
+}
+
+.report-deck .assessment-detail-column {
+  gap: 0;
+  background: #fff;
+}
+
+.report-deck .assessment-detail-column + .assessment-detail-column {
+  border-left: 1px solid var(--assessment-line);
+}
+
+.report-deck .assessment-detail-column > .panel {
+  width: 100%;
+  padding: 18px 20px;
+  border: 0;
+  border-bottom: 1px solid var(--assessment-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.report-deck .assessment-detail-column > .panel:last-child {
+  border-bottom: 0;
+}
+
+.report-deck .heatmap-panel,
+.report-deck .adjustment-panel,
+.report-deck .resource-evidence,
+.report-deck .path-evidence,
+.report-deck .feedback-evidence,
+.report-deck .insight-card {
+  border-top: 0;
+}
+
+@media (max-width: 1020px) {
+  .report-deck {
+    gap: 16px;
+  }
+
+  .report-deck > .assessment-grid,
+  .report-deck > .assessment-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-deck > .assessment-grid > .insight-card,
+  .report-deck .assessment-detail-column + .assessment-detail-column {
+    border-top: 1px solid var(--assessment-line);
+    border-left: 0;
   }
 }
 </style>

@@ -760,7 +760,7 @@ def effect_assessment_overview():
         profile = dependencies.get_profile_for_user(conn, int(user["id"]), requested_profile_id) if requested_profile_id else dependencies.active_profile_for_user(conn, int(user["id"]))
         if not profile:
             return dependencies.jsonify({"code": 404, "msg": "请先完成学习画像"}), 404
-        evidence = dependencies.learning_evidence_for_user(conn, int(user["id"]))
+        evidence = dependencies.learning_evidence_for_user(conn, int(user["id"]), int(profile["id"]))
         history = dependencies._effect_assessment_records(conn, int(user["id"]), int(profile["id"]), limit=10)
     assessment = dependencies.effect_assessment_snapshot(profile, evidence)
     plan = assessment.get("pathAdjustmentPlan") or {}
@@ -805,7 +805,7 @@ def effect_assessment_apply_adjustment():
             return dependencies.jsonify({"code": 404, "msg": "学习画像不存在"}), 404
         if not profile.get("isActive"):
             return dependencies.jsonify({"code": 409, "msg": "请先将该画像设为当前画像，再应用路径调整"}), 409
-        evidence = dependencies.learning_evidence_for_user(conn, int(user["id"]))
+        evidence = dependencies.learning_evidence_for_user(conn, int(user["id"]), int(profile["id"]))
         assessment = dependencies.effect_assessment_snapshot(profile, evidence)
         plan = assessment.get("pathAdjustmentPlan") or {}
         requested_plan_id = str(payload.get("planId") or "").strip()

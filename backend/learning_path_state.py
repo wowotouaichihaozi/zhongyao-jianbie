@@ -1636,7 +1636,11 @@ def learning_resource_visit(route: object) -> dict:
     return {}
 
 
-def learning_evidence_for_user(conn: sqlite3.Connection, user_id: int) -> dict:
+def learning_evidence_for_user(
+    conn: sqlite3.Connection,
+    user_id: int,
+    profile_report_id: int | None = None,
+) -> dict:
     assistant_chats = conn.execute(
         """
         SELECT role, content, created_at
@@ -1669,16 +1673,52 @@ def learning_evidence_for_user(conn: sqlite3.Connection, user_id: int) -> dict:
         """,
         (user_id,),
     ).fetchall()
-    node_rows = conn.execute(
+    path_config_row = conn.execute(
+        "SELECT config_json, updated_at FROM user_learning_path_configs WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    path_config = parse_json_safely(path_config_row["config_json"], {}) if path_config_row else {}
+    path_weeks = path_config.get("weeks") if isinstance(path_config, dict) else []
+    path_weeks = path_weeks if isinstance(path_weeks, list) else []
+    visible_week_ids = {
+        str(week.get("id") or "")
+        for week in path_weeks
+        if isinstance(week, dict)
+        and str(week.get("status") or "").lower() not in {"locked", "planned", "pending", "unavailable"}
+        and str(week.get("id") or "")
+    }
+    if profile_report_id is None:
+        active_profile = active_profile_for_user(conn, int(user_id)) or {}
+        profile_report_id = int(active_profile.get("id") or 0) or None
+
+    raw_node_rows = conn.execute(
         """
-        SELECT status, resource_type, title, updated_at
+        SELECT cache_key, status, resource_type, title, payload_json, updated_at
         FROM learning_path_node_caches
         WHERE user_id = ?
         ORDER BY updated_at DESC
-        LIMIT 40
+        LIMIT 200
         """,
         (user_id,),
     ).fetchall()
+    node_rows = []
+    for row in raw_node_rows:
+        payload = json_loads_safe(row["payload_json"], {})
+        payload_profile_id = payload.get("profileReportId") or payload.get("profile_report_id")
+        try:
+            payload_profile_id = int(payload_profile_id) if payload_profile_id else None
+        except (TypeError, ValueError):
+            payload_profile_id = None
+        if profile_report_id and payload_profile_id and payload_profile_id != int(profile_report_id):
+            continue
+        cache_key = str(row["cache_key"] or "")
+        stage_id = str(payload.get("stageId") or "")
+        if not stage_id:
+            stage_match = re.match(r"^(week-\d+)-", cache_key)
+            stage_id = stage_match.group(1) if stage_match else ""
+        if visible_week_ids and stage_id and stage_id not in visible_week_ids:
+            continue
+        node_rows.append(row)
     page_view_rows = conn.execute(
         """
         SELECT route, title, payload_json, created_at
@@ -1713,11 +1753,6 @@ def learning_evidence_for_user(conn: sqlite3.Connection, user_id: int) -> dict:
         question_history = list_history(user_id)
     except Exception:
         question_history = {"question_sheets": [], "exam_results": []}
-
-    path_config_row = conn.execute(
-        "SELECT config_json, updated_at FROM user_learning_path_configs WHERE user_id = ?",
-        (user_id,),
-    ).fetchone()
 
     weak_points: list[str] = []
     knowledge_point_stats: dict[str, dict] = {}
@@ -1811,7 +1846,12 @@ def learning_evidence_for_user(conn: sqlite3.Connection, user_id: int) -> dict:
         for item in weak_points
         if (point := normalize_learning_weak_point(item))
     ))[:10]
-    completed_nodes = sum(1 for row in node_rows if row["status"] == "complete")
+    completed_nodes = 0
+    for row in node_rows:
+        payload = json_loads_safe(row["payload_json"], {})
+        explicitly_viewed = bool(payload.get("viewedAt")) and payload.get("viewSource") == "learning-path-task-open"
+        if row["status"] == "complete" or explicitly_viewed:
+            completed_nodes += 1
     resource_calls = [
         {
             "title": str(row["title"] or ""),
@@ -1885,9 +1925,7 @@ def learning_evidence_for_user(conn: sqlite3.Connection, user_id: int) -> dict:
             }
         )
     knowledge_stats.sort(key=lambda item: (item["masteryRate"], -item["attempts"], item["knowledgePoint"]))
-    config = parse_json_safely(path_config_row["config_json"], {}) if path_config_row else {}
-    weeks = config.get("weeks") if isinstance(config, dict) else []
-    weeks = weeks if isinstance(weeks, list) else []
+    weeks = path_weeks
     week_progress = [
         {
             "weekId": str(week.get("id") or ""),
@@ -2106,6 +2144,7 @@ def _effect_path_adjustment_plan(profile: dict, evidence: dict, heatmap: list[di
                 "description": f"针对当前掌握率 {point['masteryRate']:.0f}% 的证据，完成一次诊断、学习与再验证。",
                 "knowledgePoint": point_name,
                 "currentMasteryRate": point["masteryRate"],
+                "evidenceAttempts": int(point.get("attempts") or 0),
                 "resourceType": resource_type,
                 "resourceParams": {
                     "topic": f"{point_name}专项巩固与再验证",
@@ -2284,6 +2323,7 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
             {"label": "综合考试", "rate": exam_accuracy, "weight": 0.3, "available": bool(exams)},
         ]
     )
+    mastery_evidence_available = bool(quantified_points or exams)
     timestamps = [
         item.get("createdAt") or item.get("updatedAt") or item.get("startedAt")
         for key in (
@@ -2353,6 +2393,7 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
         "improvements": improvements,
         "achievementRate": achievement_rate,
         "masteryRate": mastery_rate,
+        "masteryEvidenceAvailable": mastery_evidence_available,
         "achievementBreakdown": achievement_breakdown,
         "masteryBreakdown": mastery_breakdown,
         "knowledgeHeatmap": heatmap,
