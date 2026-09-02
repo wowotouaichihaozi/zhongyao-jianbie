@@ -615,7 +615,7 @@ backend/api_config.py
 
 思维导图嵌入引擎位于 `img/mind-map-wizard/embedded/`。其中 `renderer.js`、`interaction.js` 和 `mind-map-elements.css` 来自 Mind Map Wizard，项目新增 `bridge.js`、嵌入页及 Vue 通信组件，以接收岐小智后台生成的 Markdown，而未接入原项目的模型密钥、账号、分析统计或付费逻辑。
 
-比赛展示时可以替换项目 Logo、名称和界面风格，但需在项目说明、答辩材料或 README 中保留来源、许可证和二次开发说明。详细内容见：
+第三方组件的来源、许可证及分发要求见：
 
 ```text
 THIRD_PARTY_NOTICES.md
