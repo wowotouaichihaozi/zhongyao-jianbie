@@ -28,7 +28,7 @@
 
 | 评分要求 | 当前证据 | 证据状态与风险 |
 | --- | --- | --- |
-| 开发、测试、部署说明 | `README.md` 已含运行、配置与验证命令；`docs/A3-scoring-optimization-tracker.md` 记录优化与验收 | README 声明的 `docs/DEVELOPMENT_GUIDE.md`、`docs/TEST_GUIDE.md` 等 7 份标准文档尚未创建，这是当前最高文档风险 |
+| 开发、测试、部署说明 | `README.md` 已含运行、配置与验证命令 | README 声明的 `docs/DEVELOPMENT_GUIDE.md`、`docs/TEST_GUIDE.md` 等 7 份标准文档尚未创建，这是当前最高文档风险 |
 | 源码、测试、知识库数据 | 源码与自动测试在 Git；`docs/knowledge-expansion-sources.json` 记录扩展知识来源 | 大体具备；需补知识库规模复核命令和许可证边界说明文档 |
 | 架构图、功能图、技术栈、实现与创新 | README 有文字说明，数字孪生页有架构展示 | 缺独立系统设计文档和面向评委的静态架构/功能图 |
 | 完整用户案例与效果截图 | 评分证据脚本可生成结构化报告 | 正式测试报告、截图和参赛队员完整案例尚未归档 |
@@ -60,7 +60,7 @@ python -m pytest tests/test_agent_manifest_and_harness.py tests/test_mcp_protoco
 python -m unittest tests.test_harness_real_e2e tests.test_scoring_evidence_suite -v
 Set-Location ..
 
-# 前端深链、考试、包装页与生产构建
+# 前端深链、考试、集成页面与生产构建
 Set-Location frontend
 npm run test:auth-redirect
 npm run test:question-exam-session
@@ -79,4 +79,4 @@ python backend/scoring_evidence_suite.py --output-dir .\测试报告
 1. 用最终评审账号运行真实 Harness E2E，归档 5 类资源、5 个辅导、4 组推荐和 3 个评估证据。
 2. 创建 README 已声明的开发、需求、测试、系统设计、MCP API、知识库和 AI Coding 七份标准文档。
 3. 制作并核验演示脚本、最终 PPT 和视频，保证系统实操占比不低于 60%。
-4. 完成学习路径、数字孪生和 PPT 包装页的桌面/移动人工视觉验收并归档截图。
+4. 完成学习路径、数字孪生和 PPT 集成页面的桌面/移动人工视觉验收并归档截图。
