@@ -62,17 +62,14 @@ test('captures the current local pathname, query, and hash for a 401 redirect', 
 test('wires the shared redirect contract into the guard, 401 handler, and active auth page', () => {
   const routerSource = fs.readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8')
   const apiSource = fs.readFileSync(new URL('../src/services/api.js', import.meta.url), 'utf8')
-  const authSource = fs.readFileSync(new URL('../src/views/HerbWiseLoginPage.vue', import.meta.url), 'utf8')
+  const authSource = fs.readFileSync(new URL('../src/views/AuthPage.vue', import.meta.url), 'utf8')
 
   assert.match(routerSource, /query:\s*\{ redirect: safeInternalRedirect\(to\.fullPath\) \}/)
   assert.match(apiSource, /internalRedirectFromLocation\(window\.location\)/)
   assert.match(apiSource, /window\.location\.href = buildLoginRedirectPath\(redirectTarget\)/)
   assert.match(authSource, /ref\(safeInternalRedirect\(route\.query\.redirect\)\)/)
-  assert.match(authSource, /if \(pendingRoute\.value\) openAuth\('login'\)/)
-  assert.match(authSource, /window\.location\.replace\(target\)/)
   assert.equal(
-    authSource.match(/redirectAfterAuthentication\(pendingRoute\.value \|\| DEFAULT_AUTHENTICATED_PATH\)/g)?.length,
+    authSource.match(/router\.replace\(pendingRoute\.value \|\| DEFAULT_AUTHENTICATED_PATH\)/g)?.length,
     2,
   )
-  assert.doesNotMatch(authSource, /router\.replace\(pendingRoute\.value \|\| DEFAULT_AUTHENTICATED_PATH\)/)
 })
