@@ -658,7 +658,12 @@ async function loadStage(stageId) {
 }
 
 async function loadWeekOverview() {
-  let config = normalizePathConfig(await getLearningPathConfig({ summary: true }))
+  let config = normalizePathConfig(await getLearningPathConfig({ summary: true, onFresh: saved => {
+    const config = normalizePathConfig(saved)
+    pathMeta.value = config.meta || {}
+    applyActiveProfileSummary(config)
+    stageConfig.value = createWeekOverviewStage(config)
+  } }))
   pathMeta.value = config.meta || {}
   publishBackgroundPathTask(config)
   applyActiveProfileSummary(config)
@@ -713,7 +718,7 @@ async function rebuildPersonalizedPath() {
     if (!activeProfile?.id) {
       throw new Error('当前没有激活画像，请先在学习画像中选择一份画像。')
     }
-    let config = normalizePathConfig(await getLearningPathConfig({ summary: true }))
+    let config = normalizePathConfig(await getLearningPathConfig({ summary: true, fresh: true }))
     const totalWeeks = Math.max(4, Math.min(8, Number(config?.meta?.totalWeeks || pathMeta.value?.totalWeeks) || 6))
     const savedPathMatchesProfile = isSavedPathForProfile(config, activeProfile)
     if (!savedPathMatchesProfile) {
@@ -789,7 +794,7 @@ async function switchToCurrentProfilePath() {
       throw new Error(profilePathSwitchError.value || '当前没有激活画像，请先在学习画像中选择一份画像。')
     }
 
-    const savedConfig = normalizePathConfig(await getLearningPathConfig({ summary: true }))
+    const savedConfig = normalizePathConfig(await getLearningPathConfig({ summary: true, fresh: true }))
     if (isSavedPathForProfile(savedConfig, activeProfile)) {
       generationError.value = null
       activeNodeId.value = ''
@@ -817,7 +822,7 @@ async function switchToCurrentProfilePath() {
     await nextTick()
     resetViewport()
 
-    const persistedConfig = normalizePathConfig(await getLearningPathConfig({ summary: true }))
+    const persistedConfig = normalizePathConfig(await getLearningPathConfig({ summary: true, fresh: true }))
     if (!isSavedPathForProfile(persistedConfig, activeProfile)) {
       throw new Error('已保存路径与当前画像不一致，请重试切换。')
     }

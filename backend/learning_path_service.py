@@ -5,6 +5,12 @@ from __future__ import annotations
 from functools import wraps
 from typing import Callable
 
+try:
+    from exam_evidence import learning_resource_completed, resource_sheet_ids, normalize_exam, has_answer
+except ImportError:
+    from .exam_evidence import learning_resource_completed, resource_sheet_ids, normalize_exam, has_answer
+
+
 _DependencyProvider = Callable[[str], object]
 _provider: _DependencyProvider | None = None
 
@@ -181,7 +187,7 @@ def _learning_path_stage_view_progress(
     placeholders = ",".join("?" for _ in required)
     rows = conn.execute(
         f"""
-        SELECT cache_key, payload_json
+        SELECT cache_key, resource_type, payload_json
         FROM learning_path_node_caches
         WHERE user_id = ? AND cache_key IN ({placeholders})
         """,
@@ -192,7 +198,7 @@ def _learning_path_stage_view_progress(
     for row in rows:
         cache_key = str(row["cache_key"])
         payload = json_loads_safe(row["payload_json"], {}) or {}
-        if not payload.get("viewedAt") or payload.get("viewSource") != "learning-path-task-open":
+        if not learning_resource_completed(row["resource_type"], payload):
             continue
         if str(payload.get("stageId") or "") != resolved_stage_id:
             continue

@@ -48,6 +48,23 @@ DIMENSIONS = [
 
 DEFAULT_AGENT_MAX_TOKENS = 128000
 
+class LLMOutputTruncatedError(RuntimeError):
+    """The provider stopped at its output limit; do not accept partial data."""
+
+def extract_complete_json(text: str) -> Dict[str, Any]:
+    """Parse the complete response without inventing missing fields or closers."""
+    cleaned = (text or "").strip()
+    if cleaned.startswith("```") and cleaned.endswith("```"):
+        cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Escaping literal control characters preserves all content and structure.
+        parsed = json.loads(escape_control_chars_in_json_strings(cleaned))
+    if not isinstance(parsed, dict):
+        raise ValueError("LLM response JSON root must be an object")
+    return parsed
+
 
 def _positive_int_setting(name: str, default: int) -> int:
     try:
@@ -136,10 +153,14 @@ def request_llm_text(
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
+            if any(choice.get("finish_reason") == "length" for choice in data.get("choices", [])):
+                raise LLMOutputTruncatedError("模型输出达到 token 限制，未将截断内容作为完整资源保存")
             text = _openai_message_text(data)
             if text.strip():
                 return text
             errors.append("OpenAI-compatible LLM returned empty content")
+        except LLMOutputTruncatedError:
+            raise
         except urllib.error.HTTPError as exc:
             error_body = exc.read().decode("utf-8", errors="ignore")[:1000]
             errors.append(f"OpenAI-compatible LLM HTTP {exc.code}: {error_body}")
@@ -166,6 +187,8 @@ def request_llm_text(
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
+        if data.get("stop_reason") == "max_tokens":
+            raise LLMOutputTruncatedError("模型输出达到 token 限制，未将截断内容作为完整资源保存")
         text = "\n".join(
             str(part.get("text") or part.get("content") or "")
             for part in data.get("content", [])
@@ -174,6 +197,8 @@ def request_llm_text(
         if text.strip():
             return text
         errors.append("Anthropic-compatible LLM returned empty content")
+    except LLMOutputTruncatedError:
+        raise
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="ignore")[:1000]
         errors.append(f"Anthropic-compatible LLM HTTP {exc.code}: {error_body}")
@@ -435,10 +460,13 @@ def request_llm_image_understanding(
 
 def call_llm_json(system: str, prompt: str, max_tokens: int = 2200, repair: bool = True, timeout: int = 90) -> Dict[str, Any]:
     """Call Anthropic-compatible messages API and parse a JSON object with one repair retry."""
-    text = request_llm_text(system, prompt, max_tokens=max_tokens, timeout=timeout)
+    thinking = get_setting("RESOURCE_JSON_THINKING", "disabled").strip().lower() == "enabled"
+    concise_system = system + "\n\n输出要求：直接输出任务要求的完整 JSON，不输出思考过程、Markdown 或前后说明。保留所有必需字段、证据引用和规定的任务数量；每个字段使用简明、可执行的内容，不重复背景、不额外扩展无关章节。输出长度按任务实际需要控制，不为用满 token 上限而补充内容。"
+    text = ""
     try:
-        return extract_json(text)
-    except Exception as first_error:
+        text = request_llm_text(concise_system, prompt, max_tokens=max_tokens, timeout=timeout, thinking=thinking)
+        return extract_complete_json(text)
+    except (ValueError, LLMOutputTruncatedError) as first_error:
         if not repair:
             raise
         repair_prompt = f"""
@@ -459,8 +487,9 @@ def call_llm_json(system: str, prompt: str, max_tokens: int = 2200, repair: bool
             repair_prompt,
             max_tokens=max(max_tokens, 2400),
             timeout=timeout,
+            thinking=thinking,
         )
-        return extract_json(repaired)
+        return extract_complete_json(repaired)
 
 
 def extract_json(text: str) -> Dict[str, Any]:

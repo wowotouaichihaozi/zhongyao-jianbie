@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <main class="qg-exam-session">
     <div class="qg-session-topbar">
       <strong>考试详情</strong>
@@ -39,7 +39,7 @@
             <span>正确</span>
           </div>
           <div class="qg-stat-item">
-            <strong>{{ examResult.question_count - examResult.correct_count }}</strong>
+            <strong>{{ examStats(examResult).incorrect }}</strong><small>未作答 {{ examStats(examResult).unanswered }}</small>
             <span>错误</span>
           </div>
           <div class="qg-stat-item">
@@ -179,6 +179,7 @@
 </template>
 
 <script setup>
+import { examAnswerState, examStats } from '../../local-exam-evidence.mjs'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ArrowLeft, Clock3 } from 'lucide-vue-next'
 import { requestQuestionGeneratorAiScore, saveQuestionGeneratorExamResult } from '../services/api'
@@ -214,7 +215,7 @@ const isPassed = computed(() => accuracyPercent.value >= 60)
 const resultClass = computed(() => isPassed.value ? 'result-pass' : 'result-fail')
 
 const wrongQuestions = computed(() => {
-  return examResult.value.detail.filter(item => !item.correct)
+  return examResult.value.detail.filter(item => examAnswerState(item) === 'incorrect')
 })
 
 function formatWrongQuestionNo(item) {
@@ -426,11 +427,13 @@ function saveToHistory(result) {
     const weakTopics = []
     const kpStats = new Map()
     result.detail.forEach((item) => {
+      if (!["correct", "incorrect"].includes(examAnswerState(item))) return
+      if (!["correct", "incorrect"].includes(examAnswerState(item))) return
       const kp = item.question?.knowledge_point || item.type || '未知'
       if (!kpStats.has(kp)) kpStats.set(kp, { name: kp, total: 0, wrong: 0 })
       const stat = kpStats.get(kp)
       stat.total++
-      if (!item.correct) stat.wrong++
+      if (examAnswerState(item) === "incorrect") stat.wrong++
     })
     kpStats.forEach((stat) => {
       if (stat.wrong > 0) weakTopics.push(stat.name)

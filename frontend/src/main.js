@@ -4,6 +4,7 @@ import router from './router'
 import './styles.css'
 import './styles/apimart-theme.css'
 import './styles/motion.css'
+import '../local-overrides.css'
 
 const CLIENT_DATA_VERSION_KEY = 'feishengwangying:client-data-version'
 const CLIENT_DATA_VERSION = 'token-auth-v1'

@@ -1,3 +1,4 @@
+import { readSavedPath, invalidatePathCache } from '../../local-path-cache.mjs'
 import axios from 'axios'
 import { clearAuthSession, getAuthToken } from '../stores/auth.js'
 import { buildLoginRedirectPath, internalRedirectFromLocation } from '../utils/authRedirect.js'
@@ -14,6 +15,11 @@ const apiClient = axios.create({
   baseURL: apiBaseUrl,
   timeout: 60000,
   withCredentials: true,
+})
+
+apiClient.interceptors.response.use(response => {
+  if (!['get', 'head'].includes(String(response.config?.method || 'get').toLowerCase())) invalidatePathCache(String(response.config?.url || ''))
+  return response
 })
 
 const CODEX_PREVIEW_AUTH_KEY = 'codexPreviewAuth'
@@ -616,6 +622,7 @@ export async function generateNextLearningPathWeek(payload = {}) {
 
 export async function generateLearningPathStream(payload, onEvent, options = {}) {
   const token = getAuthToken()
+  invalidatePathCache('/api/learning-path/generate-stream')
   const response = await fetch(makeApiUrl('/api/learning-path/generate-stream'), {
     method: 'POST',
     credentials: 'include',
@@ -651,10 +658,8 @@ export async function generateLearningPathStream(payload, onEvent, options = {})
 }
 
 export async function getLearningPathConfig(options = {}) {
-  const { data } = await apiClient.get('/api/learning-path/config', {
-    params: { summary: options.summary === true ? 1 : 0 },
-  })
-  return data?.data || data
+  const load = async () => { const { data } = await apiClient.get('/api/learning-path/config', { params: { summary: options.summary === true ? 1 : 0 }, timeout: 20000 }); return data?.data || data }
+  return options.summary === true ? readSavedPath('/api/learning-path/config?summary=1', load, options) : load()
 }
 
 export async function saveLearningPathConfig(config) {
@@ -663,10 +668,8 @@ export async function saveLearningPathConfig(config) {
 }
 
 export async function getLearningPathStage(stageId, options = {}) {
-  const { data } = await apiClient.get(`/api/learning-path/stages/${encodeURIComponent(stageId)}`, {
-    params: { includeConfig: options.includeConfig === true ? 1 : 0 },
-  })
-  return data?.data || data
+  const url = `/api/learning-path/stages/${encodeURIComponent(stageId)}?includeConfig=${options.includeConfig === true ? 1 : 0}`
+  return readSavedPath(url, async () => { const { data } = await apiClient.get(url, { timeout: 20000 }); return data?.data || data }, options)
 }
 
 export async function prepareLearningPathStageResources(stageId, payload = {}) {

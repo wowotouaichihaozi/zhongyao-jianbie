@@ -203,6 +203,7 @@
 </template>
 
 <script setup>
+import { loadHistory, loadVideoPages } from '../../local-resource-history.mjs'
 import { ref, computed, markRaw, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -359,53 +360,7 @@ async function loadProfile() {
 }
 
 async function loadResources() {
-  resourcesLoading.value = true
-  resourcesError.value = ''
-  resourcesWarning.value = ''
-  const [historyResult, videoResult] = await Promise.allSettled([
-    getXiaoZhiHistory(100),
-    loadAllGeneratedVideos(),
-  ])
-  try {
-    const response = historyResult.status === 'fulfilled' ? historyResult.value : {}
-    const generatedVideoTasks = videoResult.status === 'fulfilled' ? videoResult.value : []
-    const generatedVideoResources = generatedVideoTasks.flatMap(extractTaskResources)
-    const backendResources = (response?.data?.tasks || []).flatMap(extractTaskResources)
-    let legacyResources = []
-    try {
-      const saved = localStorage.getItem('personalizedResources')
-      const parsed = saved ? JSON.parse(saved) : []
-      legacyResources = Array.isArray(parsed)
-        ? parsed.filter(item => item?.source === 'workflow-real-data' || item?.metadata)
-        : []
-    } catch {}
-
-    const failedSources = []
-    if (historyResult.status === 'rejected') failedSources.push('岐小智任务历史')
-    if (videoResult.status === 'rejected') failedSources.push('AI 视频历史')
-    const seen = new Set()
-    const mergedResources = sortResourceHistory(
-      [...generatedVideoResources, ...backendResources, ...legacyResources].filter(item => {
-        const key = String(item?.id || `${item?.type}:${item?.title}`)
-        if (!item || seen.has(key)) return false
-        seen.add(key)
-        return true
-      }),
-    )
-    resources.value = mergedResources
-
-    if (failedSources.length === 2 && legacyResources.length) {
-      resourcesWarning.value = `资源服务暂时未响应，当前仅展示 ${legacyResources.length} 条本地历史。重试后可同步真实任务记录。`
-    } else if (failedSources.length === 2) {
-      resourcesError.value = '资源服务暂时未响应，无法确认是否存在历史资源。请重试。'
-    } else if (failedSources.length) {
-      resourcesWarning.value = `${failedSources.join('、')}暂时未同步，当前列表可能不完整。`
-    }
-  } catch (error) {
-    resourcesError.value = getApiErrorMessage(error, '历史资源解析失败，请重试。')
-  } finally {
-    resourcesLoading.value = false
-  }
+  return loadHistory({ owner: resources, history: () => getXiaoZhiHistory(100), videos: publish => loadVideoPages(getGeneratedVideoTaskHistory, publish), extract: extractTaskResources, sort: sortResourceHistory, publish: value => { resources.value = value }, setLoading: value => { resourcesLoading.value = value }, setError: value => { resourcesError.value = value }, setWarning: value => { resourcesWarning.value = value } })
 }
 
 async function loadAllGeneratedVideos() {

@@ -507,7 +507,7 @@ onMounted(() => {
   window.addEventListener('storage', handleNodeCacheUpdated)
   window.addEventListener('learning-path-node-cache-updated', handleNodeCacheUpdated)
   void hydrateNodeCachesFromServer()
-  void loadLearningPathConfig()
+  void loadLearningPathConfig({ fresh: true })
 })
 
 watch(
@@ -529,7 +529,7 @@ onBeforeUnmount(() => {
   taskPosterRetryTimers.clear()
 })
 
-async function loadLearningPathConfig() {
+async function loadLearningPathConfig(options = {}) {
   const hasVisibleData = isWeekTaskPage.value
     ? Array.isArray(taskStage.value?.nodes) && taskStage.value.nodes.length > 0
     : visibleWeeks.value.length > 0
@@ -537,7 +537,10 @@ async function loadLearningPathConfig() {
   planning.value = false
   planningRemaining.value = false
   try {
-    const config = await getLearningPathConfig({ summary: true })
+    const config = await getLearningPathConfig({ summary: true, fresh: options.fresh === true, onFresh: saved => {
+      pathConfig.value = normalizeConfig(saved)
+      if (isWeekTaskPage.value) { const stage = createFallbackTaskStage(String(route.params.stageId || ''), pathConfig.value); if (stage) taskStage.value = stage }
+    } })
     let normalizedConfig = normalizeConfig(config)
     pathConfig.value = normalizedConfig
     if (!hasActiveLearningProfile.value) {
@@ -605,7 +608,10 @@ async function loadWeekTasks(stageId) {
     taskStage.value = fallbackStage
   }
   if (!fallbackStage) {
-    const payload = await getLearningPathStage(stageId)
+    const payload = await getLearningPathStage(stageId, { onFresh: saved => {
+      if (saved?.config) pathConfig.value = normalizeConfig(saved.config)
+      taskStage.value = saved?.stage || saved
+    } })
     if (payload?.config) {
       pathConfig.value = normalizeConfig(payload.config)
     }
@@ -731,7 +737,7 @@ function cancelResourcePreparation() {
 
 function retryLearningPathGeneration() {
   generationError.value = null
-  void loadLearningPathConfig()
+  void loadLearningPathConfig({ fresh: true })
 }
 
 function visiblePathWeekCount(config) {

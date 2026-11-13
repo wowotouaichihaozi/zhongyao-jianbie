@@ -1,3 +1,4 @@
+import { learningResourceCompleted } from '../../local-exam-evidence.mjs'
 const DOMAIN_DEFINITIONS = [
   { id: 'foundation', label: '基础知识', description: '中医基础理论、阴阳五行、藏象与气血津液' },
   { id: 'diagnosis', label: '辨证思维', description: '四诊合参、八纲辨证与证候鉴别' },
@@ -75,15 +76,7 @@ function cacheIsComplete(cache) {
   return COMPLETE_STATUSES.has(normalizedStatus(cache?.status))
 }
 
-function cacheHasLearnerCompletion(cache) {
-  if (!cacheIsComplete(cache)) return false
-  const feedbackOutcome = normalizedStatus(cache?.learningFeedback?.outcome)
-  if (feedbackOutcome && feedbackOutcome !== 'completed') return false
-  return feedbackOutcome === 'completed'
-    || normalizedStatus(cache?.completionSource) === 'learning-feedback'
-    || Boolean(cache?.lastOpenedAt)
-    || Boolean(cache?.result?.completedAt)
-}
+function cacheHasLearnerCompletion(cache) { return learningResourceCompleted(cache?.resourceType, cache || {}) }
 
 function weekProgress(week, stage, pathNodeCaches) {
   const weekStatus = normalizedStatus(week?.status)
@@ -96,10 +89,10 @@ function weekProgress(week, stage, pathNodeCaches) {
   let preparedOnlyNodes = 0
   const matchedCaches = []
   const completedNodes = nodes.filter((node) => {
-    const pathComplete = nodeIsComplete(node)
+    const pathComplete = learningResourceCompleted(node.resourceType, node)
     const cache = nodeCacheFor(week, node, caches)
     const cachePrepared = cacheIsComplete(cache)
-    const cacheComplete = cacheHasLearnerCompletion(cache)
+    const cacheComplete = learningResourceCompleted(node.resourceType || cache?.resourceType, cache || {})
     if (pathComplete) pathCompletedNodes += 1
     if (cacheComplete && !pathComplete) cacheCompletedNodes += 1
     if (cachePrepared) preparedNodes += 1
@@ -115,7 +108,7 @@ function weekProgress(week, stage, pathNodeCaches) {
     .map((cache) => cache.updatedAt || cache.completedAt || cache.createdAt)
     .filter(Boolean)
     .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] || ''
-  if (COMPLETE_STATUSES.has(weekStatus)) {
+  if (COMPLETE_STATUSES.has(weekStatus) && completedNodes === nodes.length && nodes.length > 0) {
     return {
       progress: 100,
       completedNodes: Math.max(completedNodes, nodes.length),

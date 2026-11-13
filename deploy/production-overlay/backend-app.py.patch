@@ -1,0 +1,217 @@
+--- a/backend/app.py
++++ b/backend/app.py
+@@ -11,6 +11,10 @@
+ import shutil
+ import smtplib
+ import sqlite3
++try:
++    from exam_evidence import learning_resource_completed, resource_sheet_ids, normalize_exam, has_answer
++except ImportError:
++    from .exam_evidence import learning_resource_completed, resource_sheet_ids, normalize_exam, has_answer
+ import subprocess
+ import tempfile
+ import threading
+@@ -2238,6 +2242,10 @@
+     user_id: int,
+     profile_report_id: int | None = None,
+ ) -> dict:
++    try:
++        from exam_evidence import answer_state, normalize_exam
++    except ImportError:
++        from .exam_evidence import answer_state, normalize_exam
+     assistant_chats = conn.execute(
+         """
+         SELECT role, content, created_at
+@@ -2377,8 +2385,19 @@
+             entry["evidenceTypes"].append(source)
+ 
+     exam_summaries: list[dict] = []
++    excluded_historical_exams = 0
++    unanswered_questions = 0
++    ungraded_questions = 0
+     for exam in (question_history.get("exam_results") or [])[:10]:
+-        question_count = int(exam.get("question_count") or 0)
++        if not profile_report_id or int(exam.get("profile_report_id") or 0) != int(profile_report_id):
++            excluded_historical_exams += 1
++            continue
++        exam = normalize_exam(exam)
++        unanswered_questions += exam["unanswered_count"]
++        ungraded_questions += exam["ungraded_count"]
++        question_count = exam["graded_count"]
++        if question_count == 0:
++            continue
+         correct_count = int(exam.get("correct_count") or 0)
+         accuracy = round(correct_count / question_count * 100) if question_count else 0
+         exam_summaries.append(
+@@ -2388,6 +2407,10 @@
+                 "totalScore": exam.get("total_score"),
+                 "accuracy": accuracy,
+                 "createdAt": exam.get("created_at"),
++                "answeredCount": exam["answered_count"],
++                "unansweredCount": exam["unanswered_count"],
++                "incorrectCount": exam["incorrect_count"],
++                "profileReportId": exam.get("profile_report_id"),
+             }
+         )
+         detail_items = exam.get("detail") or []
+@@ -2395,6 +2418,9 @@
+             detail_items = detail_items.get("items") or detail_items.get("details") or []
+         for item in detail_items if isinstance(detail_items, list) else []:
+             if not isinstance(item, dict):
++                continue
++            state = answer_state(item)
++            if state not in {"correct", "incorrect"}:
+                 continue
+             question = item.get("question") if isinstance(item.get("question"), dict) else {}
+             knowledge_point = (
+@@ -2405,7 +2431,7 @@
+                 or item.get("type")
+                 or question.get("type")
+             )
+-            is_correct = bool(item.get("correct") or item.get("isCorrect"))
++            is_correct = state == "correct"
+             add_knowledge_point_evidence(knowledge_point, is_correct, "question-bank")
+             if is_correct:
+                 continue
+@@ -2447,7 +2473,7 @@
+     for row in node_rows:
+         payload = json_loads_safe(row["payload_json"], {})
+         explicitly_viewed = bool(payload.get("viewedAt")) and payload.get("viewSource") == "learning-path-task-open"
+-        if row["status"] == "complete" or explicitly_viewed:
++        if learning_resource_completed(row["resource_type"], payload):
+             completed_nodes += 1
+     resource_calls = [
+         {
+@@ -2545,6 +2571,7 @@
+         "learningFeedbacks": learning_feedbacks,
+         "activeLearningSeconds": active_learning_seconds,
+         "knowledgePointStats": knowledge_stats[:20],
++        "answerEvidence": {"profileReportId": profile_report_id, "excludedHistoricalExams": excluded_historical_exams, "unansweredCount": unanswered_questions, "ungradedCount": ungraded_questions},
+         "weakPoints": deduped_weak_points,
+         "pathProgress": {
+             "completedNodes": completed_nodes,
+@@ -2738,7 +2765,7 @@
+                 "nodeId": f"adjust-{node_hash}",
+                 "order": index,
+                 "title": f"{point_name}专项巩固",
+-                "description": f"针对当前掌握率 {point['masteryRate']:.0f}% 的证据，完成一次诊断、学习与再验证。",
++                "description": f"针对已作答证据中的掌握率 {point['masteryRate']:.0f}%，完成一次诊断、学习与再验证。" if point.get("attempts") else "尚无有效作答证据，先完成一次诊断测评，再根据真实结果安排学习与验证。",
+                 "knowledgePoint": point_name,
+                 "currentMasteryRate": point["masteryRate"],
+                 "evidenceAttempts": int(point.get("attempts") or 0),
+@@ -2753,7 +2780,7 @@
+                     "assessmentPlanId": plan_id,
+                 },
+                 "resourcePrompt": f"围绕{point_name}生成个性化巩固资源，先诊断错因，再完成可验收学习任务。",
+-                "selectionReason": f"知识点热力图显示该项状态为 {point['status']}，当前掌握率 {point['masteryRate']:.0f}%。",
++                "selectionReason": f"知识点热力图状态为 {point['status']}，已作答掌握率 {point['masteryRate']:.0f}%。" if point.get("attempts") else "该知识点尚未测评，不能推断为零掌握率或错题。",
+                 "acceptanceCriteria": task_actions[resource_type],
+             }
+         )
+@@ -2989,7 +3016,7 @@
+         "radarScores": scores,
+         "improvements": improvements,
+         "achievementRate": achievement_rate,
+-        "masteryRate": mastery_rate,
++        "masteryRate": mastery_rate if (quantified_points or exams) else None,
+         "masteryEvidenceAvailable": mastery_evidence_available,
+         "achievementBreakdown": achievement_breakdown,
+         "masteryBreakdown": mastery_breakdown,
+@@ -5940,7 +5967,26 @@
+ @app.post("/api/question-generator/exam-results")
+ def question_generator_exam_results():
+     payload = request.get_json(silent=True) or {}
+-    result = save_exam_result(payload, user_id=int(g.current_user["id"]))
++    with auth_db() as conn:
++        profile = active_profile_for_user(conn, int(g.current_user["id"])) or {}
++    result = save_exam_result(payload, user_id=int(g.current_user["id"]), profile_report_id=int(profile.get("id") or 0) or None)
++    # Only the submitted sheet in the same profile may complete a quiz node.
++    if result.get("answered_count", 0) > 0 and result.get("sheet_id") is not None and profile.get("id"):
++        try:
++            with auth_db() as conn:
++                rows = conn.execute("SELECT cache_key, resource_type, payload_json FROM learning_path_node_caches WHERE user_id=?", (int(g.current_user["id"]),)).fetchall()
++                for row in rows:
++                    entry = json_loads_safe(row["payload_json"], {})
++                    if int(entry.get("profileReportId") or 0) != int(profile["id"]):
++                        continue
++                    if str(result["sheet_id"]) not in resource_sheet_ids(entry):
++                        continue
++                    if str(row["resource_type"]) not in {"quiz", "question_bank", "question-bank", "question-generator", "exam"}:
++                        continue
++                    entry.update(completionSource="exam-submission", examResultId=result["id"], submittedAt=utc_timestamp(), status="complete")
++                    upsert_learning_path_node_cache(conn, int(g.current_user["id"]), row["cache_key"], entry)
++        except Exception:
++            app.logger.exception("exam saved, but linked learning-progress update failed")
+     return jsonify(result), 201
+ 
+ 
+@@ -6047,10 +6093,17 @@
+         next_item = dict(item)
+         next_item["ai_score"] = score
+         next_item["score"] = score
+-        next_item["correct"] = bool(scored.get("correct")) if "correct" in scored else (score >= full_score * 0.6 if full_score else bool(item.get("correct")))
++        next_item["correct"] = scored.get("correct") if "correct" in scored else (score >= full_score * 0.6 if full_score else item.get("correct"))
+         next_item["ai_comment"] = str(scored.get("comment") or "AI 已完成复核评分。")
+         if not str(next_item.get("answer") or "").strip() and scored.get("reference_answer"):
+             next_item["answer"] = str(scored.get("reference_answer"))
++        if not has_answer(next_item.get("user_answer")):
++            score = 0.0
++            next_item.update(score=0.0, ai_score=0.0, correct=None, ai_comment="未作答，不作为错题或掌握证据")
++        elif idx + 1 not in scored_by_ordinal:
++            next_item.update(score=0.0, ai_score=0.0, correct=None, grading_status="ungraded", ai_comment="该题尚无评分结果")
++            score = 0.0
++        next_item = normalize_exam({"detail": [next_item]})["detail"][0]
+         scored_items.append(next_item)
+         total_score += score
+ 
+@@ -6072,10 +6125,14 @@
+     detail = payload.get("detail") or []
+     if not isinstance(detail, list) or not detail:
+         return jsonify({"code": 400, "msg": "缺少待评分题目"}), 400
++    classified = normalize_exam({"detail": detail})
++    if classified["answered_count"] == 0:
++        classified.update(score=0.0, total_score=sum(float(item.get("full_score") or (item.get("question") or {}).get("score") or 0) for item in detail), question_count=len(detail), aiSummary="全部题目未作答，不调用模型评分，也不记录错题。", source="unanswered")
++        return jsonify(classified)
+ 
+     try:
+         def score_specialist(_managed_payload: dict, _progress) -> dict:
+-            score_result = _ai_score_exam_detail(payload, detail)
++            score_result = normalize_exam(_ai_score_exam_detail(payload, detail))
+             score_result["scores"] = {
+                 "score": score_result.get("score"),
+                 "totalScore": score_result.get("total_score"),
+@@ -6147,7 +6204,7 @@
+     except Exception as exc:
+         app.logger.exception("question generator local assessment harness failed")
+         return jsonify({"code": 500, "msg": "题库复评未能通过总控智能体", "error": str(exc)[:300]}), 500
+-    return jsonify(local_result)
++    return jsonify(normalize_exam(local_result))
+ 
+ 
+ # ── MCU experiment persistence ───────────────────────────────────────────
+@@ -10660,7 +10717,7 @@
+     placeholders = ",".join("?" for _ in required)
+     rows = conn.execute(
+         f"""
+-        SELECT cache_key, payload_json
++        SELECT cache_key, resource_type, payload_json
+         FROM learning_path_node_caches
+         WHERE user_id = ? AND cache_key IN ({placeholders})
+         """,
+@@ -10671,7 +10728,7 @@
+     for row in rows:
+         cache_key = str(row["cache_key"])
+         payload = json_loads_safe(row["payload_json"], {}) or {}
+-        if not payload.get("viewedAt") or payload.get("viewSource") != "learning-path-task-open":
++        if not learning_resource_completed(row["resource_type"], payload):
+             continue
+         if str(payload.get("stageId") or "") != resolved_stage_id:
+             continue
+@@ -12728,6 +12785,7 @@
+                 "createdAt": row.get("created_at"),
+             }
+             for row in (question_history.get("exam_results") or [])[:8]
++            if active_profile_report_id > 0 and int(row.get("profile_report_id") or 0) == active_profile_report_id and int(row.get("graded_count") or 0) > 0
+         ],
+         "privateKnowledge": {
+             "activeCollectionId": private_knowledge.get("activeCollectionId"),

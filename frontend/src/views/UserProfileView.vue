@@ -1,11 +1,12 @@
 <template>
   <div class="profile-page">
     <div class="profile-card">
-      <h1>个人中心</h1>
+      <a v-if="account.passwordPage.value" class="local-account-back" href="/user-profile">← 返回个人中心</a>
+      <h1>{{ account.passwordPage.value ? '修改密码' : '个人中心' }}</h1>
 
       <div class="profile-layout">
         <!-- 左列：头像 -->
-        <div class="avatar-section">
+        <div v-if="!account.passwordPage.value" class="avatar-section">
           <div class="avatar-display">
             <img :src="avatarPreview || avatarSrc || DEFAULT_AVATAR" alt="头像" />
           </div>
@@ -17,7 +18,8 @@
         </div>
 
         <!-- 右列：表单 -->
-        <form id="profile-form" class="form-section" @submit.prevent="handleSave">
+        <form id="profile-form" class="form-section" @submit.prevent="handleAccountSave">
+          <template v-if="!account.passwordPage.value">
           <!-- 用户名 -->
           <div class="field-group">
             <label class="field-label">用户名</label>
@@ -30,6 +32,8 @@
             <input :value="userAccount" type="text" class="field-input readonly" disabled autocomplete="username" />
           </div>
 
+          </template>
+          <template v-if="!account.portrait.value || account.passwordPage.value">
           <div class="divider"></div>
           <p class="section-title">修改密码</p>
 
@@ -50,16 +54,21 @@
             <label class="field-label">确认新密码</label>
             <input v-model="form.confirmPassword" type="password" class="field-input" placeholder="再次输入新密码" autocomplete="new-password" />
           </div>
+          </template>
         </form>
       </div>
 
       <!-- 保存按钮 -->
       <div class="save-row">
         <button type="submit" form="profile-form" class="save-btn" :disabled="saving">
-          {{ saving ? '保存中...' : '保存修改' }}
+          {{ saving ? '保存中...' : account.passwordPage.value ? '确认修改密码' : '保存修改' }}
         </button>
       </div>
 
+      <div v-if="account.portrait.value && !account.passwordPage.value" class="local-account-actions">
+        <a class="upload-trigger local-account-password" href="/user-profile?section=password">修改密码</a>
+        <button type="button" class="local-account-logout" :disabled="account.loggingOut.value" @click="account.logout">{{ account.loggingOut.value ? '正在退出...' : '退出登录' }}</button>
+      </div>
       <!-- 提示 -->
       <transition name="fade">
         <div v-if="toast.show" :class="['toast', toast.type]">{{ toast.message }}</div>
@@ -69,7 +78,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { mobileAccountState } from '../../local-account-view.mjs'
 import { changePassword } from '../services/api'
 
 const DEFAULT_AVATAR = '/userlogo.png'
@@ -90,6 +100,12 @@ const form = reactive({
 })
 
 const toast = reactive({ show: false, message: '', type: 'success' })
+const account = mobileAccountState(ref, onMounted, onUnmounted, form, showToast)
+function handleAccountSave() {
+  if (account.passwordPage.value && !form.oldPassword && !form.newPassword && !form.confirmPassword) return showToast('请输入当前密码', 'error')
+  return handleSave()
+}
+
 
 function normalizeAvatar(avatar) {
   if (!avatar || String(avatar).startsWith('data:image/svg+xml')) return DEFAULT_AVATAR

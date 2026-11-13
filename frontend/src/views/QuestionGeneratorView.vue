@@ -431,13 +431,13 @@
                 </div>
                 <div class="qg-exam-result-stats">
                   <div class="qg-exam-stat-item"><strong>{{ examResult.correct_count }}</strong><span>正确</span></div>
-                  <div class="qg-exam-stat-item"><strong>{{ examResult.question_count - examResult.correct_count }}</strong><span>错误</span></div>
+                  <div class="qg-exam-stat-item"><strong>{{ examStats(examResult).incorrect }}</strong><small>未作答 {{ examStats(examResult).unanswered }}</small><span>错误</span></div>
                   <div class="qg-exam-stat-item"><strong>{{ formattedElapsedTime }}</strong><span>用时</span></div>
                   <div class="qg-exam-stat-item"><strong>{{ examResult.question_count }}</strong><span>总题数</span></div>
                 </div>
-                <div v-if="examResult.detail && examResult.detail.filter(d => !d.correct).length" class="qg-exam-wrong-review">
-                  <h3>错题回顾（{{ examResult.detail.filter(d => !d.correct).length }} 题）</h3>
-                  <div v-for="(item, idx) in examResult.detail.filter(d => !d.correct)" :key="idx" class="qg-exam-wrong-item">
+                <div v-if="examResult.detail && examResult.detail.filter(d => examAnswerState(d) === 'incorrect').length" class="qg-exam-wrong-review">
+                  <h3>错题回顾（{{ examResult.detail.filter(d => examAnswerState(d) === 'incorrect').length }} 题）</h3>
+                  <div v-for="(item, idx) in examResult.detail.filter(d => examAnswerState(d) === 'incorrect')" :key="idx" class="qg-exam-wrong-item">
                     <div class="qg-exam-wrong-header">
                       <span class="qg-exam-wrong-type">{{ item.type || '题目' }}</span>
                       <span v-if="item.question?.knowledge_point" class="qg-exam-wrong-kp">{{ item.question.knowledge_point }}</span>
@@ -632,6 +632,7 @@
 </template>
 
 <script setup>
+import { examAnswerState, examStats } from '../../local-exam-evidence.mjs'
 import { computed, markRaw, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -1273,6 +1274,7 @@ const typeAccuracy = computed(() => {
   dashboardExamResults.value.forEach((exam) => {
     if (!Array.isArray(exam.detail)) return
     exam.detail.forEach((item) => {
+      if (!["correct", "incorrect"].includes(examAnswerState(item))) return
       const name = String(item.type || item.question?.type || '其他题型').trim() || '其他题型'
       const current = stats.get(name) || { name, total: 0, correct: 0 }
       current.total += 1
@@ -1444,7 +1446,7 @@ const wrongQuestionIndices = computed(() => {
   if (!examResult.value?.detail) return new Set()
   const indices = new Set()
   examResult.value.detail.forEach((item, idx) => {
-    if (!item.correct) indices.add(idx)
+    if (examAnswerState(item) === "incorrect") indices.add(idx)
   })
   return indices
 })
@@ -2775,13 +2777,14 @@ async function submitExam() {
   // Build per-knowledge-point stats for weak point analysis
   const kpStats = new Map()
   detail.forEach((item) => {
+      if (!["correct", "incorrect"].includes(examAnswerState(item))) return
     const kp = item.question?.knowledge_point || item.type || '未知'
     if (!kpStats.has(kp)) {
       kpStats.set(kp, { name: kp, total: 0, wrong: 0 })
     }
     const stat = kpStats.get(kp)
     stat.total++
-    if (!item.correct) stat.wrong++
+    if (examAnswerState(item) === "incorrect") stat.wrong++
   })
   const allKpResults = []
   kpStats.forEach((stat) => {
@@ -2802,7 +2805,7 @@ async function submitExam() {
     question_count: questions.length,
     weakTopics: weakPoints.map(t => t.name),
     knowledgePoints: allKpResults,
-    wrongQuestions: detail.filter(d => !d.correct).map(d => ({
+    wrongQuestions: detail.filter(d => examAnswerState(d) === 'incorrect').map(d => ({
       stem: d.question?.stem || '',
       type: d.type,
       correct_answer: d.question?.answer || '',
@@ -2848,7 +2851,7 @@ async function requestAiRescore() {
     }
     aiScoreMessage.value = result.aiSummary || 'AI 评分已完成，当前分数已更新。'
     const weakPoints = (examResult.value.detail || [])
-      .filter(item => !item.correct)
+      .filter(item => examAnswerState(item) === 'incorrect')
       .map(item => item.question?.knowledge_point || item.type || '未知')
       .filter(Boolean)
     weakKnowledgePoints.value = [...new Set(weakPoints)]

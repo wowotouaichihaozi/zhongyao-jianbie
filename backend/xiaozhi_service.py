@@ -1506,6 +1506,7 @@ def xiaozhi_latest_context(user_id: int, memory_query: str = "") -> dict:
                 "createdAt": row.get("created_at"),
             }
             for row in (question_history.get("exam_results") or [])[:8]
+            if active_profile_report_id > 0 and int(row.get("profile_report_id") or 0) == active_profile_report_id and int(row.get("graded_count") or 0) > 0
         ],
         "privateKnowledge": {
             "activeCollectionId": private_knowledge.get("activeCollectionId"),

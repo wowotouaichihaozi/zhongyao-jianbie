@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+try:
+    from exam_evidence import learning_resource_completed, resource_sheet_ids, normalize_exam, has_answer
+except ImportError:
+    from .exam_evidence import learning_resource_completed, resource_sheet_ids, normalize_exam, has_answer
+
 import json
 import re
 import sqlite3
@@ -1641,6 +1646,10 @@ def learning_evidence_for_user(
     user_id: int,
     profile_report_id: int | None = None,
 ) -> dict:
+    try:
+        from exam_evidence import answer_state, normalize_exam
+    except ImportError:
+        from .exam_evidence import answer_state, normalize_exam
     assistant_chats = conn.execute(
         """
         SELECT role, content, created_at
@@ -1780,8 +1789,19 @@ def learning_evidence_for_user(
             entry["evidenceTypes"].append(source)
 
     exam_summaries: list[dict] = []
+    excluded_historical_exams = 0
+    unanswered_questions = 0
+    ungraded_questions = 0
     for exam in (question_history.get("exam_results") or [])[:10]:
-        question_count = int(exam.get("question_count") or 0)
+        if not profile_report_id or int(exam.get("profile_report_id") or 0) != int(profile_report_id):
+            excluded_historical_exams += 1
+            continue
+        exam = normalize_exam(exam)
+        unanswered_questions += exam["unanswered_count"]
+        ungraded_questions += exam["ungraded_count"]
+        question_count = exam["graded_count"]
+        if question_count == 0:
+            continue
         correct_count = int(exam.get("correct_count") or 0)
         accuracy = round(correct_count / question_count * 100) if question_count else 0
         exam_summaries.append(
@@ -1791,6 +1811,10 @@ def learning_evidence_for_user(
                 "totalScore": exam.get("total_score"),
                 "accuracy": accuracy,
                 "createdAt": exam.get("created_at"),
+                "answeredCount": exam["answered_count"],
+                "unansweredCount": exam["unanswered_count"],
+                "incorrectCount": exam["incorrect_count"],
+                "profileReportId": exam.get("profile_report_id"),
             }
         )
         detail_items = exam.get("detail") or []
@@ -1798,6 +1822,9 @@ def learning_evidence_for_user(
             detail_items = detail_items.get("items") or detail_items.get("details") or []
         for item in detail_items if isinstance(detail_items, list) else []:
             if not isinstance(item, dict):
+                continue
+            state = answer_state(item)
+            if state not in {"correct", "incorrect"}:
                 continue
             question = item.get("question") if isinstance(item.get("question"), dict) else {}
             knowledge_point = (
@@ -1808,7 +1835,7 @@ def learning_evidence_for_user(
                 or item.get("type")
                 or question.get("type")
             )
-            is_correct = bool(item.get("correct") or item.get("isCorrect"))
+            is_correct = state == "correct"
             add_knowledge_point_evidence(knowledge_point, is_correct, "question-bank")
             if is_correct:
                 continue
@@ -1850,7 +1877,7 @@ def learning_evidence_for_user(
     for row in node_rows:
         payload = json_loads_safe(row["payload_json"], {})
         explicitly_viewed = bool(payload.get("viewedAt")) and payload.get("viewSource") == "learning-path-task-open"
-        if row["status"] == "complete" or explicitly_viewed:
+        if learning_resource_completed(row["resource_type"], payload):
             completed_nodes += 1
     resource_calls = [
         {
@@ -1948,6 +1975,7 @@ def learning_evidence_for_user(
         "learningFeedbacks": learning_feedbacks,
         "activeLearningSeconds": active_learning_seconds,
         "knowledgePointStats": knowledge_stats[:20],
+        "answerEvidence": {"profileReportId": profile_report_id, "excludedHistoricalExams": excluded_historical_exams, "unansweredCount": unanswered_questions, "ungradedCount": ungraded_questions},
         "weakPoints": deduped_weak_points,
         "pathProgress": {
             "completedNodes": completed_nodes,
@@ -2141,7 +2169,7 @@ def _effect_path_adjustment_plan(profile: dict, evidence: dict, heatmap: list[di
                 "nodeId": f"adjust-{node_hash}",
                 "order": index,
                 "title": f"{point_name}专项巩固",
-                "description": f"针对当前掌握率 {point['masteryRate']:.0f}% 的证据，完成一次诊断、学习与再验证。",
+                "description": f"针对已作答证据中的掌握率 {point['masteryRate']:.0f}%，完成一次诊断、学习与再验证。" if point.get("attempts") else "尚无有效作答证据，先完成一次诊断测评，再根据真实结果安排学习与验证。",
                 "knowledgePoint": point_name,
                 "currentMasteryRate": point["masteryRate"],
                 "evidenceAttempts": int(point.get("attempts") or 0),
@@ -2156,7 +2184,7 @@ def _effect_path_adjustment_plan(profile: dict, evidence: dict, heatmap: list[di
                     "assessmentPlanId": plan_id,
                 },
                 "resourcePrompt": f"围绕{point_name}生成个性化巩固资源，先诊断错因，再完成可验收学习任务。",
-                "selectionReason": f"知识点热力图显示该项状态为 {point['status']}，当前掌握率 {point['masteryRate']:.0f}%。",
+                "selectionReason": f"知识点热力图状态为 {point['status']}，已作答掌握率 {point['masteryRate']:.0f}%。" if point.get("attempts") else "该知识点尚未测评，不能推断为零掌握率或错题。",
                 "acceptanceCriteria": task_actions[resource_type],
             }
         )
@@ -2392,7 +2420,7 @@ def effect_assessment_snapshot(profile: dict, evidence: dict) -> dict:
         "radarScores": scores,
         "improvements": improvements,
         "achievementRate": achievement_rate,
-        "masteryRate": mastery_rate,
+        "masteryRate": mastery_rate if (quantified_points or exams) else None,
         "masteryEvidenceAvailable": mastery_evidence_available,
         "achievementBreakdown": achievement_breakdown,
         "masteryBreakdown": mastery_breakdown,

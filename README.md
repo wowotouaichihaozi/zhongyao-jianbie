@@ -808,3 +808,16 @@ The current signed mobile release is version `1.0.2` with `versionCode 3`. `scri
 ### 2026-08-25 静态头像资源修复
 
 学习画像点阵头像使用的底图和 18 个分块 PNG 已纳入 Vite 的静态发布目录，避免线上构建只包含 `manifest.json` 时产生 404。验证命令：`cd frontend && npm run build -- --emptyOutDir=false`；生产环境通过逐文件同步更新资源，不重启后端服务。
+
+
+## 2026-11 production experience and evidence hotfix
+
+Portrait pages retain the existing theme with a fixed edge-to-edge bottom bar, aligned labels, scrollable reports/history/account forms, a compact scrolling week list, and a separate password page/logout action. Resource history renders available sources immediately and keeps account-isolated session snapshots. Saved paths prefetch read-only data and update cached displays in the background; switching profiles or submitting evidence invalidates snapshots.
+
+Unanswered and ungraded items are distinct from wrong answers. Exam rows bind to their current profile; legacy unlinked exams stay in history but never become current-profile mastery evidence. Resource generation alone is not learning completion: non-quiz opening is allowed, quiz completion requires a linked submission. Back up the question database before running `python scripts/migrate-exam-evidence.py PATH_TO_QUESTION_DB`. The migration retains raw answers/grades and an original-detail audit table.
+
+The production server has an older monolithic source checkout and a newer deployed frontend build. To avoid rebuilding it into an old UI, the tested release exports guarded adapters over the synchronized production build: start `scripts/local-web.mjs`, then run `node scripts/export-production-overlay.mjs OUTPUT_DIRECTORY`. This is a non-cleaning export; `deploy/production-overlay/base-build.json` pins its supported input. Source-level counterparts are included for the modular repository. Never overwrite the modular `backend/app.py` with the server's monolith: use the guarded production patches only on that matching server checkout.
+
+Each published version has an immutable `/releases/RELEASE_ID/` directory and `/version.json` containing the Git commit. Static frontend activation only replaces the root HTML after route verification; prior files and database backups remain available for rollback. No credentials, database files, runtime data, or compiled vendor artifacts belong in the commit.
+
+Verification: Python syntax and answer-state/migration unit tests; export marker checks; headless desktop/portrait route checks covering loading/empty/populated/error states, password validation/mock submission/logout, real wheel scrolling, cached background refresh, and wrong-vs-unanswered exam results. UI tests intercept all business writes and never alter real passwords or generate resources.

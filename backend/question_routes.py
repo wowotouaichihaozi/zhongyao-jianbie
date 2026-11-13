@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from typing import Callable
 
+try:
+    from exam_evidence import learning_resource_completed, resource_sheet_ids, normalize_exam, has_answer
+except ImportError:
+    from .exam_evidence import learning_resource_completed, resource_sheet_ids, normalize_exam, has_answer
+
+
 from flask import Blueprint
 
 
@@ -983,7 +989,26 @@ def save_question_generator_config():
 @blueprint.post("/api/question-generator/exam-results")
 def question_generator_exam_results():
     payload = dependencies.request.get_json(silent=True) or {}
-    result = dependencies.save_exam_result(payload, user_id=int(dependencies.g.current_user["id"]))
+    with dependencies.auth_db() as conn:
+        profile = dependencies.active_profile_for_user(conn, int(dependencies.g.current_user["id"])) or {}
+    result = dependencies.save_exam_result(payload, user_id=int(dependencies.g.current_user["id"]), profile_report_id=int(profile.get("id") or 0) or None)
+    # Only the submitted sheet in the same profile may complete a quiz node.
+    if result.get("answered_count", 0) > 0 and result.get("sheet_id") is not None and profile.get("id"):
+        try:
+            with dependencies.auth_db() as conn:
+                rows = conn.execute("SELECT cache_key, resource_type, payload_json FROM learning_path_node_caches WHERE user_id=?", (int(dependencies.g.current_user["id"]),)).fetchall()
+                for row in rows:
+                    entry = dependencies.json_loads_safe(row["payload_json"], {})
+                    if int(entry.get("profileReportId") or 0) != int(profile["id"]):
+                        continue
+                    if str(result["sheet_id"]) not in resource_sheet_ids(entry):
+                        continue
+                    if str(row["resource_type"]) not in {"quiz", "question_bank", "question-bank", "question-generator", "exam"}:
+                        continue
+                    entry.update(completionSource="exam-submission", examResultId=result["id"], submittedAt=dependencies.utc_timestamp(), status="complete")
+                    dependencies.upsert_learning_path_node_cache(conn, int(dependencies.g.current_user["id"]), row["cache_key"], entry)
+        except Exception:
+            dependencies.app.logger.exception("exam saved, but linked learning-progress update failed")
     return dependencies.jsonify(result), 201
 
 
@@ -1090,10 +1115,17 @@ def _ai_score_exam_detail(payload: dict, detail: list[dict]) -> dict:
         next_item = dict(item)
         next_item["ai_score"] = score
         next_item["score"] = score
-        next_item["correct"] = bool(scored.get("correct")) if "correct" in scored else (score >= full_score * 0.6 if full_score else bool(item.get("correct")))
+        next_item["correct"] = scored.get("correct") if "correct" in scored else (score >= full_score * 0.6 if full_score else item.get("correct"))
         next_item["ai_comment"] = str(scored.get("comment") or "AI 已完成复核评分。")
         if not str(next_item.get("answer") or "").strip() and scored.get("reference_answer"):
             next_item["answer"] = str(scored.get("reference_answer"))
+        if not has_answer(next_item.get("user_answer")):
+            score = 0.0
+            next_item.update(score=0.0, ai_score=0.0, correct=None, ai_comment="未作答，不作为错题或掌握证据")
+        elif idx + 1 not in scored_by_ordinal:
+            next_item.update(score=0.0, ai_score=0.0, correct=None, grading_status="ungraded", ai_comment="该题尚无评分结果")
+            score = 0.0
+        next_item = normalize_exam({"detail": [next_item]})["detail"][0]
         scored_items.append(next_item)
         total_score += score
 
@@ -1111,14 +1143,18 @@ def _ai_score_exam_detail(payload: dict, detail: list[dict]) -> dict:
 @blueprint.post("/api/question-generator/ai-score")
 def question_generator_ai_score():
     payload = dependencies.request.get_json(silent=True) or {}
-    dependencies.user = dependencies.g.get("current_user")
+    user = dependencies.g.get("current_user")
     detail = payload.get("detail") or []
     if not isinstance(detail, list) or not detail:
         return dependencies.jsonify({"code": 400, "msg": "缺少待评分题目"}), 400
+    classified = normalize_exam({"detail": detail})
+    if classified["answered_count"] == 0:
+        classified.update(score=0.0, total_score=sum(float(item.get("full_score") or (item.get("question") or {}).get("score") or 0) for item in detail), question_count=len(detail), aiSummary="全部题目未作答，不调用模型评分，也不记录错题。", source="unanswered")
+        return dependencies.jsonify(classified)
 
     try:
         def score_specialist(_managed_payload: dict, _progress) -> dict:
-            score_result = _ai_score_exam_detail(payload, detail)
+            score_result = normalize_exam(_ai_score_exam_detail(payload, detail))
             score_result["scores"] = {
                 "score": score_result.get("score"),
                 "totalScore": score_result.get("total_score"),
@@ -1134,7 +1170,7 @@ def question_generator_ai_score():
             "effect_assessment",
             str(payload.get("title") or "题库考试效果评估"),
             payload,
-            int(dependencies.user["id"]) if dependencies.user else 0,
+            int(user["id"]) if user else 0,
             score_specialist,
             max_retries=0,
         )
@@ -1181,7 +1217,7 @@ def question_generator_ai_score():
             "effect_assessment",
             str(payload.get("title") or "题库考试本地效果评估"),
             payload,
-            int(dependencies.user["id"]) if dependencies.user else 0,
+            int(user["id"]) if user else 0,
             lambda _managed_payload, _progress: local_result,
             max_retries=0,
         )
@@ -1190,7 +1226,7 @@ def question_generator_ai_score():
     except Exception as exc:
         dependencies.app.logger.exception("question generator local assessment harness failed")
         return dependencies.jsonify({"code": 500, "msg": "题库复评未能通过总控智能体", "error": str(exc)[:300]}), 500
-    return dependencies.jsonify(local_result)
+    return dependencies.jsonify(normalize_exam(local_result))
 
 
 # ── MCU experiment persistence ───────────────────────────────────────────

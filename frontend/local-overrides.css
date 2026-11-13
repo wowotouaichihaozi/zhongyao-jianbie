@@ -1,0 +1,476 @@
+/* Local corrections layered over the exact server build. Do not rebuild stale src. */
+@media (min-width: 761px) {
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page > .lp-sidebar.lp-sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-nav { flex: 0 0 auto !important; }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-digital-human-stage {
+    flex: 1 0 auto !important;
+    min-height: 250px !important;
+    margin-top: 16px !important;
+    justify-content: flex-start !important;
+    overflow: visible !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-stage-card {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 16px 0 12px !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-stage-card > strong,
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-stage-state {
+    flex: 0 0 auto !important;
+    min-height: 24px !important;
+    margin: 0 !important;
+    line-height: 24px !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-stage-frame {
+    flex: 0 0 auto !important;
+    height: clamp(170px, calc(100dvh - 480px), 410px) !important;
+    min-height: 170px !important;
+    max-height: 410px !important;
+  }
+}
+
+/* Keep recommendation numbers in their own column in both orientations. */
+#app .lp-page.lp-page .profile-plan-card {
+  height: auto !important;
+  min-height: 0 !important;
+}
+#app .lp-page.lp-page .profile-plan-row {
+  display: grid !important;
+  grid-template-columns: 32px minmax(82px, 112px) minmax(0, 1fr) 34px !important;
+  column-gap: 12px;
+  align-items: center;
+  height: auto !important;
+  min-height: 64px;
+  padding-block: 12px;
+  box-sizing: border-box;
+}
+#app .lp-page.lp-page .profile-plan-row > span { grid-area: 1 / 1; }
+#app .lp-page.lp-page .profile-plan-row > strong { grid-area: 1 / 2; min-width: 0; }
+#app .lp-page.lp-page .profile-plan-row > p {
+  grid-area: 1 / 3;
+  display: block !important;
+  min-width: 0;
+  height: auto !important;
+  max-height: none !important;
+  margin: 0;
+  white-space: normal;
+  overflow: visible !important;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: unset !important;
+}
+#app .lp-page.lp-page .profile-plan-row > small {
+  grid-area: 1 / 4;
+  position: static !important;
+  inset: auto !important;
+  width: 34px;
+  min-width: 34px;
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+  align-self: center;
+}
+/* Portrait: only remove conflicting fixed dimensions; retain original design. */
+@media (orientation: portrait) {
+  html:has(.week-overview-map), body:has(.week-overview-map) { overflow: hidden !important; }
+  #app .topnavbar {
+    position: fixed !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 1200;
+    display: block !important;
+    width: 100% !important;
+    height: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+    margin: 0 !important;
+    padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px) !important;
+    box-sizing: border-box;
+    border: 0 !important;
+    border-top: 1px solid #dfe3e2 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  #app .topnavbar :is(.brand, .nav-links, .nav-right) { display: none !important; }
+  #app .topnavbar .mobile-bottom-nav { display: grid !important; }
+  #app:has(> .topnavbar), #app:has(> .interview-page > .topnavbar) {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+    box-sizing: border-box;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    padding-left: 0 !important;
+    height: auto !important;
+    min-height: calc(100dvh - 96px) !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page > .lp-sidebar.lp-sidebar {
+    position: relative !important;
+    inset: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 12px 16px !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-nav {
+    display: flex !important;
+    flex-direction: row !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    gap: 6px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-nav .nav-item {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin-bottom: 0 !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    gap: 4px !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-digital-human-stage {
+    display: block !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin-top: 12px !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-stage-card {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding-top: 12px !important;
+    overflow: visible !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-stage-card > strong,
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-stage-state {
+    flex: 0 0 auto !important;
+    min-height: 24px !important;
+    line-height: 24px !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-stage-frame {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    height: clamp(80px, 12dvh, 120px) !important;
+    min-height: 80px !important;
+    max-height: 120px !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page > .lp-content.lp-content {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+  /* Reserve the existing bottom-nav space, keeping every original panel. */
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page.profile-assess-mode {
+    height: calc(100dvh - 96px - env(safe-area-inset-bottom)) !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 96px - env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page.profile-assess-mode > .lp-content.lp-content {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding-bottom: 24px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scroll-padding-bottom: 24px;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page .sidebar-digital-human-stage {
+    display: none !important;
+  }
+  #app .topnavbar .mobile-bottom-nav {
+    grid-template-columns: none !important;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    align-items: center;
+  }
+  #app .topnavbar .mobile-bottom-nav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    height: 56px;
+    padding: 4px 0;
+    box-sizing: border-box;
+    text-align: center;
+    font-size: clamp(9px, 2.3vw, 11px);
+    line-height: 14px;
+  }
+  #app .topnavbar .mobile-bottom-nav a > svg {
+    display: block;
+    flex: 0 0 21px;
+    width: 21px;
+    height: 21px;
+    margin: 0 auto;
+  }
+  #app .topnavbar .mobile-bottom-nav a > span {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 14px;
+    margin: 0;
+    text-align: center;
+    line-height: 14px;
+    white-space: nowrap;
+  }
+  #app .clean-map-page:has(.week-overview-map) {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  #app .clean-map-viewport.week-overview-map {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 16px 14px calc(112px + env(safe-area-inset-bottom)) !important;
+    overflow: visible !important;
+    box-sizing: border-box;
+  }
+  #app .week-overview-map :is(.current-profile-path-switcher, .stage-overview) {
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    margin: 0 0 16px !important;
+    box-sizing: border-box;
+  }
+  #app .week-overview-map .map-board {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: auto;
+    align-content: start;
+    counter-reset: learning-week;
+    gap: 10px;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    padding: 8px 0 24px;
+    transform: none !important;
+  }
+  #app .week-overview-map .map-board > .route-layer { display: none !important; }
+  #app .week-overview-map .map-board > button.map-dot.map-dot,
+  #app .week-overview-map .map-board > button.map-dot.map-dot:is(:hover, :focus, :focus-visible, [data-active=true]) {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    display: grid !important;
+    grid-template-columns: 120px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-content: center;
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 4px;
+    counter-increment: learning-week;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 116px;
+    padding: 10px 0 !important;
+    box-sizing: border-box;
+    border-bottom: 1px solid rgba(80, 120, 102, .12) !important;
+    transform: none !important;
+  }
+  #app .week-overview-map .map-board .map-dot .academy-node,
+  #app .week-overview-map .map-board .map-dot:is(:hover, :focus-visible, [data-active=true]) .academy-node {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    grid-area: 1 / 1 / 3 / 2;
+    width: 120px !important;
+    height: 96px !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+  #app .week-overview-map .map-board .map-dot :is(.dot-title, .dot-state),
+  #app .week-overview-map .map-board .map-dot:is(:hover, :focus, [data-active=true]) :is(.dot-title, .dot-state) {
+    position: relative !important;
+    inset: auto !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+    white-space: normal;
+    line-height: 1.4;
+    overflow: visible;
+  }
+  #app .week-overview-map .map-board .map-dot.map-dot.map-dot::before {
+    content: '第 ' counter(learning-week) ' 周' !important;
+    display: block !important;
+    grid-area: 1 / 2;
+    align-self: end;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #687f73;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 20px;
+    text-align: left;
+  }
+  #app .week-overview-map .map-board .map-dot.map-dot .dot-title {
+    grid-area: 2 / 2;
+    align-self: start;
+    font-size: 15px !important;
+    text-align: left !important;
+  }
+  #app .week-overview-map .map-board .map-dot .dot-title::before { content: none !important; display: none !important; }
+  #app .week-overview-map .map-board .map-dot.map-dot .dot-state { display: none !important; }
+  #app .week-overview-map .node-popover {
+    position: fixed !important;
+    inset: auto 12px calc(100px + env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    max-height: 45dvh;
+    overflow-y: auto;
+    transform: none !important;
+  }
+  /* Keep week navigation inside its own scrollable area above the fixed bar. */
+  #app .clean-map-page:has(.week-overview-map) {
+    height: calc(100dvh - 72px - env(safe-area-inset-bottom, 0px)) !important;
+    max-height: calc(100dvh - 72px - env(safe-area-inset-bottom, 0px)) !important;
+    overflow: hidden !important;
+  }
+  #app .clean-map-viewport.week-overview-map {
+    display: flex !important;
+    flex-direction: column;
+    height: 100% !important;
+    min-height: 0 !important;
+    padding-bottom: 12px !important;
+    overflow: hidden !important;
+  }
+  #app .week-overview-map :is(.current-profile-path-switcher, .stage-overview) { flex: 0 0 auto; }
+  #app .week-overview-map .map-board {
+    flex: 1 1 0;
+    min-height: 0 !important;
+    max-height: 100%;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scrollbar-width: auto !important;
+    scrollbar-color: #7a9a8a #e7eeea !important;
+    scrollbar-gutter: stable;
+    scroll-padding-block: 8px;
+    padding-right: 8px;
+    box-sizing: border-box;
+  }
+  #app .week-overview-map .map-board::-webkit-scrollbar { display: block !important; width: 7px !important; }
+  #app .week-overview-map .map-board::-webkit-scrollbar-track { background: #e7eeea; border-radius: 4px; }
+  #app .week-overview-map .map-board::-webkit-scrollbar-thumb { background: #7a9a8a; border-radius: 4px; }
+  #app .week-overview-map .map-board::-webkit-scrollbar-thumb:hover { background: #587d69; }
+  /* Reports/history scroll inside the available space, not the locked body. */
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page:not(.profile-assess-mode) {
+    height: calc(100dvh - 72px - env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 72px - env(safe-area-inset-bottom, 0px)) !important;
+    overflow: hidden !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page:not(.profile-assess-mode) > .lp-content.lp-content {
+    flex: 1 1 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding-bottom: 24px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scrollbar-width: auto !important;
+  }
+  #app .lp-page.lp-page.lp-page.lp-page.lp-page:not(.profile-assess-mode) :is(.content-panel, .history-panel, .history-shell) {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+  #app .lp-page .lp-content::-webkit-scrollbar { display: block !important; width: 7px !important; }
+  #app .lp-page .lp-content::-webkit-scrollbar-thumb { border-radius: 4px; background: #7a9a8a; }
+  #app .profile-page.profile-page {
+    display: block !important;
+    height: calc(100dvh - 72px - env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 72px - env(safe-area-inset-bottom, 0px)) !important;
+    padding: 20px 14px 24px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    box-sizing: border-box;
+  }
+  #app .profile-page .profile-card {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    min-height: 0;
+    margin: 0 auto;
+    padding: 24px 20px;
+    box-sizing: border-box;
+  }
+  #app .profile-page .profile-layout { align-items: stretch !important; }
+  #app .profile-page .avatar-section { align-self: center; }
+  #app .profile-page .form-section { width: 100%; min-width: 0; }
+  #app .profile-page .save-row { position: static !important; bottom: auto !important; margin-top: 24px !important; }
+  #app .profile-page .local-account-back { display: inline-block; margin: 0 0 18px; color: #176f4b; text-decoration: none; font-weight: 600; }
+  #app .profile-page .local-account-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #e1e8e4; }
+  #app .profile-page .local-account-actions > :is(a, button) { flex: 1 1 0; min-height: 46px; display: inline-flex; align-items: center; justify-content: center; margin: 0; padding: 8px 12px; border: 1px solid #dce3df !important; border-radius: 12px; background: #fff !important; box-shadow: none !important; text-decoration: none; cursor: pointer; font: inherit; font-weight: 600; }
+  #app .profile-page .local-account-password { color: #176f4b !important; }
+  #app .profile-page .local-account-logout { color: #ac4141 !important; }
+}
+@media (orientation: portrait) and (max-width: 600px) {
+  #app .lp-page.lp-page .profile-plan-row {
+    grid-template-columns: 28px minmax(0, 1fr) 28px !important;
+    row-gap: 6px;
+    column-gap: 10px;
+    align-items: start;
+  }
+  #app .lp-page.lp-page .profile-plan-row > span { grid-area: 1 / 1 / 3 / 2; }
+  #app .lp-page.lp-page .profile-plan-row > strong { grid-area: 1 / 2; }
+  #app .lp-page.lp-page .profile-plan-row > p { grid-area: 2 / 2 / 3 / 4; }
+  #app .lp-page.lp-page .profile-plan-row > small { grid-area: 1 / 3; width: 28px; min-width: 28px; align-self: start; }
+}
