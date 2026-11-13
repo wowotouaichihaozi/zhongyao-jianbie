@@ -1,5 +1,6 @@
 import { createApp } from 'vue';
 import './plugins/assets';
+import '../local-admin.css';
 import {
   setupAppVersionNotification,
   setupDayjs,

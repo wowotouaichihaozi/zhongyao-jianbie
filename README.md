@@ -1,5 +1,16 @@
 # 中药鉴别
 
+## 2026-11-14 登录页与管理端竖屏适配
+
+登录介绍页保留原有纸感、橙色标题及智能体架构图，在常见竖屏尺寸内呈现主要内容和登录入口；高度不足 580px 时允许滚动。管理端竖屏下调整数据卡片、筛选栏和表格宽度，修复移动菜单被 `w-0` 样式压成零宽的问题。底部快捷入口贴边固定，表格在自身区域横向滚动，操作列不覆盖账号列；横屏沿用原布局。
+
+本地双击 `启动网页.cmd`，访问 `http://127.0.0.1:5088/login`；管理端为 `/admin/dashboard`。本地通过 HTTPS 网关连接 `https://lzhan.xyz`，数据库、知识网络及 AI 仍在远程，不需要在演示电脑安装 Python、数据库或前端依赖。交付 ZIP 内置 Windows x64 Node 运行环境；Git 仅保存脚本，未安装 Node 20+ 时脚本会下载并校验官方 LTS 运行环境。`BENCAO_NO_BROWSER=1` 可用于自动验收，抑制自动打开浏览器。
+
+本地网关直接服务当前 `frontend/dist`、`admin/dist`，并加载兼容样式。服务器旧快照源码与 Git 当前源码并非同一状态，勿用旧源码重建覆盖已验收页面。交付包另附当前仓库源码和《项目来源与启动说明.md》，记录提交版本与启动方式。真实接口密钥、数据库文件、登录记录、GitHub 令牌和服务器密码均不纳入提交或交付；远程模式启动无需这些凭据，使用者在页面正常登录即可。
+
+验证覆盖登录弹窗、五种竖屏尺寸及管理端七个页面的六种视口；真实业务写入请求在布局验收中被阻止。开发者安装 Playwright 后可运行 `node scripts/check-responsive-layout.mjs`；管理端验证需通过进程环境变量 `TEST_ADMIN_USERNAME`、`TEST_ADMIN_PASSWORD` 提供自己的测试账号，不写入文件。
+
+
 中药鉴别是面向中医学习场景的个性化多智能体学习平台，提供 Web、移动端网页/Capacitor 与微信小程序入口。平台以“岐小智”为总控智能体，连接学习画像、学习路径、个性化资源、知识检索、学习验证和效果评估，形成持续更新的学习闭环。
 
 前端构建验证命令：
@@ -24,7 +35,7 @@ npm run build -- --emptyOutDir=false
 powershell -ExecutionPolicy Bypass -File scripts\build-portable-package.ps1 -OutputDirectory portable\submission -ExcludeFfmpeg
 ```
 
-评委解压 `94015785作品.zip` 后，先双击 `检查完整性.bat`，再双击 `一键启动.bat`。用户端、移动端网页、管理端和 PPT 工作台分别位于 `http://127.0.0.1:3000`、`http://127.0.0.1:3000/m/`、`http://127.0.0.1:3000/admin/` 和 `http://127.0.0.1:3000/ppt/`；默认管理员账号和密码为 `admin123` / `admin123`。联网 AI 功能需要在 `backend/.env` 中配置接口密钥，提交包不包含任何真实密钥。
+评委解压 `94015785作品.zip` 后，先双击 `检查完整性.bat`，再双击 `一键启动.bat`。用户端、移动端网页、管理端和 PPT 工作台分别位于 `http://127.0.0.1:3000`、`http://127.0.0.1:3000/m/`、`http://127.0.0.1:3000/admin/` 和 `http://127.0.0.1:3000/ppt/`；默认管理员账号和密码为 `REPLACE_WITH_DEPLOYMENT_VALUE` / `REPLACE_WITH_DEPLOYMENT_VALUE`。联网 AI 功能需要在 `backend/.env` 中配置接口密钥，提交包不包含任何真实密钥。
 
 评委也可以直接访问远程体验环境：<https://lzhan.xyz>。远程环境用于快速查看完整交互效果；正式评分或验证本地部署行为时，请以解压后的 `94015785作品.zip` 为准。
 
@@ -155,7 +166,7 @@ python -m unittest tests.test_private_knowledge
 
 该语料仅用于中医药课程学习，不用于临床诊断、处方或治疗决策；第三方数据可能存在噪声，平台不会把单条数据集答案视为已经核验的医疗结论。
 
-对话记忆保存在 `knowledge_growth_memories`，每条记录保留来源入口、来源消息、原始问答、提取器版本和时间，按用户鉴权隔离。`scripts/seed-conversation-growth-demo.py` 可为本地 `admin123` 幂等写入六轮示例对话，同时清理旧版候选/审核示例数据。相关接口均要求登录：
+对话记忆保存在 `knowledge_growth_memories`，每条记录保留来源入口、来源消息、原始问答、提取器版本和时间，按用户鉴权隔离。`scripts/seed-conversation-growth-demo.py` 可为本地 `REPLACE_WITH_DEPLOYMENT_VALUE` 幂等写入六轮示例对话，同时清理旧版候选/审核示例数据。相关接口均要求登录：
 
 - `GET /api/knowledge-network/overview`
 - `GET /api/knowledge-network/expand`
@@ -640,8 +651,8 @@ Set-Location ../admin; pnpm install --frozen-lockfile; pnpm run typecheck; pnpm 
 后端初始化会创建管理员账号，默认值来自配置：
 
 ```text
-用户名：admin123
-密码：admin123
+用户名：REPLACE_WITH_DEPLOYMENT_VALUE
+密码：REPLACE_WITH_DEPLOYMENT_VALUE
 ```
 
 ## 清理说明
@@ -689,7 +700,7 @@ Set-Location frontend; npm run build
 
 The Flask entry on `http://localhost:3000` serves both compiled frontends: the learner application at `/` and the administrator console at `/admin/`. `start-all.bat` and `start-frontend-backend.bat` build both bundles before starting/reusing the backend; they do not start Vite on `5088` or `9527`. `5088` and `9527` remain optional development-only ports for manual Vite debugging.
 
-The administrator router keeps unauthenticated traffic inside `/admin/login`; it no longer redirects to the learner `/login` page. The production admin form and its single quick-login entry both use the same deployable `admin123` / `admin123` default as the backend seed configuration.
+The administrator router keeps unauthenticated traffic inside `/admin/login`; it no longer redirects to the learner `/login` page. The production admin form and its single quick-login entry both use the same deployable `REPLACE_WITH_DEPLOYMENT_VALUE` / `REPLACE_WITH_DEPLOYMENT_VALUE` default as the backend seed configuration.
 
 ## Frontend release reliability
 
@@ -743,7 +754,7 @@ powershell -ExecutionPolicy Bypass -File portable\qianzhixuehang-portable-win-x6
 
 The generated folder provides `一键启动.bat`, `停止服务.bat`, `检查完整性.bat` and `配置接口密钥.bat`. End users do not run `pip`, npm or any dependency installer. The API configuration helper creates a private `.env` from the non-secret template only when the user requests it; secrets are never copied by the packager.
 
-All local variants use `admin123` / `admin123` as the first-run administrator credentials. `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `backend/.env` can still override these demo defaults when a different credential is required.
+All local variants use `REPLACE_WITH_DEPLOYMENT_VALUE` / `REPLACE_WITH_DEPLOYMENT_VALUE` as the first-run administrator credentials. `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `backend/.env` can still override these demo defaults when a different credential is required.
 
 ## Mobile PWA
 

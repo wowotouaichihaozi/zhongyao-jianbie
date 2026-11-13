@@ -32,7 +32,7 @@ try {
         $nodeExecutable = $bundledNode
     }
     for ($attempt = 0; $attempt -lt 3; $attempt++) {
-        if ($attempt -eq 0) { & $nodeExecutable (Join-Path $PSScriptRoot 'local-web.mjs') --open }
+        if ($attempt -eq 0 -and $env:BENCAO_NO_BROWSER -ne '1') { & $nodeExecutable (Join-Path $PSScriptRoot 'local-web.mjs') --open }
         else { & $nodeExecutable (Join-Path $PSScriptRoot 'local-web.mjs') }
         if ($LASTEXITCODE -eq 0) { break }
         if ($attempt -eq 2) { throw 'Local server stopped repeatedly. See .local-web/errors.log.' }

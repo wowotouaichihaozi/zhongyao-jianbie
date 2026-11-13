@@ -97,6 +97,26 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' })
     return res.end(fs.readFileSync(path.join(project, 'frontend/local-exam-evidence.mjs')))
   }
+  if (pathname === '/admin/local-admin.css') {
+    res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' })
+    return res.end(fs.readFileSync(path.join(project, 'admin/local-admin.css')))
+  }
+  if (pathname.startsWith('/admin/') && ['GET', 'HEAD'].includes(req.method)) {
+    const adminRoot = path.join(project, 'admin/dist')
+    let adminFile = path.resolve(adminRoot, '.' + pathname.slice('/admin'.length))
+    if (!adminFile.startsWith(adminRoot + path.sep) && adminFile !== adminRoot) { res.writeHead(403); return res.end() }
+    try { if (fs.statSync(adminFile).isDirectory()) adminFile = path.join(adminFile, 'index.html') } catch { if (!path.extname(pathname)) adminFile = path.join(adminRoot, 'index.html') }
+    if (fs.existsSync(adminFile) && fs.statSync(adminFile).isFile()) {
+      if (adminFile.endsWith('index.html')) {
+        const html = fs.readFileSync(adminFile, 'utf8').replace('</head>', '<link rel="stylesheet" href="/admin/local-admin.css"></head>')
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
+        return res.end(req.method === 'HEAD' ? undefined : html)
+      }
+      res.writeHead(200, { 'Content-Type': mime[path.extname(adminFile).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-cache' })
+      if (req.method === 'HEAD') return res.end()
+      const stream = fs.createReadStream(adminFile); stream.on('error', () => res.destroy()); res.on('close', () => stream.destroy()); return stream.pipe(res)
+    }
+  }
   if (/^\/(api(?:[/-]|$)|ppt-api(?:\/|$)|herb-api(?:\/|$)|admin(?:\/|$)|uploads(?:\/|$)|generated(?:\/|$))/.test(pathname) || !['GET', 'HEAD'].includes(req.method)) return proxy(req, res)
   let file = path.resolve(root, '.' + pathname)
   if (file !== root && !file.startsWith(root + path.sep)) { res.writeHead(403); return res.end() }
