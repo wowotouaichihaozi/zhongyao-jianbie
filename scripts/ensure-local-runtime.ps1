@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+if (-not [Environment]::Is64BitOperatingSystem) { throw 'This package requires 64-bit Windows 10/11.' }
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $archive = Join-Path $projectRoot '.runtime\python-win64.zip'
 $checksumFile = $archive + '.sha256'
@@ -16,7 +17,19 @@ $cacheRoot = Join-Path $env:LOCALAPPDATA 'BC'
 $runtime = Join-Path $cacheRoot ('py-' + $digest.Substring(0, 12))
 $python = Join-Path $runtime 'python.exe'
 $ready = Join-Path $runtime '.ready'
-if (-not (Test-Path -LiteralPath $ready)) {
+New-Item -ItemType Directory -Path $runtime -Force | Out-Null
+$lock = $null
+$deadline = [DateTime]::UtcNow.AddMinutes(5)
+while (-not $lock) {
+    try { $lock = [System.IO.File]::Open((Join-Path $runtime '.extract.lock'), [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None) }
+    catch [System.IO.IOException] {
+        if ([DateTime]::UtcNow -ge $deadline) { throw 'Another launcher is still preparing Python. Close it and retry.' }
+        Start-Sleep -Milliseconds 400
+    }
+}
+try {
+$cachedDigest = if (Test-Path -LiteralPath $ready) { (Get-Content -LiteralPath $ready -Raw).Trim() } else { '' }
+if ($cachedDigest -ne $digest -or -not (Test-Path -LiteralPath $python)) {
     Write-Host 'Preparing bundled Python and backend dependencies (first launch only)...'
     New-Item -ItemType Directory -Path $runtime -Force | Out-Null
     [System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null
@@ -36,4 +49,5 @@ if (-not (Test-Path -LiteralPath $ready)) {
     if ($LASTEXITCODE -ne 0) { throw 'Bundled backend dependency check failed.' }
     Set-Content -LiteralPath $ready -Value $digest -Encoding ASCII
 }
+} finally { $lock.Dispose() }
 Write-Output $python

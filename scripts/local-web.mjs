@@ -268,7 +268,7 @@ const server = http.createServer((req, res) => {
 })
 function openBrowser() {
   if (!process.argv.includes('--open') || process.platform !== 'win32') return
-  const url = `http://127.0.0.1:${port}/login`
+  const url = `http://localhost:${port}/login`
   // ShellExecute opens the URL in a normal browser window, independently of the hidden helper.
   const opener = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(project, 'scripts/open-browser.ps1'), '-Url', url], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] })
   let detail = ''
@@ -285,7 +285,7 @@ server.on('error', async error => {
       const response = await fetch(`http://127.0.0.1:${port}/__launcher/status`, { signal: AbortSignal.timeout(2000) })
       const running = await response.json()
       if (running.mode === mode && running.backend === upstream.origin && running.projectRoot === project) {
-        console.log(`Local frontend is already running: http://127.0.0.1:${port}/login`)
+        console.log(`Local frontend is already running: http://localhost:${port}/login`)
         openBrowser()
         return
       }
@@ -301,7 +301,7 @@ server.on('error', async error => {
   process.exitCode = 1
 })
 server.listen(port, '127.0.0.1', () => {
-  const url = `http://127.0.0.1:${port}/login`
+  const url = `http://localhost:${port}/login`
   console.log(`Local frontend: ${url}\n${localMode ? "Local" : "Remote"} backend: ${upstream.origin}\nDatabase / knowledge network: ${localMode ? "local independent database" : "accessed through remote backend"}.\nKeep this window open. Press Ctrl+C to stop.`)
   openBrowser()
 })

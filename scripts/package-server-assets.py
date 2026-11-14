@@ -132,6 +132,8 @@ def main() -> None:
         (stage / 'backend/.env').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     if (project / 'THIRD_PARTY_NOTICES.md').exists():
         copy('THIRD_PARTY_NOTICES.md')
+    if (project / '一键启动验收.md').exists():
+        copy('一键启动验收.md')
     if (project / '.gitignore').exists():
         copy('.gitignore')
 
@@ -153,6 +155,8 @@ Git 仓库：https://github.com/wowotouaichihaozi/zhongyao-jianbie
 
 1. “启动本地前端_连接服务器后端.cmd”：只启动本地前端，使用线上后端、数据库、账号和知识网络。
 2. {local_notes}
+
+推荐使用第一个入口。本地前端连接服务器模式不需要 Python，也不下载本地后端资源；解压后双击即可，使用线上账号。启动时打开 localhost 登录地址，端口以窗口为准。
 
 已内置运行依赖，无需手动安装 Node、Python 或数据库。默认浏览器会自动打开；端口被占用时自动选择后续端口，以启动窗口显示的网址为准。运行期间保持窗口打开，按 Ctrl+C 停止本地服务。
 

@@ -15,7 +15,7 @@ def prepare_local_assets(root: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     url, expected = manifest['url'], manifest['sha256']
     parsed = urlparse(url)
-    backend = urlparse(json.loads((root / 'remote-backend.json').read_text())['backend'])
+    backend = urlparse(json.loads((root / 'remote-backend.json').read_text(encoding='utf-8'))['backend'])
     if parsed.scheme != 'https' or parsed.hostname != backend.hostname or parsed.username or parsed.password:
         raise RuntimeError('Local resource download must use the configured HTTPS server.')
     state = root / '.local-support'

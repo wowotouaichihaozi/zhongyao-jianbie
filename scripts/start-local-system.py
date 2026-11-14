@@ -27,6 +27,65 @@ PUBLIC_DATA = {
 }
 
 
+class ChildLifetime:
+    """Windows closes all service children when the launcher window is closed."""
+
+    def __init__(self) -> None:
+        self.handle = None
+        if os.name != 'nt':
+            return
+        import ctypes
+        from ctypes import wintypes
+
+        class BasicLimits(ctypes.Structure):
+            _fields_ = [('ProcessTime', ctypes.c_longlong), ('JobTime', ctypes.c_longlong),
+                        ('Flags', wintypes.DWORD), ('MinSet', ctypes.c_size_t),
+                        ('MaxSet', ctypes.c_size_t), ('ActiveProcesses', wintypes.DWORD),
+                        ('Affinity', ctypes.c_size_t), ('Priority', wintypes.DWORD),
+                        ('Scheduling', wintypes.DWORD)]
+
+        class Counters(ctypes.Structure):
+            _fields_ = [(name, ctypes.c_ulonglong) for name in
+                        ['ReadOps', 'WriteOps', 'OtherOps', 'ReadBytes', 'WriteBytes', 'OtherBytes']]
+
+        class ExtendedLimits(ctypes.Structure):
+            _fields_ = [('Basic', BasicLimits), ('IO', Counters),
+                        ('ProcessMemory', ctypes.c_size_t), ('JobMemory', ctypes.c_size_t),
+                        ('PeakProcessMemory', ctypes.c_size_t), ('PeakJobMemory', ctypes.c_size_t)]
+
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+        kernel.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+        kernel.SetInformationJobObject.restype = wintypes.BOOL
+        kernel.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        kernel.AssignProcessToJobObject.restype = wintypes.BOOL
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel.CloseHandle.restype = wintypes.BOOL
+        self.kernel = kernel
+        handle = kernel.CreateJobObjectW(None, None)
+        if not handle:
+            raise ctypes.WinError(ctypes.get_last_error())
+        limits = ExtendedLimits()
+        limits.Basic.Flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        if not kernel.SetInformationJobObject(handle, 9, ctypes.byref(limits), ctypes.sizeof(limits)):
+            error = ctypes.WinError(ctypes.get_last_error())
+            kernel.CloseHandle(handle)
+            raise error
+        self.handle = handle
+
+    def add(self, process: subprocess.Popen) -> None:
+        if self.handle and not self.kernel.AssignProcessToJobObject(self.handle, int(process._handle)):
+            import ctypes
+            process.terminate()
+            raise ctypes.WinError(ctypes.get_last_error())
+
+    def close(self) -> None:
+        if self.handle:
+            self.kernel.CloseHandle(self.handle)
+            self.handle = None
+
+
 def copy_if_changed(source: Path, target: Path) -> None:
     if target.exists() and target.stat().st_size == source.stat().st_size and target.stat().st_mtime_ns == source.stat().st_mtime_ns:
         return
@@ -53,6 +112,11 @@ def prepare() -> dict:
     # need no administrator rights; copying is a fallback on other filesystems.
     for name in ['frontend', 'admin', 'img', 'ppth5', 'rag文档']:
         source_dir, target = ROOT / name, APP / name
+        if target.is_junction() and target.resolve() != source_dir.resolve():
+            # Remove the link itself, never the old directory it points to.
+            if target.parent.resolve() != APP.resolve():
+                raise RuntimeError('Local directory link path check failed.')
+            target.rmdir()
         if not source_dir.is_dir() or target.exists():
             continue
         if os.name == 'nt':
@@ -66,6 +130,7 @@ def prepare() -> dict:
     else:
         account = {'username': 'localadmin', 'password': secrets.token_urlsafe(14)}
         account_file.write_text(json.dumps(account, ensure_ascii=False, indent=2), encoding='utf-8')
+    if not (ROOT / '本地登录账号.txt').is_file():
         (ROOT / '本地登录账号.txt').write_text('仅用于本机纯本地模式\n账号：' + account['username'] + '\n密码：' + account['password'] + '\n数据库与设置保存在 .local-system，请勿删除或覆盖。\n', encoding='utf-8-sig')
     return account
 
@@ -101,7 +166,10 @@ def wait_ready(process: subprocess.Popen, url: str, label: str) -> None:
 
 def request_browser(port: int) -> None:
     if os.getenv('BENCAO_NO_BROWSER') != '1':
-        subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(ROOT / 'scripts/open-browser.ps1'), '-Url', f'http://127.0.0.1:{port}/login'], check=True, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        try:
+            subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(ROOT / 'scripts/open-browser.ps1'), '-Url', f'http://127.0.0.1:{port}/login'], check=True, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        except (OSError, subprocess.CalledProcessError):
+            print(f'Browser could not open automatically. Open http://127.0.0.1:{port}/login manually; services remain running.', flush=True)
 
 
 def main() -> None:
@@ -155,12 +223,14 @@ def main() -> None:
     logs.mkdir(exist_ok=True)
     children, handles = [], []
     flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+    lifetime = ChildLifetime()
 
     def launch(args: list[str], cwd: Path, name: str, child_env: dict) -> subprocess.Popen:
         handle = (logs / (name + '.log')).open('ab')
         handles.append(handle)
         process = subprocess.Popen(args, cwd=cwd, env=child_env, stdout=handle, stderr=subprocess.STDOUT, creationflags=flags)
         children.append(process)
+        lifetime.add(process)
         return process
 
     try:
@@ -191,6 +261,7 @@ def main() -> None:
                 process.kill()
         for handle in handles:
             handle.close()
+        lifetime.close()
 
 
 if __name__ == '__main__':
