@@ -1,0 +1,36 @@
+/* Landscape login: fit the main introduction and diagram to the available height. */
+@media (orientation: landscape) {
+  html, body { min-height: 100%; overflow-x: hidden !important; overflow-y: auto !important; }
+  .hero { --login-pad: clamp(14px, 3dvh, 32px); padding: var(--login-pad) 0 !important; min-height: 100dvh !important; overflow: visible !important; }
+  .hero-bento { display: grid !important; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr) !important; grid-template-rows: minmax(0, calc(100dvh - 2 * var(--login-pad))) auto auto; gap: 24px clamp(18px, 2vw, 32px) !important; }
+  .hero-intro { grid-column: 1 !important; grid-row: 1 !important; padding: 0 !important; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+  .hero-badge { font-size: clamp(9px, 1vw, 13px) !important; margin-bottom: clamp(12px, 3dvh, 28px) !important; gap: 10px !important; letter-spacing: .15em; }
+  .hero h1 { font-size: clamp(26px, min(3.9vw, 7.4dvh), 68px) !important; line-height: 1.12 !important; margin-bottom: clamp(12px, 3dvh, 30px) !important; }
+  .hero h1 .hero-lead { white-space: normal !important; }
+  .hero-sub { font-size: clamp(12px, min(1.25vw, 2.5dvh), 18px) !important; line-height: 1.65 !important; margin-bottom: clamp(14px, 3dvh, 30px) !important; }
+  .hero-actions { gap: 10px !important; }
+  .hero-actions .btn { min-height: 42px !important; padding: 10px 16px !important; font-size: clamp(12px, 1.2vw, 16px) !important; }
+  .proof-main { grid-column: 2 !important; grid-row: 1 !important; min-width: 0; min-height: 0; height: 100%; }
+  .proof-chrome { flex: 0 0 auto; min-height: 48px !important; padding: 10px 16px !important; gap: 8px !important; }
+  .proof-status { min-width: 0; gap: 10px !important; }
+  .proof-live { font-size: 10px !important; }
+  .proof-status-copy strong { font-size: clamp(11px, 1.1vw, 15px) !important; }
+  .proof-status-copy span { font-size: 10px !important; }
+  .proof-open { font-size: clamp(10px, 1vw, 13px) !important; white-space: nowrap; }
+  .proof-viewport { flex: 1 1 0; min-height: 0 !important; border-width: 8px !important; }
+  .proof-caption { flex: 0 0 auto; min-height: 0 !important; padding: 10px 16px !important; }
+  .proof-caption-main strong { white-space: normal !important; font-size: 12px !important; line-height: 1.5; }
+  .proof-caption-main span { font-size: 9px !important; }
+  .proof-hint { font-size: 9px !important; }
+  .proof-rail { grid-column: 1 / -1 !important; grid-row: 2 !important; }
+  .hero-stats { grid-column: 1 / -1 !important; grid-row: 3 !important; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .hero-badge { margin-bottom: 10px !important; }
+  .hero h1 { font-size: clamp(23px, 6.5dvh, 34px) !important; margin-bottom: 10px !important; }
+  .hero-sub { font-size: 12px !important; margin-bottom: 10px !important; }
+  .proof-status-copy span, .proof-hint { display: none !important; }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .hero-bento { grid-template-rows: minmax(300px, calc(100dvh - 2 * var(--login-pad))) auto auto; }
+}

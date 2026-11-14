@@ -15,9 +15,13 @@ function logError(label, error) {
 }
 process.on('uncaughtExceptionMonitor', error => logError('uncaught', error))
 const config = JSON.parse(fs.readFileSync(path.join(project, 'remote-backend.json'), 'utf8'))
-const upstream = new URL(process.env.REMOTE_BACKEND_URL || config.backend)
-if (upstream.protocol !== 'https:' || upstream.username || upstream.password) throw new Error('Backend must be an HTTPS origin without credentials.')
-const port = Number(process.env.PORT || config.port || 5088)
+const localMode = Boolean(process.env.LOCAL_BACKEND_URL)
+const upstream = new URL(process.env.LOCAL_BACKEND_URL || process.env.REMOTE_BACKEND_URL || config.backend)
+if (upstream.username || upstream.password || upstream.pathname !== '/' || upstream.search || upstream.hash || (localMode ? upstream.protocol !== 'http:' || upstream.hostname !== '127.0.0.1' : upstream.protocol !== 'https:')) throw new Error('Use HTTPS for the remote backend, or an explicit loopback HTTP backend for local mode.')
+const mode = localMode ? 'local-full-stack' : 'remote-backend'
+let port = Number(process.env.PORT || config.port || 5088)
+if (!Number.isInteger(port) || port < 1024 || port > 65515) throw new Error('Choose a port between 1024 and 65515.')
+let portRetries = 0
 const root = path.resolve(project, 'frontend/dist')
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.mjs': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.wasm': 'application/wasm', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg', '.woff2': 'font/woff2', '.pdf': 'application/pdf' }
 const hop = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade'])
@@ -30,7 +34,7 @@ function proxy(req, res) {
   // The local proxy is a same-origin gateway; preserve authentication and stream bodies.
   if (req.headers.origin) headers.origin = upstream.origin
   if (req.headers.referer) headers.referer = upstream.origin + '/'
-  const remote = https.request(upstream, { method: req.method, path: req.url, headers }, response => {
+  const remote = (localMode ? http : https).request(upstream, { method: req.method, path: req.url, headers }, response => {
     const outgoing = Object.fromEntries(Object.entries(response.headers).filter(([key]) => !hop.has(key)))
     if (outgoing['set-cookie']) outgoing['set-cookie'] = outgoing['set-cookie'].map(cookie => cookie.replace(/;\s*Domain=[^;]+/ig, ''))
     if (outgoing.location?.startsWith(upstream.origin + '/')) outgoing.location = outgoing.location.slice(upstream.origin.length)
@@ -67,7 +71,7 @@ const server = http.createServer((req, res) => {
   try { pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname) } catch { res.writeHead(400); return res.end() }
   if (pathname === '/__launcher/status') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-    return res.end(JSON.stringify({ mode: 'remote-backend', backend: upstream.origin, localDatabase: false }))
+    return res.end(JSON.stringify({ mode, backend: upstream.origin, localDatabase: localMode, projectRoot: project }))
   }
   if (pathname === '/local-overrides.css') {
     const overridePath = path.join(project, 'frontend/local-overrides.css')
@@ -239,27 +243,41 @@ const server = http.createServer((req, res) => {
   stream.pipe(res)
 })
 function openBrowser() {
-  if (process.argv.includes('--open') && process.platform === 'win32') {
-    spawn('cmd.exe', ['/c', 'start', '', `http://127.0.0.1:${port}/login`], { windowsHide: true, stdio: 'ignore' }).unref()
-  }
+  if (!process.argv.includes('--open') || process.platform !== 'win32') return
+  const url = `http://127.0.0.1:${port}/login`
+  // ShellExecute opens the URL in a normal browser window, independently of the hidden helper.
+  const opener = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(project, 'scripts/open-browser.ps1'), '-Url', url], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] })
+  let detail = ''
+  opener.stderr.on('data', data => { detail = (detail + data.toString()).slice(-2000) })
+  opener.on('error', error => { logError('open-browser', error); console.error(`Open this address manually: ${url}`) })
+  opener.on('close', code => {
+    if (code !== 0) { logError('open-browser', detail.trim() || `exit code ${code}`); console.error(`Open this address manually: ${url}`) }
+    else console.log(`Default browser requested: ${url}`)
+  })
 }
 server.on('error', async error => {
   if (error.code === 'EADDRINUSE') {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/__launcher/status`, { signal: AbortSignal.timeout(2000) })
       const running = await response.json()
-      if (running.mode === 'remote-backend' && running.backend === upstream.origin) {
+      if (running.mode === mode && running.backend === upstream.origin && running.projectRoot === project) {
         console.log(`Local frontend is already running: http://127.0.0.1:${port}/login`)
         openBrowser()
         return
       }
-    } catch { /* Report a different application occupying the port. */ }
+    } catch { /* A different application may occupy the preferred port. */ }
+    if (portRetries++ < 20) {
+      port += 1
+      console.log(`Preferred port occupied; trying http://127.0.0.1:${port}/login`)
+      server.listen(port, '127.0.0.1')
+      return
+    }
   }
   console.error(error.code === 'EADDRINUSE' ? `Port ${port} is already in use. Close the other local server, or change remote-backend.json.` : error)
   process.exitCode = 1
 })
 server.listen(port, '127.0.0.1', () => {
   const url = `http://127.0.0.1:${port}/login`
-  console.log(`Local frontend: ${url}\nRemote backend: ${upstream.origin}\nDatabase / knowledge network: accessed through remote backend.\nKeep this window open. Press Ctrl+C to stop.`)
+  console.log(`Local frontend: ${url}\n${localMode ? "Local" : "Remote"} backend: ${upstream.origin}\nDatabase / knowledge network: ${localMode ? "local independent database" : "accessed through remote backend"}.\nKeep this window open. Press Ctrl+C to stop.`)
   openBrowser()
 })

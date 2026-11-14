@@ -30,3 +30,19 @@ mobile/android/local.properties
 # Generated portable distribution
 portable/
 .portable-cache/
+
+# Dual-mode private runtime state
+.runtime/
+.local-system/
+.local-web/
+.test-artifacts/
+本地登录账号.txt
+**/node_modules/
+**/.env
+**/.env.*
+!**/.env.example
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
