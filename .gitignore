@@ -46,3 +46,6 @@ portable/
 *.sqlite3-*
 *.db
 *.db-*
+
+# Optional source/dependency validation output
+.backend-check/

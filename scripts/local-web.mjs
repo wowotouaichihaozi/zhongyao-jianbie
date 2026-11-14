@@ -19,11 +19,12 @@ const localMode = Boolean(process.env.LOCAL_BACKEND_URL)
 const upstream = new URL(process.env.LOCAL_BACKEND_URL || process.env.REMOTE_BACKEND_URL || config.backend)
 if (upstream.username || upstream.password || upstream.pathname !== '/' || upstream.search || upstream.hash || (localMode ? upstream.protocol !== 'http:' || upstream.hostname !== '127.0.0.1' : upstream.protocol !== 'https:')) throw new Error('Use HTTPS for the remote backend, or an explicit loopback HTTP backend for local mode.')
 const mode = localMode ? 'local-full-stack' : 'remote-backend'
+const remoteAssetRoots = (config.remoteAssetRoots || []).filter(value => typeof value === 'string' && /^\/[A-Za-z0-9_-]+$/.test(value))
 let port = Number(process.env.PORT || config.port || 5088)
 if (!Number.isInteger(port) || port < 1024 || port > 65515) throw new Error('Choose a port between 1024 and 65515.')
 let portRetries = 0
 const root = path.resolve(project, 'frontend/dist')
-const mime = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.mjs': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.wasm': 'application/wasm', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg', '.woff2': 'font/woff2', '.pdf': 'application/pdf' }
+const mime = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.mjs': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.wasm': 'application/wasm', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.gltf': 'model/gltf+json', '.glb': 'model/gltf-binary', '.pdf': 'application/pdf' }
 const hop = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade'])
 
 function proxy(req, res) {
@@ -78,7 +79,23 @@ const server = http.createServer((req, res) => {
   try { pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname) } catch { res.writeHead(400); return res.end() }
   if (pathname === '/__launcher/status') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-    return res.end(JSON.stringify({ mode, backend: upstream.origin, localDatabase: localMode, projectRoot: project }))
+    return res.end(JSON.stringify({ mode, backend: upstream.origin, localDatabase: localMode, remoteAssets: !localMode && remoteAssetRoots.length > 0, preferLocalStatic: Boolean(config.preferLocalStatic), projectRoot: project }))
+  }
+  if (!localMode && remoteAssetRoots.some(prefix => pathname === prefix || pathname.startsWith(prefix + '/'))) {
+    if (!['GET', 'HEAD'].includes(req.method)) return proxy(req, res)
+    let cached = path.resolve(root, '.' + pathname)
+    if (cached !== root && !cached.startsWith(root + path.sep)) { res.writeHead(403); return res.end() }
+    try {
+      if (fs.statSync(cached).isDirectory()) {
+        if (config.preferLocalStatic && !pathname.endsWith('/')) {
+          const canonical = new URL(req.url, 'http://localhost')
+          res.writeHead(302, { Location: canonical.pathname + '/' + canonical.search })
+          return res.end()
+        }
+        cached = path.join(cached, 'index.html')
+      }
+      if (!config.preferLocalStatic || !fs.statSync(cached).isFile()) return proxy(req, res)
+    } catch { return proxy(req, res) }
   }
   if (pathname === '/local-overrides.css') {
     const overridePath = path.join(project, 'frontend/local-overrides.css')

@@ -3,7 +3,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $archive = Join-Path $projectRoot '.runtime\python-win64.zip'
 $checksumFile = $archive + '.sha256'
 if (-not (Test-Path -LiteralPath $archive) -or -not (Test-Path -LiteralPath $checksumFile)) {
-    throw 'Bundled Python runtime missing. Extract the complete dual-mode delivery ZIP.'
+    throw 'Bundled Python runtime missing. Extract the complete package with backend validation dependencies.'
 }
 $expected = (Get-Content -LiteralPath $checksumFile -Raw).Trim()
 $stream = [System.IO.File]::OpenRead($archive)

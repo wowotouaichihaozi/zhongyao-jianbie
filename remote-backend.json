@@ -1,4 +1,14 @@
 {
   "backend": "https://lzhan.xyz",
-  "port": 5088
+  "port": 5088,
+  "remoteAssetRoots": [
+    "/digital-twin",
+    "/ppt",
+    "/herb-models",
+    "/mind-map-wizard",
+    "/wu-xing-holo-core-original",
+    "/learning-face-cropped-split",
+    "/images",
+    "/models"
+  ]
 }
