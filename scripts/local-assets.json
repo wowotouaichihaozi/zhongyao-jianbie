@@ -1,0 +1,59 @@
+{
+  "url": "https://lzhan.xyz/local-support/assets-f2b62d6e9bf0eb73.zip",
+  "sha256": "f2b62d6e9bf0eb73937541e5bd20bbe1eedcbff7f6a3bf84878878891d257697",
+  "bytes": 180917741,
+  "files": {
+    "backend/data/course_knowledge_index.json": {
+      "bytes": 130,
+      "sha256": "8f1a6600eb1995e1f096c694cc54d9325a343dff9a93af12756a363cbe8d3323"
+    },
+    "backend/data/course_knowledge_index_catalog.json": {
+      "bytes": 15594150,
+      "sha256": "9aefbce3c7b470fd3df9e703573fe70a063e11df6d24d8634bb0494a90006835"
+    },
+    "backend/data/tcm_graph_index.json": {
+      "bytes": 1473580,
+      "sha256": "110796476169b0fb21d7154fcb09d76a06f18153db97cfae0b4625150a2978f9"
+    },
+    "backend/data/tcm_hybrid_corpus.db.gz": {
+      "bytes": 75816885,
+      "sha256": "894b2f2866b6f2e30b7d0218588320690c9bee895f4da2827340ac2389715e52"
+    },
+    "backend/data/tcm_hybrid_corpus_manifest.json": {
+      "bytes": 2845,
+      "sha256": "7e276d655a3bac6807d69fea895f668852b869781f947af03fa5b0efee832feb"
+    },
+    "backend/data/tcm_qa_pairs.json": {
+      "bytes": 7570,
+      "sha256": "26d9b619a9ca3d8647fbae320498c8ecf4a6bc58642342d0b79099aa410e9e6b"
+    },
+    "backend/models/herbwise-yolo26s.pt": {
+      "bytes": 20391749,
+      "sha256": "78e4f41cf8bc673fdc898a28515921a951b82a61538b99025296d76b0d144cd7"
+    },
+    "backend/models/medicine-class-mapping.csv": {
+      "bytes": 1959,
+      "sha256": "c9659164afc7d6bf6572cc1c166b92294cf7de45045ee66ac72e036e94009bbb"
+    },
+    ".runtime/ffmpeg/ffmpeg.exe": {
+      "bytes": 105423872,
+      "sha256": "3256173f3f8bffd7df12227c68adf68025edb1832273a9530688a7bb1ed8edec"
+    },
+    ".runtime/ffmpeg/ffprobe.exe": {
+      "bytes": 105221120,
+      "sha256": "f0d36ecbbdd3bcfac3efa078c96c7271c2e68b3810595552ac3b7f17e9a65c52"
+    },
+    ".runtime/ffmpeg/LICENSE": {
+      "bytes": 35147,
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    ".runtime/ffmpeg/README.txt": {
+      "bytes": 41577,
+      "sha256": "0342de6bb39dd421cbec2c00d89ad274b640d75ad3f2cab09ffd647ce2d8f949"
+    },
+    "img/ppt/resources/slide-pack-windows-amd64.exe": {
+      "bytes": 5987328,
+      "sha256": "63a5bdd94f0749a82da6692eb6bd27425b15502c142f7044e8a16e37a35919f5"
+    }
+  }
+}

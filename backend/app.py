@@ -426,8 +426,8 @@ SESSION_COOKIE_NAME = "fswy_session"
 SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
 CODEX_PREVIEW_TOKEN = "codex-preview-token"
 CODEX_PREVIEW_USERNAME = "codex-preview"
-ADMIN_USERNAME = get_setting("ADMIN_USERNAME", setting_default("ADMIN_USERNAME", "admin123"))
-ADMIN_PASSWORD = get_setting("ADMIN_PASSWORD", setting_default("ADMIN_PASSWORD", "admin123"))
+ADMIN_USERNAME = get_setting("ADMIN_USERNAME", setting_default("ADMIN_USERNAME", "REPLACE_WITH_OWN_VALUE"))
+ADMIN_PASSWORD = get_setting("ADMIN_PASSWORD", setting_default("ADMIN_PASSWORD", "REPLACE_WITH_OWN_VALUE"))
 SYSTEM_MONITOR = SystemMonitor(BASE_DIR)
 APP_STARTED_AT = time.monotonic()
 AUTH_LOCK_SECONDS = 10 * 60
@@ -532,7 +532,7 @@ def proxy_ohmyppt_api(subpath: str):
     try:
         upstream = requests.request(
             request.method,
-            f"http://127.0.0.1:8765/api/{subpath}",
+            f"{get_setting('OHMYPPT_API_URL', 'http://127.0.0.1:8765/api').rstrip('/')}/{subpath}",
             params=request.args,
             data=request.get_data(cache=False) if request.method == "POST" else None,
             headers=upstream_headers,

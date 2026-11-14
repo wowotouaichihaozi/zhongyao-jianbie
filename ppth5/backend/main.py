@@ -304,7 +304,7 @@ async def authenticated_browser_default_runtime(request: Request) -> dict[str, s
         headers["cookie"] = cookie
     try:
         async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
-            response = await client.get("http://127.0.0.1:3000/api/auth/me", headers=headers)
+            response = await client.get(os.getenv("PLATFORM_AUTH_ME_URL", "http://127.0.0.1:3000/api/auth/me"), headers=headers)
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=503, detail="User authentication service is unavailable.") from exc
     if response.status_code != 200:

@@ -46,6 +46,8 @@ def main() -> None:
     parser.add_argument('--commit', required=True)
     parser.add_argument('--static-cache', action='store_true', help='Include public browser images/fonts/3D and static apps, with local-first serving.')
     parser.add_argument('--backend-check', action='store_true', help='Include the optional Python archive for source/dependency checks, not a local business server.')
+    parser.add_argument('--local-backend', action='store_true', default=True, help='Include the local frontend/backend entry with an independent database.')
+    parser.add_argument('--private-api-config', action='store_true', help='Include backend/.env only in the private delivery, never in the Git source commit.')
     args = parser.parse_args()
     project, output = args.project.resolve(), args.output.resolve()
     assert re.fullmatch(r'[0-9a-f]{40}', args.commit), 'Supply the reviewed source commit.'
@@ -61,7 +63,7 @@ def main() -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
 
-    for directory in ['backend', 'frontend', 'admin', 'ppth5', 'mobile', 'microprogram', 'img']:
+    for directory in ['backend', 'frontend', 'admin', 'ppth5', 'mobile', 'microprogram', 'img', 'rag文档']:
         source = project / directory
         if not source.exists():
             continue
@@ -102,22 +104,41 @@ def main() -> None:
             copy(file.relative_to(project).as_posix())
     for name in RUNTIME_SCRIPTS:
         copy('scripts/' + name)
-    for name in ['remote-backend.json', '启动网页.cmd', '启动本地前端_连接服务器.cmd', 'admin/local-admin.css', '.runtime/node/node.exe', '.runtime/node/LICENSE']:
+    for name in ['remote-backend.json', '启动本地前端_连接服务器后端.cmd', 'admin/local-admin.css', '.runtime/node/node.exe', '.runtime/node/LICENSE']:
         copy(name)
     config_file = stage / 'remote-backend.json'
     config = json.loads(config_file.read_text(encoding='utf-8'))
     config['preferLocalStatic'] = bool(args.static_cache)
     config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding='utf-8')
-    if args.backend_check:
-        for name in ['检查后端代码与依赖.cmd', 'scripts/check-backend.ps1', 'scripts/check-backend-code.py', 'scripts/ensure-local-runtime.ps1', 'scripts/windows-runtime-lock.txt', '.runtime/python-win64.zip', '.runtime/python-win64.zip.sha256']:
+    if args.backend_check or args.local_backend:
+        for name in ['scripts/ensure-local-runtime.ps1', 'scripts/windows-runtime-lock.txt', '.runtime/python-win64.zip', '.runtime/python-win64.zip.sha256']:
             copy(name)
+    if args.backend_check:
+        for name in ['scripts/check-backend.ps1', 'scripts/check-backend-code.py']:
+            copy(name)
+    if args.local_backend:
+        for name in ['启动本地前后端.cmd', 'scripts/start-local.ps1', 'scripts/start-local-system.py', 'scripts/prepare-local-assets.py', 'scripts/local-assets.json']:
+            copy(name)
+    if args.private_api_config:
+        assert args.local_backend, 'Private model configuration is only needed for the local backend mode.'
+        # The private delivery needs provider APIs, never server login credentials.
+        excluded = re.compile(r'^(?:ADMIN_|REMOTE_UPLOAD_|GITHUB_|SYNC_SSH_|SSH_)')
+        lines = []
+        for line in (project / 'backend/.env').read_text(encoding='utf-8-sig').splitlines():
+            match = re.match(r'\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=', line)
+            if match and excluded.match(match[1]):
+                continue
+            lines.append(line)
+        (stage / 'backend/.env').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     if (project / 'THIRD_PARTY_NOTICES.md').exists():
         copy('THIRD_PARTY_NOTICES.md')
     if (project / '.gitignore').exists():
         copy('.gitignore')
 
     cache_notes = '常用图片、字体、药材 3D 展示素材和数字孪生/PPT 静态应用已缓存本地，优先读本地文件；缺失时再从服务器补充。' if args.static_cache else '数字孪生/PPT 静态应用和媒体通过服务器加载，本地只保留主要页面代码。'
-    dependency_notes = '另附后端 Python/CPU 依赖，用于“检查后端代码与依赖.cmd”。检查只编译源码、导入依赖，不启动后端、不初始化业务数据库。日常网页启动只使用 Node，无需展开 Python。检查结果在 .backend-check/result.json。' if args.backend_check else '不携带本地 Python/推理环境。'
+    dependency_notes = '已内置 Python 与后端依赖，本地前后端模式会自动准备运行环境。连接服务器模式只使用 Node，不启动本地后端。' if args.local_backend else '后端校验工具在 scripts 内，不提供额外根目录入口。'
+    local_notes = '“启动本地前后端.cmd”：启动真正的本地前端、业务后端及 PPT 服务，首次自动初始化独立 SQLite 数据库。账号在首次生成的“本地登录账号.txt”内。与线上账号和数据分开，不复制线上用户记录。首次需联网自动下载约 173 MB 的公共知识语料、识别模型和媒体运行工具，进度会显示在窗口中；校验完成后复用本地资源。AI、数字人及媒体供应商仍通过网络 API 工作。' if args.local_backend else ''
+    api_notes = '本私有包中的 backend/.env 提供必要模型/媒体 API 配置，不提交 Git；不包含 GitHub 令牌、SSH 密码或线上用户数据库。' if args.private_api_config else '模型供应商密钥留在服务器，本包不含私钥。'
 
     notes = f'''# 项目来源与服务器资源版启动说明
 
@@ -128,9 +149,14 @@ Git 仓库：https://github.com/wowotouaichihaozi/zhongyao-jianbie
 
 ## 启动
 
-在 Windows 10/11 x64 上完整解压后，双击“启动网页.cmd”或“启动本地前端_连接服务器.cmd”。已内置 Node，不需要安装 Node、Python、数据库或编译依赖。默认浏览器会自动打开；端口被其他副本占用时自动换用后续端口，以启动窗口显示的网址为准。运行期间保持窗口打开，按 Ctrl+C 停止。
+根目录只保留两个启动入口。在 Windows 10/11 x64 上完整解压后按需要选择：
 
-本地只运行主要前端、管理端和同源网关，后端源码保留供查阅。用户数据库、知识库、药材识别模型、用户图片/视频、上传记录和 AI 生成均连接服务器。需要联网，使用线上账号登录，不初始化本地业务数据库，也不提供纯本地系统入口。接口地址在 remote-backend.json，模型供应商密钥留在服务器，包内无需保存私钥。
+1. “启动本地前端_连接服务器后端.cmd”：只启动本地前端，使用线上后端、数据库、账号和知识网络。
+2. {local_notes}
+
+已内置运行依赖，无需手动安装 Node、Python 或数据库。默认浏览器会自动打开；端口被占用时自动选择后续端口，以启动窗口显示的网址为准。运行期间保持窗口打开，按 Ctrl+C 停止本地服务。
+
+连接服务器模式不初始化本地业务数据库。启动本地前后端时，独立业务数据放在 .local-system/app/backend/data；请保留 .local-system 与本地账号文件，以保存自己的数据。两个模式可以共存，使用各自启动窗口中的地址。接口地址在 remote-backend.json。{api_notes}
 
 ## 文件
 
@@ -139,16 +165,16 @@ Git 仓库：https://github.com/wowotouaichihaozi/zhongyao-jianbie
 - scripts：启动、网关、打包及开发检查代码。
 - .runtime/node：一键启动所需的 Node 与许可证。
 
-{cache_notes} 动态业务接口始终请求服务器，静态缓存不会替代服务器数据库。源码和修改后的主要页面代码保存在包内。开发重建涉及其他公共资源时仍需连接服务器。
+{cache_notes} 连接服务器模式的业务接口请求服务器；本地前后端模式的业务接口请求独立本地后端。源码和修改后的主要页面代码保存在包内。开发重建涉及其他公共资源时仍需连接服务器。
 
 {dependency_notes}
 
-本包不含 FFmpeg、业务数据库、知识语料、药材识别模型权重、旧 APK、API 私钥、GitHub 令牌或 SSH 密码。3D 网格与纹理是公开展示素材，不是后端识别模型。程序会产生正常浏览器缓存和登录状态，业务数据以服务器为准。
+本包不预装运行产生的业务数据库、不带线上用户记录或旧 APK。本地模式所需的公共语料、模型及媒体工具首次自动获取，避免反复扩大压缩包。3D 网格与纹理是公开展示素材，不是后端识别模型。
 '''
     for name in ['README.md', '项目来源与启动说明.md']:
         (stage / name).write_text(notes, encoding='utf-8')
     files = sorted(file for file in stage.rglob('*') if file.is_file())
-    manifest = {'commit': args.commit, 'mode': 'remote-backend', 'backend': config['backend'], 'localBusinessDatabase': False, 'serverKnowledgeAndAI': True, 'serverPrivateMedia': True, 'publicStaticCache': bool(args.static_cache), 'backendValidationRuntimeIncluded': bool(args.backend_check), 'privateCredentialsIncluded': False, 'nodeSha256': hashlib.file_digest((stage / '.runtime/node/node.exe').open('rb'), 'sha256').hexdigest(), 'files': len(files) + 1}
+    manifest = {'commit': args.commit, 'modes': ['remote-backend', 'local-full-stack'] if args.local_backend else ['remote-backend'], 'backend': config['backend'], 'containsBusinessDatabase': False, 'localModeUsesIndependentData': bool(args.local_backend), 'publicStaticCache': bool(args.static_cache), 'pythonRuntimeIncluded': bool(args.local_backend or args.backend_check), 'privateApiConfiguration': 'backend/.env' if args.private_api_config else None, 'nodeSha256': hashlib.file_digest((stage / '.runtime/node/node.exe').open('rb'), 'sha256').hexdigest(), 'files': len(files) + 1}
     (stage / '交付清单.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED, compresslevel=3) as archive:
         for file in sorted(stage.rglob('*')):
@@ -156,7 +182,11 @@ Git 仓库：https://github.com/wowotouaichihaozi/zhongyao-jianbie
                 archive.write(file, '网页前后端源码/' + file.relative_to(stage).as_posix(), compress_type=zipfile.ZIP_STORED if file.suffix == '.zip' else zipfile.ZIP_DEFLATED)
     with zipfile.ZipFile(output) as archive:
         assert archive.testzip() is None
-        assert not any(name.endswith(('.db', '.sqlite3', '.sqlite', '.pt', '.onnx', '.apk', '.env')) for name in archive.namelist())
+        assert not any(name.endswith(('.db', '.sqlite3', '.sqlite', '.pt', '.onnx', '.apk')) for name in archive.namelist())
+        assert [name for name in archive.namelist() if name.endswith('/.env')] == (['网页前后端源码/backend/.env'] if args.private_api_config else [])
+        entries = {Path(name).name for name in archive.namelist() if len(Path(name).parts) == 2 and name.endswith('.cmd')}
+        expected_entries = {'启动本地前端_连接服务器后端.cmd'} | ({'启动本地前后端.cmd'} if args.local_backend else set())
+        assert entries == expected_entries, entries
     result = {'package': str(output), 'stage': str(stage), 'commit': args.commit, 'bytes': output.stat().st_size, 'sha256': hashlib.file_digest(output.open('rb'), 'sha256').hexdigest(), 'files': manifest['files']}
     output.with_suffix('.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
     output.with_suffix('.sha256.txt').write_text(result['sha256'] + '  ' + output.name + '\n', encoding='utf-8')

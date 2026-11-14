@@ -14,6 +14,7 @@ import urllib.error
 import urllib.request
 
 from dotenv import dotenv_values
+from importlib.util import module_from_spec, spec_from_file_location
 
 ROOT = Path(__file__).resolve().parent.parent
 STATE = ROOT / '.local-system'
@@ -41,7 +42,7 @@ def prepare() -> dict:
         dirs[:] = [name for name in dirs if name not in {'data', 'generated', 'uploads', 'backups', 'tests', '__pycache__', 'venv', '.venv', 'node_modules'}]
         for name in files:
             file = Path(directory) / name
-            if file.suffix not in {'.py', '.json', '.yaml', '.yml', '.pt', '.txt', '.mmd', '.toml'}:
+            if file.suffix not in {'.py', '.json', '.yaml', '.yml', '.pt', '.csv', '.txt', '.mmd', '.toml'}:
                 continue
             copy_if_changed(file, BACKEND / file.relative_to(source))
     for name in PUBLIC_DATA:
@@ -120,6 +121,10 @@ def main() -> None:
         except (OSError, ValueError, KeyError, urllib.error.URLError):
             pass
     print('Preparing the independent local database and services...', flush=True)
+    resource_spec = spec_from_file_location('local_support', ROOT / 'scripts/prepare-local-assets.py')
+    resource_module = module_from_spec(resource_spec)
+    resource_spec.loader.exec_module(resource_module)
+    resource_module.prepare_local_assets(ROOT)
     account = prepare()
     frontend = free_port(int(os.getenv('LOCAL_FRONTEND_PORT', '5089')))
     backend = free_port(int(os.getenv('LOCAL_BACKEND_PORT', '5091')))
@@ -137,6 +142,7 @@ def main() -> None:
         'FRONTEND_ORIGIN': f'http://127.0.0.1:{frontend}',
         'ADMIN_USERNAME': account['username'], 'ADMIN_PASSWORD': account['password'],
         'OHMYPPT_API_URL': f'http://127.0.0.1:{ppt}/api',
+        'PLATFORM_AUTH_ME_URL': f'http://127.0.0.1:{backend}/api/auth/me',
         'COURSE_KNOWLEDGE_CORPUS_DIR': str(ROOT / 'rag文档'),
         'YOLO_CONFIG_DIR': str(STATE / 'ultralytics'),
         'PATH': str(node.parent) + os.pathsep + str(Path(sys.executable).parent) + os.pathsep + env.get('PATH', ''),

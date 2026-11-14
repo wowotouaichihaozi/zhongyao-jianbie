@@ -49,3 +49,5 @@ portable/
 
 # Optional source/dependency validation output
 .backend-check/
+
+.local-support/
