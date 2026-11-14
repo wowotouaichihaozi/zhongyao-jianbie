@@ -31,12 +31,19 @@ function proxy(req, res) {
   res.on('error', error => logError('client-response', error))
   const headers = Object.fromEntries(Object.entries(req.headers).filter(([key]) => !hop.has(key) && !['host', 'origin', 'referer'].includes(key)))
   headers.host = upstream.host
+  if (localMode && headers.cookie) {
+    // Remote and local modes share a loopback host; keep their login cookies independent.
+    headers.cookie = headers.cookie.split(';').map(value => value.trim()).filter(value => !value.startsWith('fswy_session=')).map(value => value.startsWith(`bc_local_session_${port}=`) ? 'fswy_session=' + value.slice(value.indexOf('=') + 1) : value).join('; ')
+  }
   // The local proxy is a same-origin gateway; preserve authentication and stream bodies.
   if (req.headers.origin) headers.origin = upstream.origin
   if (req.headers.referer) headers.referer = upstream.origin + '/'
   const remote = (localMode ? http : https).request(upstream, { method: req.method, path: req.url, headers }, response => {
     const outgoing = Object.fromEntries(Object.entries(response.headers).filter(([key]) => !hop.has(key)))
-    if (outgoing['set-cookie']) outgoing['set-cookie'] = outgoing['set-cookie'].map(cookie => cookie.replace(/;\s*Domain=[^;]+/ig, ''))
+    if (outgoing['set-cookie']) outgoing['set-cookie'] = outgoing['set-cookie'].map(cookie => {
+      const scoped = cookie.replace(/;\s*Domain=[^;]+/ig, '')
+      return localMode ? scoped.replace(/^fswy_session=/, `bc_local_session_${port}=`) : scoped
+    })
     if (outgoing.location?.startsWith(upstream.origin + '/')) outgoing.location = outgoing.location.slice(upstream.origin.length)
     res.writeHead(response.statusCode, outgoing)
     response.pipe(res)

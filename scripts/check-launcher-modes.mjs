@@ -8,7 +8,8 @@ let businessHits=0
 const backend=http.createServer((req,res)=>{
   if(req.url==='/api/startup-test')businessHits++
   res.setHeader('content-type','application/json')
-  res.end(JSON.stringify({ok:true}))
+  res.setHeader('set-cookie','fswy_session=local-test; HttpOnly; Path=/')
+  res.end(JSON.stringify({ok:true,cookie:req.headers.cookie||''}))
 })
 await new Promise(resolve=>backend.listen(0,'127.0.0.1',resolve))
 const backendPort=backend.address().port
@@ -34,7 +35,11 @@ try{
   }
   assert.equal(status?.localDatabase,true)
   assert.equal(status.backend,`http://127.0.0.1:${backendPort}`)
-  assert((await(await fetch(origin+'/api/startup-test')).json()).ok)
+  const response=await fetch(origin+'/api/startup-test',{headers:{cookie:`fswy_session=remote-test; bc_local_session_${new URL(origin).port}=local-test`}})
+  const data=await response.json()
+  assert(data.ok)
+  assert(data.cookie.includes('fswy_session=local-test')&&!data.cookie.includes('remote-test'))
+  assert(response.headers.get('set-cookie').startsWith(`bc_local_session_${new URL(origin).port}=`))
   assert.equal(businessHits,1)
   const repeat=spawn(process.execPath,[script],{env:{...env,PORT:new URL(origin).port},stdio:'ignore'})
   const exit=await new Promise((resolve,reject)=>{
